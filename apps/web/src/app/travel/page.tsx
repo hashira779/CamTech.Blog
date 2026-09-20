@@ -22,6 +22,7 @@ import { getDestinations, getPlaces, getTrips, getTravelGuides, getTravelEvents,
 import { TravelGuideCard } from "@/components/travel/TravelGuideCard";
 import { TravelEventCard } from "@/components/travel/TravelEventCard";
 import { TransportRouteCard } from "@/components/travel/TransportRouteCard";
+import { PlaceCard } from "@/components/shared/place-card";
 
 export const metadata: Metadata = {
   title: "Travel & Trip Discovery | Daily Discovery",
@@ -44,23 +45,23 @@ export default async function TravelHubPage() {
   return (
     <div className="min-h-screen pb-20">
       {/* 1. Hero Showcase */}
-      <section className="relative overflow-hidden bg-neutral-900 text-white py-20 lg:py-28">
+      <section className="relative overflow-hidden bg-slate-900 text-white py-16 sm:py-20">
         <div
-          className="absolute inset-0 bg-cover bg-center opacity-40 mix-blend-luminosity scale-105 transition-transform duration-1000"
+          className="absolute inset-0 bg-cover bg-center opacity-30 mix-blend-luminosity"
           style={{
             backgroundImage: `url('${siemReap?.hero_image_url || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80"}')`,
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center sm:text-left">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold uppercase tracking-wider mb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold uppercase tracking-wider mb-4">
             <Compass className="h-3.5 w-3.5" /> Authoritative Travel & Exploration
           </div>
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight max-w-3xl leading-tight">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight max-w-3xl leading-tight">
             Journey Through Ancient Kingdoms, Sacred Falls & Living Culture
           </h1>
-          <p className="mt-4 text-base sm:text-lg text-neutral-300 max-w-2xl leading-relaxed">
+          <p className="mt-3 text-sm sm:text-base text-slate-300 max-w-2xl leading-relaxed">
             Zero crowds of copied info. Authoritative destination hubs, verified temple coordinates,
             heritage hotels, and intelligent day-by-day trip planners.
           </p>
@@ -68,31 +69,31 @@ export default async function TravelHubPage() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/travel/siem-reap"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-sm shadow-lg shadow-rose-600/30 transition-all hover:scale-105"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-teal-700 hover:bg-teal-600 text-white font-semibold text-sm transition-colors"
             >
               <MapPin className="h-4 w-4" /> Explore Siem Reap
             </Link>
             <Link
               href="/travel/planner"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-neutral-800/90 hover:bg-neutral-800 border border-neutral-700 text-white font-semibold text-sm backdrop-blur-sm transition-all"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold text-sm transition-colors"
             >
               <Navigation className="h-4 w-4 text-amber-400" /> Launch Trip Planner
             </Link>
             <Link
               href="/travel/transport"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-neutral-800/90 hover:bg-neutral-800 border border-neutral-700 text-white font-semibold text-sm backdrop-blur-sm transition-all"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold text-sm transition-colors"
             >
               <Bus className="h-4 w-4 text-emerald-400" /> Buses & Routes
             </Link>
             <Link
               href="/travel/nearby"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-neutral-800/90 hover:bg-neutral-800 border border-neutral-700 text-white font-semibold text-sm backdrop-blur-sm transition-all"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold text-sm transition-colors"
             >
               <Footprints className="h-4 w-4 text-sky-400" /> What's Near Me?
             </Link>
             <Link
               href="/travel/suggest"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white text-sm transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-sm transition-colors"
             >
               <PlusCircle className="h-4 w-4" /> Suggest a Place
             </Link>
@@ -243,44 +244,18 @@ export default async function TravelHubPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {places.map((place) => (
-              <Link
+              <PlaceCard
                 key={place.id}
-                href={`/travel/place/${place.slug}`}
-                className="group flex flex-col bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
-              >
-                <div className="relative aspect-[4/3] overflow-hidden bg-neutral-100 dark:bg-neutral-800">
-                  <img
-                    src={place.hero_image_url || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80"}
-                    alt={place.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute top-3 left-3 bg-neutral-900/80 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wider">
-                    {place.place_type}
-                  </div>
-                  <div className="absolute top-3 right-3 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-md px-2 py-0.5 rounded-md text-[11px] font-bold text-neutral-900 dark:text-white flex items-center gap-1">
-                    <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                    {place.rating.toFixed(1)}
-                  </div>
-                </div>
-
-                <div className="p-4 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-bold text-sm text-neutral-900 dark:text-white group-hover:text-rose-600 transition-colors line-clamp-1">
-                      {place.name}
-                    </h3>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2 mt-1">
-                      {place.description}
-                    </p>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between text-[11px] text-neutral-500">
-                    <span className="font-medium">{place.price_level}</span>
-                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
-                      <ShieldCheck className="h-3.5 w-3.5" /> Verified
-                    </span>
-                  </div>
-                </div>
-              </Link>
+                id={place.id}
+                slug={place.slug}
+                name={place.name}
+                localName={place.local_name}
+                placeType={place.place_type}
+                destinationName="Siem Reap"
+                shortDescription={place.description}
+                heroImage={place.hero_image_url}
+                verificationStatus="verified"
+              />
             ))}
           </div>
         </section>
@@ -365,28 +340,28 @@ export default async function TravelHubPage() {
         )}
 
         {/* 8. Trip Planner Promo Banner */}
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-amber-600 via-rose-600 to-indigo-700 text-white p-8 sm:p-12 shadow-2xl">
+        <section className="relative overflow-hidden rounded-xl bg-slate-900 text-white p-8 sm:p-12 border border-slate-800">
           <div className="relative z-10 max-w-2xl">
-            <span className="text-xs uppercase font-extrabold tracking-widest text-amber-200">
+            <span className="text-xs uppercase font-extrabold tracking-widest text-teal-400">
               Interactive Trip Engine
             </span>
-            <h2 className="text-3xl font-extrabold tracking-tight mt-2">
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-2">
               Plan Your Dream Cambodia Adventure in Seconds
             </h2>
-            <p className="mt-3 text-sm sm:text-base text-neutral-100 leading-relaxed">
+            <p className="mt-3 text-sm text-slate-300 leading-relaxed">
               Tell our deterministic travel engine your preferred duration, budget, and travel style.
               Receive an optimized hour-by-hour itinerary with opening hours, directions, and curated food stops.
             </p>
-            <div className="mt-6 flex items-center gap-4">
+            <div className="mt-6 flex items-center gap-3">
               <Link
                 href="/travel/planner"
-                className="px-6 py-3 rounded-xl bg-white text-neutral-900 hover:bg-neutral-100 font-bold text-sm shadow-md transition-all hover:scale-105"
+                className="px-5 py-2.5 rounded-md bg-teal-700 hover:bg-teal-600 text-white font-semibold text-sm transition-colors"
               >
                 Start Trip Planner
               </Link>
               <Link
                 href="/travel/suggest"
-                className="px-5 py-3 rounded-xl bg-neutral-900/40 hover:bg-neutral-900/60 border border-white/20 text-white font-semibold text-sm transition-all"
+                className="px-5 py-2.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold text-sm transition-colors"
               >
                 Suggest Missing Place
               </Link>

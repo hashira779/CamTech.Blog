@@ -58,14 +58,14 @@ export function Header() {
             {/* Left: Brand Identity */}
             <div className="flex items-center gap-6">
               <Link href="/" className="flex items-center gap-2.5 group">
-                <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-amber-600 via-rose-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-rose-500/20 group-hover:scale-105 transition-transform duration-200">
+                <div className="h-9 w-9 rounded-lg bg-teal-700 dark:bg-teal-600 flex items-center justify-center text-white transition-opacity group-hover:opacity-90">
                   <Compass className="h-5 w-5" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="font-extrabold text-lg sm:text-xl tracking-tight text-neutral-900 dark:text-white leading-none">
-                    DAILY<span className="text-rose-600 dark:text-rose-500">.</span>DISCOVERY
+                  <span className="font-extrabold text-lg sm:text-xl tracking-tight text-slate-900 dark:text-slate-100 leading-none">
+                    DAILY<span className="text-teal-700 dark:text-teal-400">.</span>DISCOVERY
                   </span>
-                  <span className="text-[9px] uppercase tracking-widest font-semibold text-neutral-500 dark:text-neutral-400 mt-0.5">
+                  <span className="text-[9px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
                     {lang === "km" ? "ព័ត៌មាន និង ចំណេះដឹង" : "News & Curated Knowledge"}
                   </span>
                 </div>
@@ -155,11 +155,11 @@ export function Header() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoFocus
-                  className="w-full pl-10 pr-20 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/50"
+                  className="w-full pl-10 pr-20 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-teal-700/50"
                 />
                 <button
                   type="submit"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1 bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold rounded-md transition-colors"
                 >
                   Search
                 </button>
@@ -170,7 +170,7 @@ export function Header() {
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-4 pt-3 pb-6 space-y-1">
+          <div className="lg:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 pt-3 pb-6 space-y-1">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const isActive = pathname === link.href;
@@ -181,8 +181,8 @@ export function Header() {
                   onClick={() => setMobileMenuOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${
                     isActive
-                      ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold"
-                      : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-900"
+                      ? "bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 font-bold"
+                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900"
                   }`}
                 >
                   <Icon className="h-4 w-4" />

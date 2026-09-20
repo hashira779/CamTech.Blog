@@ -18,14 +18,14 @@ export function Footer() {
           {/* Brand & Purpose */}
           <div className="md:col-span-1 space-y-4">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-amber-600 to-rose-600 flex items-center justify-center text-white shadow">
+              <div className="h-8 w-8 rounded-lg bg-teal-700 dark:bg-teal-600 flex items-center justify-center text-white">
                 <Compass className="h-4 w-4" />
               </div>
-              <span className="font-extrabold text-lg text-neutral-900 dark:text-white tracking-tight">
-                DAILY<span className="text-rose-600">.</span>DISCOVERY
+              <span className="font-extrabold text-lg text-slate-900 dark:text-slate-100 tracking-tight">
+                DAILY<span className="text-teal-700 dark:text-teal-400">.</span>DISCOVERY
               </span>
             </Link>
-            <p className="text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+            <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
               {t("footer.tagline")}
             </p>
             <div className="flex items-center gap-2 pt-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
@@ -41,32 +41,32 @@ export function Footer() {
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
-                <Link href="/cambodia" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/cambodia" className="hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   Cambodia & Regional News
                 </Link>
               </li>
               <li>
-                <Link href="/world" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/world" className="hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   World & International Affairs
                 </Link>
               </li>
               <li>
-                <Link href="/discover" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/discover" className="hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   Visual Discoveries & Science
                 </Link>
               </li>
               <li>
-                <Link href="/quiz" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/quiz" className="hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   Daily Quiz & Knowledge Challenge
                 </Link>
               </li>
               <li>
-                <Link href="/tools" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/tools" className="hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   Functional Everyday Tools
                 </Link>
               </li>
               <li>
-                <Link href="/trending" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/trending" className="hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   Trending Metrics Engine
                 </Link>
               </li>
@@ -80,32 +80,32 @@ export function Footer() {
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
-                <Link href="/about" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/about" className="hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   About the Platform
                 </Link>
               </li>
               <li>
-                <Link href="/editorial-policy" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/editorial-policy" className="hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   Editorial Policy & AI Rules
                 </Link>
               </li>
               <li>
-                <Link href="/corrections-policy" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/corrections-policy" className="hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   Corrections & Retractions
                 </Link>
               </li>
               <li>
-                <Link href="/content-standards" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/content-standards" className="hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   Content Quality Standards
                 </Link>
               </li>
               <li>
-                <Link href="/advertising" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/advertising" className="hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   Advertising & Monetization Policy
                 </Link>
               </li>
               <li>
-                <Link href="/contact" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/contact" className="hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   Contact Newsroom & Press
                 </Link>
               </li>
@@ -119,27 +119,27 @@ export function Footer() {
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
-                <Link href="/privacy" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/privacy" className="hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   Privacy Policy & Data Rights
                 </Link>
               </li>
               <li>
-                <Link href="/terms" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/terms" className="hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   Terms of Service
                 </Link>
               </li>
               <li>
-                <Link href="/cookie-policy" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/cookie-policy" className="hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   Cookie & Consent Policy
                 </Link>
               </li>
               <li>
-                <Link href="/sitemap.xml" className="inline-flex items-center gap-1 hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/sitemap.xml" className="inline-flex items-center gap-1 hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   Sitemap XML <ExternalLink className="h-3 w-3" />
                 </Link>
               </li>
               <li>
-                <Link href="/feed.xml" className="inline-flex items-center gap-1 hover:text-rose-600 dark:hover:text-rose-400 transition-colors">
+                <Link href="/feed.xml" className="inline-flex items-center gap-1 hover:text-teal-700 dark:hover:text-teal-400 transition-colors">
                   <Rss className="h-3 w-3 text-amber-500" /> RSS 2.0 Feeds
                 </Link>
               </li>

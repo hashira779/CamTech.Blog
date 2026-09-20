@@ -2,25 +2,116 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
-}
+  --foreground: #0f172a;
+  
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --surface-elevated: #ffffff;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  
+  --primary: #0f766e;
+  --primary-foreground: #ffffff;
+  
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  
+  --muted: #f8fafc;
+  --muted-foreground: #64748b;
+  
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  
+  --success: #10b981;
+  --success-foreground: #ffffff;
+
+  --warning: #f59e0b;
+  --warning-foreground: #0f172a;
+
+  --info: #0284c7;
+  --info-foreground: #ffffff;
+  
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+  --ring: #0f766e;
+  
+  --radius: 0.5rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #090d16;
+    --foreground: #f8fafc;
+    
+    --surface: #0f172a;
+    --surface-muted: #0c1222;
+    --surface-elevated: #1e293b;
+
+    --card: #0f172a;
+    --card-foreground: #f8fafc;
+    
+    --popover: #0f172a;
+    --popover-foreground: #f8fafc;
+    
+    --primary: #14b8a6;
+    --primary-foreground: #042f2e;
+    
+    --secondary: #1e293b;
+    --secondary-foreground: #f8fafc;
+    
+    --muted: #131b2e;
+    --muted-foreground: #94a3b8;
+    
+    --accent: #1e293b;
+    --accent-foreground: #f8fafc;
+    
+    --destructive: #f87171;
+    --destructive-foreground: #450a0a;
+    
+    --success: #34d399;
+    --success-foreground: #064e3b;
+
+    --warning: #fbbf24;
+    --warning-foreground: #451a03;
+
+    --info: #38bdf8;
+    --info-foreground: #082f49;
+    
+    --border: #1e293b;
+    --input: #334155;
+    --ring: #14b8a6;
   }
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Khmer OS Battambang";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Accessible focus ring style */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
