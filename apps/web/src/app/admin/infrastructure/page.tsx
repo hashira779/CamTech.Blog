@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { API_BASE } from "@/lib/api";
 import {
   Server,
   Database,
@@ -58,7 +59,7 @@ export default function InfrastructureDashboardPage() {
     setIsRefreshing(true);
     try {
       const token = localStorage.getItem("daily_discovery_admin_token");
-      const res = await fetch("http://localhost:8000/api/v1/admin/infrastructure/stats", {
+      const res = await fetch(`${API_BASE}/admin/infrastructure/stats`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       if (res.ok) {

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { API_BASE } from "@/lib/api";
 import {
   ShieldAlert,
   ShieldCheck,
@@ -110,10 +111,10 @@ export default function SecurityDashboardPage() {
       const token = localStorage.getItem("daily_discovery_admin_token");
       if (token) {
         const [resStats, resEvts] = await Promise.all([
-          fetch("http://localhost:8000/api/v1/admin/security/stats", {
+          fetch(`${API_BASE}/admin/security/stats`, {
             headers: { Authorization: `Bearer ${token}` }
           }),
-          fetch("http://localhost:8000/api/v1/admin/security/events?limit=20", {
+          fetch(`${API_BASE}/admin/security/events?limit=20`, {
             headers: { Authorization: `Bearer ${token}` }
           })
         ]);

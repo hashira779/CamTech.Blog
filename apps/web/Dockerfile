@@ -6,10 +6,14 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm install
 
 FROM base AS builder
 WORKDIR /app
+ARG NEXT_PUBLIC_API_URL="http://10.1.0.11:8000/api/v1"
+ARG INTERNAL_API_URL="http://api:8000/api/v1"
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV INTERNAL_API_URL=$INTERNAL_API_URL
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
@@ -23,6 +27,10 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ARG NEXT_PUBLIC_API_URL="http://10.1.0.11:8000/api/v1"
+ARG INTERNAL_API_URL="http://api:8000/api/v1"
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV INTERNAL_API_URL=$INTERNAL_API_URL
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs

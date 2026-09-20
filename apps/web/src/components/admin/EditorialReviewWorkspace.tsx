@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { API_BASE } from "@/lib/api";
 import {
   CheckCircle2,
   XCircle,
@@ -45,7 +46,7 @@ export function EditorialReviewWorkspace() {
 
   const fetchReviewQueue = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/v1/admin/review-queue");
+      const res = await fetch(`${API_BASE}/admin/review-queue`);
       if (res.ok) {
         const data = await res.json();
         setQueue(data);
@@ -61,7 +62,7 @@ export function EditorialReviewWorkspace() {
   const handleAction = async (action: string) => {
     if (!selectedItem) return;
     try {
-      const res = await fetch("http://localhost:8000/api/v1/admin/review-action", {
+      const res = await fetch(`${API_BASE}/admin/review-action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

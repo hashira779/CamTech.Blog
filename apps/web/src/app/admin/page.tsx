@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { API_BASE } from "@/lib/api";
 import {
   ShieldAlert,
   BarChart3,
@@ -49,7 +50,7 @@ export default function AdminDashboardPage() {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/v1/admin/dashboard-stats");
+      const res = await fetch(`${API_BASE}/admin/dashboard-stats`);
       if (res.ok) {
         const data = await res.json();
         setStats(data);
@@ -63,14 +64,14 @@ export default function AdminDashboardPage() {
     setFetchingSources(true);
     setIngestionMessage("Contacting verified RSS source feeds...");
     try {
-      const sourcesRes = await fetch("http://localhost:8000/api/v1/sources");
+      const sourcesRes = await fetch(`${API_BASE}/sources`);
       if (sourcesRes.ok) {
         const sources = await sourcesRes.json();
         const activeSources = sources.filter((s: any) => s.feed_url && s.is_active);
         let totalIngested = 0;
         
         for (const s of activeSources) {
-          const runRes = await fetch(`http://localhost:8000/api/v1/sources/${s.id}/fetch`, { method: "POST" });
+          const runRes = await fetch(`${API_BASE}/sources/${s.id}/fetch`, { method: "POST" });
           if (runRes.ok) {
             const runData = await runRes.json();
             totalIngested += runData.items_ingested;

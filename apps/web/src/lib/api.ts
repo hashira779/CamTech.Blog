@@ -23,7 +23,9 @@ import {
   TravelEvent
 } from "@/types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+export const API_BASE = typeof window === "undefined"
+  ? (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://api:8000/api/v1")
+  : (process.env.NEXT_PUBLIC_API_URL || "http://10.1.0.11:8000/api/v1");
 
 async function fetchWithFallback<T>(url: string, fallbackData: T): Promise<T> {
   try {
