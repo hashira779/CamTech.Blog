@@ -1,0 +1,130 @@
+version: "3.8"
+
+services:
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: daily_discovery_web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://api:8000/api/v1
+      - NODE_ENV=production
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - daily_discovery_net
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: daily_discovery_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - FRONTEND_URL=http://web:3000
+      - DATABASE_URL=postgresql://discovery_user:discovery_secret@postgres:5432/daily_discovery
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_PROVIDER=minio
+      - S3_ENDPOINT_URL=http://minio:9000
+      - S3_ACCESS_KEY=minio_admin
+      - S3_SECRET_KEY=minio_secret_key
+      - S3_BUCKET=dailydiscovery-media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - daily_discovery_net
+
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.worker
+    container_name: daily_discovery_worker
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://discovery_user:discovery_secret@postgres:5432/daily_discovery
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_PROVIDER=minio
+      - S3_ENDPOINT_URL=http://minio:9000
+      - S3_ACCESS_KEY=minio_admin
+      - S3_SECRET_KEY=minio_secret_key
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - daily_discovery_net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: daily_discovery_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=daily_discovery
+      - POSTGRES_USER=discovery_user
+      - POSTGRES_PASSWORD=discovery_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U discovery_user -d daily_discovery"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - daily_discovery_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: daily_discovery_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - daily_discovery_net
+
+  minio:
+    image: minio/minio:latest
+    container_name: daily_discovery_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minio_admin
+      - MINIO_ROOT_PASSWORD=minio_secret_key
+    volumes:
+      - minio_data:/data
+    networks:
+      - daily_discovery_net
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+
+networks:
+  daily_discovery_net:
+    driver: bridge

@@ -1,0 +1,22 @@
+# Production Dockerfile for Daily Discovery Background Worker
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+RUN adduser --disabled-password --gecos "" workeruser && \
+    chown -R workeruser:workeruser /app
+USER workeruser
+
+CMD ["python", "-m", "app.workers.runner"]
