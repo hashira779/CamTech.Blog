@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "name": "daily-discovery-cloudflare-waf-and-load-balancer-config",
+  "version": "1.0.0",
+  "description": "Edge security rules, WAF configurations, DDoS policies, and health-based load balancing for Daily Discovery",
+  "firewall_rules": [
+    {
+      "description": "Block Known Bad Crawlers and Malicious User Agents",
+      "action": "block",
+      "expression": "(http.user_agent contains \"sqlmap\" or http.user_agent contains \"nikto\" or http.user_agent contains \"masscan\" or http.user_agent contains \"dirbuster\")"
+    },
+    {
+      "description": "Challenge Suspicious Automated Traffic (Exclude Verified Search Bots)",
+      "action": "managed_challenge",
+      "expression": "(cf.threat_score gt 25 and not cf.client.bot)"
+    },
+    {
+      "description": "Protect Admin CMS Perimeter",
+      "action": "managed_challenge",
+      "expression": "(http.request.uri.path starts_with \"/admin\" and not ip.geoip.country in {\"KH\" \"SG\" \"TH\" \"US\"})"
+    },
+    {
+      "description": "Mitigate Excessive Search Queries Rate Abuse",
+      "action": "rate_limit",
+      "expression": "(http.request.uri.path eq \"/api/v1/search\")",
+      "ratelimit": {
+        "threshold": 30,
+        "period": 60,
+        "action": "block",
+        "timeout": 300
+      }
+    },
+    {
+      "description": "Mitigate Credential Stuffing on Login Endpoint",
+      "action": "rate_limit",
+      "expression": "(http.request.uri.path eq \"/api/v1/auth/login\" and http.request.method eq \"POST\")",
+      "ratelimit": {
+        "threshold": 5,
+        "period": 60,
+        "action": "block",
+        "timeout": 900
+      }
+    }
+  ],
+  "load_balancer": {
+    "name": "daily-discovery-lb",
+    "steering_policy": "least_outstanding_requests",
+    "fallback_pool": "backup-disaster-recovery-pool",
+    "pools": [
+      {
+        "name": "sea-primary-pool",
+        "region": "ap-southeast",
+        "monitor": "http-readiness-probe",
+        "origins": [
+          { "name": "web-origin-01", "address": "10.0.1.10", "weight": 1.0, "enabled": true },
+          { "name": "web-origin-02", "address": "10.0.1.11", "weight": 1.0, "enabled": true },
+          { "name": "web-origin-03", "address": "10.0.1.12", "weight": 1.0, "enabled": true }
+        ],
+        "notification_email": "security-ops@dailydiscovery.com"
+      }
+    ],
+    "monitor": {
+      "type": "http",
+      "path": "/ready",
+      "port": 443,
+      "interval": 10,
+      "timeout": 3,
+      "retries": 2,
+      "expected_codes": "200",
+      "expected_body": "\"status\":\"ready\""
+    }
+  },
+  "ddos_settings": {
+    "http_ddos_attack_protection": "high",
+    "under_attack_mode": "off",
+    "under_attack_mode_trigger": "manual_or_alert_escalation_only"
+  }
+}
