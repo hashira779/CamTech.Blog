@@ -16,10 +16,16 @@ import {
   Hotel,
   Coffee,
   ShoppingBag,
-  ExternalLink
+  ExternalLink,
+  Bus,
+  Footprints,
+  BookOpen
 } from "lucide-react";
-import { getDestinationBySlug, getTrips } from "@/lib/api";
+import { getDestinationBySlug, getTrips, searchTransportRoutes, getTravelGuides, getTravelEvents } from "@/lib/api";
 import { PlaceFilterGrid } from "./PlaceFilterGrid";
+import { TransportRouteCard } from "@/components/travel/TransportRouteCard";
+import { TravelGuideCard } from "@/components/travel/TravelGuideCard";
+import { TravelEventCard } from "@/components/travel/TravelEventCard";
 
 interface PageProps {
   params: Promise<{ destination: string }>;
@@ -38,9 +44,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function DestinationPage({ params }: PageProps) {
   const { destination: slug } = await params;
-  const [destination, trips] = await Promise.all([
+  const [destination, trips, transportData, guides, events] = await Promise.all([
     getDestinationBySlug(slug),
     getTrips({ destination: slug }),
+    searchTransportRoutes(slug === "phnom-penh" ? "siem-reap" : "phnom-penh", slug),
+    getTravelGuides(slug),
+    getTravelEvents(slug),
   ]);
 
   if (!destination) {
@@ -109,10 +118,22 @@ export default async function DestinationPage({ params }: PageProps) {
                 <Navigation className="h-4 w-4" /> Plan {destination.name} Trip
               </Link>
               <Link
-                href="/travel/suggest"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-700 text-neutral-200 text-sm transition-all"
+                href="/travel/transport"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-700 text-white text-sm transition-all"
               >
-                Suggest Place / Report Update
+                <Bus className="h-4 w-4 text-emerald-400" /> Getting Here (Buses & Routes)
+              </Link>
+              <Link
+                href={`/travel/nearby?place=${destination.slug === "siem-reap" ? "angkor-wat" : ""}`}
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-700 text-white text-sm transition-all"
+              >
+                <Footprints className="h-4 w-4 text-sky-400" /> What's Near Here?
+              </Link>
+              <Link
+                href="/travel/suggest"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-700 text-neutral-300 text-sm transition-all"
+              >
+                Suggest Place
               </Link>
             </div>
           </div>
@@ -235,7 +256,84 @@ export default async function DestinationPage({ params }: PageProps) {
           </section>
         )}
 
-        {/* 5. Interactive Filterable Places Grid (Client Component) */}
+        {/* 5. Getting to this Destination (Transport & Highway Buses) */}
+        {transportData.routes.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <div className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">
+                  <Bus className="w-3.5 h-3.5" /> Intercity Transport Connections
+                </div>
+                <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
+                  Getting to {destination.name} (Buses & Minivans)
+                </h2>
+                <p className="text-xs text-neutral-500 mt-1">
+                  Verified schedules, operator safety ratings, and direct official booking links.
+                </p>
+              </div>
+              <Link
+                href="/travel/transport"
+                className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+              >
+                All Transport Routes <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {transportData.routes.map((route) => (
+                <TransportRouteCard key={route.id} route={route} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* 6. Curated Destination Field Guides */}
+        {guides.length > 0 && (
+          <section>
+            <div className="mb-6">
+              <div className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-primary mb-1">
+                <BookOpen className="w-3.5 h-3.5" /> Curated Field Guides
+              </div>
+              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
+                Expert Guides & Etiquette for {destination.name}
+              </h2>
+              <p className="text-xs text-neutral-500 mt-1">
+                Practical timing advice, photography viewpoints, and cultural heritage rules.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {guides.map((guide) => (
+                <TravelGuideCard key={guide.id} guide={guide} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* 7. Destination Events & Festivals */}
+        {events.length > 0 && (
+          <section>
+            <div className="mb-6">
+              <div className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-amber-500 mb-1">
+                <Calendar className="w-3.5 h-3.5" /> Cultural Calendar
+              </div>
+              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
+                Upcoming Festivals & Gatherings in {destination.name}
+              </h2>
+              <p className="text-xs text-neutral-500 mt-1">
+                Annual marathons, sacred Buddhist ceremonies, and river festivals.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {events.map((event) => (
+                <TravelEventCard key={event.id} event={event} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* 8. Interactive Filterable Places Grid (Client Component) */}
         <section>
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
