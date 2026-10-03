@@ -17,6 +17,17 @@ services:
     networks:
       - daily_discovery_net
 
+  admin:
+    build:
+      context: ./apps/admin
+      dockerfile: Dockerfile
+    container_name: daily_discovery_admin
+    restart: unless-stopped
+    ports:
+      - "3001:80"
+    networks:
+      - daily_discovery_net
+
   api:
     build:
       context: ./apps/api
