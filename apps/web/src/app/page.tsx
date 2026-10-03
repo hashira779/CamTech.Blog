@@ -114,7 +114,7 @@ export default async function HomePage() {
           {/* Sidebar Bottom Ad */}
           <div className="bg-neutral-50 dark:bg-neutral-900 p-4 text-center border border-neutral-200 dark:border-neutral-800">
             <span className="text-[10px] uppercase text-neutral-400 mb-2 block tracking-widest">Advertisement</span>
-            <AdSlot slot="SIDEBAR_BOTTOM" />
+            <AdSlot slot="SIDEBAR" />
           </div>
 
         </aside>
