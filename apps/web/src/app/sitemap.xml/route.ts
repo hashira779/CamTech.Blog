@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { getArticles, getDiscoveries, getTools } from "@/lib/api";
 
-export async function GET() {
+export async function GET(request: Request) {
   const [articlesData, discoveriesData, tools] = await Promise.all([
     getArticles({ limit: 50 }),
     getDiscoveries(),
     getTools()
   ]);
 
-  const baseUrl = "http://localhost:3000";
+  const host = request.headers.get("host") || "localhost:3000";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  const baseUrl = `${protocol}://${host}`;
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

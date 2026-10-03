@@ -32,6 +32,14 @@ class SecurityHeadersAndCorrelationMiddleware(BaseHTTPMiddleware):
             response.headers["X-Request-ID"] = request_id
             return response
 
+        # 2.5 Skip rate-limiting for known search engine crawlers (SEO & AdSense readiness)
+        user_agent = request.headers.get("user-agent", "").lower()
+        is_bot = "googlebot" in user_agent or "mediapartners-google" in user_agent or "bingbot" in user_agent
+        if is_bot:
+            response = await call_next(request)
+            response.headers["X-Request-ID"] = request_id
+            return response
+
         # 3. Rate Limiting by Risk Tier (Section 26)
         tier = "DEFAULT"
         if "/api/v1/auth/login" in path:

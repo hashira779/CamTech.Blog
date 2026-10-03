@@ -34,8 +34,8 @@ class Article(Base):
     what_remains_disputed = Column(Text, nullable=True)
 
     # Classification & Geo
-    category_id = Column(String(36), ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False)
-    author_id = Column(String(36), ForeignKey("authors.id", ondelete="RESTRICT"), nullable=False)
+    category_id = Column(String(36), ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False, index=True)
+    author_id = Column(String(36), ForeignKey("authors.id", ondelete="RESTRICT"), nullable=False, index=True)
     country = Column(String(50), default="KH")  # KH, WORLD, US, etc.
     province_or_city = Column(String(100), nullable=True)  # Phnom Penh, Siem Reap, etc.
     language = Column(String(10), default="en")
@@ -88,7 +88,7 @@ class ArticleSource(Base):
     __tablename__ = "article_sources"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    article_id = Column(String(36), ForeignKey("articles.id", ondelete="CASCADE"), nullable=False)
+    article_id = Column(String(36), ForeignKey("articles.id", ondelete="CASCADE"), nullable=False, index=True)
     source_name = Column(String(150), nullable=False)
     source_url = Column(String(500), nullable=False)
     attribution_quote = Column(String(500), nullable=True)

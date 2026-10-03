@@ -2,11 +2,16 @@ import paramiko
 import time
 import sys
 
-SERVER_IP = "10.1.0.11"
-USERNAME = "ubuntu-server"
-PASSWORD = "pTT!CT01"
+import os
+
+SERVER_IP = os.environ.get("SERVER_IP", "127.0.0.1")
+USERNAME = os.environ.get("SERVER_USER", "ubuntu-server")
+PASSWORD = os.environ.get("SERVER_PASSWORD")
 REMOTE_REPO_DIR = "/home/ubuntu-server/CamTech.Blog"
 GIT_REPO_URL = "https://github.com/hashira779/CamTech.Blog.git"
+
+if not PASSWORD:
+    raise ValueError("SERVER_PASSWORD environment variable is not set!")
 
 def execute_remote_cmd(ssh, cmd, title="", timeout=300):
     if title:
