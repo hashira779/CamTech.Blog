@@ -29,6 +29,9 @@ export const metadata: Metadata = {
   description: "Explore verified destinations, sacred temples, luxury heritage hotels, transport routes, and curated multi-day trip itineraries across Cambodia.",
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function TravelHubPage() {
   const [destinations, placesData, touristPlacesData, trips, guides, events, transportData] = await Promise.all([
     getDestinations(),
