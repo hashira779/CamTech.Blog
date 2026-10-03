@@ -153,6 +153,7 @@ def list_audit_logs(limit: int = 50, db: Session = Depends(get_db), current_user
             "entity_id": l.entity_id,
             "user_id": l.user_id,
             "created_at": l.created_at.isoformat()
+        }
         for l in logs
     ]
 
