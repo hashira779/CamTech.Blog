@@ -276,13 +276,13 @@ async def run_tourism_full_scan(
 @router.post("/ai/tourism-scan/{province_slug}")
 async def run_tourism_province_scan(
     province_slug: str,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_admin)
 ):
     """Run AI Tourism Engine for a single province."""
     try:
-        background_tasks.add_task(ai_tourism_engine.discover_places_for_province, province_slug)
-        return {"status": "started", "message": f"Tourism scan for {province_slug} started in the background."}
+        # Now it is fast enough to run synchronously because image fetching is moved to the save endpoint
+        result = await ai_tourism_engine.discover_places_for_province(province_slug)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

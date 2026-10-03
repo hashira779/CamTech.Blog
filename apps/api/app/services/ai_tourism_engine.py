@@ -224,7 +224,7 @@ IMPORTANT RULES:
 - For each place, assign a place_type from: ATTRACTION, TEMPLE, RESTAURANT, CAFE, MARKET, MUSEUM, WATERFALL, HOTEL, RESORT, ACTIVITY, HIDDEN_GEM, NATIONAL_PARK, BEACH, LAKE, MOUNTAIN, VILLAGE
 
 Already in database ({existing_count} places): {', '.join(existing_names[:20]) if existing_names else 'None yet'}
-Please find 5-8 NEW places that are NOT already in the database.
+Please find 15-20 NEW places that are NOT already in the database.
 
 Return a JSON array of objects. Each object must have these keys:
 - name: English name
@@ -313,46 +313,12 @@ Return a JSON array of objects. Each object must have these keys:
                 p["destination_id"] = destination.id
                 processed_places.append(p)
 
-            # Fetch images from Wikipedia for all valid places concurrently
-            async def populate_image(p_data):
-                if p_data.get("is_duplicate"):
-                    return p_data
-                img_urls = await fetch_wiki_images(p_data.get("name", ""), destination.name)
-                if img_urls:
-                    # Backup to drive
-                    await storage_service.upload_file_from_url(img_urls[0], f"Destinations/{destination.name}")
-                    # Upload to R2/S3 for display
-                    hero_r2_url = await s3_service.upload_file_from_url(img_urls[0], f"Destinations/{destination.name}")
-                    p_data["hero_image_url"] = hero_r2_url if hero_r2_url else img_urls[0]
-                    
-                    gallery = []
-                    for url in img_urls:
-                        # Backup to drive
-                        await storage_service.upload_file_from_url(url, f"Destinations/{destination.name}")
-                        # Upload to R2/S3 for display
-                        r2_url = await s3_service.upload_file_from_url(url, f"Destinations/{destination.name}")
-                        gallery.append(r2_url if r2_url else url)
-                    p_data["gallery_json"] = json.dumps(gallery)
-                return p_data
-            
-            places_with_images = await asyncio.gather(*(populate_image(p) for p in processed_places))
-
-            # Automatically save discovered places to the database (Background Task)
-            inserted_count = 0
-            for place_data in places_with_images:
-                if not place_data.get("is_duplicate"):
-                    try:
-                        await self.save_approved_place(place_data)
-                        inserted_count += 1
-                    except Exception as e:
-                        logger.error(f"Failed to auto-save discovered place {place_data.get('name')}: {e}")
-
+            # Return raw data for approval immediately
             return {
                 "province": destination.name,
                 "province_slug": destination.slug,
-                "discovered": len(places_with_images),
-                "inserted": inserted_count,
-                "places_data": places_with_images
+                "discovered": len(processed_places),
+                "places_data": processed_places
             }
 
         except Exception as e:
@@ -616,6 +582,32 @@ Return a JSON object with these keys ONLY:
             while db.query(Place).filter(Place.slug == slug).first():
                 slug = f"{base_slug}-{uuid.uuid4().hex[:6]}"
 
+            # Fetch images for the approved place
+            destination = db.query(Destination).filter(Destination.id == dest_id).first()
+            dest_name = destination.name if destination else "Unknown"
+            
+            hero_url = place_dict.get("hero_image_url")
+            gallery_json = place_dict.get("gallery_json", "[]")
+            
+            # Only fetch if they aren't provided
+            if not hero_url:
+                img_urls = await fetch_wiki_images(name, dest_name)
+                if img_urls:
+                    # Backup to drive
+                    await storage_service.upload_file_from_url(img_urls[0], f"Destinations/{dest_name}")
+                    # Upload to R2/S3 for display
+                    r2_url = await s3_service.upload_file_from_url(img_urls[0], f"Destinations/{dest_name}")
+                    hero_url = r2_url if r2_url else img_urls[0]
+                    
+                    gallery = []
+                    for url in img_urls:
+                        # Backup to drive
+                        await storage_service.upload_file_from_url(url, f"Destinations/{dest_name}")
+                        # Upload to R2/S3 for display
+                        g_url = await s3_service.upload_file_from_url(url, f"Destinations/{dest_name}")
+                        gallery.append(g_url if g_url else url)
+                    gallery_json = json.dumps(gallery)
+
             new_place = Place(
                 id=uuid.uuid4().hex,
                 destination_id=dest_id,
@@ -632,8 +624,8 @@ Return a JSON object with these keys ONLY:
                 price_level=place_dict.get("price_level", "$$"),
                 phone=place_dict.get("phone"),
                 website=place_dict.get("website"),
-                hero_image_url=place_dict.get("hero_image_url"),
-                gallery_json=place_dict.get("gallery_json", "[]"),
+                hero_image_url=hero_url,
+                gallery_json=gallery_json,
                 tags_json=json.dumps(place_dict.get("tags", [])),
                 rating=place_dict.get("rating", 4.5),
                 verification_status="AI_GENERATED",
