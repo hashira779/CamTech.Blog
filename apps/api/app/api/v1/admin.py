@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
@@ -263,24 +263,26 @@ from app.services.ai_tourism_engine import ai_tourism_engine
 
 @router.post("/ai/tourism-scan")
 async def run_tourism_full_scan(
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_admin)
 ):
     """Run AI Tourism Engine across ALL 25 provinces of Cambodia."""
     try:
-        result = await ai_tourism_engine.run_full_scan()
-        return result
+        background_tasks.add_task(ai_tourism_engine.run_full_scan)
+        return {"status": "started", "message": "Full tourism scan started in the background. It may take several minutes."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/ai/tourism-scan/{province_slug}")
 async def run_tourism_province_scan(
     province_slug: str,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_admin)
 ):
     """Run AI Tourism Engine for a single province."""
     try:
-        result = await ai_tourism_engine.discover_places_for_province(province_slug)
-        return result
+        background_tasks.add_task(ai_tourism_engine.discover_places_for_province, province_slug)
+        return {"status": "started", "message": f"Tourism scan for {province_slug} started in the background."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
