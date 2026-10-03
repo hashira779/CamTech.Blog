@@ -51,7 +51,7 @@ export default async function TravelHubPage() {
         <div
           className="absolute inset-0 bg-cover bg-center opacity-30 mix-blend-luminosity"
           style={{
-            backgroundImage: `url('${siemReap?.hero_image_url || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80"}')`,
+            backgroundImage: `url('${siemReap?.hero_image_url || "https://images.unsplash.com/photo-1558862107-d49ef2a04d72?auto=format&fit=crop&w=1600&q=80"}')`,
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent" />
@@ -126,7 +126,14 @@ export default async function TravelHubPage() {
               >
                 <div className="relative aspect-[16/10] overflow-hidden bg-neutral-100 dark:bg-neutral-800">
                   <img
-                    src={dest.hero_image_url || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80"}
+                    src={dest.hero_image_url || 
+                         (dest.slug === 'siem-reap' ? 'https://images.unsplash.com/photo-1558862107-d49ef2a04d72?auto=format&fit=crop&w=800&q=80' :
+                          dest.slug === 'phnom-penh' ? 'https://images.unsplash.com/photo-1582298538104-fe2e74c878f4?auto=format&fit=crop&w=800&q=80' :
+                          dest.slug === 'kampot' ? 'https://images.unsplash.com/photo-1599839619722-39751411ea63?auto=format&fit=crop&w=800&q=80' :
+                          dest.slug === 'sihanoukville' ? 'https://images.unsplash.com/photo-1542281286-9e0a16bb7366?auto=format&fit=crop&w=800&q=80' :
+                          dest.slug === 'battambang' ? 'https://images.unsplash.com/photo-1589255755513-e48ffb6a32d1?auto=format&fit=crop&w=800&q=80' :
+                          dest.slug === 'kep' ? 'https://images.unsplash.com/photo-1620610363297-cdd21f8216e9?auto=format&fit=crop&w=800&q=80' :
+                          'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80')}
                     alt={dest.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
