@@ -303,9 +303,27 @@ def admin_get_tourism_places(province_slug: str, db: Session = Depends(get_db), 
         "id": p.id,
         "name": p.name,
         "local_name": p.local_name,
+        "slug": p.slug,
         "place_type": p.place_type,
         "description": p.description,
-        "rating": p.rating
+        "description_km": p.description_km,
+        "address": p.address,
+        "latitude": p.latitude,
+        "longitude": p.longitude,
+        "phone": p.phone,
+        "website": p.website,
+        "email": p.email,
+        "opening_hours": p.opening_hours,
+        "price_level": p.price_level,
+        "hero_image_url": p.hero_image_url,
+        "tags_json": p.tags_json,
+        "verification_status": p.verification_status,
+        "status": p.status,
+        "rating": p.rating,
+        "review_count": p.review_count,
+        "views_count": p.views_count,
+        "is_featured": p.is_featured,
+        "created_at": p.created_at.isoformat() if p.created_at else None
     } for p in places]
 
 @router.delete("/tourism-places/{place_id}")
