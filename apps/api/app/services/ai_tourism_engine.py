@@ -291,6 +291,8 @@ Return a JSON array of objects. Each object must have these keys:
             user_message = f"Error: {error_str}"
             if "API key not valid" in error_str or "API_KEY_INVALID" in error_str:
                 user_message = "Your Google Gemini API Key is invalid. Please check Settings."
+            elif "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower() or "429" in error_str:
+                user_message = "Gemini API Quota Exceeded. Please try again tomorrow or upgrade your plan."
             elif "Failed to parse" in error_str:
                 user_message = "AI returned an invalid format. Please try again."
             
@@ -461,7 +463,14 @@ Return a JSON object with these keys ONLY:
         except Exception as e:
             db.rollback()
             logger.error(f"Failed to update place via AI: {e}")
-            return {"status": "failed", "message": str(e)}
+            error_str = str(e)
+            user_message = f"Error: {error_str}"
+            if "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower() or "429" in error_str:
+                user_message = "Gemini API Quota Exceeded. Please try again tomorrow or upgrade your plan."
+            elif "API key not valid" in error_str or "API_KEY_INVALID" in error_str:
+                user_message = "Your Google Gemini API Key is invalid. Please check Settings."
+                
+            return {"status": "failed", "message": user_message}
         finally:
             db.close()
 
