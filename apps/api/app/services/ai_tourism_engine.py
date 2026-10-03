@@ -41,7 +41,23 @@ def _call_you_com(prompt: str, api_key: str) -> str:
         data = res.json()
         return data.get("output", {}).get("content", "")
     except Exception as e:
-        logger.warning(f"You.com API failed: {e}")
+        logger.warning(f"You.com Research API failed: {e}")
+        return None
+
+def _you_web_search(query: str, api_key: str) -> dict:
+    """Uses You.com Web Search API to get real search highlights and image thumbnails."""
+    import httpx
+    if not api_key:
+        return None
+    try:
+        url = "https://api.you.com/v1/search"
+        headers = {"X-API-Key": api_key}
+        params = {"query": query}
+        res = httpx.get(url, params=params, headers=headers, timeout=15.0)
+        res.raise_for_status()
+        return res.json()
+    except Exception as e:
+        logger.warning(f"You.com Web Search API failed: {e}")
         return None
 
 async def fetch_wiki_images(place_name: str, province_name: str) -> list[str]:
@@ -403,15 +419,37 @@ Return a JSON array of objects. Each object must have these keys:
             if not destination:
                 return {"status": "failed", "message": "Destination not found."}
 
+            # 1. Fetch real-world data from You.com Web Search to augment AI prompt
+            you_api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'YOU_API_KEY').first()
+            you_api_key = you_api_key_setting.value_json if you_api_key_setting else os.environ.get("YOU_API_KEY")
+            
+            search_context = ""
+            extracted_images = []
+            
+            if you_api_key:
+                logger.info(f"Using You.com Web Search for '{place.name}' context...")
+                search_data = _you_web_search(f"{place.name} {destination.name} Cambodia tourism", you_api_key)
+                if search_data and "results" in search_data and "web" in search_data["results"]:
+                    for idx, result in enumerate(search_data["results"]["web"][:5]):
+                        title = result.get("title", "")
+                        highlights = "\n".join(result.get("contents", {}).get("highlights", []))
+                        search_context += f"Source {idx+1}: {title}\n{highlights}\n\n"
+                        
+                        # Grab real thumbnails!
+                        thumb = result.get("thumbnail_url")
+                        if thumb and thumb not in extracted_images:
+                            extracted_images.append(thumb)
+            
             client = self._get_gemini_client(db)
             
             prompt = f"""You are an expert Cambodia travel blogger and researcher.
 I have a place in my database named "{place.name}" located in {destination.name} Province, Cambodia.
-The current data might be fake or incomplete. 
-Please research the REAL "{place.name}" using web search and provide highly detailed, up-to-date information.
+Please write a highly detailed, up-to-date blog post.
 
-Provide VERY DETAILED, rich blog content (10+ paragraphs if possible) covering history, architecture, travel tips, opening hours, exact ticket prices (e.g. 2026 pricing), and upcoming events.
-Also, find and return up to 5 real, high-quality image URLs (ending in .jpg or .png) of this place from various travel websites (do not use Wikipedia images).
+{"Here is some fresh search data to base your writing on:" if search_context else ""}
+{search_context}
+
+Provide VERY DETAILED, rich blog content (10+ paragraphs if possible) covering history, architecture, travel tips, opening hours, exact ticket prices, and upcoming events.
 
 Return a JSON object with these keys ONLY:
 - name: English name
@@ -428,14 +466,10 @@ Return a JSON object with these keys ONLY:
 - website: Website URL (or null)
 - tags: Array of string tags, e.g. ["UNESCO", "Family Friendly", "Photography"]
 - rating: Estimated rating 1.0-5.0
-- hero_image_url: string, first working high-quality image URL from your web search
-- gallery_urls: array of strings, up to 5 working high-quality image URLs from your web search
 """
             fallback_models = self._get_dynamic_fallback_models(client)
 
-            # Check if we have You.com API key
-            you_api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'YOU_API_KEY').first()
-            you_api_key = you_api_key_setting.value_json if you_api_key_setting else os.environ.get("YOU_API_KEY")
+            # Use You.com Research API as fallback
             you_response_text = _call_you_com(prompt, you_api_key)
             
             response_text = None
@@ -501,15 +535,25 @@ Return a JSON object with these keys ONLY:
             if ai_data.get("tags") and isinstance(ai_data["tags"], list):
                 place.tags_json = json.dumps(ai_data["tags"])
                 
-            if ai_data.get("hero_image_url"):
+            # Assign explicitly extracted Real You.com images instead of hallucinated ones
+            hero_url = None
+            gallery_raw = []
+            if extracted_images:
+                hero_url = extracted_images[0]
+                gallery_raw = extracted_images[1:]
+            else:
+                # Fallback to AI generated if no You.com search data
                 hero_url = ai_data.get("hero_image_url")
+                gallery_raw = ai_data.get("gallery_urls") or []
+                
+            if hero_url:
                 # Upload to drive
                 drive_url = await storage_service.upload_file_from_url(hero_url, f"Destinations/{destination.name}")
                 place.hero_image_url = drive_url if drive_url else hero_url
                 
-            if ai_data.get("gallery_urls") and isinstance(ai_data["gallery_urls"], list):
+            if gallery_raw and isinstance(gallery_raw, list):
                 gallery = []
-                for url in ai_data["gallery_urls"]:
+                for url in gallery_raw:
                     d_url = await storage_service.upload_file_from_url(url, f"Destinations/{destination.name}")
                     gallery.append(d_url if d_url else url)
                 place.gallery_json = json.dumps(gallery)
