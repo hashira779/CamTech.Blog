@@ -89,7 +89,7 @@ export default async function HomePage() {
               </div>
             </div>
           </section>
-        )}  )}
+        )}
 
         {/* 3. MAIN 70/30 GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
