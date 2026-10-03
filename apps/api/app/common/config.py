@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     AI_PROVIDER: str = "local"
     AI_API_KEY: Optional[str] = ""
-    AI_MODEL_NAME: str = "gemini-1.5-flash"
+    AI_MODEL_NAME: str = "gemini-3.8-flash"
 
     STORAGE_PROVIDER: str = "local"
     STORAGE_LOCAL_DIR: str = "./uploads"
