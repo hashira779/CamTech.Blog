@@ -5,8 +5,6 @@ import {
   Settings, 
   Users, 
   LogOut, 
-  FolderTree, 
-  BarChart3, 
   ExternalLink,
   ShieldCheck,
   Layers,
