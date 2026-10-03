@@ -36,6 +36,7 @@ interface Place {
   opening_hours?: string;
   price_level?: string;
   hero_image_url?: string;
+  gallery_json?: string;
   tags_json?: string;
   verification_status?: string;
   status?: string;
