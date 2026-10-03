@@ -51,7 +51,7 @@ export function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full border-b border-neutral-200/80 dark:border-neutral-800/80 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-md transition-colors duration-200">
+      <header className="sticky top-0 z-40 w-full border-b border-neutral-200/80 dark:border-neutral-800/80 bg-[#FAF9F6]/90 backdrop-blur-md transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             
@@ -115,14 +115,7 @@ export function Header() {
                 {lang === "en" ? "🇰🇭 ខ្មែរ" : "🇬🇧 EN"}
               </button>
 
-              {/* Theme Toggle */}
-              <button
-                onClick={() => setTheme(isDark ? "light" : "dark")}
-                className="p-2 rounded-lg text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                aria-label="Toggle Theme"
-              >
-                {isDark ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4" />}
-              </button>
+
 
               {/* Admin Link */}
               <Link

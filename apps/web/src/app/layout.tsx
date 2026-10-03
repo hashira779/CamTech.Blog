@@ -40,7 +40,7 @@ export default function RootLayout({
           />
         )}
       </head>
-      <body className={`${inter.className} min-h-screen flex flex-col bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 antialiased selection:bg-rose-500 selection:text-white transition-colors duration-200`}>
+      <body className={`${inter.className} min-h-screen flex flex-col bg-[#FAF9F6] text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white transition-colors duration-200`}>
         <ThemeProvider>
           <I18nProvider>
             <Header />
