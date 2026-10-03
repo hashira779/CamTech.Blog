@@ -21,22 +21,27 @@ from app.models.audit import SiteSetting
 
 logger = logging.getLogger(__name__)
 
-async def fetch_wiki_image(place_name: str, province_name: str) -> str | None:
-    """Uses Wikipedia REST API to find a thumbnail image for a place"""
+async def fetch_wiki_images(place_name: str, province_name: str) -> list[str]:
+    """Uses Wikipedia API to find up to 3 original images for a place"""
     try:
-        # Try specific search first
+        # Search for place + province for better context, or just place
         query = urllib.parse.quote(f"{place_name} {province_name}")
+        url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={query}&gsrlimit=3&prop=pageimages&piprop=original&format=json"
+        
         async with httpx.AsyncClient() as client:
-            res = await client.get(f"https://en.wikipedia.org/w/rest.php/v1/search/page?q={query}&limit=1")
+            res = await client.get(url, headers={'User-Agent': 'CamTechBlog/1.0'})
             if res.status_code == 200:
-                pages = res.json().get('pages', [])
-                if pages and pages[0].get('thumbnail'):
-                    # Wikipedia thumbnails are usually small (320px). We can replace to get original or larger.
-                    thumb_url = pages[0]['thumbnail']['url']
-                    return thumb_url.replace('/thumb/', '/').split('.jpg/')[0] + '.jpg'
+                data = res.json()
+                pages = data.get('query', {}).get('pages', {})
+                urls = []
+                for page_id, page_data in pages.items():
+                    if 'original' in page_data:
+                        urls.append(page_data['original']['source'])
+                return urls
     except Exception as e:
         logger.warning(f"Wiki image fetch failed for {place_name}: {e}")
-    return None
+    return []
+
 
 
 # All 25 provinces/cities of Cambodia
@@ -239,9 +244,10 @@ Return a JSON array of objects. Each object must have these keys:
             async def populate_image(p_data):
                 if p_data.get("is_duplicate"):
                     return p_data
-                img_url = await fetch_wiki_image(p_data.get("name", ""), destination.name)
-                if img_url:
-                    p_data["hero_image_url"] = img_url
+                img_urls = await fetch_wiki_images(p_data.get("name", ""), destination.name)
+                if img_urls:
+                    p_data["hero_image_url"] = img_urls[0]
+                    p_data["gallery_json"] = json.dumps(img_urls)
                 return p_data
             
             places_with_images = await asyncio.gather(*(populate_image(p) for p in processed_places))
@@ -417,10 +423,11 @@ Return a JSON object with these keys ONLY:
             
             db.commit()
 
-            # Now fetch image asynchronously
-            img_url = await fetch_wiki_image(place.name, destination.name)
-            if img_url:
-                place.hero_image_url = img_url
+            # Now fetch images asynchronously
+            img_urls = await fetch_wiki_images(place.name, destination.name)
+            if img_urls:
+                place.hero_image_url = img_urls[0]
+                place.gallery_json = json.dumps(img_urls)
                 db.commit()
 
             return {"status": "success", "message": f"Updated {place.name} successfully."}
@@ -466,6 +473,8 @@ Return a JSON object with these keys ONLY:
                 price_level=place_dict.get("price_level", "$$"),
                 phone=place_dict.get("phone"),
                 website=place_dict.get("website"),
+                hero_image_url=place_dict.get("hero_image_url"),
+                gallery_json=place_dict.get("gallery_json", "[]"),
                 tags_json=json.dumps(place_dict.get("tags", [])),
                 rating=place_dict.get("rating", 4.5),
                 verification_status="AI_GENERATED",

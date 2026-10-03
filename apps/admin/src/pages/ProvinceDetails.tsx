@@ -434,6 +434,27 @@ export default function ProvinceDetails() {
                         </div>
                       </div>
                     )}
+                    
+                    {(() => {
+                      try {
+                        const gallery = place.gallery_json ? JSON.parse(place.gallery_json) : [];
+                        if (gallery.length > 1) {
+                          return (
+                            <div>
+                              <span className="text-zinc-500 text-[11px] mb-1.5 block">Gallery ({gallery.length} images)</span>
+                              <div className="flex gap-2 overflow-x-auto pb-2">
+                                {gallery.map((img: string, i: number) => (
+                                  <a key={i} href={img} target="_blank" rel="noreferrer" className="shrink-0 block w-24 h-16 rounded-md overflow-hidden border border-zinc-700/50 hover:border-zinc-500">
+                                    <img src={img} alt={`Gallery ${i}`} className="w-full h-full object-cover" />
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        }
+                      } catch (e) {}
+                      return null;
+                    })()}
 
                     {place.created_at && (
                       <div className="text-[10px] text-zinc-600 pt-2 border-t border-zinc-800/50">
