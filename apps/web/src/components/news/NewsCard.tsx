@@ -45,9 +45,9 @@ export function NewsCard({ article, compact = false }: { article: Article; compa
 
         <div className="mt-auto pt-4 flex items-center gap-2">
            <div className="w-5 h-5 rounded-full bg-neutral-200 overflow-hidden shrink-0">
-              <img src={`https://ui-avatars.com/api/?name=${article.source_id || 'Ed'}&background=random&color=fff`} className="w-full h-full object-cover" />
+              <img src={`https://ui-avatars.com/api/?name=${article.author?.name || article.primary_source?.name || 'Ed'}&background=random&color=fff`} className="w-full h-full object-cover" />
            </div>
-           <span className="text-xs font-serif text-neutral-900 italic">By {article.source_id || "Editor"}</span>
+           <span className="text-xs font-serif text-neutral-900 italic">By {article.author?.name || article.primary_source?.name || "Editor"}</span>
         </div>
       </div>
     </article>

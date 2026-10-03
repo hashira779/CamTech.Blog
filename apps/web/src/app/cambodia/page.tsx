@@ -57,7 +57,7 @@ export default async function CambodiaNewsPage() {
                       {article.summary}
                     </p>
                     <div className="mt-4 text-xs text-neutral-400 font-serif italic">
-                      By {article.source_id || "Editor"} • {article.published_at ? new Date(article.published_at).toLocaleDateString() : "Today"}
+                      By {article.author?.name || article.primary_source?.name || "Editor"} • {article.published_at ? new Date(article.published_at).toLocaleDateString() : "Today"}
                     </div>
                  </div>
               </div>
