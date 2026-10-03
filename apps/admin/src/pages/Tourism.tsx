@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
-  MapPin,
-  RefreshCw,
   Globe,
+  RefreshCw,
   Zap,
   CheckCircle,
   AlertCircle
@@ -37,38 +37,21 @@ const PROVINCES = [
   { slug: 'tboung-khmum', name: 'Tboung Khmum', nameKm: 'ត្បូងឃ្មុំ' },
 ];
 
-interface ScanResult {
-  province: string;
-  inserted: number;
-  skipped: number;
-  places: string[];
-}
-
 export default function Tourism() {
-  const [, setScanning] = useState(false);
-  const [scanningProvince, setScanningProvince] = useState<string | null>(null);
-  const [results, setResults] = useState<ScanResult[]>([]);
+  const navigate = useNavigate();
   const [fullScanRunning, setFullScanRunning] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Approval Modal State
-  const [pendingApproval, setPendingApproval] = useState<{ province: string, places: any[] } | null>(null);
-  const [savingPlaceId, setSavingPlaceId] = useState<string | null>(null);
 
   const handleFullScan = async () => {
     if (!confirm('This will scan ALL 25 provinces using Google AI. It may take several minutes. Proceed?')) return;
     setFullScanRunning(true);
     setStatusMessage(null);
-    setResults([]);
     try {
-      const res = await api.post<{ status?: string, message?: string, total_new_places?: number; results?: ScanResult[]; errors?: string[] }>('/admin/ai/tourism-scan');
-      
+      const res = await api.post<{ status?: string, message?: string, total_new_places?: number }>('/admin/ai/tourism-scan');
       if (res.data.status === 'failed') {
         setStatusMessage({ type: 'error', text: res.data.message || 'Scan failed.' });
         return;
       }
-
-      setResults(res.data.results || []);
       setStatusMessage({
         type: 'success',
         text: `Full scan complete! ${res.data.total_new_places || 0} new places added across all provinces.`
@@ -80,89 +63,6 @@ export default function Tourism() {
       setFullScanRunning(false);
     }
   };
-
-  const handleProvinceScan = async (slug: string, name: string) => {
-    setScanningProvince(slug);
-    setScanning(true);
-    setStatusMessage(null);
-    try {
-      const res = await api.post<any>(`/admin/ai/tourism-scan/${slug}`);
-      
-      if (res.data.status === 'failed') {
-        setStatusMessage({ type: 'error', text: res.data.message || `Failed to scan ${name}.` });
-        return;
-      }
-
-      // Instead of adding to results immediately, open approval modal
-      setPendingApproval({
-        province: name,
-        places: res.data.places_data || []
-      });
-      
-    } catch (err) {
-      console.error(err);
-      setStatusMessage({ type: 'error', text: `Failed to scan ${name}. Check logs.` });
-    } finally {
-      setScanning(false);
-      setScanningProvince(null);
-    }
-  };
-
-  const handleSavePlace = async (place: any, index: number) => {
-    setSavingPlaceId(index.toString());
-    try {
-      const res = await api.post('/admin/ai/tourism-save', place);
-      if (res.data.status === 'success') {
-        // Mark as duplicate so it shows as saved in the UI
-        setPendingApproval(prev => {
-          if (!prev) return prev;
-          const newPlaces = [...prev.places];
-          newPlaces[index].is_duplicate = true;
-          return { ...prev, places: newPlaces };
-        });
-        setStatusMessage({ type: 'success', text: res.data.message });
-      }
-    } catch (err) {
-      console.error(err);
-      setStatusMessage({ type: 'error', text: `Failed to save ${place.name}` });
-    } finally {
-      setSavingPlaceId(null);
-    }
-  };
-
-  // Existing Places Modal State
-  const [viewingProvince, setViewingProvince] = useState<{ slug: string, name: string } | null>(null);
-  const [existingPlaces, setExistingPlaces] = useState<any[]>([]);
-  const [loadingPlaces, setLoadingPlaces] = useState(false);
-
-  const handleViewPlaces = async (slug: string, name: string) => {
-    setViewingProvince({ slug, name });
-    setLoadingPlaces(true);
-    try {
-      const res = await api.get(`/admin/tourism-places/${slug}`);
-      setExistingPlaces(res.data);
-    } catch (err) {
-      console.error(err);
-      setStatusMessage({ type: 'error', text: `Failed to load places for ${name}` });
-      setViewingProvince(null);
-    } finally {
-      setLoadingPlaces(false);
-    }
-  };
-
-  const handleDeletePlace = async (placeId: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete ${name}?`)) return;
-    try {
-      await api.delete(`/admin/tourism-places/${placeId}`);
-      setExistingPlaces(prev => prev.filter(p => p.id !== placeId));
-      setStatusMessage({ type: 'success', text: `Deleted ${name}` });
-    } catch (err) {
-      console.error(err);
-      setStatusMessage({ type: 'error', text: `Failed to delete ${name}` });
-    }
-  };
-
-  const getProvinceResult = (name: string) => results.find(r => r.province === name);
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6 font-sans">
@@ -177,7 +77,6 @@ export default function Tourism() {
           </div>
           <p className="text-xs text-zinc-400 mt-1">
             Uses Google Gemini AI to automatically discover and populate tourist places across Cambodia.
-            Scheduled to run every <strong className="text-zinc-300">Sunday at 3:00 AM</strong>.
           </p>
         </div>
         <button 
@@ -204,170 +103,29 @@ export default function Tourism() {
 
       {/* Province Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-        {PROVINCES.map(prov => {
-          const result = getProvinceResult(prov.name);
-          const isScanning = scanningProvince === prov.slug;
-          
-          return (
-            <div 
-              key={prov.slug}
-              className={`bg-zinc-900/60 border rounded-lg p-4 transition-colors ${
-                result ? 'border-emerald-500/30' : 'border-zinc-800 hover:border-zinc-700'
-              }`}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <p className="text-sm font-medium text-zinc-200">{prov.name}</p>
-                  <p className="text-[11px] text-zinc-500 font-mono">{prov.nameKm}</p>
-                </div>
-                {prov.featured && (
-                  <span className="text-[9px] font-mono px-1.5 py-0.5 bg-amber-500/10 text-amber-400 rounded border border-amber-500/20">★</span>
-                )}
-              </div>
-
-              {result && (
-                <div className="mb-2 p-2 bg-zinc-950/50 rounded text-[10px] font-mono text-zinc-400">
-                  <span className="text-emerald-400">+{result.inserted}</span> added, <span className="text-zinc-500">{result.skipped} skipped</span>
-                </div>
-              )}
-
-                <div className="flex flex-col gap-1.5 mt-3">
-                  <button
-                    onClick={() => handleViewPlaces(prov.slug, prov.name)}
-                    disabled={fullScanRunning}
-                    className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded transition-colors disabled:opacity-40"
-                  >
-                    View Places
-                  </button>
-                  <button
-                    onClick={() => handleProvinceScan(prov.slug, prov.name)}
-                    disabled={isScanning || fullScanRunning}
-                    className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] text-emerald-300 bg-emerald-900/40 hover:bg-emerald-800/60 rounded transition-colors disabled:opacity-40"
-                  >
-                    {isScanning ? (
-                      <><RefreshCw size={11} className="animate-spin" /> Scanning...</>
-                    ) : (
-                      <><MapPin size={11} /> Scan with AI</>
-                    )}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-      {/* Existing Places Modal */}
-      {viewingProvince && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between p-5 border-b border-zinc-800">
+        {PROVINCES.map(prov => (
+          <button 
+            key={prov.slug}
+            onClick={() => navigate(`/tourism/${prov.slug}`)}
+            className="flex flex-col text-left bg-zinc-900/60 border border-zinc-800 hover:border-emerald-500/50 hover:bg-zinc-800/50 rounded-lg p-4 transition-all group"
+          >
+            <div className="flex items-start justify-between w-full mb-2">
               <div>
-                <h2 className="text-lg font-semibold text-zinc-100">Places in {viewingProvince.name}</h2>
-                <p className="text-xs text-zinc-400">Manage existing tourist destinations</p>
+                <p className="text-sm font-medium text-zinc-200 group-hover:text-emerald-400 transition-colors">{prov.name}</p>
+                <p className="text-[11px] text-zinc-500 font-mono">{prov.nameKm}</p>
               </div>
-              <button 
-                onClick={() => setViewingProvince(null)}
-                className="text-zinc-400 hover:text-white"
-              >
-                Close
-              </button>
+              {prov.featured && (
+                <span className="text-[9px] font-mono px-1.5 py-0.5 bg-amber-500/10 text-amber-400 rounded border border-amber-500/20">★</span>
+              )}
             </div>
             
-            <div className="p-5 overflow-y-auto space-y-4">
-              {loadingPlaces ? (
-                <div className="flex justify-center py-8"><RefreshCw className="animate-spin text-zinc-500" /></div>
-              ) : existingPlaces.length === 0 ? (
-                <div className="text-center py-8 text-zinc-500 text-sm">No places found. Use 'Scan with AI' to discover some!</div>
-              ) : (
-                existingPlaces.map((place, idx) => (
-                  <div key={place.id || idx} className="flex flex-col sm:flex-row gap-4 p-4 border border-zinc-800 rounded-lg bg-zinc-950/50">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-medium text-zinc-200">{place.name}</h3>
-                        {place.local_name && <span className="text-xs text-zinc-500 font-mono">{place.local_name}</span>}
-                      </div>
-                      <p className="text-xs text-zinc-400 mb-2 line-clamp-2">{place.description}</p>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="px-2 py-0.5 bg-zinc-800 rounded text-[10px] text-zinc-300">{place.place_type}</span>
-                        {place.rating && <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded text-[10px]">★ {place.rating}</span>}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                       <button
-                          onClick={() => handleDeletePlace(place.id, place.name)}
-                          className="flex items-center justify-center p-2 text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 rounded-md transition-colors"
-                          title="Delete Place"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                    </div>
-                  </div>
-                ))
-              )}
+            <div className="w-full mt-2 pt-3 border-t border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-400">
+              <span>Manage Places</span>
+              <span className="text-zinc-600 group-hover:text-emerald-500 transition-colors">→</span>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Approval Modal */}
-      {pendingApproval && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between p-5 border-b border-zinc-800">
-              <div>
-                <h2 className="text-lg font-semibold text-zinc-100">Discovered Places</h2>
-                <p className="text-xs text-zinc-400">Review places for {pendingApproval.province}</p>
-              </div>
-              <button 
-                onClick={() => setPendingApproval(null)}
-                className="text-zinc-400 hover:text-white"
-              >
-                Close
-              </button>
-            </div>
-            
-            <div className="p-5 overflow-y-auto space-y-4">
-              {pendingApproval.places.length === 0 ? (
-                <div className="text-center py-8 text-zinc-500 text-sm">No new places found.</div>
-              ) : (
-                pendingApproval.places.map((place, idx) => (
-                  <div key={idx} className="flex flex-col sm:flex-row gap-4 p-4 border border-zinc-800 rounded-lg bg-zinc-950/50">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-medium text-zinc-200">{place.name}</h3>
-                        {place.local_name && <span className="text-xs text-zinc-500 font-mono">{place.local_name}</span>}
-                      </div>
-                      <p className="text-xs text-zinc-400 mb-2 line-clamp-2">{place.description}</p>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="px-2 py-0.5 bg-zinc-800 rounded text-[10px] text-zinc-300">{place.place_type}</span>
-                        {place.rating && <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded text-[10px]">★ {place.rating}</span>}
-                      </div>
-                    </div>
-                    <div className="flex items-center sm:items-start shrink-0">
-                      {place.is_duplicate ? (
-                        <div className="flex items-center gap-1.5 text-xs text-emerald-500 font-medium px-3 py-1.5">
-                          <CheckCircle size={14} /> Saved
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => handleSavePlace(place, idx)}
-                          disabled={savingPlaceId === idx.toString()}
-                          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-1.5 rounded-md text-xs transition-colors disabled:opacity-50"
-                        >
-                          {savingPlaceId === idx.toString() ? <RefreshCw size={12} className="animate-spin" /> : <Zap size={12} />}
-                          Approve & Save
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

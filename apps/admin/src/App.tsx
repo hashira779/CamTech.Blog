@@ -5,6 +5,7 @@ import Articles from './pages/Articles';
 import Storage from './pages/Storage';
 import Settings from './pages/Settings';
 import Tourism from './pages/Tourism';
+import ProvinceDetails from './pages/ProvinceDetails';
 import Login from './pages/Login';
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
           <Route path="storage" element={<Storage />} />
           <Route path="settings" element={<Settings />} />
           <Route path="tourism" element={<Tourism />} />
+          <Route path="tourism/:slug" element={<ProvinceDetails />} />
         </Route>
       </Routes>
     </BrowserRouter>
