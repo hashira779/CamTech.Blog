@@ -6,16 +6,24 @@ from google.genai import types
 from app.common.config import settings
 from app.common.database import SessionLocal
 from app.models.article import Article
+from app.models.audit import SiteSetting
 
 class AINewsService:
     def __init__(self):
-        self.api_key = settings.AI_API_KEY
-        self.model_name = settings.AI_MODEL_NAME or 'gemini-1.5-flash'
-        self.client = genai.Client(api_key=self.api_key) if self.api_key else None
+        pass
 
     async def generate_and_publish_news(self, category_id: str, author_id: str) -> dict:
-        if not self.client:
-            raise ValueError("Google AI API Key is not configured. Cannot generate news.")
+        db = SessionLocal()
+        try:
+            # 1. Fetch API Key from DB or fallback to env
+            api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'GEMINI_API_KEY').first()
+            api_key = api_key_setting.value_json if api_key_setting else settings.AI_API_KEY
+            
+            if not api_key:
+                raise ValueError("Google AI API Key is not configured in Settings or Env. Cannot generate news.")
+            
+            client = genai.Client(api_key=api_key)
+            model_name = settings.AI_MODEL_NAME or 'gemini-1.5-flash'
         
         prompt = """
         You are an expert technology journalist for 'CamTech Blog'. 
@@ -30,8 +38,8 @@ class AINewsService:
         
         # We use Google Search grounding if supported, but here we just ask the model.
         # Since it's Gemini 1.5, it can generate great tech news.
-        response = self.client.models.generate_content(
-            model=self.model_name,
+        response = client.models.generate_content(
+            model=model_name,
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.7,
@@ -54,7 +62,6 @@ class AINewsService:
         slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
 
         # Save to database
-        db = SessionLocal()
         try:
             new_article = Article(
                 title=data['title'],

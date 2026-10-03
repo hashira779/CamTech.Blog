@@ -11,7 +11,7 @@ from app.models.source import Source, SourceFetchLog
 from app.models.discovery import Discovery
 from app.models.quiz import Quiz
 from app.models.tool import Tool
-from app.models.audit import AuditLog
+from app.models.audit import AuditLog, SiteSetting
 from app.models.user import User
 from app.services.auth_service import require_admin
 from app.services.article_service import ArticleService
@@ -183,6 +183,29 @@ async def view_storage_image(
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Image not found: {str(e)}")
 
+@router.get("/storage/files")
+async def list_storage_files(
+    current_user: User = Depends(require_admin)
+):
+    try:
+        files = await storage_service.list_files()
+        return {"items": files}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/storage/{file_id}")
+async def delete_storage_file(
+    file_id: str,
+    current_user: User = Depends(require_admin)
+):
+    try:
+        success = await storage_service.delete_file(file_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="File not found or could not be deleted")
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 from app.services.ai_news_service import ai_news_service
 
 @router.post("/ai/generate-news")
@@ -199,3 +222,32 @@ async def generate_ai_news(
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+class SettingUpdate(BaseModel):
+    key: str
+    value_json: str
+    description: Optional[str] = None
+
+@router.get("/settings")
+def get_site_settings(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    settings = db.query(SiteSetting).all()
+    return [{"key": s.key, "value_json": s.value_json, "description": s.description} for s in settings]
+
+@router.put("/settings")
+def update_site_settings(updates: List[SettingUpdate], db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    for update in updates:
+        setting = db.query(SiteSetting).filter(SiteSetting.key == update.key).first()
+        if setting:
+            setting.value_json = update.value_json
+            if update.description:
+                setting.description = update.description
+        else:
+            new_setting = SiteSetting(
+                key=update.key,
+                value_json=update.value_json,
+                description=update.description
+            )
+            db.add(new_setting)
+    
+    db.commit()
+    return {"success": True}

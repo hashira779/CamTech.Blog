@@ -9,7 +9,7 @@ import {
   BarChart3, 
   ExternalLink,
   ShieldCheck,
-  Layers
+  HardDrive
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -20,6 +20,7 @@ export default function Sidebar() {
     { name: 'Articles', path: '/articles', icon: FileText, badge: '1,248' },
     { name: 'Categories', path: '/categories', icon: FolderTree },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
+    { name: 'Storage', path: '/storage', icon: HardDrive },
   ];
 
   const systemNav = [

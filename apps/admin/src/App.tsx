@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Articles from './pages/Articles';
+import Storage from './pages/Storage';
+import Settings from './pages/Settings';
 import Login from './pages/Login';
 
 function App() {
@@ -17,6 +19,8 @@ function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="articles" element={<Articles />} />
+          <Route path="storage" element={<Storage />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -135,4 +135,29 @@ class GoogleDriveService:
             
         return _generator(), mime_type
 
+    async def list_files(self) -> list:
+        """List files from the configured Google Drive folder."""
+        query = "trashed=false"
+        if self.folder_id:
+            query += f" and '{self.folder_id}' in parents"
+            
+        async with httpx.AsyncClient() as client:
+            res = await self._request_with_retry(
+                client,
+                "GET",
+                f"https://www.googleapis.com/drive/v3/files?q={query}&fields=files(id,name,mimeType,createdTime,size,thumbnailLink)&supportsAllDrives=true"
+            )
+            res.raise_for_status()
+            return res.json().get("files", [])
+
+    async def delete_file(self, file_id: str) -> bool:
+        """Delete a file from Google Drive."""
+        async with httpx.AsyncClient() as client:
+            res = await self._request_with_retry(
+                client,
+                "DELETE",
+                f"https://www.googleapis.com/drive/v3/files/{file_id}?supportsAllDrives=true"
+            )
+            return res.status_code == 204
+
 storage_service = GoogleDriveService()
