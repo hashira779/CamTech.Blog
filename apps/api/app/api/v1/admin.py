@@ -293,7 +293,8 @@ async def ai_tourism_save_place(place_data: dict, current_user: User = Depends(r
         raise HTTPException(status_code=500, detail=str(e))
 @router.get("/tourism-places/{province_slug}")
 def admin_get_tourism_places(province_slug: str, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
-    from app.models.place import Place, Destination
+    from app.models.place import Place
+    from app.models.location import Destination
     dest = db.query(Destination).filter(Destination.slug == province_slug).first()
     if not dest:
         raise HTTPException(status_code=404, detail="Destination not found")
