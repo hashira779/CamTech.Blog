@@ -12,42 +12,53 @@ export function NewsCard({ article, compact = false }: { article: Article; compa
   const summary = lang === "km" && article.summary_km ? article.summary_km : article.summary;
   const url = article.country === "KH" ? `/cambodia/news/${article.slug}` : `/world/news/${article.slug}`;
 
+  const authorName = article.author?.name || article.primary_source?.name || "Editorial Desk";
+  const initial = authorName.charAt(0).toUpperCase();
+
   return (
-    <article className="group flex flex-col gap-4">
+    <article className="group flex flex-col gap-3">
       {/* Card Thumbnail */}
-      <Link href={url} className="relative aspect-[4/3] overflow-hidden bg-neutral-100 block">
+      <Link href={url} className="relative aspect-[16/10] overflow-hidden bg-neutral-100 border border-neutral-200 block">
         <img
           src={article.hero_image_url || "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80"}
           alt={article.title}
-          className="w-full h-full object-cover grayscale-[30%] group-hover:grayscale-0 transition-all duration-700 ease-out"
+          className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
         />
       </Link>
 
       {/* Card Content */}
-      <div className="space-y-2 pt-1 flex-1 flex flex-col">
-        <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-neutral-400 font-semibold">
-          <span>
-            {article.category?.name || "Design"} • {article.published_at ? new Date(article.published_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "2026"}
-          </span>
+      <div className="space-y-1.5 flex-1 flex flex-col justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-[10px] uppercase font-mono tracking-wider text-neutral-500 font-semibold">
+            <span className="text-neutral-900 font-bold">{article.country === "KH" ? "Cambodia" : "World"}</span>
+            <span>•</span>
+            <span>{article.category?.name || "General"}</span>
+          </div>
+
+          <Link href={url} className="block mt-1">
+            <h3 className="text-lg font-serif font-bold leading-snug line-clamp-2 text-neutral-950 group-hover:text-neutral-700 transition-colors">
+              {title}
+            </h3>
+          </Link>
+
+          {!compact && (
+            <p className="mt-1.5 text-xs text-neutral-600 font-sans line-clamp-2 leading-relaxed">
+              {summary}
+            </p>
+          )}
         </div>
 
-        <Link href={url} className="block group-hover:text-neutral-500 transition-colors">
-          <h3 className="font-normal text-2xl leading-snug line-clamp-3 text-neutral-900 font-serif">
-            {title}
-          </h3>
-        </Link>
-
-        {!compact && (
-          <p className="text-sm text-neutral-500 font-sans line-clamp-2 leading-relaxed pt-2">
-            {summary}
-          </p>
-        )}
-
-        <div className="mt-auto pt-4 flex items-center gap-2">
-           <div className="w-5 h-5 rounded-full bg-neutral-200 overflow-hidden shrink-0">
-              <img src={`https://ui-avatars.com/api/?name=${article.author?.name || article.primary_source?.name || 'Ed'}&background=random&color=fff`} className="w-full h-full object-cover" />
-           </div>
-           <span className="text-xs font-serif text-neutral-900 italic">By {article.author?.name || article.primary_source?.name || "Editor"}</span>
+        <div className="pt-3 flex items-center gap-2 text-[11px] text-neutral-500 font-serif italic">
+          <div className="w-4 h-4 rounded-full bg-neutral-200 text-neutral-700 text-[9px] font-bold flex items-center justify-center shrink-0">
+            {initial}
+          </div>
+          <span>By {authorName}</span>
+          <span>•</span>
+          <span>
+            {article.published_at 
+              ? new Date(article.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) 
+              : "Today"}
+          </span>
         </div>
       </div>
     </article>
