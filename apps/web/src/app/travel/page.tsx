@@ -30,9 +30,10 @@ export const metadata: Metadata = {
 };
 
 export default async function TravelHubPage() {
-  const [destinations, placesData, trips, guides, events, transportData] = await Promise.all([
+  const [destinations, placesData, touristPlacesData, trips, guides, events, transportData] = await Promise.all([
     getDestinations(),
     getPlaces({ limit: 8, featured: true }),
+    getPlaces({ type: "ATTRACTION", limit: 8 }),
     getTrips({ featured: true }),
     getTravelGuides(),
     getTravelEvents(),
@@ -40,6 +41,7 @@ export default async function TravelHubPage() {
   ]);
 
   const places = placesData.items;
+  const touristPlaces = touristPlacesData.items;
   const siemReap = destinations.find((d) => d.slug === "siem-reap") || destinations[0];
 
   return (
@@ -259,6 +261,45 @@ export default async function TravelHubPage() {
             ))}
           </div>
         </section>
+
+        {/* 4.5. Popular Tourist Attractions */}
+        {touristPlaces.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
+                  Popular Tourist Attractions
+                </h2>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+                  Must-visit attractions, temples, and experiences for your itinerary.
+                </p>
+              </div>
+              <Link
+                href="/travel/siem-reap?type=ATTRACTION"
+                className="text-xs font-bold text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1"
+              >
+                All Attractions <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {touristPlaces.map((place) => (
+                <PlaceCard
+                  key={place.id}
+                  id={place.id}
+                  slug={place.slug}
+                  name={place.name}
+                  localName={place.local_name}
+                  placeType={place.place_type}
+                  destinationName={place.destination?.name || "Cambodia"}
+                  shortDescription={place.description}
+                  heroImage={place.hero_image_url}
+                  verificationStatus={place.verification_status.toLowerCase()}
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* 5. Intercity Transport & Highway Routes */}
         <section>
