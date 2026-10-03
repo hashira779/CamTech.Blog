@@ -523,9 +523,14 @@ Return a JSON object with these keys ONLY:
                 hero_url = extracted_images[0]
                 gallery_raw = extracted_images[1:]
             else:
-                # Fallback to AI generated if no You.com search data
-                hero_url = ai_data.get("hero_image_url")
-                gallery_raw = ai_data.get("gallery_urls") or []
+                # Fallback to Wikipedia images instead of AI hallucinated ones
+                wiki_images = await fetch_wiki_images(place.name, destination.name)
+                if wiki_images:
+                    hero_url = wiki_images[0]
+                    gallery_raw = wiki_images
+                else:
+                    hero_url = None
+                    gallery_raw = []
                 
             if hero_url:
                 # Backup to drive
