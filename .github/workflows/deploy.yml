@@ -20,7 +20,8 @@ jobs:
           echo "Previous commit: $PREV_COMMIT"
           
           git reset --hard HEAD
-          git pull origin main
+          git fetch origin main
+          git reset --hard origin/main
           
           echo "Building images (site remains up)..."
           if ! docker compose build; then
