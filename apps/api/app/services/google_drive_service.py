@@ -52,13 +52,57 @@ class GoogleDriveService:
             res = await client.request(method, url, headers=headers, **kwargs)
         return res
 
-    async def upload_file(self, file_name: str, file_content: bytes, mime_type: str) -> Dict[str, Any]:
-        """Uploads a file directly to Google Drive."""
+    async def _get_or_create_folder(self, folder_name: str, parent_id: str) -> str:
+        async with httpx.AsyncClient() as client:
+            query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and '{parent_id}' in parents and trashed=false"
+            search_res = await self._request_with_retry(
+                client, "GET",
+                f"https://www.googleapis.com/drive/v3/files?q={query}&fields=files(id)&supportsAllDrives=true"
+            )
+            search_res.raise_for_status()
+            files = search_res.json().get("files", [])
+            
+            if files:
+                return files[0]["id"]
+                
+            metadata = {
+                "name": folder_name,
+                "mimeType": "application/vnd.google-apps.folder",
+                "parents": [parent_id]
+            }
+            create_res = await self._request_with_retry(
+                client, "POST",
+                "https://www.googleapis.com/drive/v3/files?supportsAllDrives=true",
+                json=metadata
+            )
+            create_res.raise_for_status()
+            return create_res.json()["id"]
+
+    async def ensure_folder_path(self, path: str) -> str:
+        """
+        Creates a nested folder structure like 'Articles/2026/10' inside the root folder.
+        Returns the ID of the deepest folder.
+        """
+        current_parent = self.folder_id
+        if not current_parent:
+            raise ValueError("Root Google Drive folder ID is not configured.")
+            
+        parts = [p.strip() for p in path.split('/') if p.strip()]
+        for part in parts:
+            current_parent = await self._get_or_create_folder(part, current_parent)
+            
+        return current_parent
+
+    async def upload_file(self, file_name: str, file_content: bytes, mime_type: str, folder_path: Optional[str] = None) -> Dict[str, Any]:
+        """Uploads a file directly to Google Drive, optionally inside a specific folder path."""
         metadata = {
             "name": f"{uuid.uuid4().hex[:8]}_{file_name}",
             "mimeType": mime_type
         }
-        if self.folder_id:
+        if folder_path:
+            target_folder_id = await self.ensure_folder_path(folder_path)
+            metadata["parents"] = [target_folder_id]
+        elif self.folder_id:
             metadata["parents"] = [self.folder_id]
 
         async with httpx.AsyncClient() as client:

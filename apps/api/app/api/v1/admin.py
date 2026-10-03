@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
@@ -160,13 +160,20 @@ def list_audit_logs(limit: int = 50, db: Session = Depends(get_db), current_user
 @router.post("/upload")
 async def upload_image(
     file: UploadFile = File(...),
+    folder_path: Optional[str] = Form(None),
     current_user: User = Depends(require_admin)
 ):
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image files are allowed")
     
+    # Auto-generate year/month folder structure if none is provided
+    if not folder_path:
+        from datetime import datetime
+        now = datetime.now()
+        folder_path = f"Uploads/{now.year}/{now.strftime('%m')}"
+
     content = await file.read()
-    result = await storage_service.upload_file(file.filename, content, file.content_type)
+    result = await storage_service.upload_file(file.filename, content, file.content_type, folder_path=folder_path)
     return result
 
 @router.get("/storage/{file_id}")
