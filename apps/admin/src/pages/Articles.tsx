@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Filter, MoreVertical, Edit2, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Filter, Edit2, Trash2, Eye } from 'lucide-react';
 
 export default function Articles() {
   const [articles] = useState([
