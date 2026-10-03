@@ -32,8 +32,8 @@ export const metadata: Metadata = {
 export default async function TravelHubPage() {
   const [destinations, placesData, touristPlacesData, trips, guides, events, transportData] = await Promise.all([
     getDestinations(),
-    getPlaces({ limit: 8, featured: true }),
-    getPlaces({ type: "ATTRACTION", limit: 8 }),
+    getPlaces({ limit: 8 }),
+    getPlaces({ type: "ATTRACTION,TEMPLE", limit: 8, offset: 8 }),
     getTrips({ featured: true }),
     getTravelGuides(),
     getTravelEvents(),

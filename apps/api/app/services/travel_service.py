@@ -66,7 +66,8 @@ class TravelService:
         if destination_slug:
             query = query.join(Place.destination).filter(Destination.slug == destination_slug)
         if place_type:
-            query = query.filter(Place.place_type == place_type.upper())
+            types = [t.strip().upper() for t in place_type.split(",")]
+            query = query.filter(Place.place_type.in_(types))
         if is_featured is not None:
             query = query.filter(Place.is_featured == is_featured)
         if search:
