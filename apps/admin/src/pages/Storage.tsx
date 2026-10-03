@@ -47,7 +47,7 @@ export default function Storage() {
   const [s3Config, setS3Config] = useState({ accountId: '', bucket: '', domain: '', accessKey: '', secretKey: '', region: '', endpoint: '' });
   
   // GDrive Configs
-  const [gdriveConfig, setGdriveConfig] = useState({ clientEmail: '', privateKey: '', folderId: '' });
+  const [gdriveConfig, setGdriveConfig] = useState({ clientId: '', clientSecret: '', accessToken: '', refreshToken: '', folderId: '' });
 
   // New Policy Modal State
   const [showPolicyModal, setShowPolicyModal] = useState(false);
@@ -85,8 +85,10 @@ export default function Storage() {
       if (providerType === 'GDRIVE') {
         mappedType = 'GOOGLE_DRIVE';
         credentials = {
-          client_email: gdriveConfig.clientEmail,
-          private_key: gdriveConfig.privateKey.replace(/\\n/g, '\n')
+          client_id: gdriveConfig.clientId,
+          client_secret: gdriveConfig.clientSecret,
+          access_token: gdriveConfig.accessToken,
+          refresh_token: gdriveConfig.refreshToken
         };
         configuration = { folder_id: gdriveConfig.folderId };
       } else if (providerType === 'R2') {
@@ -265,27 +267,35 @@ export default function Storage() {
                 <div>
                   <h3 className="text-base font-semibold text-white">Google Drive Configuration</h3>
                   <p className="text-xs text-zinc-400 mt-1 max-w-xl leading-relaxed">
-                    Connect a Google Drive service account to upload files automatically.
+                    For demo purposes, manually input your OAuth tokens. In production, this would use a secure OAuth flow.
                   </p>
-                </div>
-                <span className="text-[10px] font-mono text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded">Secure Storage</span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-300 mb-2">Client Email</label>
-                  <input value={gdriveConfig.clientEmail} onChange={e => setGdriveConfig({...gdriveConfig, clientEmail: e.target.value})} placeholder="service-account@project.iam.gserviceaccount.com" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm font-mono text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-300 mb-2">Root Folder ID (Optional)</label>
-                  <input value={gdriveConfig.folderId} onChange={e => setGdriveConfig({...gdriveConfig, folderId: e.target.value})} placeholder="1A2b3C4d5E..." className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm font-mono text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50" />
-                  <p className="text-[10px] text-zinc-500 mt-1.5">If left empty, files will be saved in the root drive.</p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-2">Private Key</label>
-                <textarea rows={4} value={gdriveConfig.privateKey} onChange={e => setGdriveConfig({...gdriveConfig, privateKey: e.target.value})} placeholder="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgk...\n-----END PRIVATE KEY-----" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm font-mono text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50 resize-y" />
+                <label className="block text-xs font-semibold text-zinc-300 mb-2">Target Folder ID (Optional)</label>
+                <input value={gdriveConfig.folderId} onChange={e => setGdriveConfig({...gdriveConfig, folderId: e.target.value})} placeholder="e.g. 1a2b3c4d5e6f" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm font-mono text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50" />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-300 mb-2">Client ID</label>
+                  <input value={gdriveConfig.clientId} onChange={e => setGdriveConfig({...gdriveConfig, clientId: e.target.value})} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm font-mono text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-300 mb-2">Client Secret</label>
+                  <input type="password" value={gdriveConfig.clientSecret} onChange={e => setGdriveConfig({...gdriveConfig, clientSecret: e.target.value})} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm font-mono text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-2">Access Token</label>
+                <input value={gdriveConfig.accessToken} onChange={e => setGdriveConfig({...gdriveConfig, accessToken: e.target.value})} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm font-mono text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50" />
+              </div>
+              
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-2">Refresh Token</label>
+                <input type="password" value={gdriveConfig.refreshToken} onChange={e => setGdriveConfig({...gdriveConfig, refreshToken: e.target.value})} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm font-mono text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500/50" />
               </div>
             </div>
           )}
