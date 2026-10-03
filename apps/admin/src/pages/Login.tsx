@@ -1,20 +1,36 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { api } from '../lib/api';
 
 export default function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@dailydiscovery.com');
+  const [password, setPassword] = useState('AdminDaily2026!');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
+    setError(null);
+
+    try {
+      const res = await api.post('/auth/login', { email, password });
+      if (res.data?.access_token) {
+        localStorage.setItem('admin_token', res.data.access_token);
+        localStorage.setItem('admin_user', JSON.stringify(res.data.user || {}));
+        navigate('/dashboard');
+      } else {
+        setError('No access token received from server.');
+      }
+    } catch (err: any) {
+      console.error('Login error:', err);
+      const detail = err.response?.data?.detail || 'Incorrect credentials or server offline.';
+      setError(detail);
+    } finally {
       setLoading(false);
-      navigate('/dashboard');
-    }, 600);
+    }
   };
 
   return (
@@ -36,6 +52,13 @@ export default function Login() {
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-sm px-4 sm:px-0">
         <div className="bg-zinc-900/50 p-6 sm:p-7 rounded-lg border border-zinc-800/80 shadow-2xl backdrop-blur-sm">
+          {error && (
+            <div className="mb-4 p-3 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+              <AlertCircle size={14} className="shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
           <form className="space-y-4" onSubmit={handleLogin}>
             <div>
               <label className="block text-xs font-medium text-zinc-300">
@@ -49,7 +72,7 @@ export default function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full pl-9 pr-3 py-2 bg-zinc-950/80 border border-zinc-800 rounded-md text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 transition-colors"
-                  placeholder="editor@camtech.cam"
+                  placeholder="admin@dailydiscovery.com"
                 />
               </div>
             </div>
@@ -59,9 +82,16 @@ export default function Login() {
                 <label className="block text-xs font-medium text-zinc-300">
                   Password
                 </label>
-                <a href="#" className="text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors">
-                  Forgot?
-                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('admin@dailydiscovery.com');
+                    setPassword('AdminDaily2026!');
+                  }}
+                  className="text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors"
+                >
+                  Use Default Credentials
+                </button>
               </div>
               <div className="mt-1.5 relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={14} />
@@ -108,7 +138,7 @@ export default function Login() {
 
         <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-zinc-500">
           <ShieldCheck size={12} className="text-emerald-500" />
-          <span>Secured by Cloudflare Zero Trust & Access</span>
+          <span>Connected to live backend API</span>
         </div>
       </div>
     </div>
