@@ -197,11 +197,8 @@ Return a JSON array of objects. Each object must have these keys:
                 except Exception as model_err:
                     last_error = model_err
                     error_msg = str(model_err)
-                    if "503" in error_msg or "UNAVAILABLE" in error_msg or "overloaded" in error_msg.lower():
-                        logger.warning(f"Model {model_to_try} is overloaded, trying next...")
-                        continue
-                    elif "404" in error_msg or "NOT_FOUND" in error_msg:
-                        logger.warning(f"Model {model_to_try} not found, trying next...")
+                    if any(err_code in error_msg for err_code in ["503", "UNAVAILABLE", "overloaded", "404", "NOT_FOUND", "429", "RESOURCE_EXHAUSTED", "quota"]):
+                        logger.warning(f"Model {model_to_try} failed ({error_msg[:30]}), trying next...")
                         continue
                     else:
                         raise model_err  # Non-recoverable error
@@ -380,7 +377,8 @@ Return a JSON object with these keys ONLY:
                 except Exception as model_err:
                     last_error = model_err
                     error_msg = str(model_err)
-                    if "503" in error_msg or "UNAVAILABLE" in error_msg or "overloaded" in error_msg.lower() or "404" in error_msg:
+                    if any(err_code in error_msg for err_code in ["503", "UNAVAILABLE", "overloaded", "404", "NOT_FOUND", "429", "RESOURCE_EXHAUSTED", "quota"]):
+                        logger.warning(f"Update model {model_to_try} failed ({error_msg[:30]}), trying next...")
                         continue
                     else:
                         raise model_err
