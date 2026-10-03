@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 from pydantic import BaseModel
@@ -14,6 +15,7 @@ from app.models.audit import AuditLog
 from app.models.user import User
 from app.services.auth_service import require_admin
 from app.services.article_service import ArticleService
+from app.services.google_drive_service import storage_service
 
 router = APIRouter(prefix="/admin", tags=["Admin CMS"])
 
@@ -151,6 +153,31 @@ def list_audit_logs(limit: int = 50, db: Session = Depends(get_db), current_user
             "entity_id": l.entity_id,
             "user_id": l.user_id,
             "created_at": l.created_at.isoformat()
-        }
         for l in logs
     ]
+
+@router.post("/upload")
+async def upload_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_admin)
+):
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only image files are allowed")
+    
+    content = await file.read()
+    result = await storage_service.upload_file(file.filename, content, file.content_type)
+    return result
+
+@router.get("/storage/{file_id}")
+async def view_storage_image(
+    file_id: str
+):
+    try:
+        stream_generator, mime_type = await storage_service.stream_file(file_id)
+        return StreamingResponse(
+            stream_generator,
+            media_type=mime_type,
+            headers={"Cache-Control": "public, max-age=604800"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Image not found: {str(e)}")
