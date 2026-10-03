@@ -39,7 +39,7 @@ services:
     environment:
       - PORT=8000
       - FRONTEND_URL=http://localhost:3000
-      - DATABASE_URL=postgresql://discovery_user:discovery_secret@postgres:5432/daily_discovery
+      - DATABASE_URL=postgresql+psycopg2://discovery_user:discovery_secret@postgres:5432/daily_discovery
       - REDIS_URL=redis://redis:6379/0
       - STORAGE_PROVIDER=minio
       - S3_ENDPOINT_URL=http://minio:9000
@@ -66,7 +66,7 @@ services:
     container_name: daily_discovery_worker
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://discovery_user:discovery_secret@postgres:5432/daily_discovery
+      - DATABASE_URL=postgresql+psycopg2://discovery_user:discovery_secret@postgres:5432/daily_discovery
       - REDIS_URL=redis://redis:6379/0
       - STORAGE_PROVIDER=minio
       - S3_ENDPOINT_URL=http://minio:9000
