@@ -337,11 +337,21 @@ Return a JSON array of objects. Each object must have these keys:
             
             places_with_images = await asyncio.gather(*(populate_image(p) for p in processed_places))
 
-            # Return raw data for approval instead of saving
+            # Automatically save discovered places to the database (Background Task)
+            inserted_count = 0
+            for place_data in places_with_images:
+                if not place_data.get("is_duplicate"):
+                    try:
+                        await self.save_approved_place(place_data)
+                        inserted_count += 1
+                    except Exception as e:
+                        logger.error(f"Failed to auto-save discovered place {place_data.get('name')}: {e}")
+
             return {
                 "province": destination.name,
                 "province_slug": destination.slug,
                 "discovered": len(places_with_images),
+                "inserted": inserted_count,
                 "places_data": places_with_images
             }
 
