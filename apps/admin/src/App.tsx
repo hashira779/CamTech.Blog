@@ -1,7 +1,26 @@
-import { AppRoutes } from './routes';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Layout from './components/Layout';
+import Dashboard from './pages/Dashboard';
+import Articles from './pages/Articles';
+import Login from './pages/Login';
 
 function App() {
-  return <AppRoutes />;
+  // In a real app, you'd check auth state. For now, we will just assume user is logged in
+  // or redirect based on simple state.
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        
+        {/* Protected Admin Routes */}
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="articles" element={<Articles />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
 export default App;
