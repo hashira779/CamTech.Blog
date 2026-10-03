@@ -6,7 +6,7 @@ PASSWORD = "pTT!CT01"
 
 def run_cmd(ssh, cmd, title):
     print(f"\n{'='*50}\n>>> {title}\n{cmd}\n{'='*50}")
-    stdin, stdout, stderr = ssh.exec_command(cmd, timeout=30)
+    stdin, stdout, stderr = ssh.exec_command(cmd, timeout=120)
     for line in stdout:
         print(line, end="")
     err = stderr.read().decode()
@@ -21,11 +21,14 @@ def main():
         ssh.connect(SERVER_IP, username=USERNAME, password=PASSWORD, timeout=10)
         print("Connected successfully!")
         
-        # Check running containers that match 'camtech'
-        run_cmd(ssh, "docker ps --format '{{.Names}}'", "Running CamTech Containers")
+        # 1. Start CamTech.Blog (which was accidentally paused)
+        run_cmd(ssh, "cd /home/ubuntu-server/CamTech.Blog && docker compose start", "Starting CamTech.Blog")
         
-        # Find directories with docker-compose files
-        run_cmd(ssh, "find /home/ubuntu-server -name docker-compose.yml -maxdepth 3", "Docker Compose Files")
+        # 2. Stop CamTech (CamTech Tools with n8n, video downloader, etc.)
+        run_cmd(ssh, "cd /home/ubuntu-server/CamTech && docker compose stop", "Stopping CamTech Tools")
+        
+        # Check running containers
+        run_cmd(ssh, "docker ps --format '{{.Names}}'", "Running Containers")
         
         ssh.close()
     except Exception as e:
