@@ -57,11 +57,17 @@ export default function Tourism() {
     setStatusMessage(null);
     setResults([]);
     try {
-      const res = await api.post<{ total_new_places: number; results: ScanResult[]; errors: string[] }>('/admin/ai/tourism-scan');
+      const res = await api.post<{ status?: string, message?: string, total_new_places?: number; results?: ScanResult[]; errors?: string[] }>('/admin/ai/tourism-scan');
+      
+      if (res.data.status === 'failed') {
+        setStatusMessage({ type: 'error', text: res.data.message || 'Scan failed.' });
+        return;
+      }
+
       setResults(res.data.results || []);
       setStatusMessage({
         type: 'success',
-        text: `Full scan complete! ${res.data.total_new_places} new places added across all provinces.`
+        text: `Full scan complete! ${res.data.total_new_places || 0} new places added across all provinces.`
       });
     } catch (err) {
       console.error(err);
