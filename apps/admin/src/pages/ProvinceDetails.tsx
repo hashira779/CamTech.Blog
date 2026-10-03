@@ -147,6 +147,17 @@ export default function ProvinceDetails() {
     }
   };
 
+  const handleApproveAll = async () => {
+    if (!pendingApproval) return;
+    const unapproved = pendingApproval.places.map((p, i) => ({ place: p, index: i })).filter(x => !x.place.is_duplicate);
+    
+    if (unapproved.length === 0) return;
+    
+    for (const item of unapproved) {
+      await handleApproveSave(item.place, item.index);
+    }
+  };
+
   const parseTags = (tagsJson?: string): string[] => {
     try { return tagsJson ? JSON.parse(tagsJson) : []; } catch { return []; }
   };
@@ -384,7 +395,17 @@ export default function ProvinceDetails() {
                 <h2 className="text-lg font-semibold text-zinc-100">AI Discovered Places</h2>
                 <p className="text-xs text-zinc-400">{pendingApproval.places.length} places found for {pendingApproval.province}</p>
               </div>
-              <button onClick={() => setPendingApproval(null)} className="text-zinc-400 hover:text-white text-sm">Close</button>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={handleApproveAll} 
+                  disabled={savingPlaceId !== null}
+                  className="flex items-center gap-1.5 bg-zinc-100 hover:bg-white text-zinc-900 font-medium px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50"
+                >
+                  <CheckCircle size={14} />
+                  Approve All
+                </button>
+                <button onClick={() => setPendingApproval(null)} className="text-zinc-400 hover:text-white text-sm">Close</button>
+              </div>
             </div>
             
             <div className="p-5 overflow-y-auto space-y-3">

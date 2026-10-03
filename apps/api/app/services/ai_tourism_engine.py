@@ -7,6 +7,9 @@ import json
 import uuid
 import re
 import logging
+import asyncio
+import httpx
+import urllib.parse
 from datetime import datetime, timezone
 from google import genai
 from google.genai import types
@@ -17,6 +20,24 @@ from app.models.place import Place
 from app.models.audit import SiteSetting
 
 logger = logging.getLogger(__name__)
+
+async def fetch_wiki_image(place_name: str, province_name: str) -> str | None:
+    """Uses Wikipedia REST API to find a thumbnail image for a place"""
+    try:
+        # Try specific search first
+        query = urllib.parse.quote(f"{place_name} {province_name}")
+        async with httpx.AsyncClient() as client:
+            res = await client.get(f"https://en.wikipedia.org/w/rest.php/v1/search/page?q={query}&limit=1")
+            if res.status_code == 200:
+                pages = res.json().get('pages', [])
+                if pages and pages[0].get('thumbnail'):
+                    # Wikipedia thumbnails are usually small (320px). We can replace to get original or larger.
+                    thumb_url = pages[0]['thumbnail']['url']
+                    return thumb_url.replace('/thumb/', '/').split('.jpg/')[0] + '.jpg'
+    except Exception as e:
+        logger.warning(f"Wiki image fetch failed for {place_name}: {e}")
+    return None
+
 
 # All 25 provinces/cities of Cambodia
 CAMBODIA_PROVINCES = [
@@ -217,12 +238,23 @@ Return a JSON array of objects. Each object must have these keys:
                 p["destination_id"] = destination.id
                 processed_places.append(p)
 
+            # Fetch images from Wikipedia for all valid places concurrently
+            async def populate_image(p_data):
+                if p_data.get("is_duplicate"):
+                    return p_data
+                img_url = await fetch_wiki_image(p_data.get("name", ""), destination.name)
+                if img_url:
+                    p_data["hero_image_url"] = img_url
+                return p_data
+            
+            places_with_images = await asyncio.gather(*(populate_image(p) for p in processed_places))
+
             # Return raw data for approval instead of saving
             return {
                 "province": destination.name,
                 "province_slug": destination.slug,
-                "discovered": len(processed_places),
-                "places_data": processed_places
+                "discovered": len(places_with_images),
+                "places_data": places_with_images
             }
 
         except Exception as e:
