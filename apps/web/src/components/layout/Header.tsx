@@ -73,17 +73,6 @@ export function Header() {
                 ខ្មែរ
               </button>
             </div>
-
-            {/* CMS Portal Link */}
-            <a
-              href="https://cms.camtech.cam"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-blue-600 transition-colors"
-            >
-              <span>CMS Portal</span>
-              <ExternalLink size={12} />
-            </a>
           </div>
         </div>
       </div>
@@ -226,14 +215,7 @@ export function Header() {
                 }`}
               >
                 ខ្មែរ
-              </button>
             </div>
-            <a
-              href="https://cms.camtech.cam"
-              className="px-3 py-2 text-sm text-blue-600 font-medium hover:underline"
-            >
-              CMS Portal ↗
-            </a>
           </div>
         </div>
       )}
