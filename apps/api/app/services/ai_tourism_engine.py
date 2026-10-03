@@ -19,6 +19,7 @@ from app.models.location import Country, Destination
 from app.models.place import Place
 from app.models.audit import SiteSetting
 from app.services.google_drive_service import storage_service
+from app.services.s3_service import s3_service
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ async def fetch_wiki_images(place_name: str, province_name: str) -> list[str]:
     try:
         # Search for place + province for better context, or just place
         query = urllib.parse.quote(f"{place_name} {province_name}")
-        url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={query}&gsrlimit=3&prop=pageimages&piprop=original&format=json"
+        url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={query}&gsrlimit=15&prop=pageimages&piprop=original&format=json"
         
         async with httpx.AsyncClient() as client:
             res = await client.get(url, headers={'User-Agent': 'CamTechBlog/1.0'})
@@ -318,15 +319,19 @@ Return a JSON array of objects. Each object must have these keys:
                     return p_data
                 img_urls = await fetch_wiki_images(p_data.get("name", ""), destination.name)
                 if img_urls:
-                    # Upload first image to drive as hero
-                    hero_drive_url = await storage_service.upload_file_from_url(img_urls[0], f"Destinations/{destination.name}")
-                    p_data["hero_image_url"] = hero_drive_url if hero_drive_url else img_urls[0]
+                    # Backup to drive
+                    await storage_service.upload_file_from_url(img_urls[0], f"Destinations/{destination.name}")
+                    # Upload to R2/S3 for display
+                    hero_r2_url = await s3_service.upload_file_from_url(img_urls[0], f"Destinations/{destination.name}")
+                    p_data["hero_image_url"] = hero_r2_url if hero_r2_url else img_urls[0]
                     
-                    # Upload the rest to drive
                     gallery = []
                     for url in img_urls:
-                        d_url = await storage_service.upload_file_from_url(url, f"Destinations/{destination.name}")
-                        gallery.append(d_url if d_url else url)
+                        # Backup to drive
+                        await storage_service.upload_file_from_url(url, f"Destinations/{destination.name}")
+                        # Upload to R2/S3 for display
+                        r2_url = await s3_service.upload_file_from_url(url, f"Destinations/{destination.name}")
+                        gallery.append(r2_url if r2_url else url)
                     p_data["gallery_json"] = json.dumps(gallery)
                 return p_data
             
@@ -547,15 +552,20 @@ Return a JSON object with these keys ONLY:
                 gallery_raw = ai_data.get("gallery_urls") or []
                 
             if hero_url:
-                # Upload to drive
-                drive_url = await storage_service.upload_file_from_url(hero_url, f"Destinations/{destination.name}")
-                place.hero_image_url = drive_url if drive_url else hero_url
+                # Backup to drive
+                await storage_service.upload_file_from_url(hero_url, f"Destinations/{destination.name}")
+                # Upload to S3/R2 for display
+                r2_url = await s3_service.upload_file_from_url(hero_url, f"Destinations/{destination.name}")
+                place.hero_image_url = r2_url if r2_url else hero_url
                 
             if gallery_raw and isinstance(gallery_raw, list):
                 gallery = []
                 for url in gallery_raw:
-                    d_url = await storage_service.upload_file_from_url(url, f"Destinations/{destination.name}")
-                    gallery.append(d_url if d_url else url)
+                    # Backup to drive
+                    await storage_service.upload_file_from_url(url, f"Destinations/{destination.name}")
+                    # Upload to S3/R2 for display
+                    r2_url = await s3_service.upload_file_from_url(url, f"Destinations/{destination.name}")
+                    gallery.append(r2_url if r2_url else url)
                 place.gallery_json = json.dumps(gallery)
 
             place.verification_status = "AI_UPDATED"
