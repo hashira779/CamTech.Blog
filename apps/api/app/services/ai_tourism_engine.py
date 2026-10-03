@@ -150,20 +150,43 @@ Return a JSON array of objects. Each object must have these keys:
 - rating: Estimated rating 1.0-5.0
 """
 
-            from tenacity import retry, stop_after_attempt, wait_exponential
-            
-            @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1.5, min=2, max=10), reraise=True)
-            def _call_gemini_with_retry():
-                return client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        temperature=0.4,
-                        response_mime_type="application/json"
+            # Fallback model chain — if one is overloaded (503), try the next
+            fallback_models = [
+                settings.AI_MODEL_NAME or 'gemini-3.8-flash',
+                'gemini-3.5-flash',
+                'gemini-2.5-flash',
+                'gemini-2.5-pro',
+            ]
+
+            response = None
+            last_error = None
+            for model_to_try in fallback_models:
+                try:
+                    logger.info(f"Trying model: {model_to_try}")
+                    response = client.models.generate_content(
+                        model=model_to_try,
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            temperature=0.4,
+                            response_mime_type="application/json"
+                        )
                     )
-                )
-            
-            response = _call_gemini_with_retry()
+                    logger.info(f"Success with model: {model_to_try}")
+                    break  # Success! Stop trying
+                except Exception as model_err:
+                    last_error = model_err
+                    error_msg = str(model_err)
+                    if "503" in error_msg or "UNAVAILABLE" in error_msg or "overloaded" in error_msg.lower():
+                        logger.warning(f"Model {model_to_try} is overloaded, trying next...")
+                        continue
+                    elif "404" in error_msg or "NOT_FOUND" in error_msg:
+                        logger.warning(f"Model {model_to_try} not found, trying next...")
+                        continue
+                    else:
+                        raise model_err  # Non-recoverable error
+
+            if response is None:
+                raise last_error or Exception("All AI models are currently unavailable. Please try again later.")
 
             # Parse response
             try:
