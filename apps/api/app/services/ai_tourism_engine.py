@@ -21,6 +21,29 @@ from app.models.audit import SiteSetting
 
 logger = logging.getLogger(__name__)
 
+def _call_you_com(prompt: str) -> str:
+    import os, httpx
+    api_key = os.environ.get("YDC_API_KEY") or os.environ.get("YOU_API_KEY")
+    if not api_key:
+        return None
+    try:
+        url = "https://api.you.com/v1/research"
+        headers = {
+            "X-API-Key": api_key,
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "input": f"{prompt}\n\nIMPORTANT: Return ONLY valid JSON. No markdown blocks.",
+            "research_effort": "standard"
+        }
+        res = httpx.post(url, json=payload, headers=headers, timeout=60.0)
+        res.raise_for_status()
+        data = res.json()
+        return data.get("output", {}).get("content", "")
+    except Exception as e:
+        logger.warning(f"You.com API failed: {e}")
+        return None
+
 async def fetch_wiki_images(place_name: str, province_name: str) -> list[str]:
     """Uses Wikipedia API to find up to 3 original images for a place"""
     try:
@@ -206,38 +229,47 @@ Return a JSON array of objects. Each object must have these keys:
             # Fallback model chain — dynamically checked against API to avoid 404s
             fallback_models = self._get_dynamic_fallback_models(client)
 
-            response = None
+            # First, check if we have You.com API key
+            you_response_text = _call_you_com(prompt)
+            
+            response_text = None
             last_error = None
-            for model_to_try in fallback_models:
-                try:
-                    logger.info(f"Trying model: {model_to_try}")
-                    response = client.models.generate_content(
-                        model=model_to_try,
-                        contents=prompt,
-                        config=types.GenerateContentConfig(
-                            temperature=0.4,
-                            response_mime_type="application/json"
+            
+            if you_response_text:
+                response_text = you_response_text
+                logger.info("Success with You.com API")
+            else:
+                for model_to_try in fallback_models:
+                    try:
+                        logger.info(f"Trying model: {model_to_try}")
+                        response = client.models.generate_content(
+                            model=model_to_try,
+                            contents=prompt,
+                            config=types.GenerateContentConfig(
+                                temperature=0.4,
+                                response_mime_type="application/json"
+                            )
                         )
-                    )
-                    logger.info(f"Success with model: {model_to_try}")
-                    break  # Success! Stop trying
-                except Exception as model_err:
-                    last_error = model_err
-                    error_msg = str(model_err)
-                    if any(err_code in error_msg for err_code in ["503", "UNAVAILABLE", "overloaded", "404", "NOT_FOUND", "429", "RESOURCE_EXHAUSTED", "quota"]):
-                        logger.warning(f"Model {model_to_try} failed ({error_msg[:30]}), trying next...")
-                        continue
-                    else:
-                        raise model_err  # Non-recoverable error
-
-            if response is None:
-                raise last_error or Exception("All AI models are currently unavailable. Please try again later.")
+                        response_text = response.text
+                        logger.info(f"Success with model: {model_to_try}")
+                        break  # Success! Stop trying
+                    except Exception as model_err:
+                        last_error = model_err
+                        error_msg = str(model_err)
+                        if any(err_code in error_msg for err_code in ["503", "UNAVAILABLE", "overloaded", "404", "NOT_FOUND", "429", "RESOURCE_EXHAUSTED", "quota"]):
+                            logger.warning(f"Model {model_to_try} failed ({error_msg[:30]}), trying next...")
+                            continue
+                        else:
+                            raise model_err  # Non-recoverable error
+    
+                if response_text is None:
+                    raise last_error or Exception("All AI models are currently unavailable. Please try again later.")
 
             # Parse response
             try:
-                places_data = json.loads(response.text)
+                places_data = json.loads(response_text)
             except json.JSONDecodeError:
-                match = re.search(r'```(?:json)?\n(.*?)\n```', response.text, re.DOTALL)
+                match = re.search(r'```(?:json)?\n(.*?)\n```', response_text, re.DOTALL)
                 if match:
                     places_data = json.loads(match.group(1))
                 else:
@@ -391,40 +423,49 @@ Return a JSON object with these keys ONLY:
 """
             fallback_models = self._get_dynamic_fallback_models(client)
 
-            response = None
-            last_error = None
-            for model_to_try in fallback_models:
-                try:
-                    tools_config = None
-                    if "gemini-3.8" in model_to_try or "gemini-3.5" in model_to_try or "gemini-2.5" in model_to_try:
-                        tools_config = [types.Tool(google_search=types.GoogleSearch())]
-                        
-                    response = client.models.generate_content(
-                        model=model_to_try,
-                        contents=prompt,
-                        config=types.GenerateContentConfig(
-                            temperature=0.7,
-                            response_mime_type="application/json",
-                            tools=tools_config
-                        )
-                    )
-                    break
-                except Exception as model_err:
-                    last_error = model_err
-                    error_msg = str(model_err)
-                    if any(err_code in error_msg for err_code in ["503", "UNAVAILABLE", "overloaded", "404", "NOT_FOUND", "429", "RESOURCE_EXHAUSTED", "quota"]):
-                        logger.warning(f"Update model {model_to_try} failed ({error_msg[:30]}), trying next...")
-                        continue
-                    else:
-                        raise model_err
+            # First, check if we have You.com API key
+            you_response_text = _call_you_com(prompt)
             
-            if response is None:
-                raise last_error or Exception("All AI models are currently unavailable.")
+            response_text = None
+            last_error = None
+            
+            if you_response_text:
+                response_text = you_response_text
+                logger.info("Success with You.com API")
+            else:
+                for model_to_try in fallback_models:
+                    try:
+                        tools_config = None
+                        if "gemini-3.8" in model_to_try or "gemini-3.5" in model_to_try or "gemini-2.5" in model_to_try:
+                            tools_config = [types.Tool(google_search=types.GoogleSearch())]
+                            
+                        response = client.models.generate_content(
+                            model=model_to_try,
+                            contents=prompt,
+                            config=types.GenerateContentConfig(
+                                temperature=0.7,
+                                response_mime_type="application/json",
+                                tools=tools_config
+                            )
+                        )
+                        response_text = response.text
+                        break
+                    except Exception as model_err:
+                        last_error = model_err
+                        error_msg = str(model_err)
+                        if any(err_code in error_msg for err_code in ["503", "UNAVAILABLE", "overloaded", "404", "NOT_FOUND", "429", "RESOURCE_EXHAUSTED", "quota"]):
+                            logger.warning(f"Update model {model_to_try} failed ({error_msg[:30]}), trying next...")
+                            continue
+                        else:
+                            raise model_err
+                
+                if response_text is None:
+                    raise last_error or Exception("All AI models are currently unavailable.")
 
             try:
-                ai_data = json.loads(response.text)
+                ai_data = json.loads(response_text)
             except json.JSONDecodeError:
-                match = re.search(r'```(?:json)?\n(.*?)\n```', response.text, re.DOTALL)
+                match = re.search(r'```(?:json)?\n(.*?)\n```', response_text, re.DOTALL)
                 if match:
                     ai_data = json.loads(match.group(1))
                 else:
