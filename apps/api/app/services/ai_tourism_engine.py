@@ -101,6 +101,31 @@ class AITourismEngine:
                 is_active=True
             )
             db.add(cambodia)
+            
+    def _get_dynamic_fallback_models(self, client) -> list[str]:
+        """Dynamically fetch available models and prioritize newer versions."""
+        preferred = [
+            settings.AI_MODEL_NAME or 'gemini-3.8-flash',
+            'gemini-3.8-flash',
+            'gemini-3.5-flash',
+            'gemini-3.1-pro-preview',
+            'gemini-3.0-pro',
+            'gemini-3.0-flash',
+            'gemini-2.5-flash'
+        ]
+        try:
+            available = [m.name.replace('models/', '') for m in client.models.list()]
+            dynamic_list = [m for m in preferred if m in available]
+            
+            # If for some reason preferred models aren't there, append other available gemini models
+            if not dynamic_list:
+                dynamic_list = [m for m in available if 'gemini' in m]
+                
+            # Remove duplicates while preserving order
+            return list(dict.fromkeys(dynamic_list)) if dynamic_list else preferred
+        except Exception as e:
+            logger.warning(f"Could not fetch dynamic models: {e}")
+            return preferred
             db.commit()
             db.refresh(cambodia)
             logger.info("Created Cambodia country record.")
@@ -176,13 +201,8 @@ Return a JSON array of objects. Each object must have these keys:
 - rating: Estimated rating 1.0-5.0
 """
 
-            # Fallback model chain — if one is overloaded (503), try the next
-            fallback_models = [
-                settings.AI_MODEL_NAME or 'gemini-3.8-flash',
-                'gemini-3.5-flash',
-                'gemini-2.5-flash',
-                'gemini-2.5-pro',
-            ]
+            # Fallback model chain — dynamically checked against API to avoid 404s
+            fallback_models = self._get_dynamic_fallback_models(client)
 
             response = None
             last_error = None
@@ -365,12 +385,7 @@ Return a JSON object with these keys ONLY:
 - hero_image_url: string, first working high-quality image URL from your web search
 - gallery_urls: array of strings, up to 5 working high-quality image URLs from your web search
 """
-            fallback_models = [
-                settings.AI_MODEL_NAME or 'gemini-3.8-flash',
-                'gemini-3.5-flash',
-                'gemini-2.5-flash',
-                'gemini-2.5-pro',
-            ]
+            fallback_models = self._get_dynamic_fallback_models(client)
 
             response = None
             last_error = None
