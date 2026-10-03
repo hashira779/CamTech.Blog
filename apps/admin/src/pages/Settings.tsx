@@ -48,6 +48,13 @@ export default function Settings() {
     fetchSettings();
   }, []);
 
+  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  const showToast = (type: 'success' | 'error', text: string) => {
+    setToastMessage({ type, text });
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -58,10 +65,10 @@ export default function Settings() {
         { key: 'TELEGRAM_CHANNEL_ID', value_json: telegramChannel, description: 'Telegram Channel ID (e.g., @camtechblog)' },
       ];
       await api.put('/admin/settings', updates);
-      alert('Settings saved successfully!');
+      showToast('success', 'Settings saved successfully!');
     } catch (err) {
       console.error('Failed to save settings:', err);
-      alert('Failed to save settings.');
+      showToast('error', 'Failed to save settings.');
     } finally {
       setSaving(false);
     }
@@ -170,6 +177,25 @@ export default function Settings() {
             </div>
           </div>
           
+        </div>
+      )}
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border ${
+          toastMessage.type === 'success' 
+            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
+            : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+        }`}>
+          {toastMessage.type === 'success' ? (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+          <span className="text-sm font-medium">{toastMessage.text}</span>
         </div>
       )}
     </div>
