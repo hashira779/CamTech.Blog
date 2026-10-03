@@ -345,3 +345,34 @@ async def update_tourism_place_via_ai(place_id: str, current_user: User = Depend
     if result["status"] == "failed":
         raise HTTPException(status_code=500, detail=result.get("message", "Update failed"))
     return result
+
+class DestinationUpdateRequest(BaseModel):
+    hero_image_url: Optional[str] = None
+    overview: Optional[str] = None
+    best_time_to_visit: Optional[str] = None
+    is_featured: Optional[bool] = None
+
+@router.patch("/destinations/{slug}")
+def admin_update_destination(
+    slug: str,
+    update: DestinationUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Update destination details (hero image, overview, etc.)"""
+    from app.models.location import Destination
+    dest = db.query(Destination).filter(Destination.slug == slug).first()
+    if not dest:
+        raise HTTPException(status_code=404, detail="Destination not found")
+    if update.hero_image_url is not None:
+        dest.hero_image_url = update.hero_image_url
+    if update.overview is not None:
+        dest.overview = update.overview
+    if update.best_time_to_visit is not None:
+        dest.best_time_to_visit = update.best_time_to_visit
+    if update.is_featured is not None:
+        dest.is_featured = update.is_featured
+    db.commit()
+    db.refresh(dest)
+    return {"success": True, "slug": dest.slug, "hero_image_url": dest.hero_image_url}
+
