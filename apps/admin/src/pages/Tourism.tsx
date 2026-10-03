@@ -51,6 +51,10 @@ export default function Tourism() {
   const [fullScanRunning, setFullScanRunning] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Approval Modal State
+  const [pendingApproval, setPendingApproval] = useState<{ province: string, places: any[] } | null>(null);
+  const [savingPlaceId, setSavingPlaceId] = useState<string | null>(null);
+
   const handleFullScan = async () => {
     if (!confirm('This will scan ALL 25 provinces using Google AI. It may take several minutes. Proceed?')) return;
     setFullScanRunning(true);
@@ -82,27 +86,47 @@ export default function Tourism() {
     setScanning(true);
     setStatusMessage(null);
     try {
-      const res = await api.post<ScanResult & { status?: string, message?: string }>(`/admin/ai/tourism-scan/${slug}`);
+      const res = await api.post<any>(`/admin/ai/tourism-scan/${slug}`);
       
       if (res.data.status === 'failed') {
         setStatusMessage({ type: 'error', text: res.data.message || `Failed to scan ${name}.` });
         return;
       }
 
-      setResults(prev => {
-        const filtered = prev.filter(r => r.province !== name);
-        return [...filtered, res.data];
+      // Instead of adding to results immediately, open approval modal
+      setPendingApproval({
+        province: name,
+        places: res.data.places_data || []
       });
-      setStatusMessage({
-        type: 'success',
-        text: `${name}: ${res.data.inserted} new places discovered!`
-      });
+      
     } catch (err) {
       console.error(err);
       setStatusMessage({ type: 'error', text: `Failed to scan ${name}. Check logs.` });
     } finally {
       setScanning(false);
       setScanningProvince(null);
+    }
+  };
+
+  const handleSavePlace = async (place: any, index: number) => {
+    setSavingPlaceId(index.toString());
+    try {
+      const res = await api.post('/admin/ai/tourism-save', place);
+      if (res.data.status === 'success') {
+        // Mark as duplicate so it shows as saved in the UI
+        setPendingApproval(prev => {
+          if (!prev) return prev;
+          const newPlaces = [...prev.places];
+          newPlaces[index].is_duplicate = true;
+          return { ...prev, places: newPlaces };
+        });
+        setStatusMessage({ type: 'success', text: res.data.message });
+      }
+    } catch (err) {
+      console.error(err);
+      setStatusMessage({ type: 'error', text: `Failed to save ${place.name}` });
+    } finally {
+      setSavingPlaceId(null);
     }
   };
 
@@ -190,6 +214,63 @@ export default function Tourism() {
           );
         })}
       </div>
+      {/* Approval Modal */}
+      {pendingApproval && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-5 border-b border-zinc-800">
+              <div>
+                <h2 className="text-lg font-semibold text-zinc-100">Discovered Places</h2>
+                <p className="text-xs text-zinc-400">Review places for {pendingApproval.province}</p>
+              </div>
+              <button 
+                onClick={() => setPendingApproval(null)}
+                className="text-zinc-400 hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+            
+            <div className="p-5 overflow-y-auto space-y-4">
+              {pendingApproval.places.length === 0 ? (
+                <div className="text-center py-8 text-zinc-500 text-sm">No new places found.</div>
+              ) : (
+                pendingApproval.places.map((place, idx) => (
+                  <div key={idx} className="flex flex-col sm:flex-row gap-4 p-4 border border-zinc-800 rounded-lg bg-zinc-950/50">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-medium text-zinc-200">{place.name}</h3>
+                        {place.local_name && <span className="text-xs text-zinc-500 font-mono">{place.local_name}</span>}
+                      </div>
+                      <p className="text-xs text-zinc-400 mb-2 line-clamp-2">{place.description}</p>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="px-2 py-0.5 bg-zinc-800 rounded text-[10px] text-zinc-300">{place.place_type}</span>
+                        {place.rating && <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded text-[10px]">★ {place.rating}</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center sm:items-start shrink-0">
+                      {place.is_duplicate ? (
+                        <div className="flex items-center gap-1.5 text-xs text-emerald-500 font-medium px-3 py-1.5">
+                          <CheckCircle size={14} /> Saved
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleSavePlace(place, idx)}
+                          disabled={savingPlaceId === idx.toString()}
+                          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-1.5 rounded-md text-xs transition-colors disabled:opacity-50"
+                        >
+                          {savingPlaceId === idx.toString() ? <RefreshCw size={12} className="animate-spin" /> : <Zap size={12} />}
+                          Approve & Save
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

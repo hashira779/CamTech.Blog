@@ -178,62 +178,28 @@ Return a JSON array of objects. Each object must have these keys:
             if not isinstance(places_data, list):
                 places_data = [places_data]
 
-            # Insert places into database
-            inserted = []
-            skipped = []
+            # Check which places already exist and format for UI review
+            processed_places = []
             for p in places_data:
                 name = p.get("name", "").strip()
                 if not name:
                     continue
 
-                # Check for duplicates
                 existing = db.query(Place).filter(
                     Place.destination_id == destination.id,
                     Place.name == name
                 ).first()
-                if existing:
-                    skipped.append(name)
-                    continue
 
-                base_slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
-                slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
+                p["is_duplicate"] = bool(existing)
+                p["destination_id"] = destination.id
+                processed_places.append(p)
 
-                # Check slug uniqueness
-                while db.query(Place).filter(Place.slug == slug).first():
-                    slug = f"{base_slug}-{uuid.uuid4().hex[:6]}"
-
-                new_place = Place(
-                    destination_id=destination.id,
-                    name=name,
-                    local_name=p.get("local_name"),
-                    slug=slug,
-                    place_type=p.get("place_type", "ATTRACTION"),
-                    description=p.get("description", f"A tourist place in {destination.name}."),
-                    description_km=p.get("description_km"),
-                    address=p.get("address"),
-                    latitude=p.get("latitude"),
-                    longitude=p.get("longitude"),
-                    opening_hours=p.get("opening_hours"),
-                    price_level=p.get("price_level", "$$"),
-                    phone=p.get("phone"),
-                    website=p.get("website"),
-                    tags_json=json.dumps(p.get("tags", [])),
-                    rating=p.get("rating", 4.5),
-                    verification_status="AI_GENERATED",
-                    status="ACTIVE",
-                    is_featured=False
-                )
-                db.add(new_place)
-                inserted.append(name)
-
-            db.commit()
-
+            # Return raw data for approval instead of saving
             return {
                 "province": destination.name,
-                "inserted": len(inserted),
-                "skipped": len(skipped),
-                "places": inserted,
-                "skipped_names": skipped
+                "province_slug": destination.slug,
+                "discovered": len(processed_places),
+                "places_data": processed_places
             }
 
         except Exception as e:
@@ -301,5 +267,53 @@ Return a JSON array of objects. Each object must have these keys:
             "errors": errors
         }
 
+
+    async def save_approved_place(self, place_dict: dict) -> dict:
+        db = SessionLocal()
+        try:
+            name = place_dict.get("name", "").strip()
+            dest_id = place_dict.get("destination_id")
+            if not name or not dest_id:
+                raise ValueError("Missing name or destination_id")
+
+            existing = db.query(Place).filter(Place.destination_id == dest_id, Place.name == name).first()
+            if existing:
+                return {"status": "skipped", "message": "Already exists"}
+
+            base_slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
+            slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
+            while db.query(Place).filter(Place.slug == slug).first():
+                slug = f"{base_slug}-{uuid.uuid4().hex[:6]}"
+
+            new_place = Place(
+                id=uuid.uuid4().hex,
+                destination_id=dest_id,
+                name=name,
+                local_name=place_dict.get("local_name"),
+                slug=slug,
+                place_type=place_dict.get("place_type", "ATTRACTION"),
+                description=place_dict.get("description", ""),
+                description_km=place_dict.get("description_km"),
+                address=place_dict.get("address"),
+                latitude=place_dict.get("latitude"),
+                longitude=place_dict.get("longitude"),
+                opening_hours=place_dict.get("opening_hours"),
+                price_level=place_dict.get("price_level", "$$"),
+                phone=place_dict.get("phone"),
+                website=place_dict.get("website"),
+                tags_json=json.dumps(place_dict.get("tags", [])),
+                rating=place_dict.get("rating", 4.5),
+                verification_status="AI_GENERATED",
+                status="ACTIVE",
+                is_featured=False
+            )
+            db.add(new_place)
+            db.commit()
+            return {"status": "success", "message": f"Saved {name}"}
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
 
 ai_tourism_engine = AITourismEngine()

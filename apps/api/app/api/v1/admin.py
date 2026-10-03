@@ -283,3 +283,11 @@ async def run_tourism_province_scan(
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ai/tourism-save")
+async def ai_tourism_save_place(place_data: dict, current_user: User = Depends(require_admin)):
+    try:
+        result = await ai_tourism_engine.save_approved_place(place_data)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
