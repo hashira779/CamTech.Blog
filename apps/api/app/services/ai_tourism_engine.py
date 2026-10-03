@@ -244,9 +244,19 @@ Return a JSON array of objects. Each object must have these keys:
         """
         db = SessionLocal()
         try:
+            # Fast-fail validation: ensure API key exists before scanning 25 provinces
+            self._get_gemini_client(db)
             self._ensure_cambodia_destinations(db)
-        finally:
+        except ValueError as e:
             db.close()
+            return {
+                "status": "failed",
+                "error": str(e),
+                "message": "Please configure the Google Gemini API Key in Settings first."
+            }
+        finally:
+            if db.is_active: # Only close if we didn't already
+                db.close()
 
         results = []
         total_inserted = 0
