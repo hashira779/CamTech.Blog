@@ -20,8 +20,6 @@ export default function Sidebar() {
   const mainNav = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Articles', path: '/articles', icon: FileText, badge: '1,248' },
-    { name: 'Categories', path: '/categories', icon: FolderTree },
-    { name: 'Analytics', path: '/analytics', icon: BarChart3 },
     { name: 'Storage', path: '/storage', icon: HardDrive },
     { name: 'Tourism AI', path: '/tourism', icon: MapPin },
   ];
