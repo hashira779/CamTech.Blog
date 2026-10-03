@@ -21,14 +21,19 @@ jobs:
           
           git reset --hard HEAD
           git pull origin main
-          docker compose down --remove-orphans
           
-          echo "Starting deployment..."
-          if ! docker compose up --build -d; then
+          echo "Building images (site remains up)..."
+          if ! docker compose build; then
+            echo "❌ Build failed! Aborting deployment."
+            git reset --hard $PREV_COMMIT
+            exit 1
+          fi
+          
+          echo "Starting deployment (minimal downtime)..."
+          if ! docker compose up -d --remove-orphans; then
             echo "❌ Deployment failed! Initiating auto-rollback to $PREV_COMMIT..."
             git reset --hard $PREV_COMMIT
-            docker compose down --remove-orphans
-            docker compose up --build -d
+            docker compose up -d --remove-orphans
             echo "✅ Auto-rollback completed. Marking action as failed."
             exit 1
           fi
