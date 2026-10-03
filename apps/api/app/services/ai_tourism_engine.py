@@ -150,14 +150,20 @@ Return a JSON array of objects. Each object must have these keys:
 - rating: Estimated rating 1.0-5.0
 """
 
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.4,
-                    response_mime_type="application/json"
+            from tenacity import retry, stop_after_attempt, wait_exponential
+            
+            @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1.5, min=2, max=10), reraise=True)
+            def _call_gemini_with_retry():
+                return client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=0.4,
+                        response_mime_type="application/json"
+                    )
                 )
-            )
+            
+            response = _call_gemini_with_retry()
 
             # Parse response
             try:
