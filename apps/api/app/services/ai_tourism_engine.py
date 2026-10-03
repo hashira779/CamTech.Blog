@@ -21,9 +21,8 @@ from app.models.audit import SiteSetting
 
 logger = logging.getLogger(__name__)
 
-def _call_you_com(prompt: str) -> str:
-    import os, httpx
-    api_key = os.environ.get("YDC_API_KEY") or os.environ.get("YOU_API_KEY")
+def _call_you_com(prompt: str, api_key: str) -> str:
+    import httpx
     if not api_key:
         return None
     try:
@@ -229,8 +228,10 @@ Return a JSON array of objects. Each object must have these keys:
             # Fallback model chain — dynamically checked against API to avoid 404s
             fallback_models = self._get_dynamic_fallback_models(client)
 
-            # First, check if we have You.com API key
-            you_response_text = _call_you_com(prompt)
+            # Check if we have You.com API key
+            you_api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'YOU_API_KEY').first()
+            you_api_key = you_api_key_setting.value_json if you_api_key_setting else os.environ.get("YOU_API_KEY")
+            you_response_text = _call_you_com(prompt, you_api_key)
             
             response_text = None
             last_error = None
@@ -423,8 +424,10 @@ Return a JSON object with these keys ONLY:
 """
             fallback_models = self._get_dynamic_fallback_models(client)
 
-            # First, check if we have You.com API key
-            you_response_text = _call_you_com(prompt)
+            # Check if we have You.com API key
+            you_api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'YOU_API_KEY').first()
+            you_api_key = you_api_key_setting.value_json if you_api_key_setting else os.environ.get("YOU_API_KEY")
+            you_response_text = _call_you_com(prompt, you_api_key)
             
             response_text = None
             last_error = None

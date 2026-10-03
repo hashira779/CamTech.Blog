@@ -20,6 +20,7 @@ export default function Settings() {
 
   // Form states
   const [geminiKey, setGeminiKey] = useState('');
+  const [youKey, setYouKey] = useState('');
   const [newsApiKey, setNewsApiKey] = useState('');
   const [telegramToken, setTelegramToken] = useState('');
   const [telegramChannel, setTelegramChannel] = useState('');
@@ -33,6 +34,7 @@ export default function Settings() {
       // Parse values
       res.data?.forEach(s => {
         if (s.key === 'GEMINI_API_KEY') setGeminiKey(s.value_json);
+        if (s.key === 'YOU_API_KEY') setYouKey(s.value_json);
         if (s.key === 'NEWS_API_KEY') setNewsApiKey(s.value_json);
         if (s.key === 'TELEGRAM_BOT_TOKEN') setTelegramToken(s.value_json);
         if (s.key === 'TELEGRAM_CHANNEL_ID') setTelegramChannel(s.value_json);
@@ -60,6 +62,7 @@ export default function Settings() {
     try {
       const updates = [
         { key: 'GEMINI_API_KEY', value_json: geminiKey, description: 'Google Gemini API Key for Auto-News' },
+        { key: 'YOU_API_KEY', value_json: youKey, description: 'You.com API Key for AI Search Fallback' },
         { key: 'NEWS_API_KEY', value_json: newsApiKey, description: 'News API Key for fetching external articles' },
         { key: 'TELEGRAM_BOT_TOKEN', value_json: telegramToken, description: 'Telegram Bot Token for Auto-Posting' },
         { key: 'TELEGRAM_CHANNEL_ID', value_json: telegramChannel, description: 'Telegram Channel ID (e.g., @camtechblog)' },
@@ -127,6 +130,18 @@ export default function Settings() {
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-2 px-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
                 />
                 <p className="text-[10px] text-zinc-500 mt-1">Required for the AI Auto-News generation feature.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1.5">You.com API Key (Fallback)</label>
+                <input
+                  type="password"
+                  value={youKey}
+                  onChange={(e) => setYouKey(e.target.value)}
+                  placeholder="Paste your You.com API key here"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-2 px-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
+                />
+                <p className="text-[10px] text-zinc-500 mt-1">Used automatically when Gemini API quota is exceeded.</p>
               </div>
               
               <div>
