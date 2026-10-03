@@ -54,7 +54,7 @@ export default async function TravelHubPage() {
         <div
           className="absolute inset-0 bg-cover bg-center opacity-30 mix-blend-luminosity"
           style={{
-            backgroundImage: `url('${siemReap?.hero_image_url || "https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Angkor_Wat.jpg/960px-Angkor_Wat.jpg"}')`,
+            backgroundImage: `url('${siemReap?.hero_image_url || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80"}')`,
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent" />
@@ -129,14 +129,7 @@ export default async function TravelHubPage() {
               >
                 <div className="relative aspect-[16/10] overflow-hidden bg-neutral-100 dark:bg-neutral-800">
                   <img
-                    src={dest.hero_image_url || 
-                         (dest.slug === 'siem-reap' ? 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Angkor_Wat.jpg/960px-Angkor_Wat.jpg' :
-                          dest.slug === 'phnom-penh' ? 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Phnom_Penh_skyline_from_TK_district_Dec_2024.jpg/960px-Phnom_Penh_skyline_from_TK_district_Dec_2024.jpg' :
-                          dest.slug === 'kampot' ? 'https://upload.wikimedia.org/wikipedia/commons/7/71/Passing_Under_the_Bridge_-_Kampot_River_-_Kampot_-_Cambodia_%2848529032082%29.jpg' :
-                          dest.slug === 'sihanoukville' ? 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Aerial_View_of_Golden_Lions_Roundabout.jpg/960px-Aerial_View_of_Golden_Lions_Roundabout.jpg' :
-                          dest.slug === 'battambang' ? 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Aerial_view_of_Battambang_city.jpg/960px-Aerial_view_of_Battambang_city.jpg' :
-                          dest.slug === 'kep' ? 'https://upload.wikimedia.org/wikipedia/commons/4/42/06-Kep_Beach_Cambodia-nX-22.jpg' :
-                          'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80')}
+                    src={dest.hero_image_url || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80"}
                     alt={dest.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
