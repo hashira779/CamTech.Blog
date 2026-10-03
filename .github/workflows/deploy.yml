@@ -14,11 +14,24 @@ jobs:
       - name: Deploy on Server
         run: |
           cd /home/ubuntu-server/CamTech.Blog
+          
+          # Save previous commit hash for auto-rollback
+          PREV_COMMIT=$(git rev-parse HEAD)
+          echo "Previous commit: $PREV_COMMIT"
+          
           git reset --hard HEAD
           git pull origin main
           docker compose down --remove-orphans
-          docker compose up --build -d
           
+          echo "Starting deployment..."
+          if ! docker compose up --build -d; then
+            echo "❌ Deployment failed! Initiating auto-rollback to $PREV_COMMIT..."
+            git reset --hard $PREV_COMMIT
+            docker compose down --remove-orphans
+            docker compose up --build -d
+            echo "✅ Auto-rollback completed. Marking action as failed."
+            exit 1
+          fi
       - name: Seed Database
         run: |
           cd /home/ubuntu-server/CamTech.Blog
