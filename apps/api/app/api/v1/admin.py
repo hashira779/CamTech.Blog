@@ -291,3 +291,28 @@ async def ai_tourism_save_place(place_data: dict, current_user: User = Depends(r
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+@router.get("/tourism-places/{province_slug}")
+def admin_get_tourism_places(province_slug: str, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    from app.models.place import Place, Destination
+    dest = db.query(Destination).filter(Destination.slug == province_slug).first()
+    if not dest:
+        raise HTTPException(status_code=404, detail="Destination not found")
+    places = db.query(Place).filter(Place.destination_id == dest.id).order_by(Place.name).all()
+    return [{
+        "id": p.id,
+        "name": p.name,
+        "local_name": p.local_name,
+        "place_type": p.place_type,
+        "description": p.description,
+        "rating": p.rating
+    } for p in places]
+
+@router.delete("/tourism-places/{place_id}")
+def admin_delete_tourism_place(place_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    from app.models.place import Place
+    place = db.query(Place).filter(Place.id == place_id).first()
+    if not place:
+        raise HTTPException(status_code=404, detail="Place not found")
+    db.delete(place)
+    db.commit()
+    return {"success": True}

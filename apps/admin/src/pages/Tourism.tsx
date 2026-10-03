@@ -130,6 +130,38 @@ export default function Tourism() {
     }
   };
 
+  // Existing Places Modal State
+  const [viewingProvince, setViewingProvince] = useState<{ slug: string, name: string } | null>(null);
+  const [existingPlaces, setExistingPlaces] = useState<any[]>([]);
+  const [loadingPlaces, setLoadingPlaces] = useState(false);
+
+  const handleViewPlaces = async (slug: string, name: string) => {
+    setViewingProvince({ slug, name });
+    setLoadingPlaces(true);
+    try {
+      const res = await api.get(`/admin/tourism-places/${slug}`);
+      setExistingPlaces(res.data);
+    } catch (err) {
+      console.error(err);
+      setStatusMessage({ type: 'error', text: `Failed to load places for ${name}` });
+      setViewingProvince(null);
+    } finally {
+      setLoadingPlaces(false);
+    }
+  };
+
+  const handleDeletePlace = async (placeId: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete ${name}?`)) return;
+    try {
+      await api.delete(`/admin/tourism-places/${placeId}`);
+      setExistingPlaces(prev => prev.filter(p => p.id !== placeId));
+      setStatusMessage({ type: 'success', text: `Deleted ${name}` });
+    } catch (err) {
+      console.error(err);
+      setStatusMessage({ type: 'error', text: `Failed to delete ${name}` });
+    }
+  };
+
   const getProvinceResult = (name: string) => results.find(r => r.province === name);
 
   return (
@@ -199,21 +231,86 @@ export default function Tourism() {
                 </div>
               )}
 
-              <button
-                onClick={() => handleProvinceScan(prov.slug, prov.name)}
-                disabled={isScanning || fullScanRunning}
-                className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded transition-colors disabled:opacity-40"
+                <div className="flex flex-col gap-1.5 mt-3">
+                  <button
+                    onClick={() => handleViewPlaces(prov.slug, prov.name)}
+                    disabled={fullScanRunning}
+                    className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded transition-colors disabled:opacity-40"
+                  >
+                    View Places
+                  </button>
+                  <button
+                    onClick={() => handleProvinceScan(prov.slug, prov.name)}
+                    disabled={isScanning || fullScanRunning}
+                    className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] text-emerald-300 bg-emerald-900/40 hover:bg-emerald-800/60 rounded transition-colors disabled:opacity-40"
+                  >
+                    {isScanning ? (
+                      <><RefreshCw size={11} className="animate-spin" /> Scanning...</>
+                    ) : (
+                      <><MapPin size={11} /> Scan with AI</>
+                    )}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+      {/* Existing Places Modal */}
+      {viewingProvince && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-5 border-b border-zinc-800">
+              <div>
+                <h2 className="text-lg font-semibold text-zinc-100">Places in {viewingProvince.name}</h2>
+                <p className="text-xs text-zinc-400">Manage existing tourist destinations</p>
+              </div>
+              <button 
+                onClick={() => setViewingProvince(null)}
+                className="text-zinc-400 hover:text-white"
               >
-                {isScanning ? (
-                  <><RefreshCw size={11} className="animate-spin" /> Scanning...</>
-                ) : (
-                  <><MapPin size={11} /> Scan Province</>
-                )}
+                Close
               </button>
             </div>
-          );
-        })}
-      </div>
+            
+            <div className="p-5 overflow-y-auto space-y-4">
+              {loadingPlaces ? (
+                <div className="flex justify-center py-8"><RefreshCw className="animate-spin text-zinc-500" /></div>
+              ) : existingPlaces.length === 0 ? (
+                <div className="text-center py-8 text-zinc-500 text-sm">No places found. Use 'Scan with AI' to discover some!</div>
+              ) : (
+                existingPlaces.map((place, idx) => (
+                  <div key={place.id || idx} className="flex flex-col sm:flex-row gap-4 p-4 border border-zinc-800 rounded-lg bg-zinc-950/50">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-medium text-zinc-200">{place.name}</h3>
+                        {place.local_name && <span className="text-xs text-zinc-500 font-mono">{place.local_name}</span>}
+                      </div>
+                      <p className="text-xs text-zinc-400 mb-2 line-clamp-2">{place.description}</p>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="px-2 py-0.5 bg-zinc-800 rounded text-[10px] text-zinc-300">{place.place_type}</span>
+                        {place.rating && <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded text-[10px]">★ {place.rating}</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                       <button
+                          onClick={() => handleDeletePlace(place.id, place.name)}
+                          className="flex items-center justify-center p-2 text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 rounded-md transition-colors"
+                          title="Delete Place"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Approval Modal */}
       {pendingApproval && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
