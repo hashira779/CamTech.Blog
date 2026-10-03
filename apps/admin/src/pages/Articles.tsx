@@ -1,103 +1,187 @@
 import { useState } from 'react';
-import { Plus, Search, Filter, Edit2, Trash2, Eye } from 'lucide-react';
+import { 
+  Plus, 
+  Search, 
+  Edit3, 
+  Trash2, 
+  ExternalLink, 
+  SlidersHorizontal 
+} from 'lucide-react';
+
+interface ArticleItem {
+  id: string;
+  title: string;
+  category: string;
+  status: 'Published' | 'Draft' | 'In Review';
+  author: string;
+  date: string;
+  views: string;
+  slug: string;
+}
 
 export default function Articles() {
-  const [articles] = useState([
-    { id: 1, title: 'The Future of AI in Cambodia', category: 'Technology', status: 'Published', author: 'Sokha R.', date: 'Oct 03, 2026', views: '12.5K' },
-    { id: 2, title: 'Top 10 Hidden Temples in Siem Reap', category: 'Travel', status: 'Draft', author: 'Mony P.', date: 'Oct 02, 2026', views: '-' },
-    { id: 3, title: 'Economic Growth Projections 2027', category: 'Economy', status: 'Published', author: 'Chea V.', date: 'Oct 01, 2026', views: '8.2K' },
-    { id: 4, title: 'New Culinary Experiences in Phnom Penh', category: 'Lifestyle', status: 'Review', author: 'Sokha R.', date: 'Sep 30, 2026', views: '-' },
-    { id: 5, title: 'Sustainable Farming Initiatives', category: 'Environment', status: 'Published', author: 'Chan M.', date: 'Sep 29, 2026', views: '4.1K' },
+  const [filterTab, setFilterTab] = useState<'All' | 'Published' | 'Draft' | 'In Review'>('All');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const [articles] = useState<ArticleItem[]>([
+    { id: 'ART-984', title: 'The Future of AI Innovation in Cambodia', category: 'Technology', status: 'Published', author: 'Sokha R.', date: 'Oct 03, 2026', views: '14,280', slug: 'future-of-ai-cambodia' },
+    { id: 'ART-983', title: 'Top 10 Hidden Temples in Siem Reap Beyond Angkor', category: 'Travel', status: 'Draft', author: 'Mony P.', date: 'Oct 02, 2026', views: '-', slug: 'top-10-hidden-temples-siem-reap' },
+    { id: 'ART-982', title: 'Economic Growth Projections for ASEAN 2027', category: 'Economy', status: 'Published', author: 'Chea V.', date: 'Oct 01, 2026', views: '8,420', slug: 'economic-growth-asean-2027' },
+    { id: 'ART-981', title: 'New Culinary Experiences Emerging in Phnom Penh', category: 'Lifestyle', status: 'In Review', author: 'Sokha R.', date: 'Sep 30, 2026', views: '-', slug: 'culinary-experiences-phnom-penh' },
+    { id: 'ART-980', title: 'Sustainable Agriculture & Agri-Tech Initiatives', category: 'Environment', status: 'Published', author: 'Chan M.', date: 'Sep 29, 2026', views: '5,120', slug: 'sustainable-agritech-initiatives' },
+    { id: 'ART-979', title: 'National Data Infrastructure Roadmap Completed', category: 'Technology', status: 'Published', author: 'Chea V.', date: 'Sep 28, 2026', views: '9,340', slug: 'national-data-infrastructure-roadmap' },
+    { id: 'ART-978', title: 'Battambang Heritage Preservation Architecture', category: 'Culture', status: 'Published', author: 'Mony P.', date: 'Sep 27, 2026', views: '4,890', slug: 'battambang-heritage-preservation' },
   ]);
 
+  const filtered = articles.filter((art) => {
+    if (filterTab !== 'All' && art.status !== filterTab) return false;
+    if (searchQuery && !art.title.toLowerCase().includes(searchQuery.toLowerCase()) && !art.author.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
+
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6 font-sans">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-zinc-800/80">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Articles Management</h1>
-          <p className="text-slate-500 mt-1 text-sm">Create, edit, and manage your editorial content.</p>
+          <h1 className="text-xl font-semibold text-zinc-100 tracking-tight">Articles Management</h1>
+          <p className="text-xs text-zinc-400 mt-1">Manage editorial queue, publish revisions, and inspect live posts.</p>
         </div>
-        <button className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-xl font-medium transition-colors shadow-sm">
-          <Plus size={18} />
-          New Article
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-md transition-colors">
+            <SlidersHorizontal size={13} className="text-zinc-400" />
+            <span>Columns</span>
+          </button>
+          <button className="flex items-center gap-1.5 bg-zinc-100 hover:bg-white text-zinc-950 font-medium px-3.5 py-1.5 rounded-md text-xs transition-colors shadow-sm">
+            <Plus size={14} />
+            <span>Create Article</span>
+          </button>
+        </div>
       </div>
 
-      {/* Filters and Search */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 justify-between items-center">
-        <div className="relative w-full sm:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search articles by title, author..." 
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-          />
+      {/* Filter Tabs & Search Controls */}
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
+        {/* Status Filter Tabs */}
+        <div className="flex items-center p-0.5 rounded-md bg-zinc-900 border border-zinc-800 text-[11px] font-mono shrink-0 overflow-x-auto">
+          {(['All', 'Published', 'Draft', 'In Review'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setFilterTab(tab)}
+              className={`px-3 py-1.5 rounded transition-colors whitespace-nowrap ${
+                filterTab === tab
+                  ? 'bg-zinc-800 text-zinc-100 font-medium'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <button className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 text-sm font-medium w-full sm:w-auto justify-center">
-            <Filter size={16} />
-            Filters
-          </button>
-          <select className="border border-slate-200 text-slate-700 rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white cursor-pointer w-full sm:w-auto">
-            <option>All Status</option>
-            <option>Published</option>
-            <option>Drafts</option>
-            <option>In Review</option>
+
+        {/* Search Bar & Category Filter */}
+        <div className="flex items-center gap-2.5 flex-1 max-w-md">
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={13} />
+            <input 
+              type="text" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by title, author, slug..." 
+              className="w-full bg-zinc-900/60 border border-zinc-800 rounded-md py-1.5 pl-8 pr-3 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-700 transition-colors"
+            />
+          </div>
+          <select className="bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs rounded-md px-3 py-1.5 focus:outline-none focus:border-zinc-700 cursor-pointer">
+            <option>All Categories</option>
+            <option>Technology</option>
+            <option>Travel</option>
+            <option>Economy</option>
+            <option>Lifestyle</option>
           </select>
         </div>
       </div>
 
-      {/* Data Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      {/* Main Data Table */}
+      <div className="rounded-lg bg-zinc-900/40 border border-zinc-800/80 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider font-semibold">
-                <th className="px-6 py-4">Title</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Category</th>
-                <th className="px-6 py-4">Author</th>
-                <th className="px-6 py-4">Date</th>
-                <th className="px-6 py-4">Views</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+              <tr className="border-b border-zinc-800/80 bg-zinc-950/40 text-zinc-400 font-mono text-[10px] uppercase tracking-wider">
+                <th className="py-3 px-4 w-10">
+                  <input type="checkbox" className="rounded border-zinc-700 bg-zinc-900 text-zinc-100 focus:ring-0" />
+                </th>
+                <th className="py-3 px-4 font-medium">Article Title & Slug</th>
+                <th className="py-3 px-4 font-medium">Category</th>
+                <th className="py-3 px-4 font-medium">Status</th>
+                <th className="py-3 px-4 font-medium">Author</th>
+                <th className="py-3 px-4 font-medium">Date</th>
+                <th className="py-3 px-4 font-medium text-right">Views</th>
+                <th className="py-3 px-4 font-medium text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {articles.map((article) => (
-                <tr key={article.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-bold text-slate-900 line-clamp-1">{article.title}</p>
+            <tbody className="divide-y divide-zinc-800/60 font-sans">
+              {filtered.map((article) => (
+                <tr key={article.id} className="hover:bg-zinc-800/30 transition-colors group">
+                  <td className="py-3 px-4">
+                    <input type="checkbox" className="rounded border-zinc-700 bg-zinc-900 text-zinc-100 focus:ring-0" />
                   </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide
-                      ${article.status === 'Published' ? 'bg-emerald-100 text-emerald-700' : 
-                        article.status === 'Draft' ? 'bg-slate-100 text-slate-600' : 
-                        'bg-amber-100 text-amber-700'}`}>
+                  <td className="py-3 px-4">
+                    <div className="font-medium text-zinc-200 group-hover:text-white transition-colors line-clamp-1 max-w-md">
+                      {article.title}
+                    </div>
+                    <div className="text-[10px] text-zinc-500 font-mono mt-0.5 flex items-center gap-1.5">
+                      <span>{article.id}</span>
+                      <span>·</span>
+                      <span>/{article.slug}</span>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 text-zinc-400 font-mono text-[11px]">
+                    {article.category}
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className={`inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                      article.status === 'Published'
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        : article.status === 'In Review'
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                        : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                    }`}>
+                      <span className={`w-1 h-1 rounded-full ${
+                        article.status === 'Published' ? 'bg-emerald-400' : article.status === 'In Review' ? 'bg-amber-400' : 'bg-zinc-500'
+                      }`} />
                       {article.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{article.category}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
-                        {article.author.charAt(0)}
-                      </div>
-                      <span className="text-sm font-medium text-slate-700">{article.author}</span>
-                    </div>
+                  <td className="py-3 px-4 text-zinc-300">
+                    {article.author}
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-500">{article.date}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-slate-700">{article.views}</td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors" title="View">
-                        <Eye size={16} />
+                  <td className="py-3 px-4 text-zinc-500 font-mono text-[11px]">
+                    {article.date}
+                  </td>
+                  <td className="py-3 px-4 text-right font-mono text-zinc-300">
+                    {article.views}
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <a
+                        href={`https://blog.camtech.cam/world/news/${article.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
+                        title="View live post"
+                      >
+                        <ExternalLink size={13} />
+                      </a>
+                      <button 
+                        className="p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
+                        title="Edit article"
+                      >
+                        <Edit3 size={13} />
                       </button>
-                      <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                        <Edit2 size={16} />
-                      </button>
-                      <button className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Delete">
-                        <Trash2 size={16} />
+                      <button 
+                        className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors"
+                        title="Delete article"
+                      >
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   </td>
@@ -106,12 +190,17 @@ export default function Articles() {
             </tbody>
           </table>
         </div>
-        {/* Pagination */}
-        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
-          <p className="text-sm text-slate-500">Showing <span className="font-medium text-slate-900">1</span> to <span className="font-medium text-slate-900">5</span> of <span className="font-medium text-slate-900">124</span> results</p>
-          <div className="flex gap-2">
-            <button className="px-3 py-1 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50">Previous</button>
-            <button className="px-3 py-1 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50">Next</button>
+
+        {/* Pagination Footer */}
+        <div className="p-3 px-5 border-t border-zinc-800/80 bg-zinc-950/40 flex items-center justify-between text-xs text-zinc-400 font-mono">
+          <span>Showing 1-{filtered.length} of 1,248 items</span>
+          <div className="flex items-center gap-1.5">
+            <button className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 disabled:opacity-50">
+              Previous
+            </button>
+            <button className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-200">
+              Next
+            </button>
           </div>
         </div>
       </div>

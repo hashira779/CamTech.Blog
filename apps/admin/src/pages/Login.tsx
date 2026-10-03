@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, ArrowRight } from 'lucide-react';
+import { Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -11,101 +11,104 @@ export default function Login() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate login
     setTimeout(() => {
       setLoading(false);
       navigate('/dashboard');
-    }, 1000);
+    }, 600);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+    <div className="min-h-screen bg-zinc-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans antialiased text-zinc-100">
+      <div className="sm:mx-auto sm:w-full sm:max-w-sm">
+        {/* Brand Mark */}
         <div className="flex justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-teal-500 shadow-lg shadow-teal-500/30 flex items-center justify-center">
-            <span className="text-3xl font-black text-white">C</span>
+          <div className="w-10 h-10 rounded-lg bg-zinc-100 text-zinc-950 font-bold flex items-center justify-center text-sm shadow-sm">
+            CT
           </div>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900">
-          Welcome back
+        <h2 className="mt-5 text-center text-lg font-semibold tracking-tight text-zinc-100">
+          Sign in to CamTech Editorial
         </h2>
-        <p className="mt-2 text-center text-sm text-slate-600">
-          Sign in to access the CamTech Editorial CMS
+        <p className="mt-1 text-center text-xs text-zinc-400">
+          Enter credentials to manage content and infrastructure
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-10 px-8 shadow-xl shadow-slate-200/50 sm:rounded-3xl border border-slate-100">
-          <form className="space-y-6" onSubmit={handleLogin}>
+      <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-sm px-4 sm:px-0">
+        <div className="bg-zinc-900/50 p-6 sm:p-7 rounded-lg border border-zinc-800/80 shadow-2xl backdrop-blur-sm">
+          <form className="space-y-4" onSubmit={handleLogin}>
             <div>
-              <label className="block text-sm font-medium text-slate-700">
+              <label className="block text-xs font-medium text-zinc-300">
                 Email address
               </label>
-              <div className="mt-2 relative rounded-xl shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-slate-400" />
-                </div>
+              <div className="mt-1.5 relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={14} />
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-11 pr-3 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-slate-50 text-slate-900 placeholder-slate-400 sm:text-sm transition-all"
-                  placeholder="admin@camtech.cam"
+                  className="block w-full pl-9 pr-3 py-2 bg-zinc-950/80 border border-zinc-800 rounded-md text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 transition-colors"
+                  placeholder="editor@camtech.cam"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Password
-              </label>
-              <div className="mt-2 relative rounded-xl shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-slate-400" />
-                </div>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-medium text-zinc-300">
+                  Password
+                </label>
+                <a href="#" className="text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors">
+                  Forgot?
+                </a>
+              </div>
+              <div className="mt-1.5 relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={14} />
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-11 pr-3 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-slate-50 text-slate-900 placeholder-slate-400 sm:text-sm transition-all"
-                  placeholder="••••••••"
+                  className="block w-full pl-9 pr-3 py-2 bg-zinc-950/80 border border-zinc-800 rounded-md text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 transition-colors"
+                  placeholder="••••••••••••"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-slate-300 rounded"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-600">
-                  Remember me
-                </label>
-              </div>
-
-              <div className="text-sm">
-                <a href="#" className="font-semibold text-teal-600 hover:text-teal-500">
-                  Forgot password?
-                </a>
-              </div>
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                defaultChecked
+                className="h-3.5 w-3.5 rounded border-zinc-700 bg-zinc-900 text-zinc-100 focus:ring-0 cursor-pointer"
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-xs text-zinc-400 cursor-pointer">
+                Remember this workstation for 30 days
+              </label>
             </div>
 
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors disabled:opacity-70"
-              >
-                {loading ? 'Authenticating...' : 'Sign In'}
-                {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-zinc-100 hover:bg-white text-zinc-950 font-medium text-xs rounded-md transition-colors shadow-sm disabled:opacity-50 mt-2"
+            >
+              {loading ? (
+                <span className="inline-block w-4 h-4 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin"></span>
+              ) : (
+                <>
+                  <span>Sign in</span>
+                  <ArrowRight size={13} />
+                </>
+              )}
+            </button>
           </form>
+        </div>
+
+        <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-zinc-500">
+          <ShieldCheck size={12} className="text-emerald-500" />
+          <span>Secured by Cloudflare Zero Trust & Access</span>
         </div>
       </div>
     </div>
