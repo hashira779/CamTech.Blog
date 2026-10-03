@@ -26,7 +26,9 @@ class GoogleDriveService:
                     scopes=['https://www.googleapis.com/auth/drive']
                 )
         except ImportError:
-            pass
+            print("Warning: google-auth library not installed. Google Drive upload won't work.")
+        except Exception as e:
+            print(f"Warning: Failed to load Google Drive credentials from {self.credentials_path}: {e}")
 
     async def _get_valid_token(self, force_refresh: bool = False) -> str:
         if not self.credentials:
