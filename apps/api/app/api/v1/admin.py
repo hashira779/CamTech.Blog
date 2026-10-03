@@ -335,3 +335,10 @@ def admin_delete_tourism_place(place_id: str, db: Session = Depends(get_db), cur
     db.delete(place)
     db.commit()
     return {"success": True}
+
+@router.post("/tourism-places/{place_id}/update-via-ai")
+async def update_tourism_place_via_ai(place_id: str, current_user: User = Depends(require_admin)):
+    result = await ai_tourism_engine.update_place_via_ai(place_id)
+    if result["status"] == "failed":
+        raise HTTPException(status_code=500, detail=result.get("message", "Update failed"))
+    return result

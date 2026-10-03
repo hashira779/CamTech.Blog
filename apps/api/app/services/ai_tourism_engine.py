@@ -322,6 +322,118 @@ Return a JSON array of objects. Each object must have these keys:
             "errors": errors
         }
 
+    async def update_place_via_ai(self, place_id: str) -> dict:
+        """Update an existing place using AI and Wikipedia."""
+        db = SessionLocal()
+        try:
+            place = db.query(Place).filter(Place.id == place_id).first()
+            if not place:
+                return {"status": "failed", "message": "Place not found."}
+                
+            destination = db.query(Destination).filter(Destination.id == place.destination_id).first()
+            if not destination:
+                return {"status": "failed", "message": "Destination not found."}
+
+            client = self._get_gemini_client(db)
+            
+            prompt = f"""You are an expert Cambodia travel researcher.
+I have a place in my database named "{place.name}" located in {destination.name} Province, Cambodia.
+The current data might be fake, placeholder, or incomplete. 
+Please research the REAL "{place.name}" and provide accurate information.
+
+Return a JSON object with these keys ONLY:
+- name: English name
+- local_name: Khmer name (or null)  
+- place_type: One of ATTRACTION, TEMPLE, RESTAURANT, CAFE, MARKET, MUSEUM, WATERFALL, HOTEL, RESORT, ACTIVITY, HIDDEN_GEM
+- description: 2-3 sentence accurate description in English
+- description_km: Description in Khmer (or null)
+- address: Street address or location description
+- latitude: GPS latitude (float or null)
+- longitude: GPS longitude (float or null)
+- opening_hours: e.g. "07:00 AM - 05:00 PM daily" (or null)
+- price_level: One of FREE, $, $$, $$$, $$$$
+- phone: Phone number (or null)
+- website: Website URL (or null)
+- tags: Array of string tags, e.g. ["UNESCO", "Family Friendly", "Photography"]
+- rating: Estimated rating 1.0-5.0
+"""
+            fallback_models = [
+                settings.AI_MODEL_NAME or 'gemini-3.8-flash',
+                'gemini-3.5-flash',
+                'gemini-2.5-flash',
+                'gemini-2.5-pro',
+            ]
+
+            response = None
+            last_error = None
+            for model_to_try in fallback_models:
+                try:
+                    response = client.models.generate_content(
+                        model=model_to_try,
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            temperature=0.2,
+                            response_mime_type="application/json"
+                        )
+                    )
+                    break
+                except Exception as model_err:
+                    last_error = model_err
+                    error_msg = str(model_err)
+                    if "503" in error_msg or "UNAVAILABLE" in error_msg or "overloaded" in error_msg.lower() or "404" in error_msg:
+                        continue
+                    else:
+                        raise model_err
+            
+            if response is None:
+                raise last_error or Exception("All AI models are currently unavailable.")
+
+            try:
+                ai_data = json.loads(response.text)
+            except json.JSONDecodeError:
+                match = re.search(r'```(?:json)?\n(.*?)\n```', response.text, re.DOTALL)
+                if match:
+                    ai_data = json.loads(match.group(1))
+                else:
+                    raise ValueError(f"Failed to parse AI response.")
+
+            # Update place object
+            place.name = ai_data.get("name", place.name)
+            place.local_name = ai_data.get("local_name") or place.local_name
+            place.place_type = ai_data.get("place_type") or place.place_type
+            place.description = ai_data.get("description") or place.description
+            place.description_km = ai_data.get("description_km") or place.description_km
+            place.address = ai_data.get("address") or place.address
+            place.latitude = ai_data.get("latitude") or place.latitude
+            place.longitude = ai_data.get("longitude") or place.longitude
+            place.phone = ai_data.get("phone") or place.phone
+            place.website = ai_data.get("website") or place.website
+            place.opening_hours = ai_data.get("opening_hours") or place.opening_hours
+            place.price_level = ai_data.get("price_level") or place.price_level
+            place.rating = ai_data.get("rating") or place.rating
+            
+            if ai_data.get("tags") and isinstance(ai_data["tags"], list):
+                place.tags_json = json.dumps(ai_data["tags"])
+
+            place.verification_status = "AI_UPDATED"
+            
+            db.commit()
+
+            # Now fetch image asynchronously
+            img_url = await fetch_wiki_image(place.name, destination.name)
+            if img_url:
+                place.hero_image_url = img_url
+                db.commit()
+
+            return {"status": "success", "message": f"Updated {place.name} successfully."}
+
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Failed to update place via AI: {e}")
+            return {"status": "failed", "message": str(e)}
+        finally:
+            db.close()
+
 
     async def save_approved_place(self, place_dict: dict) -> dict:
         db = SessionLocal()

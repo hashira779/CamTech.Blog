@@ -288,6 +288,27 @@ export default function ProvinceDetails() {
                   {/* Actions */}
                   <div className="flex items-start gap-2 shrink-0">
                     <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!confirm(`Update "${place.name}" using AI?`)) return;
+                        setStatusMessage(null);
+                        try {
+                          const btn = e.currentTarget;
+                          btn.disabled = true;
+                          btn.innerHTML = `<span class="animate-spin">↻</span>`;
+                          await api.post(`/admin/tourism-places/${place.id}/update-via-ai`);
+                          setStatusMessage({ type: 'success', text: `Successfully updated ${place.name}` });
+                          fetchPlaces(); // reload all
+                        } catch (err: any) {
+                          setStatusMessage({ type: 'error', text: err.response?.data?.detail || `Failed to update ${place.name}` });
+                        }
+                      }}
+                      className="p-2 text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 rounded-md transition-colors"
+                      title="Update via AI"
+                    >
+                      <Zap size={14} />
+                    </button>
+                    <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(place.id, place.name); }}
                       className="p-2 text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 rounded-md transition-colors"
                       title="Delete"
