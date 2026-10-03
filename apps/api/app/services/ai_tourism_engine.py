@@ -101,6 +101,9 @@ class AITourismEngine:
                 is_active=True
             )
             db.add(cambodia)
+            db.commit()
+            db.refresh(cambodia)
+            logger.info("Created Cambodia country record.")
             
     def _get_dynamic_fallback_models(self, client) -> list[str]:
         """Dynamically fetch available models and prioritize newer versions."""
@@ -110,25 +113,24 @@ class AITourismEngine:
             'gemini-3.5-flash',
             'gemini-3.1-pro-preview',
             'gemini-3.0-pro',
-            'gemini-3.0-flash',
-            'gemini-2.5-flash'
+            'gemini-3.0-flash'
         ]
         try:
             available = [m.name.replace('models/', '') for m in client.models.list()]
             dynamic_list = [m for m in preferred if m in available]
             
+            # Filter out any deprecated '2.5' models in case the API still lists them
+            dynamic_list = [m for m in dynamic_list if '2.5' not in m]
+            
             # If for some reason preferred models aren't there, append other available gemini models
             if not dynamic_list:
-                dynamic_list = [m for m in available if 'gemini' in m]
+                dynamic_list = [m for m in available if 'gemini' in m and '2.5' not in m]
                 
             # Remove duplicates while preserving order
             return list(dict.fromkeys(dynamic_list)) if dynamic_list else preferred
         except Exception as e:
             logger.warning(f"Could not fetch dynamic models: {e}")
             return preferred
-            db.commit()
-            db.refresh(cambodia)
-            logger.info("Created Cambodia country record.")
 
         # Ensure all 25 destinations exist
         created_count = 0
