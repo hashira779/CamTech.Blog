@@ -19,6 +19,8 @@ interface StorageProvider {
   status: string;
   is_default: boolean;
   created_at: string;
+  configuration?: any;
+  credentials?: any;
 }
 
 interface StoragePolicy {
@@ -36,6 +38,7 @@ export default function Storage() {
 
   // View States
   const [view, setView] = useState<'list' | 'create_provider'>('list');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // New Provider State
   const [providerType, setProviderType] = useState<'R2' | 'GDRIVE' | 'S3'>('GDRIVE');
@@ -52,6 +55,54 @@ export default function Storage() {
   // New Policy Modal State
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [newPolicy, setNewPolicy] = useState({ entity_type: 'ARTICLE', provider_id: '' });
+
+  const resetForm = () => {
+    setProviderName('');
+    setIsDefault(false);
+    setEditingId(null);
+    setS3Config({ accountId: '', bucket: '', domain: '', accessKey: '', secretKey: '', region: '', endpoint: '' });
+    setGdriveConfig({ clientId: '', clientSecret: '', accessToken: '', refreshToken: '', folderId: '' });
+  };
+
+  const handleEditProvider = (p: StorageProvider) => {
+    setEditingId(p.id);
+    setProviderName(p.name);
+    setIsDefault(p.is_default);
+    
+    if (p.provider_type === 'GOOGLE_DRIVE') {
+      setProviderType('GDRIVE');
+      setGdriveConfig({
+        clientId: p.credentials?.client_id || '',
+        clientSecret: p.credentials?.client_secret || '',
+        accessToken: p.credentials?.access_token || '',
+        refreshToken: p.credentials?.refresh_token || '',
+        folderId: p.configuration?.folder_id || ''
+      });
+    } else if (p.provider_type === 'CLOUDFLARE_R2') {
+      setProviderType('R2');
+      setS3Config({
+        accountId: p.configuration?.account_id || '',
+        bucket: p.configuration?.bucket_name || '',
+        domain: p.configuration?.public_domain || '',
+        accessKey: p.credentials?.access_key_id || '',
+        secretKey: p.credentials?.secret_access_key || '',
+        region: '',
+        endpoint: ''
+      });
+    } else if (p.provider_type === 'AWS_S3') {
+      setProviderType('S3');
+      setS3Config({
+        accountId: '',
+        bucket: p.configuration?.bucket_name || '',
+        domain: p.configuration?.public_domain || '',
+        accessKey: p.credentials?.access_key_id || '',
+        secretKey: p.credentials?.secret_access_key || '',
+        region: p.configuration?.region || '',
+        endpoint: p.configuration?.endpoint || ''
+      });
+    }
+    setView('create_provider');
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -117,14 +168,21 @@ export default function Storage() {
         };
       }
 
-      await api.post('/admin/storage-config/providers', {
+      const payload = {
         name: providerName,
         provider_type: mappedType,
         configuration,
         credentials,
         is_default: isDefault || providers.length === 0
-      });
+      };
+
+      if (editingId) {
+        await api.put(`/admin/storage-config/providers/${editingId}`, payload);
+      } else {
+        await api.post('/admin/storage-config/providers', payload);
+      }
       
+      resetForm();
       setView('list');
       fetchData();
     } catch (e: any) {
@@ -353,7 +411,7 @@ export default function Storage() {
               disabled={savingProvider}
               className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white px-6 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm"
             >
-              <Save size={16} /> {savingProvider ? 'Connecting...' : 'Connect Provider'}
+              <Save size={16} /> {savingProvider ? 'Saving...' : (editingId ? 'Save Changes' : 'Connect Provider')}
             </button>
           </div>
         </div>
@@ -409,7 +467,10 @@ export default function Storage() {
                     {new Date(p.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button onClick={() => handleDeleteProvider(p.id)} className="text-zinc-500 hover:text-rose-400 transition-colors p-1.5 hover:bg-rose-500/10 rounded">
+                    <button onClick={() => handleEditProvider(p)} className="text-zinc-500 hover:text-orange-400 transition-colors p-1.5 hover:bg-orange-500/10 rounded mr-2" title="Edit Provider">
+                      <FolderOpen size={16} />
+                    </button>
+                    <button onClick={() => handleDeleteProvider(p.id)} className="text-zinc-500 hover:text-rose-400 transition-colors p-1.5 hover:bg-rose-500/10 rounded" title="Delete Provider">
                       <Trash2 size={16} />
                     </button>
                   </td>

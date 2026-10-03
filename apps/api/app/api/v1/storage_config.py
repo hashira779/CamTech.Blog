@@ -43,6 +43,25 @@ def create_provider(req: ProviderCreateRequest, db: Session = Depends(get_db), c
     db.refresh(provider)
     return provider
 
+@router.put("/providers/{provider_id}")
+def update_provider(provider_id: str, req: ProviderCreateRequest, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    provider = db.query(StorageProvider).filter(StorageProvider.id == provider_id).first()
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+        
+    provider.name = req.name
+    provider.provider_type = req.provider_type
+    provider.is_default = req.is_default
+    provider.configuration = req.configuration
+    provider.credentials = req.credentials
+    
+    if req.is_default:
+        db.query(StorageProvider).filter(StorageProvider.id != provider_id).update({StorageProvider.is_default: False})
+        
+    db.commit()
+    db.refresh(provider)
+    return provider
+
 @router.delete("/providers/{provider_id}")
 def delete_provider(provider_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     provider = db.query(StorageProvider).filter(StorageProvider.id == provider_id).first()
