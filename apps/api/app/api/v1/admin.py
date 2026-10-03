@@ -182,3 +182,20 @@ async def view_storage_image(
         )
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Image not found: {str(e)}")
+
+from app.services.ai_news_service import ai_news_service
+
+@router.post("/ai/generate-news")
+async def generate_ai_news(
+    current_user: User = Depends(require_admin)
+):
+    try:
+        # Fetch technology category id
+        # In a real app we might pass this, for now we can use a known category id or fetch it
+        result = await ai_news_service.generate_and_publish_news(
+            category_id='ca82761b-c4b3-43a0-82fd-75188f694e2e', 
+            author_id=current_user.id
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

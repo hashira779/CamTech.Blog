@@ -18,6 +18,7 @@ export default function Articles() {
   const [filterTab, setFilterTab] = useState<'All' | 'PUBLISHED' | 'DRAFT'>('All');
   const [countryFilter, setCountryFilter] = useState<'ALL' | 'KH' | 'WORLD'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
   
   // Create Article Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -51,6 +52,21 @@ export default function Articles() {
   useEffect(() => {
     fetchArticles();
   }, [countryFilter]);
+
+  const handleAIGenerate = async () => {
+    if (!confirm('Are you sure you want Google AI to generate and publish a new World tech news article right now?')) return;
+    setAiGenerating(true);
+    try {
+      await api.post('/admin/ai/generate-news');
+      fetchArticles();
+      alert('AI successfully generated and published a new article!');
+    } catch (err) {
+      console.error('AI Generation Failed:', err);
+      alert('Failed to generate news. Check server logs.');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
 
   const handleCreateArticle = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,6 +144,14 @@ export default function Articles() {
           >
             <RefreshCw size={13} className={loading ? 'animate-spin text-zinc-400' : 'text-zinc-400'} />
             <span>Refresh</span>
+          </button>
+          <button 
+            onClick={handleAIGenerate}
+            disabled={aiGenerating}
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-3.5 py-1.5 rounded-md text-xs transition-colors shadow-sm disabled:opacity-50"
+          >
+            {aiGenerating ? <RefreshCw size={14} className="animate-spin" /> : <Plus size={14} />}
+            <span>AI Auto-News</span>
           </button>
           <button 
             onClick={() => setIsModalOpen(true)}
