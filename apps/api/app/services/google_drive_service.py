@@ -7,34 +7,57 @@ from typing import Optional, Dict, Any, Tuple
 from fastapi import HTTPException
 from app.common.config import settings
 
+from app.common.database import SessionLocal
+from app.models.storage import StorageProvider
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
+
 class GoogleDriveService:
     def __init__(self):
-        # We assume credentials path is in env var GOOGLE_APPLICATION_CREDENTIALS
-        self.credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "service_account.json")
-        self.folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "")
         self.credentials = None
-        self.token = None
+        self.folder_id = None
         
-        self._load_credentials()
-
-    def _load_credentials(self):
+    def _load_credentials_from_db(self):
+        db = SessionLocal()
         try:
-            from google.oauth2 import service_account
-            if os.path.exists(self.credentials_path):
-                self.credentials = service_account.Credentials.from_service_account_file(
-                    self.credentials_path,
-                    scopes=['https://www.googleapis.com/auth/drive']
-                )
-        except ImportError:
-            print("Warning: google-auth library not installed. Google Drive upload won't work.")
+            provider = db.query(StorageProvider).filter(StorageProvider.provider_type == "GOOGLE_DRIVE").first()
+            if not provider:
+                return False
+                
+            creds = provider.credentials or {}
+            config = provider.configuration or {}
+            
+            client_id = creds.get("client_id")
+            client_secret = creds.get("client_secret")
+            refresh_token = creds.get("refresh_token")
+            access_token = creds.get("access_token")
+            self.folder_id = config.get("folder_id")
+            
+            if not client_id or not client_secret or not refresh_token:
+                return False
+                
+            self.credentials = Credentials(
+                token=access_token,
+                refresh_token=refresh_token,
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=client_id,
+                client_secret=client_secret,
+                scopes=["https://www.googleapis.com/auth/drive"]
+            )
+            return True
         except Exception as e:
-            print(f"Warning: Failed to load Google Drive credentials from {self.credentials_path}: {e}")
+            print(f"Warning: Failed to load Google Drive credentials from DB: {e}")
+            return False
+        finally:
+            db.close()
 
     async def _get_valid_token(self, force_refresh: bool = False) -> str:
+        if not self.credentials or force_refresh:
+            self._load_credentials_from_db()
+            
         if not self.credentials:
-            raise HTTPException(status_code=500, detail="Google Drive credentials not configured")
+            raise HTTPException(status_code=500, detail="Google Drive credentials not configured in database")
         
-        from google.auth.transport.requests import Request
         if not self.credentials.valid or force_refresh:
             request = Request()
             await asyncio.to_thread(self.credentials.refresh, request)
@@ -95,6 +118,7 @@ class GoogleDriveService:
 
     async def upload_file(self, file_name: str, file_content: bytes, mime_type: str, folder_path: Optional[str] = None) -> Dict[str, Any]:
         """Uploads a file directly to Google Drive, optionally inside a specific folder path."""
+        self._load_credentials_from_db()
         metadata = {
             "name": f"{uuid.uuid4().hex[:8]}_{file_name}",
             "mimeType": mime_type
@@ -181,6 +205,7 @@ class GoogleDriveService:
 
     async def list_files(self) -> list:
         """List files from the configured Google Drive folder."""
+        self._load_credentials_from_db()
         query = "trashed=false"
         if self.folder_id:
             query += f" and '{self.folder_id}' in parents"
