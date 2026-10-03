@@ -77,7 +77,7 @@ export default async function PlaceDetailPage({ params }: PageProps) {
         <div
           className="absolute inset-0 bg-cover bg-center opacity-30 filter blur-[2px] scale-105"
           style={{
-            backgroundImage: `url('${place.hero_image_url || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80"}')`,
+            backgroundImage: `url('${place.hero_image_url || "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=1600&q=80"}')`,
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/70 to-transparent" />
@@ -160,7 +160,7 @@ export default async function PlaceDetailPage({ params }: PageProps) {
             {/* Hero Image */}
             <div className="rounded-3xl overflow-hidden shadow-sm border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900 aspect-[16/10]">
               <img
-                src={place.hero_image_url || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80"}
+                src={place.hero_image_url || "https://images.unsplash.com/photo-1544644181-1484b3fdfc62?auto=format&fit=crop&w=1200&q=80"}
                 alt={place.name}
                 className="w-full h-full object-cover"
               />
@@ -380,7 +380,7 @@ export default async function PlaceDetailPage({ params }: PageProps) {
                     >
                       <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 shrink-0">
                         <img
-                          src={rel.hero_image_url || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=200&q=80"}
+                          src={rel.hero_image_url || "https://images.unsplash.com/photo-1544644181-1484b3fdfc62?auto=format&fit=crop&w=200&q=80"}
                           alt={rel.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                         />
