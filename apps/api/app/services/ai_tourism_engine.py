@@ -115,7 +115,7 @@ class AITourismEngine:
             existing_count = db.query(Place).filter(Place.destination_id == destination.id).count()
             existing_names = [p.name for p in db.query(Place.name).filter(Place.destination_id == destination.id).all()]
 
-            model_name = settings.AI_MODEL_NAME or 'gemini-2.0-flash'
+            model_name = settings.AI_MODEL_NAME or 'gemini-3.8-flash'
 
             prompt = f"""You are an expert Cambodia travel researcher and database builder.
 
@@ -236,7 +236,7 @@ Return a JSON array of objects. Each object must have these keys:
             
             # If it's an API Error from google-genai, return a friendly message
             error_str = str(e)
-            user_message = f"Failed to scan {province_slug}. Check if API Key is valid."
+            user_message = f"Error: {error_str}"
             if "API key not valid" in error_str or "API_KEY_INVALID" in error_str:
                 user_message = "Your Google Gemini API Key is invalid. Please check Settings."
             elif "Failed to parse" in error_str:
