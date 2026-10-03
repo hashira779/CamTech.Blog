@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { 
-  Settings as SettingsIcon,
   Save,
   Key,
   Bot,
@@ -15,7 +14,7 @@ interface SystemSetting {
 }
 
 export default function Settings() {
-  const [settings, setSettings] = useState<SystemSetting[]>([]);
+  const [, setSettings] = useState<SystemSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 

@@ -9,6 +9,7 @@ import {
   BarChart3, 
   ExternalLink,
   ShieldCheck,
+  Layers,
   HardDrive
 } from 'lucide-react';
 
