@@ -233,7 +233,20 @@ Return a JSON array of objects. Each object must have these keys:
         except Exception as e:
             db.rollback()
             logger.error(f"AI Tourism Engine error for {province_slug}: {e}")
-            raise e
+            
+            # If it's an API Error from google-genai, return a friendly message
+            error_str = str(e)
+            user_message = f"Failed to scan {province_slug}. Check if API Key is valid."
+            if "API key not valid" in error_str or "API_KEY_INVALID" in error_str:
+                user_message = "Your Google Gemini API Key is invalid. Please check Settings."
+            elif "Failed to parse" in error_str:
+                user_message = "AI returned an invalid format. Please try again."
+            
+            return {
+                "status": "failed",
+                "error": error_str,
+                "message": user_message
+            }
         finally:
             db.close()
 

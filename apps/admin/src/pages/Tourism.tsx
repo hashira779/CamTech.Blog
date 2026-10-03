@@ -82,7 +82,13 @@ export default function Tourism() {
     setScanning(true);
     setStatusMessage(null);
     try {
-      const res = await api.post<ScanResult>(`/admin/ai/tourism-scan/${slug}`);
+      const res = await api.post<ScanResult & { status?: string, message?: string }>(`/admin/ai/tourism-scan/${slug}`);
+      
+      if (res.data.status === 'failed') {
+        setStatusMessage({ type: 'error', text: res.data.message || `Failed to scan ${name}.` });
+        return;
+      }
+
       setResults(prev => {
         const filtered = prev.filter(r => r.province !== name);
         return [...filtered, res.data];
