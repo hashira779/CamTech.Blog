@@ -73,6 +73,11 @@ export default function ProvinceDetails() {
   const [isScanning, setIsScanning] = useState(false);
   const [pendingApproval, setPendingApproval] = useState<{ province: string, places: Place[] } | null>(null);
   const [savingPlaceId, setSavingPlaceId] = useState<string | null>(null);
+  
+  // AI Update State
+  const [isUpdatingAll, setIsUpdatingAll] = useState(false);
+  const [updatingPlaceId, setUpdatingPlaceId] = useState<string | null>(null);
+  
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -102,6 +107,42 @@ export default function ProvinceDetails() {
       console.error(err);
       setStatusMessage({ type: 'error', text: `Failed to delete ${name}` });
     }
+  };
+
+  const handleUpdateSingle = async (place: Place) => {
+    setUpdatingPlaceId(place.id);
+    try {
+      await api.post(`/admin/tourism-places/${place.id}/update-via-ai`);
+      setStatusMessage({ type: 'success', text: `Successfully updated ${place.name}` });
+      await fetchPlaces(); // reload to get new data
+    } catch (err: any) {
+      setStatusMessage({ type: 'error', text: err.response?.data?.detail || `Failed to update ${place.name}` });
+      throw err;
+    } finally {
+      setUpdatingPlaceId(null);
+    }
+  };
+
+  const handleUpdateAll = async () => {
+    if (!confirm(`Are you sure you want to update ALL ${places.length} places via AI? This will take some time and update them one by one.`)) return;
+    setIsUpdatingAll(true);
+    setStatusMessage({ type: 'success', text: `Starting sequential update for ${places.length} places...` });
+    
+    let successCount = 0;
+    for (const place of places) {
+      try {
+        await handleUpdateSingle(place);
+        successCount++;
+        // Small delay to prevent hitting AI rate limits too aggressively
+        await new Promise(r => setTimeout(r, 2000));
+      } catch (err) {
+        console.error(`Failed to update ${place.name}`, err);
+        // Continue to the next one even if one fails
+      }
+    }
+    
+    setIsUpdatingAll(false);
+    setStatusMessage({ type: 'success', text: `Finished updating. Successfully updated ${successCount}/${places.length} places.` });
   };
 
   const handleScan = async () => {
@@ -185,16 +226,24 @@ export default function ProvinceDetails() {
         
         <div className="flex items-center gap-2">
           <button 
+            onClick={handleUpdateAll}
+            disabled={isUpdatingAll || isScanning || loading || places.length === 0}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-md transition-colors disabled:opacity-50"
+          >
+            {isUpdatingAll ? <RefreshCw size={13} className="animate-spin" /> : <Zap size={13} />}
+            Update All via AI
+          </button>
+          <button 
             onClick={fetchPlaces}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-md transition-colors"
+            disabled={loading || isUpdatingAll}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-md transition-colors disabled:opacity-50"
           >
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
             Refresh
           </button>
           <button 
             onClick={handleScan}
-            disabled={isScanning}
+            disabled={isScanning || isUpdatingAll}
             className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-md text-xs transition-colors shadow-sm disabled:opacity-50"
           >
             {isScanning ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
@@ -291,26 +340,18 @@ export default function ProvinceDetails() {
                       onClick={async (e) => {
                         e.stopPropagation();
                         if (!confirm(`Update "${place.name}" using AI?`)) return;
-                        setStatusMessage(null);
-                        try {
-                          const btn = e.currentTarget;
-                          btn.disabled = true;
-                          btn.innerHTML = `<span class="animate-spin">↻</span>`;
-                          await api.post(`/admin/tourism-places/${place.id}/update-via-ai`);
-                          setStatusMessage({ type: 'success', text: `Successfully updated ${place.name}` });
-                          fetchPlaces(); // reload all
-                        } catch (err: any) {
-                          setStatusMessage({ type: 'error', text: err.response?.data?.detail || `Failed to update ${place.name}` });
-                        }
+                        await handleUpdateSingle(place);
                       }}
-                      className="p-2 text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 rounded-md transition-colors"
+                      disabled={updatingPlaceId === place.id || isUpdatingAll}
+                      className="p-2 text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 rounded-md transition-colors disabled:opacity-50"
                       title="Update via AI"
                     >
-                      <Zap size={14} />
+                      {updatingPlaceId === place.id ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(place.id, place.name); }}
-                      className="p-2 text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 rounded-md transition-colors"
+                      disabled={updatingPlaceId === place.id || isUpdatingAll}
+                      className="p-2 text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 rounded-md transition-colors disabled:opacity-50"
                       title="Delete"
                     >
                       <Trash2 size={14} />
