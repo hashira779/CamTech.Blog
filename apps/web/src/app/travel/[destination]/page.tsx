@@ -65,7 +65,7 @@ export default async function DestinationPage({ params }: PageProps) {
         <div
           className="absolute inset-0 bg-cover bg-center opacity-35 filter blur-[1px] scale-105"
           style={{
-            backgroundImage: `url('${destination.hero_image_url || "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=1600&q=80"}')`,
+            backgroundImage: `url('${destination.hero_image_url || "/images/places/angkor-wat.jpg"}')`,
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/70 to-transparent" />

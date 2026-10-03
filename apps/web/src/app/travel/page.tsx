@@ -82,7 +82,7 @@ export default async function TravelHubPage() {
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: `url('${siemReap?.hero_image_url || "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=1600&q=80"}')`,
+            backgroundImage: `url('${siemReap?.hero_image_url || "/images/places/angkor-wat.jpg"}')`,
             filter: "blur(40px) brightness(0.28) saturate(1.5)",
             transform: "scale(1.15)",
           }}
@@ -179,7 +179,7 @@ export default async function TravelHubPage() {
                   }`}
                 >
                   <img
-                    src={dest.hero_image_url || "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=1200&q=80"}
+                    src={dest.hero_image_url || "/images/destinations/siem-reap.jpg"}
                     alt={dest.name}
                     className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                   />
@@ -309,7 +309,7 @@ export default async function TravelHubPage() {
                   >
                     <div className="sm:w-2/5 relative aspect-[16/10] sm:aspect-auto overflow-hidden bg-slate-800">
                       <img
-                        src={trip.hero_image_url || "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=800&q=80"}
+                        src={trip.hero_image_url || "/images/places/angkor-wat.jpg"}
                         alt={trip.title}
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                       />

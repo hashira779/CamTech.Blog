@@ -112,7 +112,7 @@ export function PlaceFilterGrid({ places, destinationSlug }: Props) {
               >
                 <div className="relative aspect-[16/10] overflow-hidden bg-neutral-100 dark:bg-neutral-800">
                   <img
-                    src={place.hero_image_url || "https://images.unsplash.com/photo-1544644181-1484b3fdfc62?auto=format&fit=crop&w=600&q=80"}
+                    src={place.hero_image_url || "/images/places/angkor-wat.jpg"}
                     alt={place.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
