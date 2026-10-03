@@ -29,7 +29,7 @@ export const API_BASE = typeof window === "undefined"
 
 async function fetchWithFallback<T>(url: string, fallbackData: T): Promise<T> {
   try {
-    const res = await fetch(url, { next: { revalidate: 60 } });
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
       console.warn(`API request to ${url} returned status ${res.status}, using fallback.`);
       return fallbackData;
@@ -63,7 +63,7 @@ export async function getArticles(params: {
 
 export async function getAuthorBySlug(slug: string): Promise<Author | null> {
   try {
-    const res = await fetch(`${API_BASE}/authors/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/authors/${slug}`, { cache: "no-store" });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -78,7 +78,7 @@ export async function getSources(): Promise<Source[]> {
 
 export async function getSourceBySlug(slug: string): Promise<Source | null> {
   try {
-    const res = await fetch(`${API_BASE}/sources/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/sources/${slug}`, { cache: "no-store" });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -88,7 +88,7 @@ export async function getSourceBySlug(slug: string): Promise<Source | null> {
 
 export async function getArticleBySlug(slug: string): Promise<Article | null> {
   try {
-    const res = await fetch(`${API_BASE}/articles/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/articles/${slug}`, { cache: "no-store" });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -113,7 +113,7 @@ export async function getDiscoveries(): Promise<{ items: Discovery[]; total: num
 
 export async function getDiscoveryBySlug(slug: string): Promise<Discovery | null> {
   try {
-    const res = await fetch(`${API_BASE}/discoveries/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/discoveries/${slug}`, { cache: "no-store" });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -123,7 +123,7 @@ export async function getDiscoveryBySlug(slug: string): Promise<Discovery | null
 
 export async function getDailyQuiz(): Promise<Quiz | null> {
   try {
-    const res = await fetch(`${API_BASE}/quizzes/daily`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/quizzes/daily`, { cache: "no-store" });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -138,7 +138,7 @@ export async function getTools(): Promise<Tool[]> {
 
 export async function getToolBySlug(slug: string): Promise<Tool | null> {
   try {
-    const res = await fetch(`${API_BASE}/tools/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/tools/${slug}`, { cache: "no-store" });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -165,7 +165,7 @@ export async function getDestinations(featuredOnly = false): Promise<Destination
 
 export async function getDestinationBySlug(slug: string): Promise<Destination | null> {
   try {
-    const res = await fetch(`${API_BASE}/travel/destinations/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/travel/destinations/${slug}`, { cache: "no-store" });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -195,7 +195,7 @@ export async function getPlaces(params: {
 
 export async function getPlaceBySlug(slug: string): Promise<Place | null> {
   try {
-    const res = await fetch(`${API_BASE}/travel/places/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/travel/places/${slug}`, { cache: "no-store" });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -217,7 +217,7 @@ export async function getTrips(params: {
 
 export async function getTripBySlug(slug: string): Promise<Trip | null> {
   try {
-    const res = await fetch(`${API_BASE}/travel/trips/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/travel/trips/${slug}`, { cache: "no-store" });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -295,7 +295,7 @@ export async function getTransportOperators(type?: string): Promise<TransportOpe
 
 export async function getTransportOperator(slug: string): Promise<TransportOperator | null> {
   try {
-    const res = await fetch(`${API_BASE}/transport/operators/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/transport/operators/${slug}`, { cache: "no-store" });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -328,7 +328,7 @@ export async function searchNearby(params: {
     if (params.type) query.set("type", params.type);
     if (params.limit) query.set("limit", params.limit.toString());
 
-    const res = await fetch(`${API_BASE}/nearby?${query.toString()}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/nearby?${query.toString()}`, { cache: "no-store" });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -345,7 +345,7 @@ export async function getTravelGuides(destination?: string): Promise<TravelGuide
 
 export async function getTravelGuide(slug: string): Promise<TravelGuide | null> {
   try {
-    const res = await fetch(`${API_BASE}/travel-guides/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/travel-guides/${slug}`, { cache: "no-store" });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
