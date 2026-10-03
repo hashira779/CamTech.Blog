@@ -215,6 +215,7 @@ export function Header() {
                 }`}
               >
                 ខ្មែរ
+              </button>
             </div>
           </div>
         </div>
