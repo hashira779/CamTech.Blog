@@ -14,16 +14,15 @@ class AINewsService:
 
     async def generate_and_publish_news(self, category_id: str, author_id: str) -> dict:
         db = SessionLocal()
-        try:
-            # 1. Fetch API Key from DB or fallback to env
-            api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'GEMINI_API_KEY').first()
-            api_key = api_key_setting.value_json if api_key_setting else settings.AI_API_KEY
-            
-            if not api_key:
-                raise ValueError("Google AI API Key is not configured in Settings or Env. Cannot generate news.")
-            
-            client = genai.Client(api_key=api_key)
-            model_name = settings.AI_MODEL_NAME or 'gemini-1.5-flash'
+        # 1. Fetch API Key from DB or fallback to env
+        api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'GEMINI_API_KEY').first()
+        api_key = api_key_setting.value_json if api_key_setting else settings.AI_API_KEY
+        
+        if not api_key:
+            raise ValueError("Google AI API Key is not configured in Settings or Env. Cannot generate news.")
+        
+        client = genai.Client(api_key=api_key)
+        model_name = settings.AI_MODEL_NAME or 'gemini-1.5-flash'
         
         prompt = """
         You are an expert technology journalist for 'CamTech Blog'. 
