@@ -339,17 +339,20 @@ Return a JSON array of objects. Each object must have these keys:
 
             client = self._get_gemini_client(db)
             
-            prompt = f"""You are an expert Cambodia travel researcher.
+            prompt = f"""You are an expert Cambodia travel blogger and researcher.
 I have a place in my database named "{place.name}" located in {destination.name} Province, Cambodia.
-The current data might be fake, placeholder, or incomplete. 
-Please research the REAL "{place.name}" and provide accurate information.
+The current data might be fake or incomplete. 
+Please research the REAL "{place.name}" using web search and provide highly detailed, up-to-date information.
+
+Provide VERY DETAILED, rich blog content (10+ paragraphs if possible) covering history, architecture, travel tips, opening hours, exact ticket prices (e.g. 2026 pricing), and upcoming events.
+Also, find and return up to 5 real, high-quality image URLs (ending in .jpg or .png) of this place from various travel websites (do not use Wikipedia images).
 
 Return a JSON object with these keys ONLY:
 - name: English name
 - local_name: Khmer name (or null)  
 - place_type: One of ATTRACTION, TEMPLE, RESTAURANT, CAFE, MARKET, MUSEUM, WATERFALL, HOTEL, RESORT, ACTIVITY, HIDDEN_GEM
-- description: 2-3 sentence accurate description in English
-- description_km: Description in Khmer (or null)
+- description: VERY detailed blog post style description in English (10+ paragraphs)
+- description_km: VERY detailed description in Khmer (or null)
 - address: Street address or location description
 - latitude: GPS latitude (float or null)
 - longitude: GPS longitude (float or null)
@@ -359,6 +362,8 @@ Return a JSON object with these keys ONLY:
 - website: Website URL (or null)
 - tags: Array of string tags, e.g. ["UNESCO", "Family Friendly", "Photography"]
 - rating: Estimated rating 1.0-5.0
+- hero_image_url: string, first working high-quality image URL from your web search
+- gallery_urls: array of strings, up to 5 working high-quality image URLs from your web search
 """
             fallback_models = [
                 settings.AI_MODEL_NAME or 'gemini-3.8-flash',
@@ -371,12 +376,17 @@ Return a JSON object with these keys ONLY:
             last_error = None
             for model_to_try in fallback_models:
                 try:
+                    tools_config = None
+                    if "gemini-3.8" in model_to_try or "gemini-3.5" in model_to_try or "gemini-2.5" in model_to_try:
+                        tools_config = [types.Tool(google_search=types.GoogleSearch())]
+                        
                     response = client.models.generate_content(
                         model=model_to_try,
                         contents=prompt,
                         config=types.GenerateContentConfig(
-                            temperature=0.2,
-                            response_mime_type="application/json"
+                            temperature=0.7,
+                            response_mime_type="application/json",
+                            tools=tools_config
                         )
                     )
                     break
@@ -418,17 +428,16 @@ Return a JSON object with these keys ONLY:
             
             if ai_data.get("tags") and isinstance(ai_data["tags"], list):
                 place.tags_json = json.dumps(ai_data["tags"])
+                
+            if ai_data.get("hero_image_url"):
+                place.hero_image_url = ai_data.get("hero_image_url")
+                
+            if ai_data.get("gallery_urls") and isinstance(ai_data["gallery_urls"], list):
+                place.gallery_json = json.dumps(ai_data.get("gallery_urls"))
 
             place.verification_status = "AI_UPDATED"
             
             db.commit()
-
-            # Now fetch images asynchronously
-            img_urls = await fetch_wiki_images(place.name, destination.name)
-            if img_urls:
-                place.hero_image_url = img_urls[0]
-                place.gallery_json = json.dumps(img_urls)
-                db.commit()
 
             return {"status": "success", "message": f"Updated {place.name} successfully."}
 
