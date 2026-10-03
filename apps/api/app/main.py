@@ -22,6 +22,7 @@ from app.api.v1.security_admin import router as security_admin_router
 from app.api.v1.travel import router as travel_router
 from app.api.v1.transport import router as transport_router
 from app.api.v1.config import router as config_router
+from app.api.v1.storage_config import router as storage_config_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -118,6 +119,7 @@ app.include_router(security_admin_router, prefix="/api/v1")
 app.include_router(travel_router, prefix="/api/v1")
 app.include_router(transport_router, prefix="/api/v1")
 app.include_router(config_router, prefix="/api/v1")
+app.include_router(storage_config_router, prefix="/api/v1")
 
 if __name__ == "__main__":
     import uvicorn

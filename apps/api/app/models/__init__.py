@@ -23,6 +23,7 @@ from app.models.transport import (
     TransportSchedule,
 )
 from app.models.guide_event import TravelGuide, Event
+from app.models.storage import StorageProvider, StoragePolicy
 
 __all__ = [
     "User",
@@ -66,4 +67,6 @@ __all__ = [
     "TransportSchedule",
     "TravelGuide",
     "Event",
+    "StorageProvider",
+    "StoragePolicy",
 ]

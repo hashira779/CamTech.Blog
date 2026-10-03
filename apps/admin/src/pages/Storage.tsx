@@ -2,170 +2,289 @@ import { useState, useEffect } from 'react';
 import { 
   FolderOpen, 
   Trash2, 
-  Copy,
-  ExternalLink,
-  Upload,
-  RefreshCw,
-  Image as ImageIcon
+  Plus,
+  Cloud,
+  Database,
+  CheckCircle2
 } from 'lucide-react';
 import { api } from '../lib/api';
 
-interface DriveFile {
+interface StorageProvider {
   id: string;
   name: string;
-  mimeType: string;
-  createdTime: string;
-  size: string;
-  thumbnailLink?: string;
+  provider_type: string;
+  status: string;
+  is_default: boolean;
+  created_at: string;
+}
+
+interface StoragePolicy {
+  id: string;
+  entity_type: string;
+  provider_id: string;
+  provider_name: string;
+  provider_type: string;
 }
 
 export default function Storage() {
-  const [files, setFiles] = useState<DriveFile[]>([]);
+  const [providers, setProviders] = useState<StorageProvider[]>([]);
+  const [policies, setPolicies] = useState<StoragePolicy[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
 
-  const fetchFiles = async () => {
+  // New Provider Modal State
+  const [showProviderModal, setShowProviderModal] = useState(false);
+  const [newProvider, setNewProvider] = useState({ name: '', type: 'GOOGLE_DRIVE' });
+  const [credentialsText, setCredentialsText] = useState('');
+
+  // New Policy Modal State
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const [newPolicy, setNewPolicy] = useState({ entity_type: 'ARTICLE', provider_id: '' });
+
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<{ items: DriveFile[] }>('/admin/storage/files');
-      if (res.data?.items) {
-        setFiles(res.data.items);
-      }
+      const [provRes, polRes] = await Promise.all([
+        api.get<{items: StorageProvider[]}>('/admin/storage-config/providers'),
+        api.get<{items: StoragePolicy[]}>('/admin/storage-config/policies')
+      ]);
+      setProviders(provRes.data.items || []);
+      setPolicies(polRes.data.items || []);
     } catch (err) {
-      console.error('Failed to fetch files:', err);
+      console.error('Failed to fetch storage data', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchFiles();
+    fetchData();
   }, []);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-
+  const handleAddProvider = async () => {
     try {
-      await api.post('/admin/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      let creds = {};
+      try {
+        creds = JSON.parse(credentialsText);
+      } catch (e) {
+        alert("Invalid JSON in credentials");
+        return;
+      }
+      await api.post('/admin/storage-config/providers', {
+        name: newProvider.name,
+        provider_type: newProvider.type,
+        credentials: creds,
+        is_default: providers.length === 0
       });
-      fetchFiles();
-    } catch (err) {
-      console.error('Upload failed:', err);
-      alert('Upload failed. Please check logs.');
-    } finally {
-      setUploading(false);
+      setShowProviderModal(false);
+      fetchData();
+    } catch (e) {
+      alert("Failed to add provider");
     }
   };
 
-  const handleDelete = async (fileId: string, fileName: string) => {
-    if (!confirm(`Are you sure you want to delete "${fileName}"? This action cannot be undone.`)) return;
-    
+  const handleDeleteProvider = async (id: string) => {
+    if (!confirm("Delete this provider?")) return;
     try {
-      await api.delete(`/admin/storage/${fileId}`);
-      fetchFiles();
-    } catch (err) {
-      console.error('Delete failed:', err);
-      alert('Failed to delete file.');
+      await api.delete(`/admin/storage-config/providers/${id}`);
+      fetchData();
+    } catch (e: any) {
+      alert(e.response?.data?.detail || "Failed to delete provider");
     }
   };
 
-  const copyUrl = (id: string) => {
-    const url = `${window.location.origin}/api/v1/admin/storage/${id}`;
-    navigator.clipboard.writeText(url);
-    alert('URL copied to clipboard!');
+  const handleAddPolicy = async () => {
+    if (!newPolicy.provider_id) return;
+    try {
+      await api.post('/admin/storage-config/policies', newPolicy);
+      setShowPolicyModal(false);
+      fetchData();
+    } catch (e) {
+      alert("Failed to add policy");
+    }
+  };
+
+  const handleDeletePolicy = async (id: string) => {
+    if (!confirm("Delete this routing rule?")) return;
+    try {
+      await api.delete(`/admin/storage-config/policies/${id}`);
+      fetchData();
+    } catch (e) {
+      alert("Failed to delete policy");
+    }
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6 font-sans">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-zinc-800/80">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-zinc-100 tracking-tight">Google Drive Storage</h1>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              <FolderOpen size={10} /> {files.length} Files
-            </span>
+    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 font-sans">
+      
+      {/* STORAGE PROVIDERS SECTION */}
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h2 className="text-xl font-semibold text-zinc-100 flex items-center gap-2">
+              <Database className="text-orange-500" size={20} />
+              Storage Providers
+            </h2>
+            <p className="text-xs text-zinc-400 mt-1">Manage connected storage backends (Google Drive, Cloudflare R2, S3).</p>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">Manage images and assets stored directly in Google Drive.</p>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <button 
-            onClick={fetchFiles}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-md transition-colors"
-          >
-            <RefreshCw size={13} className={loading ? 'animate-spin text-zinc-400' : 'text-zinc-400'} />
-            <span>Refresh</span>
+          <button onClick={() => setShowProviderModal(true)} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded text-sm flex items-center gap-2 transition-colors">
+            <Plus size={16} /> Connect Provider
           </button>
-          
-          <div className="relative">
-            <input 
-              type="file" 
-              accept="image/*"
-              onChange={handleUpload}
-              disabled={uploading}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-            />
-            <button 
-              disabled={uploading}
-              className="flex items-center gap-1.5 bg-zinc-100 hover:bg-white text-zinc-950 font-medium px-3.5 py-1.5 rounded-md text-xs transition-colors shadow-sm disabled:opacity-50"
-            >
-              {uploading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
-              <span>{uploading ? 'Uploading...' : 'Upload Image'}</span>
-            </button>
-          </div>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+          <table className="w-full text-left text-sm text-zinc-300">
+            <thead className="bg-zinc-950/50 text-xs uppercase text-zinc-500 border-b border-zinc-800">
+              <tr>
+                <th className="px-6 py-4 font-medium">Provider</th>
+                <th className="px-6 py-4 font-medium">Type</th>
+                <th className="px-6 py-4 font-medium">Status</th>
+                <th className="px-6 py-4 font-medium">Added On</th>
+                <th className="px-6 py-4 font-medium text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800">
+              {providers.map(p => (
+                <tr key={p.id} className="hover:bg-zinc-800/30">
+                  <td className="px-6 py-4 flex items-center gap-3">
+                    <Cloud size={16} className="text-zinc-500" />
+                    <span className="font-medium text-zinc-200">{p.name}</span>
+                    {p.is_default && <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded">DEFAULT</span>}
+                  </td>
+                  <td className="px-6 py-4 font-mono text-xs">{p.provider_type}</td>
+                  <td className="px-6 py-4">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
+                      <CheckCircle2 size={12} /> Connected
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-zinc-500">
+                    {new Date(p.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button onClick={() => handleDeleteProvider(p.id)} className="text-zinc-500 hover:text-rose-400 transition-colors">
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {providers.length === 0 && !loading && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-zinc-500">No storage providers configured.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {loading ? (
-        <div className="py-20 text-center text-zinc-500 font-mono text-sm">
-          Loading Drive contents...
+      {/* ROUTING POLICIES SECTION */}
+      <div className="pt-4">
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h2 className="text-xl font-semibold text-zinc-100 flex items-center gap-2">
+              <FolderOpen className="text-orange-500" size={20} />
+              Entity Routing Policies
+            </h2>
+            <p className="text-xs text-zinc-400 mt-1">Automatically route specific types of uploads to designated storage providers.</p>
+          </div>
+          <button onClick={() => setShowPolicyModal(true)} className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded text-sm flex items-center gap-2 transition-colors">
+            <Plus size={16} /> Add Routing Rule
+          </button>
         </div>
-      ) : files.length === 0 ? (
-        <div className="py-20 text-center flex flex-col items-center gap-3">
-          <FolderOpen size={40} className="text-zinc-700" />
-          <p className="text-zinc-400 text-sm">No files found in the configured Google Drive folder.</p>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+          <table className="w-full text-left text-sm text-zinc-300">
+            <thead className="bg-zinc-950/50 text-xs uppercase text-zinc-500 border-b border-zinc-800">
+              <tr>
+                <th className="px-6 py-4 font-medium">Entity Type</th>
+                <th className="px-6 py-4 font-medium">Destination Provider</th>
+                <th className="px-6 py-4 font-medium text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800">
+              {policies.map(p => (
+                <tr key={p.id} className="hover:bg-zinc-800/30">
+                  <td className="px-6 py-4">
+                    <span className="text-xs font-bold text-orange-500">{p.entity_type}</span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="font-medium text-zinc-200">{p.provider_name}</span>
+                    <span className="text-zinc-500 ml-2 text-xs">({p.provider_type})</span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button onClick={() => handleDeletePolicy(p.id)} className="text-zinc-500 hover:text-rose-400 transition-colors">
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {policies.length === 0 && !loading && (
+                <tr>
+                  <td colSpan={3} className="px-6 py-8 text-center text-zinc-500">No routing rules configured.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {files.map(file => (
-            <div key={file.id} className="bg-zinc-900/60 border border-zinc-800 rounded-lg overflow-hidden group hover:border-zinc-700 transition-colors">
-              <div className="aspect-video bg-zinc-950 flex items-center justify-center overflow-hidden relative">
-                {file.thumbnailLink ? (
-                  <img src={file.thumbnailLink} alt={file.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                ) : (
-                  <ImageIcon size={30} className="text-zinc-800" />
-                )}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                  <button onClick={() => copyUrl(file.id)} className="p-2 bg-zinc-800 hover:bg-blue-600 text-white rounded-full transition-colors" title="Copy URL">
-                    <Copy size={16} />
-                  </button>
-                  <a href={`/api/v1/admin/storage/${file.id}`} target="_blank" rel="noopener noreferrer" className="p-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-full transition-colors" title="View Full Image">
-                    <ExternalLink size={16} />
-                  </a>
-                </div>
+      </div>
+
+      {/* Modals */}
+      {showProviderModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg w-full max-w-md p-6">
+            <h3 className="text-lg font-medium text-white mb-4">Connect Storage Provider</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1">Name (e.g. My Drive)</label>
+                <input value={newProvider.name} onChange={e => setNewProvider({...newProvider, name: e.target.value})} className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-sm text-white" />
               </div>
-              <div className="p-3">
-                <p className="text-xs font-medium text-zinc-200 truncate" title={file.name}>{file.name}</p>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-[10px] font-mono text-zinc-500">
-                    {file.size ? (parseInt(file.size) / 1024).toFixed(1) + ' KB' : 'Unknown'}
-                  </span>
-                  <button 
-                    onClick={() => handleDelete(file.id, file.name)}
-                    className="text-zinc-600 hover:text-rose-400 transition-colors"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1">Provider Type</label>
+                <select value={newProvider.type} onChange={e => setNewProvider({...newProvider, type: e.target.value})} className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-sm text-white">
+                  <option value="GOOGLE_DRIVE">Google Drive</option>
+                  <option value="LOCAL_S3">Cloudflare R2 / AWS S3</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1">Credentials (JSON format)</label>
+                <textarea value={credentialsText} onChange={e => setCredentialsText(e.target.value)} rows={5} className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-sm text-white font-mono placeholder:text-zinc-700" placeholder='{"client_email": "...", "private_key": "..."}' />
+              </div>
+              <div className="flex justify-end gap-3 pt-4">
+                <button onClick={() => setShowProviderModal(false)} className="px-4 py-2 text-sm text-zinc-400 hover:text-white">Cancel</button>
+                <button onClick={handleAddProvider} className="px-4 py-2 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded">Connect</button>
               </div>
             </div>
-          ))}
+          </div>
+        </div>
+      )}
+
+      {showPolicyModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg w-full max-w-md p-6">
+            <h3 className="text-lg font-medium text-white mb-4">Add Routing Rule</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1">Entity Type</label>
+                <select value={newPolicy.entity_type} onChange={e => setNewPolicy({...newPolicy, entity_type: e.target.value})} className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-sm text-white">
+                  <option value="ARTICLE">ARTICLE</option>
+                  <option value="TOURISM">TOURISM</option>
+                  <option value="USER_AVATAR">USER_AVATAR</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1">Destination Provider</label>
+                <select value={newPolicy.provider_id} onChange={e => setNewPolicy({...newPolicy, provider_id: e.target.value})} className="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-2 text-sm text-white">
+                  <option value="">Select Provider...</option>
+                  {providers.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.provider_type})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex justify-end gap-3 pt-4">
+                <button onClick={() => setShowPolicyModal(false)} className="px-4 py-2 text-sm text-zinc-400 hover:text-white">Cancel</button>
+                <button onClick={handleAddPolicy} className="px-4 py-2 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded">Add Rule</button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
