@@ -10,7 +10,8 @@ import {
   ExternalLink,
   ShieldCheck,
   Layers,
-  HardDrive
+  HardDrive,
+  MapPin
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -22,6 +23,7 @@ export default function Sidebar() {
     { name: 'Categories', path: '/categories', icon: FolderTree },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
     { name: 'Storage', path: '/storage', icon: HardDrive },
+    { name: 'Tourism AI', path: '/tourism', icon: MapPin },
   ];
 
   const systemNav = [

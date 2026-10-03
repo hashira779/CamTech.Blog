@@ -251,3 +251,28 @@ def update_site_settings(updates: List[SettingUpdate], db: Session = Depends(get
     
     db.commit()
     return {"success": True}
+
+from app.services.ai_tourism_engine import ai_tourism_engine
+
+@router.post("/ai/tourism-scan")
+async def run_tourism_full_scan(
+    current_user: User = Depends(require_admin)
+):
+    """Run AI Tourism Engine across ALL 25 provinces of Cambodia."""
+    try:
+        result = await ai_tourism_engine.run_full_scan()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ai/tourism-scan/{province_slug}")
+async def run_tourism_province_scan(
+    province_slug: str,
+    current_user: User = Depends(require_admin)
+):
+    """Run AI Tourism Engine for a single province."""
+    try:
+        result = await ai_tourism_engine.discover_places_for_province(province_slug)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

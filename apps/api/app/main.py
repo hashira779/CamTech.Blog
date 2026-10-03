@@ -27,7 +27,50 @@ from app.api.v1.config import router as config_router
 async def lifespan(app: FastAPI):
     # Initialize database tables on startup
     Base.metadata.create_all(bind=engine)
+    
+    # Start background schedulers
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    from apscheduler.triggers.cron import CronTrigger
+    import logging
+    
+    logger = logging.getLogger("scheduler")
+    scheduler = AsyncIOScheduler()
+    
+    async def weekly_tourism_scan():
+        """Run AI Tourism Engine every Sunday at 03:00 AM."""
+        try:
+            from app.services.ai_tourism_engine import ai_tourism_engine
+            logger.info("🌍 Weekly AI Tourism Scan started...")
+            result = await ai_tourism_engine.run_full_scan()
+            logger.info(f"✅ Weekly scan complete: {result['total_new_places']} new places added.")
+        except Exception as e:
+            logger.error(f"❌ Weekly tourism scan failed: {e}")
+
+    async def daily_news_generation():
+        """Run AI News Generation every day at 07:00 AM."""
+        try:
+            from app.services.ai_news_service import ai_news_service
+            logger.info("📰 Daily AI News generation started...")
+            result = await ai_news_service.generate_and_publish_news(
+                category_id='ca82761b-c4b3-43a0-82fd-75188f694e2e',
+                author_id='system'
+            )
+            logger.info(f"✅ Daily news generated: {result.get('title', 'Unknown')}")
+        except Exception as e:
+            logger.error(f"❌ Daily news generation failed: {e}")
+
+    # Weekly tourism scan: Every Sunday at 03:00 AM (server time)
+    scheduler.add_job(weekly_tourism_scan, CronTrigger(day_of_week='sun', hour=3, minute=0), id='weekly_tourism_scan')
+    # Daily news: Every day at 07:00 AM (server time)  
+    scheduler.add_job(daily_news_generation, CronTrigger(hour=7, minute=0), id='daily_news_generation')
+    
+    scheduler.start()
+    logger.info("⏰ Background schedulers started (Tourism: Sunday 3AM, News: Daily 7AM)")
+    
     yield
+    
+    scheduler.shutdown()
+    logger.info("⏰ Background schedulers stopped.")
 
 app = FastAPI(
     title="Daily Discovery API",

@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Articles from './pages/Articles';
 import Storage from './pages/Storage';
 import Settings from './pages/Settings';
+import Tourism from './pages/Tourism';
 import Login from './pages/Login';
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
           <Route path="articles" element={<Articles />} />
           <Route path="storage" element={<Storage />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="tourism" element={<Tourism />} />
         </Route>
       </Routes>
     </BrowserRouter>
