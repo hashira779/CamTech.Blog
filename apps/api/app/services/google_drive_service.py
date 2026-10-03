@@ -204,4 +204,34 @@ class GoogleDriveService:
             )
             return res.status_code == 204
 
+    async def upload_file_from_url(self, file_url: str, folder_path: Optional[str] = None) -> Optional[str]:
+        """Downloads a file from a URL and uploads it to Google Drive. Returns the local GDrive API URL."""
+        if not file_url or not file_url.startswith("http"):
+            return file_url
+            
+        async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+            try:
+                # Disguise as a standard browser to avoid hotlinking protection
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                    "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+                }
+                res = await client.get(file_url, headers=headers)
+                if res.status_code != 200:
+                    return None
+                    
+                content_type = res.headers.get("Content-Type", "image/jpeg")
+                import urllib.parse
+                parsed = urllib.parse.urlparse(file_url)
+                filename = os.path.basename(parsed.path)
+                if not filename or '.' not in filename:
+                    ext = ".png" if "png" in content_type else ".jpg"
+                    filename = f"image{ext}"
+                    
+                upload_res = await self.upload_file(filename, res.content, content_type, folder_path)
+                return upload_res.get("url")
+            except Exception as e:
+                print(f"Failed to upload image from URL {file_url}: {e}")
+                return None
+
 storage_service = GoogleDriveService()

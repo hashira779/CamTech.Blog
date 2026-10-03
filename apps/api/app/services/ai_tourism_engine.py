@@ -18,6 +18,7 @@ from app.common.database import SessionLocal
 from app.models.location import Country, Destination
 from app.models.place import Place
 from app.models.audit import SiteSetting
+from app.services.google_drive_service import storage_service
 
 logger = logging.getLogger(__name__)
 
@@ -301,8 +302,16 @@ Return a JSON array of objects. Each object must have these keys:
                     return p_data
                 img_urls = await fetch_wiki_images(p_data.get("name", ""), destination.name)
                 if img_urls:
-                    p_data["hero_image_url"] = img_urls[0]
-                    p_data["gallery_json"] = json.dumps(img_urls)
+                    # Upload first image to drive as hero
+                    hero_drive_url = await storage_service.upload_file_from_url(img_urls[0], f"Destinations/{destination.name}")
+                    p_data["hero_image_url"] = hero_drive_url if hero_drive_url else img_urls[0]
+                    
+                    # Upload the rest to drive
+                    gallery = []
+                    for url in img_urls:
+                        d_url = await storage_service.upload_file_from_url(url, f"Destinations/{destination.name}")
+                        gallery.append(d_url if d_url else url)
+                    p_data["gallery_json"] = json.dumps(gallery)
                 return p_data
             
             places_with_images = await asyncio.gather(*(populate_image(p) for p in processed_places))
@@ -493,10 +502,17 @@ Return a JSON object with these keys ONLY:
                 place.tags_json = json.dumps(ai_data["tags"])
                 
             if ai_data.get("hero_image_url"):
-                place.hero_image_url = ai_data.get("hero_image_url")
+                hero_url = ai_data.get("hero_image_url")
+                # Upload to drive
+                drive_url = await storage_service.upload_file_from_url(hero_url, f"Destinations/{destination.name}")
+                place.hero_image_url = drive_url if drive_url else hero_url
                 
             if ai_data.get("gallery_urls") and isinstance(ai_data["gallery_urls"], list):
-                place.gallery_json = json.dumps(ai_data.get("gallery_urls"))
+                gallery = []
+                for url in ai_data["gallery_urls"]:
+                    d_url = await storage_service.upload_file_from_url(url, f"Destinations/{destination.name}")
+                    gallery.append(d_url if d_url else url)
+                place.gallery_json = json.dumps(gallery)
 
             place.verification_status = "AI_UPDATED"
             
