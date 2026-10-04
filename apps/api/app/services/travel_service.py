@@ -199,12 +199,13 @@ class TravelService:
     @staticmethod
     def generate_trip_plan(db: Session, req: TripPlanRequest) -> TripPlanResponse:
         """
-        Deterministic TripEngine:
+        Deterministic Dynamic TripEngine:
         Synthesizes an intelligent, geocoded, time-optimized daily travel itinerary
-        using actual verified places from the database.
+        using actual verified places from the database with genuine Cambodia imagery.
         """
         destination = db.query(Destination).filter(Destination.slug == req.destination_slug).first()
         dest_name = destination.name if destination else req.destination_slug.replace("-", " ").title()
+        dest_image = destination.hero_image_url if destination and destination.hero_image_url else f"/images/destinations/{req.destination_slug}.jpg"
 
         # Query all active places for this destination
         places = []
@@ -218,52 +219,108 @@ class TravelService:
         temples = [p for p in places if p.place_type in ("TEMPLE", "ATTRACTION")]
         food = [p for p in places if p.place_type in ("RESTAURANT", "CAFE")]
         markets = [p for p in places if p.place_type in ("MARKET", "ACTIVITY")]
-        nature = [p for p in places if p.place_type in ("WATERFALL", "HIDDEN_GEM")]
-        hotels = [p for p in places if p.place_type == "ACCOMMODATION"]
+        nature = [p for p in places if p.place_type in ("WATERFALL", "HIDDEN_GEM", "BEACH", "NATIONAL_PARK", "LAKE")]
+        all_activities = temples + nature + markets
 
         days_output: List[GeneratedTripDay] = []
         requested_days = min(max(1, req.duration_days), 7)
 
-        # Day themes based on Siem Reap/Destination profile
-        theme_templates = [
-            ("Iconic Angkor & Ancient Wonders", "Marvel at ancient Khmer architecture from sunrise to dusk"),
-            ("Hidden Gems & Rural Culture", "Explore lush jungle temples, rural landscapes, and authentic crafts"),
-            ("Sacred Waterfalls & Floating Villages", "Ascend sacred mountains and experience the life of Tonle Sap"),
-            ("Culinary Discovery & Artisan Workshops", "Taste world-renowned Khmer flavors and meet local artisans"),
-            ("Adventure Trails & Remote Shrines", "Cycle through ancient forest trails and discover secluded sanctuaries"),
-            ("Wellness, Silk & Serenity", "Revitalizing botanical spas, silk weaving centers, and quiet river strolls"),
-            ("Local Life & Sunset Horizons", "Unwind with scenic hilltop sunsets, community markets, and vibrant nights"),
-        ]
+        # Region-aware themes for authentic Cambodia experiences
+        slug = req.destination_slug.lower()
+        if slug in ["sihanoukville", "kampot", "kep", "koh-kong"]:
+            theme_templates = [
+                (f"Pristine Bays & Coastal Horizons", f"Explore turquoise waters, coastal breezes, and scenic viewpoints in {dest_name}"),
+                ("Fresh Crab Markets & Mangrove Trails", "Savor coastal delicacies and discover untouched mangrove conservation sanctuaries"),
+                ("Colonial Heritage & Plantation Estates", "Visit historic estates, scenic salt fields, and lush rural foothill trails"),
+                ("Island Hopping & Secluded Coves", "Cruise to calm offshore islands with powdery white sand beaches"),
+                ("Sunset Catamarans & Ocean Dining", "Experience magical gulf sunsets paired with fresh local seafood"),
+                ("Waterfalls & Forest Reserves", "Trek to refreshing jungle cascades and limestone river valleys"),
+                ("Coastal Wellness & Serene Departure", "Recharge with beachfront relaxation, herbal spas, and tranquil seaside strolls"),
+            ]
+            default_morning = f"Scenic Coastal Exploration in {dest_name}"
+            default_afternoon = "Mangrove Boardwalk & Estuary Sanctuary"
+            default_evening = "Seaside Promenade & Fresh Seafood Bazaars"
+        elif slug in ["mondulkiri", "ratanakiri", "pursat", "pailin", "kampong-speu", "oddar-meanchey", "preah-vihear", "stung-treng"]:
+            theme_templates = [
+                (f"Highland Waterfalls & Sacred Hills", f"Immerse yourself in cool mountain breezes and lush evergreen valleys of {dest_name}"),
+                ("Indigenous Villages & Traditional Crafts", "Encounter authentic upland traditions, woven textiles, and highland communities"),
+                ("Crater Lakes & Forest Canopy Treks", "Discover ancient volcanic lakes, wildlife trails, and scenic ridge vistas"),
+                ("Mekong River Rapids & Eco-Trails", "Watch wildlife along pristine riverbanks and natural river ecosystems"),
+                ("Organic Coffee Estates & Tropical Plantations", "Tour highland coffee groves and taste aromatic single-origin roasts"),
+                ("Wilderness Sanctuaries & Panoramic Lookouts", "Ascend gentle ridges overlooking boundless green jungle landscapes"),
+                ("Sunset Over Pine Valleys", "Unwind as the golden hour illuminates misty valleys and quiet forest roads"),
+            ]
+            default_morning = f"Mountain Trail & Scenic Viewpoint in {dest_name}"
+            default_afternoon = "Jungle Cascade & Botanical Sanctuary"
+            default_evening = "Stargazing & Highland Evening Market"
+        elif slug in ["phnom-penh", "kandal", "kampong-cham", "kratie", "kampong-chhnang", "takeo", "prey-veng", "svay-rieng", "tboung-khmum"]:
+            theme_templates = [
+                (f"Royal Heritage & Riverside Promenades", f"Experience royal architecture and the confluence of four rivers in {dest_name}"),
+                ("Cultural Museums & Landmark Monasteries", "Explore historic stone stupas, sacred pagodas, and vibrant artisan centers"),
+                ("Mekong Silk Islands & River Communities", "Cross the river to see traditional silk weaving and tranquil island living"),
+                ("Gastronomic Journey & Historic Quarters", "Sample street food delights, French-Khmer fusion dining, and riverside cafes"),
+                ("Artisan Workshops & Ancient Capitals", "Visit historical hill shrines, master woodcarvers, and cultural exhibitions"),
+                ("Vibrant Night Bazaars & Evening Cruises", "Take a twilight river cruise and stroll through bustling evening markets"),
+                ("Contemporary Art & Scenic Farewell", "Discover modern Cambodian design, local galleries, and scenic riverfront vistas"),
+            ]
+            default_morning = f"Historic City & Heritage Landmarks in {dest_name}"
+            default_afternoon = "Traditional Silk Weaving & Riverfront Culture"
+            default_evening = "Mekong Riverfront Stroll & Street Food Bazaars"
+        else: # Siem Reap / Battambang / Kampong Thom / Heritage
+            theme_templates = [
+                (f"Ancient Khmer Wonders & Sacred Monuments", f"Marvel at millennium-old stone temples and timeless sanctuaries in {dest_name}"),
+                ("Hidden Jungle Sanctuaries & Rural Crafts", "Venture into atmospheric forest ruins, carved galleries, and artisan workshops"),
+                ("Sacred Waterfalls & Floating River Villages", "Ascend sacred mountains and experience community life along the waterways"),
+                ("Culinary Masterpieces & Traditional Markets", "Taste world-renowned Khmer specialties and shop authentic regional crafts"),
+                ("Ancient Forest Trails & Remote Shrines", "Cycle peaceful forest paths and uncover secluded ancient sandstone terraces"),
+                ("Herbal Wellness & Silk Weaving Traditions", "Revitalize with traditional botanical therapies and fine silk handicraft centers"),
+                ("Hilltop Sunsets & Vibrant Night Quarter", "Watch the sun dip below tropical horizons followed by lively evening culture"),
+            ]
+            default_morning = f"Ancient Monument Discovery in {dest_name}"
+            default_afternoon = "Artisan Workshops & Cultural Heritage Village"
+            default_evening = "Night Market & Atmospheric Evening Quarter"
+
+        is_angkor = "siem-reap" in slug
 
         for day_idx in range(requested_days):
             day_num = day_idx + 1
             theme_title, theme_desc = theme_templates[day_idx % len(theme_templates)]
             items: List[GeneratedTripDayItem] = []
 
-            # Morning: Major temple or scenic activity
-            morning_place = temples[day_idx % len(temples)] if temples else None
+            # 1. MORNING
+            morning_place = temples[day_idx % len(temples)] if temples else (nature[day_idx % len(nature)] if nature else None)
             if morning_place:
                 items.append(GeneratedTripDayItem(
                     time_of_day="MORNING",
-                    start_time="05:30 AM" if day_num == 1 else "08:00 AM",
+                    start_time="05:30 AM" if day_num == 1 and is_angkor else "08:00 AM",
                     title=f"Explore {morning_place.name}",
-                    description=f"{morning_place.description[:140]}... Experience the morning golden light with fewer crowds.",
+                    description=f"{morning_place.description[:140]}... Best enjoyed in the gentle morning light with refreshing cool weather.",
                     place_id=morning_place.id,
                     place_name=morning_place.name,
-                    duration_minutes=180 if day_num == 1 else 120,
-                    estimated_cost="Included in Angkor Pass" if "Angkor" in dest_name else "$5 - $10"
+                    place_slug=morning_place.slug,
+                    hero_image_url=morning_place.hero_image_url or dest_image,
+                    place_type=morning_place.place_type,
+                    rating=morning_place.rating or 4.9,
+                    duration_minutes=180 if day_num == 1 and is_angkor else 120,
+                    estimated_cost="Included in Angkor Pass" if is_angkor and morning_place.place_type == "TEMPLE" else "$5 - $10"
                 ))
             else:
                 items.append(GeneratedTripDayItem(
                     time_of_day="MORNING",
                     start_time="08:30 AM",
-                    title="Heritage Walking Tour",
-                    description=f"Guided morning exploration of {dest_name}'s premier landmarks and architecture.",
+                    title=default_morning,
+                    description=f"Guided morning exploration of {dest_name}'s premier landmarks, sacred sites, and scenic natural settings.",
+                    place_id=None,
+                    place_name=f"{dest_name} Heritage Site",
+                    place_slug=None,
+                    hero_image_url=dest_image,
+                    place_type="ATTRACTION",
+                    rating=4.8,
                     duration_minutes=120,
-                    estimated_cost="$15"
+                    estimated_cost="$5 - $15"
                 ))
 
-            # Mid-day / Lunch: Verified restaurant
+            # 2. MID-DAY / LUNCH
             lunch_place = food[day_idx % len(food)] if food else None
             if lunch_place:
                 items.append(GeneratedTripDayItem(
@@ -273,6 +330,10 @@ class TravelService:
                     description=f"{lunch_place.description[:120]}... Savor authentic Cambodian dishes and refreshing cooling beverages.",
                     place_id=lunch_place.id,
                     place_name=lunch_place.name,
+                    place_slug=lunch_place.slug,
+                    hero_image_url=lunch_place.hero_image_url or dest_image,
+                    place_type="RESTAURANT",
+                    rating=lunch_place.rating or 4.8,
                     duration_minutes=75,
                     estimated_cost="$10 - $25"
                 ))
@@ -280,50 +341,72 @@ class TravelService:
                 items.append(GeneratedTripDayItem(
                     time_of_day="AFTERNOON",
                     start_time="12:30 PM",
-                    title="Khmer Culinary Experience",
-                    description="Authentic traditional dishes including Fish Amok, fresh spring rolls, and fragrant jasmine rice.",
+                    title=f"Khmer Culinary Experience in {dest_name}",
+                    description=f"Authentic local gastronomy featuring traditional Fish Amok, Lok Lak, fresh spring rolls, and organic herbs from {dest_name}.",
+                    place_id=None,
+                    place_name="Traditional Khmer Restaurant",
+                    place_slug=None,
+                    hero_image_url=dest_image,
+                    place_type="RESTAURANT",
+                    rating=4.7,
                     duration_minutes=60,
-                    estimated_cost="$12"
+                    estimated_cost="$8 - $18"
                 ))
 
-            # Afternoon: Cultural museum, waterfall, or hidden gem
+            # 3. AFTERNOON
             afternoon_place = None
             if nature and day_num % 2 == 0:
                 afternoon_place = nature[day_idx % len(nature)]
             elif len(temples) > day_idx + 1:
                 afternoon_place = temples[(day_idx + 1) % len(temples)]
+            elif all_activities:
+                afternoon_place = all_activities[(day_idx + 1) % len(all_activities)]
 
             if afternoon_place:
                 items.append(GeneratedTripDayItem(
                     time_of_day="AFTERNOON",
                     start_time="02:30 PM",
                     title=f"Visit {afternoon_place.name}",
-                    description=f"{afternoon_place.description[:130]}... Magnificent trees and serene carved corridors.",
+                    description=f"{afternoon_place.description[:130]}... Enjoy breathtaking panoramic scenery and local cultural atmosphere.",
                     place_id=afternoon_place.id,
                     place_name=afternoon_place.name,
+                    place_slug=afternoon_place.slug,
+                    hero_image_url=afternoon_place.hero_image_url or dest_image,
+                    place_type=afternoon_place.place_type,
+                    rating=afternoon_place.rating or 4.8,
                     duration_minutes=120,
-                    estimated_cost="Free / Included"
+                    estimated_cost="Included / $3 - $5"
                 ))
             else:
                 items.append(GeneratedTripDayItem(
                     time_of_day="AFTERNOON",
                     start_time="02:30 PM",
-                    title="Artisan Workshops & Cultural Center",
-                    description="Discover centuries-old stone and wood carving traditions preserved by master craftspeople.",
+                    title=default_afternoon,
+                    description=f"Discover community artisan workshops, scenic natural corridors, and local traditions preserved across {dest_name}.",
+                    place_id=None,
+                    place_name=f"{dest_name} Cultural Center",
+                    place_slug=None,
+                    hero_image_url=dest_image,
+                    place_type="ACTIVITY",
+                    rating=4.8,
                     duration_minutes=90,
-                    estimated_cost="Free admission"
+                    estimated_cost="Free admission / $5"
                 ))
 
-            # Evening / Night: Market, Pub Street, or Scenic Sunset
+            # 4. EVENING
             evening_place = markets[day_idx % len(markets)] if markets else None
             if evening_place:
                 items.append(GeneratedTripDayItem(
                     time_of_day="EVENING",
                     start_time="06:00 PM",
                     title=f"Evening stroll at {evening_place.name}",
-                    description=f"{evening_place.description[:120]}... Great for souvenir hunting, street snacks, and lively vibes.",
+                    description=f"{evening_place.description[:120]}... Vibrant atmosphere, handmade souvenirs, tropical fruits, and street delicacies.",
                     place_id=evening_place.id,
                     place_name=evening_place.name,
+                    place_slug=evening_place.slug,
+                    hero_image_url=evening_place.hero_image_url or dest_image,
+                    place_type="MARKET",
+                    rating=evening_place.rating or 4.7,
                     duration_minutes=90,
                     estimated_cost="$5 - $15"
                 ))
@@ -331,10 +414,16 @@ class TravelService:
                 items.append(GeneratedTripDayItem(
                     time_of_day="EVENING",
                     start_time="06:30 PM",
-                    title="Sunset Vantage Point & Dinner",
-                    description="Watch the sunset illuminate the surrounding tropical canopy, followed by dinner under the stars.",
+                    title=default_evening,
+                    description=f"Watch the sunset over {dest_name}'s horizon, followed by outdoor dining under fairy lights and relaxed local nightlife.",
+                    place_id=None,
+                    place_name=f"{dest_name} Night Quarter",
+                    place_slug=None,
+                    hero_image_url=dest_image,
+                    place_type="ACTIVITY",
+                    rating=4.8,
                     duration_minutes=120,
-                    estimated_cost="$15 - $30"
+                    estimated_cost="$10 - $25"
                 ))
 
             days_output.append(GeneratedTripDay(
@@ -345,9 +434,9 @@ class TravelService:
             ))
 
         summary = (
-            f"Tailored {requested_days}-day {req.travel_style.lower()} trip to {dest_name} "
-            f"crafted for a {req.budget_level} budget. Covers {len(places)} verified destinations, "
-            f"temples, authentic cuisine, and evening culture."
+            f"Tailored {requested_days}-day {req.travel_style.lower()} trip across {dest_name} "
+            f"crafted for a {req.budget_level} budget. Integrates verified attractions, "
+            f"authentic regional cuisine, and evening culture."
         )
 
         return TripPlanResponse(

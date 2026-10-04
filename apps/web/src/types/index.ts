@@ -330,6 +330,10 @@ export interface GeneratedTripDayItem {
   description: string;
   place_id?: string;
   place_name?: string;
+  place_slug?: string;
+  hero_image_url?: string;
+  place_type?: string;
+  rating?: number;
   duration_minutes: number;
   estimated_cost: string;
 }

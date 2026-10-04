@@ -143,7 +143,31 @@ class AITourismEngine:
             db.add(cambodia)
             db.commit()
             db.refresh(cambodia)
-            logger.info("Created Cambodia country record.")
+        # Ensure all 25 destinations exist with real hero images
+        created_count = 0
+        for prov in CAMBODIA_PROVINCES:
+            existing = db.query(Destination).filter(Destination.slug == prov["slug"]).first()
+            if not existing:
+                dest = Destination(
+                    country_id=cambodia.id,
+                    name=prov["name"],
+                    name_km=prov["name_km"],
+                    slug=prov["slug"],
+                    overview=f"Explore {prov['name']}, one of Cambodia's beautiful provinces.",
+                    hero_image_url=prov.get("hero_image_url"),
+                    is_featured=prov["slug"] in ["phnom-penh", "siem-reap", "sihanoukville", "battambang", "kampot"],
+                    status="ACTIVE"
+                )
+                db.add(dest)
+                created_count += 1
+            else:
+                if not existing.hero_image_url or "1600585154340" in existing.hero_image_url:
+                    existing.hero_image_url = prov.get("hero_image_url")
+                    created_count += 1
+        
+        if created_count > 0:
+            db.commit()
+            logger.info(f"Updated/Created {created_count} destination records with verified images.")
             
     def _get_dynamic_fallback_models(self, client) -> list[str]:
         """Dynamically fetch available models and prioritize newer versions."""
@@ -171,32 +195,6 @@ class AITourismEngine:
         except Exception as e:
             logger.warning(f"Could not fetch dynamic models: {e}")
             return preferred
-
-        # Ensure all 25 destinations exist with real hero images
-        created_count = 0
-        for prov in CAMBODIA_PROVINCES:
-            existing = db.query(Destination).filter(Destination.slug == prov["slug"]).first()
-            if not existing:
-                dest = Destination(
-                    country_id=cambodia.id,
-                    name=prov["name"],
-                    name_km=prov["name_km"],
-                    slug=prov["slug"],
-                    overview=f"Explore {prov['name']}, one of Cambodia's beautiful provinces.",
-                    hero_image_url=prov.get("hero_image_url"),
-                    is_featured=prov["slug"] in ["phnom-penh", "siem-reap", "sihanoukville", "battambang", "kampot"],
-                    status="ACTIVE"
-                )
-                db.add(dest)
-                created_count += 1
-            else:
-                if not existing.hero_image_url or "1600585154340" in existing.hero_image_url:
-                    existing.hero_image_url = prov.get("hero_image_url")
-                    created_count += 1
-        
-        if created_count > 0:
-            db.commit()
-            logger.info(f"Updated/Created {created_count} destination records with verified images.")
 
     async def discover_places_for_province(self, province_slug: str) -> dict:
         """Use Gemini AI to discover tourist places for a single province."""

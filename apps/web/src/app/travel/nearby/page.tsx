@@ -2,26 +2,39 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { searchNearby } from "@/lib/api";
-import { NearbySearchResponse } from "@/types";
+import { searchNearby, getPlaces } from "@/lib/api";
+import { NearbySearchResponse, Place } from "@/types";
 import { NearbyPlaceCard } from "@/components/travel/NearbyPlaceCard";
 import { Compass, MapPin, Navigation, Filter, Footprints, Car } from "lucide-react";
 
 const POPULAR_REFERENCE_LANDMARKS = [
   { slug: "angkor-wat", name: "Angkor Wat (Main Sanctuary)" },
   { slug: "bayon-temple", name: "Bayon Temple (Angkor Thom)" },
-  { slug: "raffles-grand-hotel-d-angkor", name: "Raffles Grand Hotel d'Angkor" },
-  { slug: "siem-reap-pub-street", name: "Pub Street (Nightlife & Dining)" },
-  { slug: "siem-reap-old-market", name: "Phsar Chas (Old Market)" },
-  { slug: "phnom-bakheng", name: "Phnom Bakheng (Sunset Hill)" },
+  { slug: "royal-palace-phnom-penh", name: "Royal Palace (Phnom Penh)" },
+  { slug: "bokor-national-park", name: "Bokor National Park (Kampot)" },
+  { slug: "saracen-bay-koh-rong-sanloem", name: "Saracen Bay (Koh Rong Sanloem)" },
+  { slug: "prasat-preah-vihear-temple", name: "Prasat Preah Vihear Temple" },
+  { slug: "bousra-waterfall", name: "Bousra Waterfall (Mondulkiri)" },
+  { slug: "yeak-laom-volcanic-lake", name: "Yeak Laom Volcanic Lake (Ratanakiri)" },
+  { slug: "kampi-dolphin-sanctuary", name: "Kampi Mekong Dolphin Sanctuary (Kratie)" },
+  { slug: "phnom-sampeau-battambang", name: "Phnom Sampeau (Battambang)" },
 ];
 
 export default function NearbySearchPage() {
   const [selectedPlace, setSelectedPlace] = useState("angkor-wat");
   const [radius, setRadius] = useState<number>(10.0);
   const [placeType, setPlaceType] = useState<string>("");
+  const [placesList, setPlacesList] = useState<Place[]>([]);
   const [data, setData] = useState<NearbySearchResponse | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getPlaces({ limit: 60 }).then((res) => {
+      if (res && res.items && res.items.length > 0) {
+        setPlacesList(res.items);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     async function loadNearby() {
@@ -78,11 +91,17 @@ export default function NearbySearchPage() {
                 onChange={(e) => setSelectedPlace(e.target.value)}
                 className="w-full bg-background border rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary outline-none"
               >
-                {POPULAR_REFERENCE_LANDMARKS.map((lm) => (
-                  <option key={lm.slug} value={lm.slug}>
-                    {lm.name}
-                  </option>
-                ))}
+                {placesList.length > 0
+                  ? placesList.map((lm) => (
+                      <option key={lm.slug} value={lm.slug}>
+                        {lm.name} {lm.local_name ? `(${lm.local_name})` : ""}
+                      </option>
+                    ))
+                  : POPULAR_REFERENCE_LANDMARKS.map((lm) => (
+                      <option key={lm.slug} value={lm.slug}>
+                        {lm.name}
+                      </option>
+                    ))}
               </select>
             </div>
 

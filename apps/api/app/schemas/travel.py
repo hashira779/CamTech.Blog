@@ -211,6 +211,10 @@ class GeneratedTripDayItem(BaseModel):
     description: str
     place_id: Optional[str] = None
     place_name: Optional[str] = None
+    place_slug: Optional[str] = None
+    hero_image_url: Optional[str] = None
+    place_type: Optional[str] = None
+    rating: Optional[float] = None
     duration_minutes: int
     estimated_cost: str
 
