@@ -720,21 +720,35 @@ export default function TripPlannerPage() {
                             className="group flex flex-col sm:flex-row items-start gap-4 p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 hover:bg-slate-100/90 dark:hover:bg-slate-800/70 border border-slate-100 dark:border-slate-800/80 transition-all duration-300"
                           >
                             {/* Verified Photo */}
-                            <div className="relative w-full sm:w-28 sm:h-24 h-40 rounded-xl overflow-hidden bg-slate-800 shrink-0 shadow-xs">
-                              <img
-                                src={
-                                  item.hero_image_url ||
-                                  currentDestination?.hero_image_url ||
-                                  "/images/destinations/siem-reap.jpg"
-                                }
-                                alt={item.title}
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent opacity-60" />
+                            <div className="relative w-full sm:w-32 sm:h-28 h-44 rounded-2xl overflow-hidden bg-slate-800 shrink-0 shadow-xs">
+                              {item.place_slug ? (
+                                <Link href={`/travel/place/${item.place_slug}`} className="block w-full h-full">
+                                  <img
+                                    src={
+                                      item.hero_image_url ||
+                                      currentDestination?.hero_image_url ||
+                                      "/images/destinations/siem-reap.jpg"
+                                    }
+                                    alt={item.title}
+                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108"
+                                  />
+                                </Link>
+                              ) : (
+                                <img
+                                  src={
+                                    item.hero_image_url ||
+                                    currentDestination?.hero_image_url ||
+                                    "/images/destinations/siem-reap.jpg"
+                                  }
+                                  alt={item.title}
+                                  className="w-full h-full object-cover"
+                                />
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent opacity-60 pointer-events-none" />
                               
                               {/* Rating badge overlay */}
                               {item.rating && (
-                                <div className="absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-950/80 backdrop-blur-md text-amber-300 border border-amber-400/20">
+                                <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-slate-950/85 backdrop-blur-md text-amber-300 border border-amber-400/20 shadow-xs pointer-events-none">
                                   <Star className="h-2.5 w-2.5 fill-amber-300" />
                                   <span>{item.rating.toFixed(1)}</span>
                                 </div>
@@ -757,14 +771,14 @@ export default function TripPlannerPage() {
                                 )}
                               </div>
 
-                              <h4 className="font-bold text-sm text-slate-900 dark:text-white leading-snug">
+                              <h4 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-snug">
                                 {item.place_slug ? (
                                   <Link
                                     href={`/travel/place/${item.place_slug}`}
-                                    className="hover:text-teal-600 dark:hover:text-teal-400 inline-flex items-center gap-1 transition-colors"
+                                    className="hover:text-teal-600 dark:hover:text-teal-400 inline-flex items-center gap-1.5 transition-colors"
                                   >
                                     <span>{item.title}</span>
-                                    <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <ArrowRight className="h-3.5 w-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                                   </Link>
                                 ) : (
                                   item.title
@@ -775,15 +789,27 @@ export default function TripPlannerPage() {
                                 {item.description}
                               </p>
 
-                              {/* Duration and Cost Tags */}
-                              <div className="mt-2.5 flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                                <span className="flex items-center gap-1">
-                                  <Clock className="h-3 w-3 text-slate-400" /> ~{item.duration_minutes} min
-                                </span>
-                                <span>•</span>
-                                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                                  Est. {item.estimated_cost}
-                                </span>
+                              {/* Duration, Cost and Explore Badge */}
+                              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                                <div className="flex items-center gap-2.5 text-xs text-slate-500 dark:text-slate-400">
+                                  <span className="flex items-center gap-1 font-medium">
+                                    <Clock className="h-3 w-3 text-slate-400" /> ~{item.duration_minutes} min
+                                  </span>
+                                  <span>•</span>
+                                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                    Est. {item.estimated_cost}
+                                  </span>
+                                </div>
+
+                                {item.place_slug && (
+                                  <Link
+                                    href={`/travel/place/${item.place_slug}`}
+                                    className="inline-flex items-center gap-1 text-xs font-bold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors"
+                                  >
+                                    <span>View Place Guide</span>
+                                    <ArrowRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-1" />
+                                  </Link>
+                                )}
                               </div>
                             </div>
                           </div>

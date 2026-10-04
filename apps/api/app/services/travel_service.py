@@ -202,6 +202,7 @@ class TravelService:
         Deterministic Dynamic TripEngine:
         Synthesizes an intelligent, geocoded, time-optimized daily travel itinerary
         using actual verified places from the database with genuine Cambodia imagery.
+        Guarantees 100% database grounding with ZERO null place IDs or fake placeholders.
         """
         destination = db.query(Destination).filter(Destination.slug == req.destination_slug).first()
         dest_name = destination.name if destination else req.destination_slug.replace("-", " ").title()
@@ -215,8 +216,12 @@ class TravelService:
                 Place.status == "ACTIVE"
             ).all()
 
+        # Fail-safe: if destination has no places in DB, pull active Cambodian highlights so links are always valid
+        if not places:
+            places = db.query(Place).filter(Place.status == "ACTIVE").limit(12).all()
+
         # Categorize available places
-        temples = [p for p in places if p.place_type in ("TEMPLE", "ATTRACTION")]
+        temples = [p for p in places if p.place_type in ("TEMPLE", "ATTRACTION", "MUSEUM")]
         food = [p for p in places if p.place_type in ("RESTAURANT", "CAFE")]
         markets = [p for p in places if p.place_type in ("MARKET", "ACTIVITY")]
         nature = [p for p in places if p.place_type in ("WATERFALL", "HIDDEN_GEM", "BEACH", "NATIONAL_PARK", "LAKE")]
@@ -237,9 +242,6 @@ class TravelService:
                 ("Waterfalls & Forest Reserves", "Trek to refreshing jungle cascades and limestone river valleys"),
                 ("Coastal Wellness & Serene Departure", "Recharge with beachfront relaxation, herbal spas, and tranquil seaside strolls"),
             ]
-            default_morning = f"Scenic Coastal Exploration in {dest_name}"
-            default_afternoon = "Mangrove Boardwalk & Estuary Sanctuary"
-            default_evening = "Seaside Promenade & Fresh Seafood Bazaars"
         elif slug in ["mondulkiri", "ratanakiri", "pursat", "pailin", "kampong-speu", "oddar-meanchey", "preah-vihear", "stung-treng"]:
             theme_templates = [
                 (f"Highland Waterfalls & Sacred Hills", f"Immerse yourself in cool mountain breezes and lush evergreen valleys of {dest_name}"),
@@ -250,9 +252,6 @@ class TravelService:
                 ("Wilderness Sanctuaries & Panoramic Lookouts", "Ascend gentle ridges overlooking boundless green jungle landscapes"),
                 ("Sunset Over Pine Valleys", "Unwind as the golden hour illuminates misty valleys and quiet forest roads"),
             ]
-            default_morning = f"Mountain Trail & Scenic Viewpoint in {dest_name}"
-            default_afternoon = "Jungle Cascade & Botanical Sanctuary"
-            default_evening = "Stargazing & Highland Evening Market"
         elif slug in ["phnom-penh", "kandal", "kampong-cham", "kratie", "kampong-chhnang", "takeo", "prey-veng", "svay-rieng", "tboung-khmum"]:
             theme_templates = [
                 (f"Royal Heritage & Riverside Promenades", f"Experience royal architecture and the confluence of four rivers in {dest_name}"),
@@ -263,9 +262,6 @@ class TravelService:
                 ("Vibrant Night Bazaars & Evening Cruises", "Take a twilight river cruise and stroll through bustling evening markets"),
                 ("Contemporary Art & Scenic Farewell", "Discover modern Cambodian design, local galleries, and scenic riverfront vistas"),
             ]
-            default_morning = f"Historic City & Heritage Landmarks in {dest_name}"
-            default_afternoon = "Traditional Silk Weaving & Riverfront Culture"
-            default_evening = "Mekong Riverfront Stroll & Street Food Bazaars"
         else: # Siem Reap / Battambang / Kampong Thom / Heritage
             theme_templates = [
                 (f"Ancient Khmer Wonders & Sacred Monuments", f"Marvel at millennium-old stone temples and timeless sanctuaries in {dest_name}"),
@@ -276,9 +272,6 @@ class TravelService:
                 ("Herbal Wellness & Silk Weaving Traditions", "Revitalize with traditional botanical therapies and fine silk handicraft centers"),
                 ("Hilltop Sunsets & Vibrant Night Quarter", "Watch the sun dip below tropical horizons followed by lively evening culture"),
             ]
-            default_morning = f"Ancient Monument Discovery in {dest_name}"
-            default_afternoon = "Artisan Workshops & Cultural Heritage Village"
-            default_evening = "Night Market & Atmospheric Evening Quarter"
 
         is_angkor = "siem-reap" in slug
 
@@ -287,73 +280,51 @@ class TravelService:
             theme_title, theme_desc = theme_templates[day_idx % len(theme_templates)]
             items: List[GeneratedTripDayItem] = []
 
-            # 1. MORNING
-            morning_place = temples[day_idx % len(temples)] if temples else (nature[day_idx % len(nature)] if nature else None)
-            if morning_place:
-                items.append(GeneratedTripDayItem(
-                    time_of_day="MORNING",
-                    start_time="05:30 AM" if day_num == 1 and is_angkor else "08:00 AM",
-                    title=f"Explore {morning_place.name}",
-                    description=f"{morning_place.description[:140]}... Best enjoyed in the gentle morning light with refreshing cool weather.",
-                    place_id=morning_place.id,
-                    place_name=morning_place.name,
-                    place_slug=morning_place.slug,
-                    hero_image_url=morning_place.hero_image_url or dest_image,
-                    place_type=morning_place.place_type,
-                    rating=morning_place.rating or 4.9,
-                    duration_minutes=180 if day_num == 1 and is_angkor else 120,
-                    estimated_cost="Included in Angkor Pass" if is_angkor and morning_place.place_type == "TEMPLE" else "$5 - $10"
-                ))
-            else:
-                items.append(GeneratedTripDayItem(
-                    time_of_day="MORNING",
-                    start_time="08:30 AM",
-                    title=default_morning,
-                    description=f"Guided morning exploration of {dest_name}'s premier landmarks, sacred sites, and scenic natural settings.",
-                    place_id=None,
-                    place_name=f"{dest_name} Heritage Site",
-                    place_slug=None,
-                    hero_image_url=dest_image,
-                    place_type="ATTRACTION",
-                    rating=4.8,
-                    duration_minutes=120,
-                    estimated_cost="$5 - $15"
-                ))
+            # 1. MORNING (Heritage / Landmark / Nature)
+            morning_place = temples[day_idx % len(temples)] if temples else (nature[day_idx % len(nature)] if nature else places[day_idx % len(places)])
+            items.append(GeneratedTripDayItem(
+                time_of_day="MORNING",
+                start_time="05:30 AM" if day_num == 1 and is_angkor else "08:00 AM",
+                title=f"Explore {morning_place.name}",
+                description=f"{morning_place.description[:140]}... Best enjoyed in the gentle morning light with refreshing cool weather.",
+                place_id=morning_place.id,
+                place_name=morning_place.name,
+                place_slug=morning_place.slug,
+                hero_image_url=morning_place.hero_image_url or dest_image,
+                place_type=morning_place.place_type,
+                rating=morning_place.rating or 4.9,
+                duration_minutes=180 if day_num == 1 and is_angkor else 120,
+                estimated_cost="Included in Angkor Pass" if is_angkor and morning_place.place_type == "TEMPLE" else ("Free admission" if morning_place.price_level == "FREE" else "$5 - $10")
+            ))
 
-            # 2. MID-DAY / LUNCH
-            lunch_place = food[day_idx % len(food)] if food else None
-            if lunch_place:
-                items.append(GeneratedTripDayItem(
-                    time_of_day="AFTERNOON",
-                    start_time="12:30 PM",
-                    title=f"Lunch at {lunch_place.name}",
-                    description=f"{lunch_place.description[:120]}... Savor authentic Cambodian dishes and refreshing cooling beverages.",
-                    place_id=lunch_place.id,
-                    place_name=lunch_place.name,
-                    place_slug=lunch_place.slug,
-                    hero_image_url=lunch_place.hero_image_url or dest_image,
-                    place_type="RESTAURANT",
-                    rating=lunch_place.rating or 4.8,
-                    duration_minutes=75,
-                    estimated_cost="$10 - $25"
-                ))
+            # 2. MID-DAY / LUNCH (Restaurant / Street Food Market / Dining)
+            lunch_place = food[day_idx % len(food)] if food else (markets[day_idx % len(markets)] if markets else places[(day_idx + 1) % len(places)])
+            if lunch_place.place_type in ("RESTAURANT", "CAFE"):
+                lunch_title = f"Lunch at {lunch_place.name}"
+                lunch_desc = f"{lunch_place.description[:120]}... Savor authentic Cambodian dishes and refreshing cooling beverages."
+            elif lunch_place.place_type == "MARKET":
+                lunch_title = f"Local Gastronomy & Food Stalls at {lunch_place.name}"
+                lunch_desc = f"Sample freshly prepared traditional Khmer noodles, savory street snacks, and organic fruits at {lunch_place.name}."
             else:
-                items.append(GeneratedTripDayItem(
-                    time_of_day="AFTERNOON",
-                    start_time="12:30 PM",
-                    title=f"Khmer Culinary Experience in {dest_name}",
-                    description=f"Authentic local gastronomy featuring traditional Fish Amok, Lok Lak, fresh spring rolls, and organic herbs from {dest_name}.",
-                    place_id=None,
-                    place_name="Traditional Khmer Restaurant",
-                    place_slug=None,
-                    hero_image_url=dest_image,
-                    place_type="RESTAURANT",
-                    rating=4.7,
-                    duration_minutes=60,
-                    estimated_cost="$8 - $18"
-                ))
+                lunch_title = f"Culinary Rest & Refreshment near {lunch_place.name}"
+                lunch_desc = f"Enjoy authentic provincial specialties and chilled fresh coconuts beside {lunch_place.name} in {dest_name}."
 
-            # 3. AFTERNOON
+            items.append(GeneratedTripDayItem(
+                time_of_day="AFTERNOON",
+                start_time="12:30 PM",
+                title=lunch_title,
+                description=lunch_desc,
+                place_id=lunch_place.id,
+                place_name=lunch_place.name,
+                place_slug=lunch_place.slug,
+                hero_image_url=lunch_place.hero_image_url or dest_image,
+                place_type="RESTAURANT" if lunch_place.place_type in ("RESTAURANT", "CAFE") else lunch_place.place_type,
+                rating=lunch_place.rating or 4.8,
+                duration_minutes=75,
+                estimated_cost="$5 - $15" if lunch_place.price_level == "$" else "$10 - $25"
+            ))
+
+            # 3. AFTERNOON (Nature / Culture / Excursion)
             afternoon_place = None
             if nature and day_num % 2 == 0:
                 afternoon_place = nature[day_idx % len(nature)]
@@ -361,70 +332,70 @@ class TravelService:
                 afternoon_place = temples[(day_idx + 1) % len(temples)]
             elif all_activities:
                 afternoon_place = all_activities[(day_idx + 1) % len(all_activities)]
-
-            if afternoon_place:
-                items.append(GeneratedTripDayItem(
-                    time_of_day="AFTERNOON",
-                    start_time="02:30 PM",
-                    title=f"Visit {afternoon_place.name}",
-                    description=f"{afternoon_place.description[:130]}... Enjoy breathtaking panoramic scenery and local cultural atmosphere.",
-                    place_id=afternoon_place.id,
-                    place_name=afternoon_place.name,
-                    place_slug=afternoon_place.slug,
-                    hero_image_url=afternoon_place.hero_image_url or dest_image,
-                    place_type=afternoon_place.place_type,
-                    rating=afternoon_place.rating or 4.8,
-                    duration_minutes=120,
-                    estimated_cost="Included / $3 - $5"
-                ))
             else:
-                items.append(GeneratedTripDayItem(
-                    time_of_day="AFTERNOON",
-                    start_time="02:30 PM",
-                    title=default_afternoon,
-                    description=f"Discover community artisan workshops, scenic natural corridors, and local traditions preserved across {dest_name}.",
-                    place_id=None,
-                    place_name=f"{dest_name} Cultural Center",
-                    place_slug=None,
-                    hero_image_url=dest_image,
-                    place_type="ACTIVITY",
-                    rating=4.8,
-                    duration_minutes=90,
-                    estimated_cost="Free admission / $5"
-                ))
+                afternoon_place = places[(day_idx + 2) % len(places)]
 
-            # 4. EVENING
-            evening_place = markets[day_idx % len(markets)] if markets else None
-            if evening_place:
-                items.append(GeneratedTripDayItem(
-                    time_of_day="EVENING",
-                    start_time="06:00 PM",
-                    title=f"Evening stroll at {evening_place.name}",
-                    description=f"{evening_place.description[:120]}... Vibrant atmosphere, handmade souvenirs, tropical fruits, and street delicacies.",
-                    place_id=evening_place.id,
-                    place_name=evening_place.name,
-                    place_slug=evening_place.slug,
-                    hero_image_url=evening_place.hero_image_url or dest_image,
-                    place_type="MARKET",
-                    rating=evening_place.rating or 4.7,
-                    duration_minutes=90,
-                    estimated_cost="$5 - $15"
-                ))
+            # Avoid repeating the morning place in the same afternoon if other options exist
+            if afternoon_place.id == morning_place.id and len(places) > 1:
+                other_places = [p for p in places if p.id != morning_place.id]
+                if other_places:
+                    afternoon_place = other_places[day_idx % len(other_places)]
+
+            items.append(GeneratedTripDayItem(
+                time_of_day="AFTERNOON",
+                start_time="02:30 PM",
+                title=f"Visit {afternoon_place.name}",
+                description=f"{afternoon_place.description[:130]}... Enjoy breathtaking panoramic scenery and local cultural atmosphere.",
+                place_id=afternoon_place.id,
+                place_name=afternoon_place.name,
+                place_slug=afternoon_place.slug,
+                hero_image_url=afternoon_place.hero_image_url or dest_image,
+                place_type=afternoon_place.place_type,
+                rating=afternoon_place.rating or 4.8,
+                duration_minutes=120,
+                estimated_cost="Included / $3 - $5" if afternoon_place.price_level != "FREE" else "Free admission"
+            ))
+
+            # 4. EVENING (Night Market / Sunset Promenade / Evening Dining)
+            evening_place = None
+            if markets:
+                evening_place = markets[day_idx % len(markets)]
+            elif len(food) > 1:
+                evening_place = food[(day_idx + 1) % len(food)]
             else:
-                items.append(GeneratedTripDayItem(
-                    time_of_day="EVENING",
-                    start_time="06:30 PM",
-                    title=default_evening,
-                    description=f"Watch the sunset over {dest_name}'s horizon, followed by outdoor dining under fairy lights and relaxed local nightlife.",
-                    place_id=None,
-                    place_name=f"{dest_name} Night Quarter",
-                    place_slug=None,
-                    hero_image_url=dest_image,
-                    place_type="ACTIVITY",
-                    rating=4.8,
-                    duration_minutes=120,
-                    estimated_cost="$10 - $25"
-                ))
+                evening_place = places[(day_idx + 3) % len(places)]
+
+            # Avoid duplication with previous stops on the same day if we have enough places
+            used_ids = {morning_place.id, lunch_place.id, afternoon_place.id}
+            if evening_place.id in used_ids and len(places) >= 4:
+                unused_places = [p for p in places if p.id not in used_ids]
+                if unused_places:
+                    evening_place = unused_places[0]
+
+            if evening_place.place_type == "MARKET":
+                evening_title = f"Evening stroll & market life at {evening_place.name}"
+                evening_desc = f"{evening_place.description[:120]}... Vibrant atmosphere, handmade souvenirs, tropical fruits, and street delicacies."
+            elif evening_place.place_type in ("RESTAURANT", "CAFE"):
+                evening_title = f"Sunset dining & evening atmosphere at {evening_place.name}"
+                evening_desc = f"{evening_place.description[:120]}... Savor authentic evening gastronomy, candlelit ambiance, and local hospitality."
+            else:
+                evening_title = f"Sunset & twilight experience at {evening_place.name}"
+                evening_desc = f"{evening_place.description[:120]}... Watch the sunset over {dest_name}'s horizon followed by relaxed evening exploration."
+
+            items.append(GeneratedTripDayItem(
+                time_of_day="EVENING",
+                start_time="06:30 PM",
+                title=evening_title,
+                description=evening_desc,
+                place_id=evening_place.id,
+                place_name=evening_place.name,
+                place_slug=evening_place.slug,
+                hero_image_url=evening_place.hero_image_url or dest_image,
+                place_type=evening_place.place_type,
+                rating=evening_place.rating or 4.7,
+                duration_minutes=90,
+                estimated_cost="$5 - $15"
+            ))
 
             days_output.append(GeneratedTripDay(
                 day_number=day_num,
@@ -448,3 +419,4 @@ class TravelService:
             summary=summary,
             days=days_output
         )
+

@@ -29,7 +29,7 @@ export default function NearbySearchPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getPlaces({ limit: 60 }).then((res) => {
+    getPlaces({ limit: 150 }).then((res) => {
       if (res && res.items && res.items.length > 0) {
         setPlacesList(res.items);
       }
