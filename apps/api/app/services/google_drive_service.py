@@ -3,12 +3,15 @@ import json
 import uuid
 import httpx
 import asyncio
+import logging
 from typing import Optional, Dict, Any, Tuple
 from fastapi import HTTPException
 from app.common.config import settings
 
 from app.common.database import SessionLocal
 from app.models.storage import StorageProvider
+
+logger = logging.getLogger(__name__)
 
 try:
     from google.oauth2.credentials import Credentials
