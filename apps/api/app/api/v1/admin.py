@@ -376,3 +376,48 @@ def admin_update_destination(
     db.refresh(dest)
     return {"success": True, "slug": dest.slug, "hero_image_url": dest.hero_image_url}
 
+class DatabaseMigrateRequest(BaseModel):
+    target_url: str
+    copy_data: bool = False
+
+@router.post("/database/migrate")
+def admin_migrate_database(
+    req: DatabaseMigrateRequest,
+    current_user: User = Depends(require_admin)
+):
+    """
+    Super System: Connects to a new database and runs auto-migration (creating tables).
+    If copy_data is True, attempts to copy existing data.
+    """
+    from sqlalchemy import create_engine
+    from app.common.database import Base, engine as current_engine
+    
+    try:
+        # 1. Connect to new target database
+        new_engine = create_engine(req.target_url)
+        
+        # 2. Automatically create all tables (Smart System feature)
+        Base.metadata.create_all(bind=new_engine)
+        
+        message = "Successfully connected and generated all tables in the new database."
+        
+        # 3. Optional: Try to copy data
+        if req.copy_data:
+            from sqlalchemy.orm import Session
+            
+            with new_engine.begin() as new_conn:
+                with current_engine.begin() as old_conn:
+                    for table in Base.metadata.sorted_tables:
+                        try:
+                            rows = old_conn.execute(table.select()).fetchall()
+                            if rows:
+                                rows_data = [row._asdict() for row in rows]
+                                new_conn.execute(table.insert(), rows_data)
+                        except Exception as table_err:
+                            print(f"Failed to copy table {table.name}: {table_err}")
+            
+            message += " Data transfer attempt completed."
+            
+        return {"success": True, "message": message}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Database migration failed: {str(e)}")

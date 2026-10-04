@@ -9,6 +9,7 @@ const Storage = lazy(() => import('./pages/Storage'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Tourism = lazy(() => import('./pages/Tourism'));
 const ProvinceDetails = lazy(() => import('./pages/ProvinceDetails'));
+const DatabaseMigration = lazy(() => import('./pages/Database'));
 const Login = lazy(() => import('./pages/Login'));
 
 // A simple loading spinner shown while downloading the page code
@@ -34,6 +35,7 @@ function App() {
             <Route path="articles" element={<Articles />} />
             <Route path="storage" element={<Storage />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="database" element={<DatabaseMigration />} />
             <Route path="tourism" element={<Tourism />} />
             <Route path="tourism/:slug" element={<ProvinceDetails />} />
           </Route>

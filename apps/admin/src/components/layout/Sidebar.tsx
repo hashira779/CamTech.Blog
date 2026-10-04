@@ -9,7 +9,8 @@ import {
   ShieldCheck,
   Layers,
   HardDrive,
-  MapPin
+  MapPin,
+  Database
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -26,6 +27,7 @@ export default function Sidebar() {
     { name: 'Users & Roles', path: '/users', icon: Users },
     { name: 'Infrastructure', path: '/infrastructure', icon: Layers },
     { name: 'Settings', path: '/settings', icon: Settings },
+    { name: 'Database Config', path: '/database', icon: Database },
   ];
 
   return (
