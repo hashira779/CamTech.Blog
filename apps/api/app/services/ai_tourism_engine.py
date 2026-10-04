@@ -594,39 +594,13 @@ Return a JSON object with these keys ONLY:
                     gallery_raw = [destination.hero_image_url] if destination.hero_image_url else []
                 
             if hero_url:
-                final_hero = hero_url
-                # 1. Backup to Google Drive if configured
-                try:
-                    await storage_service.upload_file_from_url(hero_url, f"Destinations/{destination.name}")
-                except Exception as g_err:
-                    logger.warning(f"Google Drive upload warning: {g_err}")
-
-                # 2. Upload to Cloudflare R2 for fast public display
-                try:
-                    r2_url = await s3_service.upload_file_from_url(hero_url, f"Destinations/{destination.name}")
-                    if r2_url and r2_url.startswith("http"):
-                        final_hero = r2_url
-                except Exception as r2_err:
-                    logger.warning(f"R2 upload warning: {r2_err}")
-
-                place.hero_image_url = final_hero
+                place.hero_image_url = await self._sync_single_image(hero_url, destination.name)
                 
             if gallery_raw and isinstance(gallery_raw, list):
-                gallery = []
-                for url in gallery_raw:
-                    if url and url.startswith("http"):
-                        try:
-                            await storage_service.upload_file_from_url(url, f"Destinations/{destination.name}")
-                        except Exception:
-                            pass
-                        try:
-                            r2_url = await s3_service.upload_file_from_url(url, f"Destinations/{destination.name}")
-                            gallery.append(r2_url if (r2_url and r2_url.startswith("http")) else url)
-                        except Exception:
-                            gallery.append(url)
-                    else:
-                        gallery.append(url)
-                place.gallery_json = json.dumps(gallery)
+                gallery_tasks = [self._sync_single_image(url, destination.name) for url in gallery_raw[:4] if url and url.startswith("http")]
+                if gallery_tasks:
+                    synced_gallery = await asyncio.gather(*gallery_tasks, return_exceptions=True)
+                    place.gallery_json = json.dumps([item for item in synced_gallery if isinstance(item, str)])
 
             place.verification_status = "AI_UPDATED"
             
@@ -648,6 +622,69 @@ Return a JSON object with these keys ONLY:
         finally:
             db.close()
 
+    async def _sync_single_image(self, img_url: str, dest_name: str) -> str:
+        """
+        Downloads image bytes ONCE and uploads to both Google Drive (backup) and Cloudflare R2 (fast CDN) in parallel.
+        Returns the Cloudflare R2 public CDN URL if available, otherwise falls back to img_url.
+        """
+        if not img_url or not img_url.startswith("http"):
+            return img_url
+            
+        # If already on Cloudflare R2, no need to re-upload
+        r2_client, r2_cfg = s3_service._get_client_and_config()
+        if r2_cfg and r2_cfg.get("public_domain") and r2_cfg["public_domain"] in img_url:
+            return img_url
+
+        try:
+            headers = {
+                "User-Agent": "CamTechBlogDiscovery/2.0 (https://blog.camtech.cam; contact@camtech.cam) python-httpx/0.28.1",
+                "Accept": "image/*,*/*;q=0.8"
+            }
+            async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
+                res = await client.get(img_url, headers=headers)
+                if res.status_code != 200 or not res.content:
+                    return img_url
+                content = res.content
+                content_type = res.headers.get("Content-Type", "image/jpeg")
+        except Exception as dl_err:
+            logger.warning(f"Download failed for {img_url}: {dl_err}")
+            return img_url
+
+        import urllib.parse
+        parsed = urllib.parse.urlparse(img_url)
+        filename = os.path.basename(parsed.path)
+        if not filename or '.' not in filename:
+            ext = ".png" if "png" in content_type else ".jpg"
+            filename = f"image{ext}"
+
+        folder_path = f"Destinations/{dest_name}"
+
+        async def upload_gdrive():
+            try:
+                await storage_service.upload_file(filename, content, content_type, folder_path)
+            except Exception as e:
+                logger.warning(f"Google Drive upload warning: {e}")
+
+        async def upload_r2():
+            try:
+                return await s3_service.upload_file(filename, content, content_type, folder_path)
+            except Exception as e:
+                logger.warning(f"Cloudflare R2 upload warning: {e}")
+                return None
+
+        try:
+            # Parallel execution with 12s safety timeout
+            results = await asyncio.wait_for(
+                asyncio.gather(upload_gdrive(), upload_r2(), return_exceptions=True),
+                timeout=12.0
+            )
+            r2_res = results[1]
+            if isinstance(r2_res, str) and r2_res.startswith("http"):
+                return r2_res
+        except Exception as sync_err:
+            logger.warning(f"Dual storage sync timeout or error for {img_url}: {sync_err}")
+
+        return img_url
 
     async def save_approved_place(self, place_dict: dict) -> dict:
         db = SessionLocal()
@@ -686,38 +723,18 @@ Return a JSON object with these keys ONLY:
             # 1. Google Drive for persistent backup
             # 2. Cloudflare R2 for fast public display
             if hero_url and hero_url.startswith("http"):
-                try:
-                    await storage_service.upload_file_from_url(hero_url, f"Destinations/{dest_name}")
-                except Exception as g_err:
-                    logger.warning(f"Google Drive upload warning: {g_err}")
+                hero_url = await self._sync_single_image(hero_url, dest_name)
 
-                try:
-                    r2_url = await s3_service.upload_file_from_url(hero_url, f"Destinations/{dest_name}")
-                    if r2_url and r2_url.startswith("http"):
-                        hero_url = r2_url
-                except Exception as r2_err:
-                    logger.warning(f"R2 upload warning: {r2_err}")
-
-            # Process gallery items similarly if any
+            # Process gallery items concurrently
             try:
                 gallery_list = json.loads(gallery_json) if isinstance(gallery_json, str) else (gallery_json or [])
-                updated_gallery = []
-                for g_item in gallery_list:
-                    if g_item and g_item.startswith("http"):
-                        try:
-                            await storage_service.upload_file_from_url(g_item, f"Destinations/{dest_name}")
-                        except Exception:
-                            pass
-                        try:
-                            r2_g = await s3_service.upload_file_from_url(g_item, f"Destinations/{dest_name}")
-                            updated_gallery.append(r2_g if (r2_g and r2_g.startswith("http")) else g_item)
-                        except Exception:
-                            updated_gallery.append(g_item)
-                    else:
-                        updated_gallery.append(g_item)
-                gallery_json = json.dumps(updated_gallery)
-            except Exception:
-                pass
+                if gallery_list and isinstance(gallery_list, list):
+                    gallery_tasks = [self._sync_single_image(g, dest_name) for g in gallery_list[:4] if g and g.startswith("http")]
+                    if gallery_tasks:
+                        synced_items = await asyncio.gather(*gallery_tasks, return_exceptions=True)
+                        gallery_json = json.dumps([item for item in synced_items if isinstance(item, str)])
+            except Exception as gal_err:
+                logger.warning(f"Gallery sync error: {gal_err}")
 
 
             new_place = Place(

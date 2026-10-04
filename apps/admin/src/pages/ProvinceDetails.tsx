@@ -82,6 +82,8 @@ export default function ProvinceDetails() {
   const [isScanning, setIsScanning] = useState(false);
   const [pendingApproval, setPendingApproval] = useState<{ province: string, places: Place[] } | null>(null);
   const [savingPlaceId, setSavingPlaceId] = useState<string | null>(null);
+  const [isApprovingAll, setIsApprovingAll] = useState(false);
+  const [approvalProgress, setApprovalProgress] = useState<{ current: number; total: number; placeName: string } | null>(null);
   
   // AI Update State
   const [isUpdatingAll, setIsUpdatingAll] = useState(false);
@@ -93,8 +95,8 @@ export default function ProvinceDetails() {
     fetchPlaces();
   }, [slug]);
 
-  const fetchPlaces = async () => {
-    setLoading(true);
+  const fetchPlaces = async (quiet = false) => {
+    if (!quiet) setLoading(true);
     try {
       const res = await api.get(`/admin/tourism-places/${slug}`);
       setPlaces(res.data);
@@ -102,7 +104,7 @@ export default function ProvinceDetails() {
       console.error(err);
       setStatusMessage({ type: 'error', text: 'Failed to load places.' });
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   };
 
@@ -123,7 +125,7 @@ export default function ProvinceDetails() {
     try {
       await api.post(`/admin/tourism-places/${place.id}/update-via-ai`);
       setStatusMessage({ type: 'success', text: `Successfully updated ${place.name}` });
-      await fetchPlaces(); // reload to get new data
+      await fetchPlaces(true); // quiet reload to get new data
     } catch (err: any) {
       setStatusMessage({ type: 'error', text: err.response?.data?.detail || `Failed to update ${place.name}` });
       throw err;
@@ -176,36 +178,69 @@ export default function ProvinceDetails() {
   };
 
   const handleApproveSave = async (place: Place, index: number) => {
+    if (isApprovingAll || savingPlaceId !== null) return;
     setSavingPlaceId(index.toString());
     try {
       const res = await api.post('/admin/ai/tourism-save', place);
-      if (res.data.status === 'success') {
+      if (res.data.status === 'success' || res.data.status === 'skipped') {
         setPendingApproval(prev => {
           if (!prev) return prev;
           const newPlaces = [...prev.places];
           newPlaces[index].is_duplicate = true;
           return { ...prev, places: newPlaces };
         });
-        setStatusMessage({ type: 'success', text: res.data.message });
-        fetchPlaces();
+        setStatusMessage({ type: 'success', text: `Saved "${place.name}" to Cloudflare R2 & Google Drive` });
+        fetchPlaces(true);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setStatusMessage({ type: 'error', text: `Failed to save ${place.name}` });
+      setStatusMessage({ type: 'error', text: err.response?.data?.detail || `Failed to save ${place.name}` });
     } finally {
       setSavingPlaceId(null);
     }
   };
 
   const handleApproveAll = async () => {
-    if (!pendingApproval) return;
-    const unapproved = pendingApproval.places.map((p, i) => ({ place: p, index: i })).filter(x => !x.place.is_duplicate);
+    if (!pendingApproval || isApprovingAll) return;
+    const unapproved = pendingApproval.places
+      .map((p, i) => ({ place: p, index: i }))
+      .filter(x => !x.place.is_duplicate);
     
     if (unapproved.length === 0) return;
     
-    for (const item of unapproved) {
-      await handleApproveSave(item.place, item.index);
+    setIsApprovingAll(true);
+    let savedCount = 0;
+    
+    for (let i = 0; i < unapproved.length; i++) {
+      const item = unapproved[i];
+      setApprovalProgress({
+        current: i + 1,
+        total: unapproved.length,
+        placeName: item.place.name
+      });
+      setSavingPlaceId(item.index.toString());
+      
+      try {
+        const res = await api.post('/admin/ai/tourism-save', item.place);
+        if (res.data.status === 'success' || res.data.status === 'skipped') {
+          savedCount++;
+          setPendingApproval(prev => {
+            if (!prev) return prev;
+            const newPlaces = [...prev.places];
+            newPlaces[item.index].is_duplicate = true;
+            return { ...prev, places: newPlaces };
+          });
+        }
+      } catch (err) {
+        console.error(`Failed to save ${item.place.name}`, err);
+      }
     }
+    
+    setSavingPlaceId(null);
+    setIsApprovingAll(false);
+    setApprovalProgress(null);
+    setStatusMessage({ type: 'success', text: `Successfully saved ${savedCount} places to Cloudflare R2 & Google Drive!` });
+    await fetchPlaces(true);
   };
 
   const parseTags = (tagsJson?: string): string[] => {
@@ -243,7 +278,7 @@ export default function ProvinceDetails() {
             Update All via AI
           </button>
           <button 
-            onClick={fetchPlaces}
+            onClick={() => fetchPlaces()}
             disabled={loading || isUpdatingAll}
             className="flex items-center gap-1.5 px-3 py-2 text-xs text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-md transition-colors disabled:opacity-50"
           >
@@ -498,15 +533,51 @@ export default function ProvinceDetails() {
               <div className="flex items-center gap-3">
                 <button 
                   onClick={handleApproveAll} 
-                  disabled={savingPlaceId !== null}
-                  className="flex items-center gap-1.5 bg-zinc-100 hover:bg-white text-zinc-900 font-medium px-4 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50"
+                  disabled={isApprovingAll || savingPlaceId !== null || pendingApproval.places.filter(p => !p.is_duplicate).length === 0}
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50"
                 >
-                  <CheckCircle size={14} />
-                  Approve All
+                  {isApprovingAll ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin text-white" />
+                      <span>Saving {approvalProgress?.current || 1} of {approvalProgress?.total || 1}...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle size={14} />
+                      <span>Approve All ({pendingApproval.places.filter(p => !p.is_duplicate).length})</span>
+                    </>
+                  )}
                 </button>
-                <button onClick={() => setPendingApproval(null)} className="text-zinc-400 hover:text-white text-sm">Close</button>
+                <button 
+                  onClick={() => !isApprovingAll && setPendingApproval(null)} 
+                  disabled={isApprovingAll}
+                  className="text-zinc-400 hover:text-white text-sm disabled:opacity-30 transition-colors"
+                >
+                  Close
+                </button>
               </div>
             </div>
+
+            {/* Live Progress Bar for Storage Uploads */}
+            {approvalProgress && (
+              <div className="bg-emerald-950/40 border-b border-emerald-800/40 px-5 py-3 shrink-0">
+                <div className="flex items-center justify-between text-xs text-emerald-300 mb-1.5 font-medium">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw size={13} className="animate-spin text-emerald-400 shrink-0" />
+                    <span>Uploading & Syncing <b>{approvalProgress.placeName}</b> to Cloudflare R2 & Google Drive...</span>
+                  </div>
+                  <span className="font-mono text-emerald-400">
+                    {Math.round((approvalProgress.current / approvalProgress.total) * 100)}% ({approvalProgress.current}/{approvalProgress.total})
+                  </span>
+                </div>
+                <div className="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                  <div 
+                    className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
+                    style={{ width: `${(approvalProgress.current / approvalProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
             
             <div className="p-5 overflow-y-auto space-y-3">
               {pendingApproval.places.length === 0 ? (
@@ -541,16 +612,21 @@ export default function ProvinceDetails() {
                     </div>
                     <div className="flex items-center sm:items-start shrink-0">
                       {place.is_duplicate ? (
-                        <div className="flex items-center gap-1.5 text-xs text-emerald-500 font-medium px-3 py-1.5">
-                          <CheckCircle size={14} /> Saved
+                        <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-md">
+                          <CheckCircle size={14} /> Saved to R2 & Drive
+                        </div>
+                      ) : savingPlaceId === idx.toString() ? (
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-md text-xs font-medium animate-pulse">
+                          <RefreshCw size={12} className="animate-spin text-blue-400" />
+                          <span>Uploading to Storage...</span>
                         </div>
                       ) : (
                         <button
                           onClick={() => handleApproveSave(place, idx)}
-                          disabled={savingPlaceId === idx.toString()}
+                          disabled={isApprovingAll || savingPlaceId !== null}
                           className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-1.5 rounded-md text-xs transition-colors disabled:opacity-50"
                         >
-                          {savingPlaceId === idx.toString() ? <RefreshCw size={12} className="animate-spin" /> : <Zap size={12} />}
+                          <Zap size={12} />
                           Approve & Save
                         </button>
                       )}

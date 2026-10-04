@@ -21,6 +21,7 @@ class GoogleDriveService:
     def __init__(self):
         self.credentials = None
         self.folder_id = None
+        self._folder_cache = {}
         
     def is_configured(self) -> bool:
         """Returns True if Google Drive credentials are ready."""
@@ -72,7 +73,12 @@ class GoogleDriveService:
         
         if not self.credentials.valid or force_refresh:
             request = Request()
-            await asyncio.to_thread(self.credentials.refresh, request)
+            try:
+                await asyncio.wait_for(asyncio.to_thread(self.credentials.refresh, request), timeout=10.0)
+            except Exception as ref_err:
+                logger.error(f"Failed to refresh Google Drive token: {ref_err}")
+                raise HTTPException(status_code=500, detail=f"Google Drive token refresh failed: {ref_err}")
+                
             # Update token back to DB if provider exists
             try:
                 db = SessionLocal()
@@ -85,7 +91,7 @@ class GoogleDriveService:
                     provider.credentials = creds
                     db.commit()
                 db.close()
-            except Exception as e:
+            except Exception:
                 pass
         return self.credentials.token
 
@@ -103,7 +109,11 @@ class GoogleDriveService:
 
     async def _get_or_create_folder(self, folder_name: str, parent_id: str) -> str:
         pid = parent_id.strip() if parent_id and parent_id.strip() else "root"
-        async with httpx.AsyncClient() as client:
+        cache_key = f"{pid}/{folder_name}"
+        if cache_key in self._folder_cache:
+            return self._folder_cache[cache_key]
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
             query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and '{pid}' in parents and trashed=false"
             search_res = await self._request_with_retry(
                 client, "GET",
@@ -113,7 +123,9 @@ class GoogleDriveService:
             files = search_res.json().get("files", [])
             
             if files:
-                return files[0]["id"]
+                folder_id = files[0]["id"]
+                self._folder_cache[cache_key] = folder_id
+                return folder_id
                 
             metadata = {
                 "name": folder_name,
@@ -126,19 +138,28 @@ class GoogleDriveService:
                 json=metadata
             )
             create_res.raise_for_status()
-            return create_res.json()["id"]
+            folder_id = create_res.json()["id"]
+            self._folder_cache[cache_key] = folder_id
+            return folder_id
 
     async def ensure_folder_path(self, path: str) -> str:
         """
         Creates a nested folder structure like 'Destinations/Phnom Penh' inside the root folder.
         Returns the ID of the deepest folder.
         """
+        if not path or not path.strip():
+            return self.folder_id or "root"
+
+        clean_path = path.strip().strip("/")
+        if clean_path in self._folder_cache:
+            return self._folder_cache[clean_path]
+
         current_parent = self.folder_id or "root"
-            
-        parts = [p.strip() for p in path.split('/') if p.strip()]
+        parts = [p.strip() for p in clean_path.split('/') if p.strip()]
         for part in parts:
             current_parent = await self._get_or_create_folder(part, current_parent)
             
+        self._folder_cache[clean_path] = current_parent
         return current_parent
 
     async def upload_file(self, file_name: str, file_content: bytes, mime_type: str, folder_path: Optional[str] = None) -> Dict[str, Any]:
@@ -154,8 +175,7 @@ class GoogleDriveService:
         elif self.folder_id and self.folder_id != "root":
             metadata["parents"] = [self.folder_id]
 
-
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=20.0) as client:
             # 1. Get resumable upload URL
             init_res = await self._request_with_retry(
                 client,
