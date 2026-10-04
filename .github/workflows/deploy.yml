@@ -43,4 +43,4 @@ jobs:
           cd /home/ubuntu-server/CamTech.Blog
           # We check if the api container is running and seed data
           docker compose exec -T api python seed_data.py || echo "Seed failed or not applicable"
-          docker compose exec -T api python seed_more_routes.py || echo "Seed more routes failed"
+          docker compose exec -T api python delete_fake_transport.py || echo "Delete fake data failed"
