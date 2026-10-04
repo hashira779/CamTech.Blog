@@ -6,6 +6,7 @@ Designed to run once per week via APScheduler.
 import json
 import uuid
 import re
+import os
 import logging
 import asyncio
 import httpx
@@ -728,7 +729,10 @@ Return a JSON object with these keys ONLY:
             # 1. Google Drive for persistent backup
             # 2. Cloudflare R2 for fast public display
             if hero_url and hero_url.startswith("http"):
-                hero_url = await self._sync_single_image(hero_url, dest_name, name)
+                try:
+                    hero_url = await self._sync_single_image(hero_url, dest_name, name)
+                except Exception as hero_err:
+                    logger.warning(f"Hero image sync failed for {name}, keeping original URL: {hero_err}")
 
             # Process gallery items concurrently
             try:
