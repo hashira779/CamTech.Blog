@@ -31,6 +31,7 @@ import { TravelEventCard } from "@/components/travel/TravelEventCard";
 import { TransportRouteCard } from "@/components/travel/TransportRouteCard";
 import { ProvinceHubGrid } from "@/components/travel/ProvinceHubGrid";
 import { TouristAttractionsGrid } from "@/components/travel/TouristAttractionsGrid";
+import { HeroDestinationSlider } from "@/components/travel/HeroDestinationSlider";
 
 export const metadata: Metadata = {
   title: "Travel & Trip Discovery across Cambodia | Daily Discovery",
@@ -40,16 +41,6 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-function getDestIcon(slug: string) {
-  if (slug.includes("siem") || slug.includes("battambang"))
-    return <Palmtree className="h-3.5 w-3.5" />;
-  if (slug.includes("sihanouk") || slug.includes("kep") || slug.includes("koh"))
-    return <Waves className="h-3.5 w-3.5" />;
-  if (slug.includes("mondulkiri") || slug.includes("ratanakiri"))
-    return <Mountain className="h-3.5 w-3.5" />;
-  return <Globe2 className="h-3.5 w-3.5" />;
-}
 
 export default async function TravelHubPage() {
   const [destinations, touristPlacesData, trips, guides, events, transportData] =
@@ -67,167 +58,16 @@ export default async function TravelHubPage() {
     ]);
 
   const touristPlaces = touristPlacesData.items;
-  const siemReap =
-    destinations.find((d) => d.slug === "siem-reap") || destinations[0];
-  const featuredTop3 = destinations.filter((d) =>
-    ["siem-reap", "phnom-penh", "sihanoukville"].includes(d.slug)
-  );
-  const heroDests = featuredTop3.length >= 3 ? featuredTop3 : destinations.slice(0, 3);
 
   return (
     <div className="min-h-screen pb-24 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      {/* ━━━ 1. HERO BANNER ━━━ */}
-      <section className="relative overflow-hidden bg-zinc-950 text-white border-b border-zinc-800">
-        {/* Ambient background blur */}
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage: `url('${siemReap?.hero_image_url || "/images/places/angkor-wat.jpg"}')`,
-            filter: "brightness(0.25) saturate(1.1)",
-            transform: "scale(1.05)",
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/80 via-zinc-950/50 to-zinc-950" />
+      {/* ━━━ 1. DYNAMIC DATABASE-DRIVEN HERO SLIDER ━━━ */}
+      <HeroDestinationSlider destinations={destinations} />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 sm:pt-20 pb-20 sm:pb-28">
-          {/* Breadcrumb intro */}
-          <div className="animate-fade-up flex items-center gap-2 text-zinc-400 text-xs font-medium tracking-wide mb-5">
-            <Compass className="h-3.5 w-3.5 text-zinc-400" />
-            <span>Travel Hub</span>
-            <ChevronRight className="h-3 w-3" />
-            <span className="text-zinc-200">Kingdom of Cambodia</span>
-          </div>
-
-          <h1 className="animate-fade-up stagger-1 text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight max-w-3xl leading-[1.1] text-white">
-            Explore the Kingdom of Wonder
-          </h1>
-
-          <p className="animate-fade-up stagger-2 mt-4 text-base sm:text-lg text-zinc-300 leading-relaxed font-normal max-w-2xl">
-            Handpicked sacred temples, secret jungle cascades, pristine islands,
-            and authentic local gastronomy across all 25 provinces. Verified on
-            the ground.
-          </p>
-
-          <div className="animate-fade-up stagger-3 mt-8 flex flex-wrap gap-2.5">
-            {[
-              {
-                href: "/travel/siem-reap",
-                icon: <MapPin className="h-4 w-4" />,
-                label: "Siem Reap",
-                accent: true,
-              },
-              {
-                href: "/travel/planner",
-                icon: <Navigation className="h-4 w-4" />,
-                label: "Trip Planner",
-              },
-              {
-                href: "/travel/transport",
-                icon: <Bus className="h-4 w-4" />,
-                label: "Transit & Buses",
-              },
-              {
-                href: "/travel/nearby",
-                icon: <Footprints className="h-4 w-4" />,
-                label: "Near Me",
-              },
-              {
-                href: "/travel/suggest",
-                icon: <PlusCircle className="h-4 w-4" />,
-                label: "Suggest Place",
-              },
-            ].map((btn) => (
-              <Link
-                key={btn.href}
-                href={btn.href}
-                className={`
-                  inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold
-                  transition-all duration-200 cursor-pointer
-                  ${
-                    btn.accent
-                      ? "bg-white text-zinc-950 hover:bg-zinc-100 shadow-xs"
-                      : "bg-white/10 backdrop-blur-md text-zinc-200 hover:text-white hover:bg-white/20 border border-white/15"
-                  }
-                `}
-              >
-                {btn.icon} {btn.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12 relative z-10 space-y-20">
-        {/* ━━━ 2. TOP ICONIC DESTINATION SHOWCASE (Hero Overlap) ━━━ */}
-        <section>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {heroDests.map((dest, i) => (
-              <Link
-                key={dest.id || dest.slug}
-                href={`/travel/${dest.slug}`}
-                className={`
-                  group relative rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1
-                  ${i === 0 ? "md:col-span-2 md:row-span-2" : ""}
-                `}
-              >
-                <div
-                  className={`relative overflow-hidden bg-slate-800 ${
-                    i === 0 ? "aspect-[16/9] md:aspect-[16/10]" : "aspect-[16/10]"
-                  }`}
-                >
-                  <img
-                    src={dest.hero_image_url || "/images/destinations/siem-reap.jpg"}
-                    alt={dest.name}
-                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                  />
-                  {/* Cinematic gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-slate-950/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                </div>
-
-                {/* Content Overlay */}
-                <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-white/20 backdrop-blur-md text-amber-300 border border-white/20">
-                      {getDestIcon(dest.slug)}
-                      {dest.name_km || "កម្ពុជា"}
-                    </span>
-                    {dest.best_time_to_visit && (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-slate-300">
-                        <Calendar className="h-3 w-3 text-teal-400" />{" "}
-                        {dest.best_time_to_visit}
-                      </span>
-                    )}
-                  </div>
-
-                  <h3
-                    className={`font-bold text-white tracking-tight leading-tight ${
-                      i === 0 ? "text-2xl sm:text-3xl" : "text-lg sm:text-xl"
-                    }`}
-                  >
-                    {dest.name}
-                  </h3>
-
-                  <p
-                    className={`mt-1.5 text-slate-300/90 leading-relaxed line-clamp-2 ${
-                      i === 0 ? "text-sm max-w-xl" : "text-xs"
-                    }`}
-                  >
-                    {dest.overview}
-                  </p>
-
-                  <div className="mt-3.5 inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-300 group-hover:text-white transition-colors">
-                    Explore Destination
-                    <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" />
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* ━━━ 3. MUST-VISIT TOURIST ATTRACTIONS & SACRED WONDERS ━━━ */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 space-y-20">
+        {/* ━━━ 2. MUST-VISIT TOURIST ATTRACTIONS & SACRED WONDERS ━━━ */}
         <section className="animate-fade-up">
+
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
             <div>
               <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">

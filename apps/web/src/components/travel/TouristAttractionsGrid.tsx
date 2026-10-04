@@ -85,9 +85,10 @@ export function TouristAttractionsGrid({ places }: TouristAttractionsGridProps) 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {filteredPlaces.map((place, i) => (
           <Link
-            key={place.id || place.slug}
+            key={`${activeFilter}-${place.id || place.slug}`}
             href={`/travel/place/${place.slug}`}
-            className="group rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 flex flex-col h-full"
+            style={{ animationDelay: `${(i % 8) * 0.05}s` }}
+            className="animate-fade-up group rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col h-full"
           >
             {/* Visual Aspect Ratio */}
             <div className="relative aspect-[4/3] overflow-hidden bg-zinc-800">
@@ -96,7 +97,7 @@ export function TouristAttractionsGrid({ places }: TouristAttractionsGridProps) 
                   src={place.hero_image_url}
                   alt={place.name}
                   loading={i < 4 ? "eager" : "lazy"}
-                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
                 />
               ) : (
                 <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
