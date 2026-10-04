@@ -9,29 +9,41 @@ from app.common.config import settings
 
 from app.common.database import SessionLocal
 from app.models.storage import StorageProvider
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
+
+try:
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+except ImportError:
+    Credentials = None
+    Request = None
 
 class GoogleDriveService:
     def __init__(self):
         self.credentials = None
         self.folder_id = None
         
+    def is_configured(self) -> bool:
+        """Returns True if Google Drive credentials are ready."""
+        return self._load_credentials_from_db()
+
     def _load_credentials_from_db(self):
         db = SessionLocal()
         try:
-            provider = db.query(StorageProvider).filter(StorageProvider.provider_type == "GOOGLE_DRIVE").first()
-            if not provider:
-                return False
-                
-            creds = provider.credentials or {}
-            config = provider.configuration or {}
+            provider = db.query(StorageProvider).filter(
+                StorageProvider.provider_type.in_(["GOOGLE_DRIVE", "GDRIVE", "google_drive", "gdrive"])
+            ).first()
             
-            client_id = creds.get("client_id")
-            client_secret = creds.get("client_secret")
-            refresh_token = creds.get("refresh_token")
-            access_token = creds.get("access_token")
-            self.folder_id = config.get("folder_id")
+            creds = (provider.credentials or {}) if provider else {}
+            config = (provider.configuration or {}) if provider else {}
+            
+            client_id = creds.get("client_id") or os.getenv("GDRIVE_CLIENT_ID")
+            client_secret = creds.get("client_secret") or os.getenv("GDRIVE_CLIENT_SECRET")
+            refresh_token = creds.get("refresh_token") or os.getenv("GDRIVE_REFRESH_TOKEN")
+            access_token = creds.get("access_token") or os.getenv("GDRIVE_ACCESS_TOKEN")
+            
+            # Use configured folder_id or default to 'root'
+            raw_folder = config.get("folder_id") or os.getenv("GDRIVE_FOLDER_ID")
+            self.folder_id = raw_folder.strip() if (raw_folder and raw_folder.strip()) else "root"
             
             if not client_id or not client_secret or not refresh_token:
                 return False
@@ -61,6 +73,20 @@ class GoogleDriveService:
         if not self.credentials.valid or force_refresh:
             request = Request()
             await asyncio.to_thread(self.credentials.refresh, request)
+            # Update token back to DB if provider exists
+            try:
+                db = SessionLocal()
+                provider = db.query(StorageProvider).filter(
+                    StorageProvider.provider_type.in_(["GOOGLE_DRIVE", "GDRIVE", "google_drive", "gdrive"])
+                ).first()
+                if provider and provider.credentials:
+                    creds = dict(provider.credentials)
+                    creds["access_token"] = self.credentials.token
+                    provider.credentials = creds
+                    db.commit()
+                db.close()
+            except Exception as e:
+                pass
         return self.credentials.token
 
     async def _request_with_retry(self, client: httpx.AsyncClient, method: str, url: str, **kwargs) -> httpx.Response:
@@ -76,8 +102,9 @@ class GoogleDriveService:
         return res
 
     async def _get_or_create_folder(self, folder_name: str, parent_id: str) -> str:
+        pid = parent_id.strip() if parent_id and parent_id.strip() else "root"
         async with httpx.AsyncClient() as client:
-            query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and '{parent_id}' in parents and trashed=false"
+            query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and '{pid}' in parents and trashed=false"
             search_res = await self._request_with_retry(
                 client, "GET",
                 f"https://www.googleapis.com/drive/v3/files?q={query}&fields=files(id)&supportsAllDrives=true"
@@ -91,7 +118,7 @@ class GoogleDriveService:
             metadata = {
                 "name": folder_name,
                 "mimeType": "application/vnd.google-apps.folder",
-                "parents": [parent_id]
+                "parents": [pid]
             }
             create_res = await self._request_with_retry(
                 client, "POST",
@@ -103,12 +130,10 @@ class GoogleDriveService:
 
     async def ensure_folder_path(self, path: str) -> str:
         """
-        Creates a nested folder structure like 'Articles/2026/10' inside the root folder.
+        Creates a nested folder structure like 'Destinations/Phnom Penh' inside the root folder.
         Returns the ID of the deepest folder.
         """
-        current_parent = self.folder_id
-        if not current_parent:
-            raise ValueError("Root Google Drive folder ID is not configured.")
+        current_parent = self.folder_id or "root"
             
         parts = [p.strip() for p in path.split('/') if p.strip()]
         for part in parts:
@@ -126,8 +151,9 @@ class GoogleDriveService:
         if folder_path:
             target_folder_id = await self.ensure_folder_path(folder_path)
             metadata["parents"] = [target_folder_id]
-        elif self.folder_id:
+        elif self.folder_id and self.folder_id != "root":
             metadata["parents"] = [self.folder_id]
+
 
         async with httpx.AsyncClient() as client:
             # 1. Get resumable upload URL

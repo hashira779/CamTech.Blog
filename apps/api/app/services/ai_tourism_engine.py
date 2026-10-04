@@ -11,8 +11,12 @@ import asyncio
 import httpx
 import urllib.parse
 from datetime import datetime, timezone
-from google import genai
-from google.genai import types
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:
+    genai = None
+    types = None
 from app.common.config import settings
 from app.common.database import SessionLocal
 from app.models.location import Country, Destination
@@ -61,25 +65,67 @@ def _you_web_search(query: str, api_key: str) -> dict:
         logger.warning(f"You.com Web Search API failed: {e}")
         return None
 
-async def fetch_wiki_images(place_name: str, province_name: str) -> list[str]:
-    """Uses Wikipedia API to find up to 3 original images for a place"""
-    try:
-        # Search for place + province for better context, or just place
-        query = urllib.parse.quote(f"{place_name} {province_name}")
-        url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={query}&gsrlimit=15&prop=pageimages&piprop=original&format=json"
-        
-        async with httpx.AsyncClient() as client:
-            res = await client.get(url, headers={'User-Agent': 'CamTechBlog/1.0'})
-            if res.status_code == 200:
-                data = res.json()
-                pages = data.get('query', {}).get('pages', {})
-                urls = []
-                for page_id, page_data in pages.items():
-                    if 'original' in page_data:
-                        urls.append(page_data['original']['source'])
-                return urls
-    except Exception as e:
-        logger.warning(f"Wiki image fetch failed for {place_name}: {e}")
+async def fetch_wiki_images(place_name: str, province_name: str, local_name: str = None) -> list[str]:
+    """Uses Wikipedia API with policy-compliant headers, multi-query variations, and flag/svg filtering to find real photos."""
+    ua = "CamTechBlogDiscovery/2.0 (https://blog.camtech.cam; contact@camtech.cam) python-httpx/0.28.1"
+    headers = {"User-Agent": ua}
+    
+    clean_name = re.sub(r'\(.*?\)', '', place_name).strip()
+    queries = [
+        f"{place_name} {province_name}",
+        f"{place_name} Cambodia",
+        place_name,
+        f"{clean_name} {province_name}",
+        f"{clean_name} Cambodia",
+        clean_name,
+    ]
+    if local_name and local_name.strip():
+        queries.append(f"{local_name.strip()} {province_name}")
+        queries.append(local_name.strip())
+
+    BAD_KEYWORDS = [
+        "flag", "symbol", "coat_of_arms", "icon", "map", "logo", "stub", 
+        "diagram", "locator", ".svg", "emblem", "seal_of", "district_in"
+    ]
+
+    async with httpx.AsyncClient(timeout=12, headers=headers) as client:
+        # 1. Search English Wikipedia with distinct queries
+        for q in dict.fromkeys(queries):
+            url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(q)}&gsrlimit=10&prop=pageimages&piprop=original&format=json"
+            try:
+                res = await client.get(url)
+                if res.status_code == 200:
+                    pages = res.json().get("query", {}).get("pages", {})
+                    candidates = []
+                    for p in pages.values():
+                        if "original" in p:
+                            src = p["original"]["source"]
+                            src_lower = src.lower()
+                            if not any(bad in src_lower for bad in BAD_KEYWORDS):
+                                candidates.append(src)
+                    if candidates:
+                        return candidates
+            except Exception as e:
+                logger.debug(f"Wiki search error for {q}: {e}")
+
+        # 2. Search Khmer Wikipedia if local_name is available
+        if local_name and local_name.strip():
+            url = f"https://km.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(local_name.strip())}&gsrlimit=5&prop=pageimages&piprop=original&format=json"
+            try:
+                res = await client.get(url)
+                if res.status_code == 200:
+                    pages = res.json().get("query", {}).get("pages", {})
+                    candidates = []
+                    for p in pages.values():
+                        if "original" in p:
+                            src = p["original"]["source"]
+                            if not any(bad in src.lower() for bad in BAD_KEYWORDS):
+                                candidates.append(src)
+                    if candidates:
+                        return candidates
+            except Exception:
+                pass
+
     return []
 
 
@@ -314,6 +360,18 @@ Return a JSON array of objects. Each object must have these keys:
 
                 p["is_duplicate"] = bool(existing)
                 p["destination_id"] = destination.id
+
+                # Automatically discover real photo preview for review card
+                try:
+                    img_urls = await fetch_wiki_images(name, destination.name, p.get("local_name"))
+                    if img_urls:
+                        p["hero_image_url"] = img_urls[0]
+                        p["gallery_json"] = json.dumps(img_urls[:4])
+                    elif destination.hero_image_url:
+                        p["hero_image_url"] = destination.hero_image_url
+                except Exception:
+                    p["hero_image_url"] = destination.hero_image_url
+
                 processed_places.append(p)
 
             # Return raw data for approval immediately
@@ -519,37 +577,55 @@ Return a JSON object with these keys ONLY:
             if ai_data.get("tags") and isinstance(ai_data["tags"], list):
                 place.tags_json = json.dumps(ai_data["tags"])
                 
-            # Assign explicitly extracted Real You.com images instead of hallucinated ones
+            # Assign explicitly extracted Real You.com images or Wikipedia fallback
             hero_url = None
             gallery_raw = []
             if extracted_images:
                 hero_url = extracted_images[0]
                 gallery_raw = extracted_images[1:]
             else:
-                # Fallback to Wikipedia images instead of AI hallucinated ones
-                wiki_images = await fetch_wiki_images(place.name, destination.name)
+                # Fallback to Wikipedia images with full query variations
+                wiki_images = await fetch_wiki_images(place.name, destination.name, place.local_name)
                 if wiki_images:
                     hero_url = wiki_images[0]
                     gallery_raw = wiki_images
-                else:
-                    hero_url = None
-                    gallery_raw = []
+                elif not place.hero_image_url or "/images/destinations/" in place.hero_image_url:
+                    hero_url = destination.hero_image_url
+                    gallery_raw = [destination.hero_image_url] if destination.hero_image_url else []
                 
             if hero_url:
-                # Backup to drive
-                await storage_service.upload_file_from_url(hero_url, f"Destinations/{destination.name}")
-                # Upload to S3/R2 for display
-                r2_url = await s3_service.upload_file_from_url(hero_url, f"Destinations/{destination.name}")
-                place.hero_image_url = r2_url if r2_url else hero_url
+                final_hero = hero_url
+                # 1. Backup to Google Drive if configured
+                try:
+                    await storage_service.upload_file_from_url(hero_url, f"Destinations/{destination.name}")
+                except Exception as g_err:
+                    logger.warning(f"Google Drive upload warning: {g_err}")
+
+                # 2. Upload to Cloudflare R2 for fast public display
+                try:
+                    r2_url = await s3_service.upload_file_from_url(hero_url, f"Destinations/{destination.name}")
+                    if r2_url and r2_url.startswith("http"):
+                        final_hero = r2_url
+                except Exception as r2_err:
+                    logger.warning(f"R2 upload warning: {r2_err}")
+
+                place.hero_image_url = final_hero
                 
             if gallery_raw and isinstance(gallery_raw, list):
                 gallery = []
                 for url in gallery_raw:
-                    # Backup to drive
-                    await storage_service.upload_file_from_url(url, f"Destinations/{destination.name}")
-                    # Upload to S3/R2 for display
-                    r2_url = await s3_service.upload_file_from_url(url, f"Destinations/{destination.name}")
-                    gallery.append(r2_url if r2_url else url)
+                    if url and url.startswith("http"):
+                        try:
+                            await storage_service.upload_file_from_url(url, f"Destinations/{destination.name}")
+                        except Exception:
+                            pass
+                        try:
+                            r2_url = await s3_service.upload_file_from_url(url, f"Destinations/{destination.name}")
+                            gallery.append(r2_url if (r2_url and r2_url.startswith("http")) else url)
+                        except Exception:
+                            gallery.append(url)
+                    else:
+                        gallery.append(url)
                 place.gallery_json = json.dumps(gallery)
 
             place.verification_status = "AI_UPDATED"
@@ -592,29 +668,57 @@ Return a JSON object with these keys ONLY:
 
             # Fetch images for the approved place
             destination = db.query(Destination).filter(Destination.id == dest_id).first()
-            dest_name = destination.name if destination else "Unknown"
+            dest_name = destination.name if destination else "Cambodia"
             
             hero_url = place_dict.get("hero_image_url")
             gallery_json = place_dict.get("gallery_json", "[]")
             
-            # Only fetch if they aren't provided
-            if not hero_url:
-                img_urls = await fetch_wiki_images(name, dest_name)
+            # Fetch images if not already provided or if placeholder
+            if not hero_url or "/images/destinations/" in hero_url:
+                img_urls = await fetch_wiki_images(name, dest_name, place_dict.get("local_name"))
                 if img_urls:
-                    # Backup to drive
-                    await storage_service.upload_file_from_url(img_urls[0], f"Destinations/{dest_name}")
-                    # Upload to R2/S3 for display
-                    r2_url = await s3_service.upload_file_from_url(img_urls[0], f"Destinations/{dest_name}")
-                    hero_url = r2_url if r2_url else img_urls[0]
-                    
-                    gallery = []
-                    for url in img_urls:
-                        # Backup to drive
-                        await storage_service.upload_file_from_url(url, f"Destinations/{dest_name}")
-                        # Upload to R2/S3 for display
-                        g_url = await s3_service.upload_file_from_url(url, f"Destinations/{dest_name}")
-                        gallery.append(g_url if g_url else url)
-                    gallery_json = json.dumps(gallery)
+                    hero_url = img_urls[0]
+                    gallery_json = json.dumps(img_urls[:4])
+                elif destination and destination.hero_image_url:
+                    hero_url = destination.hero_image_url
+
+            # Dual storage synchronization:
+            # 1. Google Drive for persistent backup
+            # 2. Cloudflare R2 for fast public display
+            if hero_url and hero_url.startswith("http"):
+                try:
+                    await storage_service.upload_file_from_url(hero_url, f"Destinations/{dest_name}")
+                except Exception as g_err:
+                    logger.warning(f"Google Drive upload warning: {g_err}")
+
+                try:
+                    r2_url = await s3_service.upload_file_from_url(hero_url, f"Destinations/{dest_name}")
+                    if r2_url and r2_url.startswith("http"):
+                        hero_url = r2_url
+                except Exception as r2_err:
+                    logger.warning(f"R2 upload warning: {r2_err}")
+
+            # Process gallery items similarly if any
+            try:
+                gallery_list = json.loads(gallery_json) if isinstance(gallery_json, str) else (gallery_json or [])
+                updated_gallery = []
+                for g_item in gallery_list:
+                    if g_item and g_item.startswith("http"):
+                        try:
+                            await storage_service.upload_file_from_url(g_item, f"Destinations/{dest_name}")
+                        except Exception:
+                            pass
+                        try:
+                            r2_g = await s3_service.upload_file_from_url(g_item, f"Destinations/{dest_name}")
+                            updated_gallery.append(r2_g if (r2_g and r2_g.startswith("http")) else g_item)
+                        except Exception:
+                            updated_gallery.append(g_item)
+                    else:
+                        updated_gallery.append(g_item)
+                gallery_json = json.dumps(updated_gallery)
+            except Exception:
+                pass
+
 
             new_place = Place(
                 id=uuid.uuid4().hex,

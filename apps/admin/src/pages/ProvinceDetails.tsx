@@ -19,6 +19,14 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 
+const resolveImageUrl = (url?: string) => {
+  if (!url) return '';
+  if (url.startsWith('/images/')) {
+    return `https://blog.camtech.cam${url}`;
+  }
+  return url;
+};
+
 interface Place {
   id: string;
   name: string;
@@ -290,9 +298,17 @@ export default function ProvinceDetails() {
                   onClick={() => setExpandedId(isExpanded ? null : place.id)}
                 >
                   {/* Image */}
-                  <div className="w-full sm:w-32 h-24 bg-zinc-800 rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
+                  <div className="w-full sm:w-32 h-24 bg-zinc-800 rounded-lg overflow-hidden shrink-0 flex items-center justify-center relative">
                     {place.hero_image_url ? (
-                      <img src={place.hero_image_url} alt={place.name} className="w-full h-full object-cover" />
+                      <img 
+                        src={resolveImageUrl(place.hero_image_url)} 
+                        alt={place.name} 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=400&auto=format&fit=crop&q=80";
+                        }}
+                      />
                     ) : (
                       <MapPin size={20} className="text-zinc-600" />
                     )}
@@ -497,7 +513,20 @@ export default function ProvinceDetails() {
                 <div className="text-center py-8 text-zinc-500 text-sm">No new places found.</div>
               ) : (
                 pendingApproval.places.map((place, idx) => (
-                  <div key={idx} className="flex flex-col sm:flex-row gap-4 p-4 border border-zinc-800 rounded-lg bg-zinc-950/50">
+                  <div key={idx} className="flex flex-col sm:flex-row gap-4 p-4 border border-zinc-800 rounded-lg bg-zinc-950/50 items-start">
+                    {place.hero_image_url && (
+                      <div className="w-full sm:w-28 h-20 bg-zinc-800 rounded-md overflow-hidden shrink-0">
+                        <img 
+                          src={resolveImageUrl(place.hero_image_url)} 
+                          alt={place.name} 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=300&auto=format&fit=crop&q=80";
+                          }}
+                        />
+                      </div>
+                    )}
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-medium text-zinc-200">{place.name}</h3>
