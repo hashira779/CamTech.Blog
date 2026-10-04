@@ -5,13 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, Menu, X, ExternalLink } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { SuperSearch } from "@/components/shared/SuperSearch";
 
 export function Header() {
   const pathname = usePathname();
   const { lang, setLang } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
 
   const navLinks = [
     { href: "/", label: lang === "km" ? "ទំព័រដើម" : "Home" },
@@ -23,13 +22,6 @@ export function Header() {
     { href: "/tools", label: lang === "km" ? "ឧបករណ៍" : "Tools" },
     { href: "/trending", label: lang === "km" ? "កំពុងពេញនិយម" : "Trending" },
   ];
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      window.location.href = `/search?q=${encodeURIComponent(searchQuery.trim())}`;
-    }
-  };
 
   const currentDate = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -105,40 +97,9 @@ export function Header() {
 
           {/* Search Trigger */}
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSearchOpen(!searchOpen)}
-              className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-              title="Search articles"
-            >
-              <Search size={20} />
-            </button>
+            <SuperSearch />
           </div>
         </div>
-
-        {/* Expandable Search Input */}
-        {searchOpen && (
-          <form onSubmit={handleSearchSubmit} className="mt-4 pt-4 border-t border-gray-100 pb-2">
-            <div className="relative max-w-2xl mx-auto flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search articles, guides, news..."
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
-                  autoFocus
-                />
-              </div>
-              <button
-                type="submit"
-                className="bg-blue-600 text-white text-sm px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700 shadow-sm transition-colors"
-              >
-                Search
-              </button>
-            </div>
-          </form>
-        )}
       </div>
 
       {/* 3. PRIMARY NAVIGATION BAR */}
