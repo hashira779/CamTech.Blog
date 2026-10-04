@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ShieldCheck, MapPin, CheckCircle, XCircle, Search, Info, Building } from 'lucide-react';
-import { api } from '@/lib/api';
+import { ShieldCheck, MapPin, CheckCircle, XCircle, Info } from 'lucide-react';
+import { api } from '../lib/api';
 
 interface PlaceSuggestion {
   id: string;
