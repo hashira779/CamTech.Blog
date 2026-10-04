@@ -1,0 +1,35 @@
+{
+  "region_categories": [
+    {
+      "id": "ALL",
+      "label": "All Provinces",
+      "count": 25,
+      "icon": "Compass",
+      "slugs": []
+    },
+    {
+      "id": "HERITAGE",
+      "label": "Heritage & Temples",
+      "icon": "Landmark",
+      "slugs": ["siem-reap", "battambang", "preah-vihear", "banteay-meanchey", "kampong-thom"]
+    },
+    {
+      "id": "COASTAL",
+      "label": "Coastal & Islands",
+      "icon": "Waves",
+      "slugs": ["sihanoukville", "kampot", "kep", "koh-kong"]
+    },
+    {
+      "id": "HIGHLANDS",
+      "label": "Highlands & Eco",
+      "icon": "Mountain",
+      "slugs": ["mondulkiri", "ratanakiri", "pursat", "pailin", "kampong-speu", "oddar-meanchey"]
+    },
+    {
+      "id": "MEKONG",
+      "label": "Mekong & Central",
+      "icon": "MapPin",
+      "slugs": ["phnom-penh", "kandal", "kampong-cham", "kratie", "stung-treng", "kampong-chhnang", "takeo", "prey-veng", "svay-rieng", "tboung-khmum"]
+    }
+  ]
+}

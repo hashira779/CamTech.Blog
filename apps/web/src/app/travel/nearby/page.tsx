@@ -5,20 +5,8 @@ import Link from "next/link";
 import { searchNearby, getPlaces } from "@/lib/api";
 import { NearbySearchResponse, Place } from "@/types";
 import { NearbyPlaceCard } from "@/components/travel/NearbyPlaceCard";
+import travelConfig from "@/data/travel_config.json";
 import { Compass, MapPin, Navigation, Filter, Footprints, Car } from "lucide-react";
-
-const POPULAR_REFERENCE_LANDMARKS = [
-  { slug: "angkor-wat", name: "Angkor Wat (Main Sanctuary)" },
-  { slug: "bayon-temple", name: "Bayon Temple (Angkor Thom)" },
-  { slug: "royal-palace-phnom-penh", name: "Royal Palace (Phnom Penh)" },
-  { slug: "bokor-national-park", name: "Bokor National Park (Kampot)" },
-  { slug: "saracen-bay-koh-rong-sanloem", name: "Saracen Bay (Koh Rong Sanloem)" },
-  { slug: "prasat-preah-vihear-temple", name: "Prasat Preah Vihear Temple" },
-  { slug: "bousra-waterfall", name: "Bousra Waterfall (Mondulkiri)" },
-  { slug: "yeak-laom-volcanic-lake", name: "Yeak Laom Volcanic Lake (Ratanakiri)" },
-  { slug: "kampi-dolphin-sanctuary", name: "Kampi Mekong Dolphin Sanctuary (Kratie)" },
-  { slug: "phnom-sampeau-battambang", name: "Phnom Sampeau (Battambang)" },
-];
 
 export default function NearbySearchPage() {
   const [selectedPlace, setSelectedPlace] = useState("angkor-wat");
@@ -97,7 +85,7 @@ export default function NearbySearchPage() {
                         {lm.name} {lm.local_name ? `(${lm.local_name})` : ""}
                       </option>
                     ))
-                  : POPULAR_REFERENCE_LANDMARKS.map((lm) => (
+                  : travelConfig.fallback_reference_landmarks.map((lm) => (
                       <option key={lm.slug} value={lm.slug}>
                         {lm.name}
                       </option>
@@ -114,10 +102,11 @@ export default function NearbySearchPage() {
                 onChange={(e) => setRadius(parseFloat(e.target.value))}
                 className="w-full bg-background border rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary outline-none"
               >
-                <option value={2.0}>Within 2 km (Walking distance)</option>
-                <option value={5.0}>Within 5 km (Short tuk-tuk)</option>
-                <option value={10.0}>Within 10 km (Heritage circuit)</option>
-                <option value={20.0}>Within 20 km (Regional exploration)</option>
+                {travelConfig.search_radii.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -130,11 +119,11 @@ export default function NearbySearchPage() {
                 onChange={(e) => setPlaceType(e.target.value)}
                 className="w-full bg-background border rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary outline-none"
               >
-                <option value="">All Categories</option>
-                <option value="TEMPLE">Temples & Monuments</option>
-                <option value="ACCOMMODATION">Hotels & Resorts</option>
-                <option value="RESTAURANT">Dining & Cafes</option>
-                <option value="MARKET">Markets & Shopping</option>
+                {travelConfig.place_categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

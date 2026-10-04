@@ -32,62 +32,23 @@ import {
 } from "lucide-react";
 import { generateTripPlan, getDestinations } from "@/lib/api";
 import { Destination, TripPlanResponse } from "@/types";
+import plannerOptions from "@/data/planner_options.json";
 
-const TRAVEL_STYLES = [
-  {
-    id: "CULTURAL",
-    label: "Cultural & Heritage",
-    desc: "Ancient temples, UNESCO wonders, royal history",
-    icon: Landmark,
-  },
-  {
-    id: "RELAXED",
-    label: "Relaxed & Cafes",
-    desc: "Scenic strolls, artisan bakeries, peaceful sunsets",
-    icon: Coffee,
-  },
-  {
-    id: "ADVENTURE",
-    label: "Nature & Hiking",
-    desc: "Cascading waterfalls, national parks, wildlife",
-    icon: Mountain,
-  },
-  {
-    id: "LUXURY",
-    label: "Luxury Heritage",
-    desc: "5-star colonial resorts, fine dining, sunset charters",
-    icon: Sparkles,
-  },
-];
+const STYLE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Landmark,
+  Coffee,
+  Mountain,
+  Sparkles,
+};
 
-const BUDGET_OPTIONS = [
-  { id: "$", label: "$", name: "Budget", desc: "$15 - $35/day (Street food & local guesthouses)" },
-  { id: "$$", label: "$$", name: "Standard", desc: "$40 - $90/day (Boutique hotels & great cafes)" },
-  { id: "$$$", label: "$$$", name: "Premium", desc: "$100 - $220/day (Upscale dining & private guides)" },
-  { id: "$$$$", label: "$$$$", name: "Luxury", desc: "$250+/day (World-class heritage resorts)" },
-];
+const TRAVEL_STYLES = plannerOptions.travel_styles.map((s) => ({
+  ...s,
+  icon: STYLE_ICONS[s.icon] || Landmark,
+}));
 
-const INTEREST_TAGS = [
-  { label: "Temples", icon: "🏛️" },
-  { label: "Food", icon: "🍜" },
-  { label: "Nature", icon: "🌿" },
-  { label: "Waterfalls", icon: "🌊" },
-  { label: "Markets", icon: "🏮" },
-  { label: "Photography", icon: "📸" },
-  { label: "Sunset", icon: "🌅" },
-  { label: "Nightlife", icon: "✨" },
-];
-
-const FEATURED_PROVINCES = [
-  "siem-reap",
-  "phnom-penh",
-  "kampot",
-  "sihanoukville",
-  "battambang",
-  "kep",
-  "mondulkiri",
-  "preah-vihear",
-];
+const BUDGET_OPTIONS = plannerOptions.budget_options;
+const INTEREST_TAGS = plannerOptions.interest_tags;
+const FEATURED_PROVINCES = plannerOptions.featured_provinces;
 
 export default function TripPlannerPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);

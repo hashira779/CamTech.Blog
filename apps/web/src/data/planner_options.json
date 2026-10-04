@@ -1,0 +1,54 @@
+{
+  "travel_styles": [
+    {
+      "id": "CULTURAL",
+      "label": "Cultural & Heritage",
+      "desc": "Ancient temples, UNESCO wonders, royal history",
+      "icon": "Landmark"
+    },
+    {
+      "id": "RELAXED",
+      "label": "Relaxed & Cafes",
+      "desc": "Scenic strolls, artisan bakeries, peaceful sunsets",
+      "icon": "Coffee"
+    },
+    {
+      "id": "ADVENTURE",
+      "label": "Nature & Hiking",
+      "desc": "Cascading waterfalls, national parks, wildlife",
+      "icon": "Mountain"
+    },
+    {
+      "id": "LUXURY",
+      "label": "Luxury Heritage",
+      "desc": "5-star colonial resorts, fine dining, sunset charters",
+      "icon": "Sparkles"
+    }
+  ],
+  "budget_options": [
+    { "id": "$", "label": "$", "name": "Budget", "desc": "$15 - $35/day (Street food & local guesthouses)" },
+    { "id": "$$", "label": "$$", "name": "Standard", "desc": "$40 - $90/day (Boutique hotels & great cafes)" },
+    { "id": "$$$", "label": "$$$", "name": "Premium", "desc": "$100 - $220/day (Upscale dining & private guides)" },
+    { "id": "$$$$", "label": "$$$$", "name": "Luxury", "desc": "$250+/day (World-class heritage resorts)" }
+  ],
+  "interest_tags": [
+    { "label": "Temples", "icon": "🏛️" },
+    { "label": "Food", "icon": "🍜" },
+    { "label": "Nature", "icon": "🌿" },
+    { "label": "Waterfalls", "icon": "🌊" },
+    { "label": "Markets", "icon": "🏮" },
+    { "label": "Photography", "icon": "📸" },
+    { "label": "Sunset", "icon": "🌅" },
+    { "label": "Nightlife", "icon": "✨" }
+  ],
+  "featured_provinces": [
+    "siem-reap",
+    "phnom-penh",
+    "kampot",
+    "sihanoukville",
+    "battambang",
+    "kep",
+    "mondulkiri",
+    "preah-vihear"
+  ]
+}

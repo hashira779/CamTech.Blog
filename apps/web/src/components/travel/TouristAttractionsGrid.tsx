@@ -14,17 +14,23 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Place } from "@/types";
+import travelConfig from "@/data/travel_config.json";
 
 interface TouristAttractionsGridProps {
   places: Place[];
 }
 
-const FILTER_TABS = [
-  { id: "ALL", label: "All Attractions", icon: Compass },
-  { id: "TEMPLE", label: "Ancient Temples", icon: Landmark },
-  { id: "NATURE", label: "Waterfalls & Nature", icon: Mountain },
-  { id: "BEACH", label: "Beaches & Coastal", icon: Waves },
-];
+const TAB_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Compass,
+  Landmark,
+  Mountain,
+  Waves,
+};
+
+const FILTER_TABS = travelConfig.attraction_filter_tabs.map((tab) => ({
+  ...tab,
+  icon: TAB_ICONS[tab.icon] || Compass,
+}));
 
 export function TouristAttractionsGrid({ places }: TouristAttractionsGridProps) {
   const [activeFilter, setActiveFilter] = useState("ALL");

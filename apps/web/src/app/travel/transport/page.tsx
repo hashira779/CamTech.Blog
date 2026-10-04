@@ -2,21 +2,31 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { searchTransportRoutes, getTransportOperators, getTransportHubs } from "@/lib/api";
-import { TransportRoute, TransportOperator, TransportHub } from "@/types";
+import { searchTransportRoutes, getTransportOperators, getTransportHubs, getDestinations } from "@/lib/api";
+import { TransportRoute, TransportOperator, TransportHub, Destination } from "@/types";
 import { TransportRouteCard } from "@/components/travel/TransportRouteCard";
 import { TransportOperatorCard } from "@/components/travel/TransportOperatorCard";
+import travelConfig from "@/data/travel_config.json";
 import { Bus, MapPin, Search, ArrowRight, ShieldCheck, Clock, Building2 } from "lucide-react";
 
 export default function TransportPage() {
   const [origin, setOrigin] = useState("phnom-penh");
   const [destination, setDestination] = useState("siem-reap");
   const [transportType, setTransportType] = useState<string>("");
+  const [destinationsList, setDestinationsList] = useState<Destination[]>([]);
   const [routes, setRoutes] = useState<TransportRoute[]>([]);
   const [operators, setOperators] = useState<TransportOperator[]>([]);
   const [hubs, setHubs] = useState<TransportHub[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"routes" | "operators" | "hubs">("routes");
+
+  useEffect(() => {
+    getDestinations().then((dests) => {
+      if (dests && dests.length > 0) {
+        setDestinationsList(dests);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -72,11 +82,21 @@ export default function TransportPage() {
               <select
                 value={origin}
                 onChange={(e) => setOrigin(e.target.value)}
-                className="w-full bg-background border rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary outline-none"
+                className="w-full bg-background border rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary outline-none cursor-pointer"
               >
-                <option value="phnom-penh">Phnom Penh (Capital)</option>
-                <option value="siem-reap">Siem Reap (Angkor)</option>
-                <option value="kampot">Kampot (Riverside)</option>
+                {destinationsList.length > 0 ? (
+                  destinationsList.map((d) => (
+                    <option key={d.slug} value={d.slug}>
+                      {d.name} {d.name_km ? `(${d.name_km})` : ""}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="phnom-penh">Phnom Penh (Capital)</option>
+                    <option value="siem-reap">Siem Reap (Angkor)</option>
+                    <option value="kampot">Kampot (Riverside)</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -87,11 +107,21 @@ export default function TransportPage() {
               <select
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
-                className="w-full bg-background border rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary outline-none"
+                className="w-full bg-background border rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary outline-none cursor-pointer"
               >
-                <option value="siem-reap">Siem Reap (Angkor)</option>
-                <option value="phnom-penh">Phnom Penh (Capital)</option>
-                <option value="kampot">Kampot (Riverside)</option>
+                {destinationsList.length > 0 ? (
+                  destinationsList.map((d) => (
+                    <option key={d.slug} value={d.slug}>
+                      {d.name} {d.name_km ? `(${d.name_km})` : ""}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="siem-reap">Siem Reap (Angkor)</option>
+                    <option value="phnom-penh">Phnom Penh (Capital)</option>
+                    <option value="kampot">Kampot (Riverside)</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -102,13 +132,13 @@ export default function TransportPage() {
               <select
                 value={transportType}
                 onChange={(e) => setTransportType(e.target.value)}
-                className="w-full bg-background border rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary outline-none"
+                className="w-full bg-background border rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary outline-none cursor-pointer"
               >
-                <option value="">All Transport Types</option>
-                <option value="BUS">VIP Highway Bus</option>
-                <option value="MINIVAN">Executive Minivan</option>
-                <option value="TRAIN">Scenic Train</option>
-                <option value="FERRY">Speed Ferry</option>
+                {travelConfig.transport_classes.map((tc) => (
+                  <option key={tc.id} value={tc.id}>
+                    {tc.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

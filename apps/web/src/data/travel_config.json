@@ -1,0 +1,44 @@
+{
+  "search_radii": [
+    { "value": 2.0, "label": "Within 2 km (Walking distance)" },
+    { "value": 5.0, "label": "Within 5 km (Short tuk-tuk)" },
+    { "value": 10.0, "label": "Within 10 km (Heritage circuit)" },
+    { "value": 20.0, "label": "Within 20 km (Regional exploration)" }
+  ],
+  "place_categories": [
+    { "id": "", "label": "All Categories" },
+    { "id": "ATTRACTION", "label": "Attractions & Cultural Sites" },
+    { "id": "TEMPLE", "label": "Temples & Sacred Shrines" },
+    { "id": "ACCOMMODATION", "label": "Hotels & Heritage Resorts" },
+    { "id": "RESTAURANT", "label": "Authentic Khmer Dining" },
+    { "id": "CAFE", "label": "Cafes & Artisan Bakeries" },
+    { "id": "MARKET", "label": "Local Markets & Night Bazaars" },
+    { "id": "WATERFALL", "label": "Waterfalls & Nature Reserves" },
+    { "id": "ACTIVITY", "label": "Eco Tours & River Cruises" }
+  ],
+  "attraction_filter_tabs": [
+    { "id": "ALL", "label": "All Attractions", "icon": "Compass" },
+    { "id": "TEMPLE", "label": "Ancient Temples", "icon": "Landmark" },
+    { "id": "NATURE", "label": "Waterfalls & Nature", "icon": "Mountain" },
+    { "id": "BEACH", "label": "Beaches & Coastal", "icon": "Waves" }
+  ],
+  "transport_classes": [
+    { "id": "", "label": "All Transport Types" },
+    { "id": "BUS", "label": "VIP Highway Coach" },
+    { "id": "MINIVAN", "label": "Executive 15-Seater Minivan" },
+    { "id": "TRAIN", "label": "Scenic Passenger Train" },
+    { "id": "FERRY", "label": "High-Speed Island Ferry" }
+  ],
+  "fallback_reference_landmarks": [
+    { "slug": "angkor-wat", "name": "Angkor Wat (Main Sanctuary)" },
+    { "slug": "bayon-temple", "name": "Bayon Temple (Angkor Thom)" },
+    { "slug": "royal-palace-phnom-penh", "name": "Royal Palace (Phnom Penh)" },
+    { "slug": "bokor-national-park", "name": "Bokor National Park (Kampot)" },
+    { "slug": "saracen-bay-koh-rong-sanloem", "name": "Saracen Bay (Koh Rong Sanloem)" },
+    { "slug": "prasat-preah-vihear-temple", "name": "Prasat Preah Vihear Temple" },
+    { "slug": "bousra-waterfall", "name": "Bousra Waterfall (Mondulkiri)" },
+    { "slug": "yeak-laom-volcanic-lake", "name": "Yeak Laom Volcanic Lake (Ratanakiri)" },
+    { "slug": "kampi-dolphin-sanctuary", "name": "Kampi Mekong Dolphin Sanctuary (Kratie)" },
+    { "slug": "phnom-sampeau-battambang", "name": "Phnom Sampeau (Battambang)" }
+  ]
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   PlusCircle,
@@ -12,8 +12,9 @@ import {
   ArrowLeft,
   Send
 } from "lucide-react";
-import { submitPlaceSuggestion } from "@/lib/api";
-import { PlaceSuggestionCreate } from "@/types";
+import { submitPlaceSuggestion, getDestinations } from "@/lib/api";
+import { PlaceSuggestionCreate, Destination } from "@/types";
+import travelConfig from "@/data/travel_config.json";
 
 export default function SuggestPlacePage() {
   const [suggestionType, setSuggestionType] = useState<
@@ -22,6 +23,7 @@ export default function SuggestPlacePage() {
   const [placeName, setPlaceName] = useState("");
   const [destinationSlug, setDestinationSlug] = useState("siem-reap");
   const [placeType, setPlaceType] = useState("ATTRACTION");
+  const [destinationsList, setDestinationsList] = useState<Destination[]>([]);
   const [details, setDetails] = useState("");
   const [submitterName, setSubmitterName] = useState("");
   const [submitterContact, setSubmitterContact] = useState("");
@@ -30,6 +32,14 @@ export default function SuggestPlacePage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getDestinations().then((dests) => {
+      if (dests && dests.length > 0) {
+        setDestinationsList(dests);
+      }
+    });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,12 +203,21 @@ export default function SuggestPlacePage() {
                   <select
                     value={destinationSlug}
                     onChange={(e) => setDestinationSlug(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium"
+                    className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white font-medium cursor-pointer"
                   >
-                    <option value="siem-reap">Siem Reap</option>
-                    <option value="phnom-penh">Phnom Penh</option>
-                    <option value="kampot">Kampot</option>
-                    <option value="other">Other Province in Cambodia</option>
+                    {destinationsList.length > 0 ? (
+                      destinationsList.map((d) => (
+                        <option key={d.slug} value={d.slug}>
+                          {d.name} {d.name_km ? `(${d.name_km})` : ""}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="siem-reap">Siem Reap</option>
+                        <option value="phnom-penh">Phnom Penh</option>
+                        <option value="kampot">Kampot</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
@@ -211,16 +230,13 @@ export default function SuggestPlacePage() {
                 <select
                   value={placeType}
                   onChange={(e) => setPlaceType(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium"
+                  className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white font-medium cursor-pointer"
                 >
-                  <option value="ATTRACTION">Attraction / Cultural Site</option>
-                  <option value="TEMPLE">Temple / Sacred Shrine</option>
-                  <option value="ACCOMMODATION">Hotel / Resort / Guesthouse</option>
-                  <option value="RESTAURANT">Restaurant / Khmer Dining</option>
-                  <option value="CAFE">Cafe / Bakery</option>
-                  <option value="MARKET">Market / Local Crafts</option>
-                  <option value="WATERFALL">Waterfall / Nature Park</option>
-                  <option value="ACTIVITY">Activity / Nightlife / Tour</option>
+                  {travelConfig.place_categories.filter(c => c.id).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 

@@ -13,18 +13,33 @@ import {
   Compass,
 } from "lucide-react";
 import { Destination } from "@/types";
+import regionData from "@/data/region_categories.json";
 
 interface ProvinceHubGridProps {
   destinations: Destination[];
 }
 
-const REGION_CATEGORIES = [
-  { id: "ALL", label: "All Provinces", count: 25, icon: Compass },
-  { id: "HERITAGE", label: "Heritage & Temples", icon: Landmark, slugs: ["siem-reap", "battambang", "preah-vihear", "banteay-meanchey", "kampong-thom"] },
-  { id: "COASTAL", label: "Coastal & Islands", icon: Waves, slugs: ["sihanoukville", "kampot", "kep", "koh-kong"] },
-  { id: "HIGHLANDS", label: "Highlands & Eco", icon: Mountain, slugs: ["mondulkiri", "ratanakiri", "pursat", "pailin", "kampong-speu", "oddar-meanchey"] },
-  { id: "MEKONG", label: "Mekong & Central", icon: MapPin, slugs: ["phnom-penh", "kandal", "kampong-cham", "kratie", "stung-treng", "kampong-chhnang", "takeo", "prey-veng", "svay-rieng", "tboung-khmum"] },
-];
+const REGION_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Compass,
+  Landmark,
+  Waves,
+  Mountain,
+  MapPin,
+};
+
+interface RegionCategory {
+  id: string;
+  label: string;
+  count?: number;
+  icon: React.ComponentType<{ className?: string }>;
+  slugs: string[];
+}
+
+const REGION_CATEGORIES: RegionCategory[] = regionData.region_categories.map((c) => ({
+  ...c,
+  icon: REGION_ICONS[c.icon] || Compass,
+  slugs: c.slugs as string[],
+}));
 
 export function ProvinceHubGrid({ destinations }: ProvinceHubGridProps) {
   const [activeCategory, setActiveCategory] = useState("ALL");
@@ -32,7 +47,7 @@ export function ProvinceHubGrid({ destinations }: ProvinceHubGridProps) {
   const filteredDestinations = useMemo(() => {
     if (activeCategory === "ALL") return destinations;
     const cat = REGION_CATEGORIES.find((c) => c.id === activeCategory);
-    if (!cat || !cat.slugs) return destinations;
+    if (!cat || !cat.slugs || cat.slugs.length === 0) return destinations;
     return destinations.filter((d) => cat.slugs.includes(d.slug));
   }, [destinations, activeCategory]);
 
