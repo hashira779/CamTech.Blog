@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Database, Server, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
-import api from '../lib/api';
+import { api } from '../lib/api';
 
 export default function DatabaseMigration() {
   const [targetUrl, setTargetUrl] = useState('');
