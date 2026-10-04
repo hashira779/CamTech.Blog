@@ -21,6 +21,7 @@ export default function Sidebar() {
     { name: 'Articles', path: '/articles', icon: FileText, badge: '1,248' },
     { name: 'Storage', path: '/storage', icon: HardDrive },
     { name: 'Tourism AI', path: '/tourism', icon: MapPin },
+    { name: 'Suggestions', path: '/suggestions', icon: ShieldCheck },
   ];
 
   const systemNav = [

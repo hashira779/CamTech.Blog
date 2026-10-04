@@ -13,6 +13,9 @@ from app.models.quiz import Quiz
 from app.models.tool import Tool
 from app.models.audit import AuditLog, SiteSetting
 from app.models.user import User
+from app.models.place import Place, PlaceSuggestion
+from app.models.location import Destination
+from app.schemas.travel import PlaceSuggestionOut
 from app.services.auth_service import require_admin
 from app.services.article_service import ArticleService
 from app.services.google_drive_service import storage_service
@@ -421,3 +424,75 @@ def admin_migrate_database(
         return {"success": True, "message": message}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Database migration failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Database migration failed: {str(e)}")
+
+@router.get("/place-suggestions", response_model=List[PlaceSuggestionOut])
+def get_place_suggestions(
+    status: Optional[str] = Query(None, description="Filter by status: PENDING, APPROVED, REJECTED"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    query = db.query(PlaceSuggestion)
+    if status:
+        query = query.filter(PlaceSuggestion.status == status.upper())
+    return query.order_by(desc(PlaceSuggestion.created_at)).all()
+
+class SuggestionReviewRequest(BaseModel):
+    moderation_notes: Optional[str] = None
+    
+@router.post("/place-suggestions/{suggestion_id}/approve")
+def approve_place_suggestion(
+    suggestion_id: str,
+    req: SuggestionReviewRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    suggestion = db.query(PlaceSuggestion).filter(PlaceSuggestion.id == suggestion_id).first()
+    if not suggestion:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+        
+    if suggestion.status != "PENDING":
+        raise HTTPException(status_code=400, detail=f"Suggestion already {suggestion.status.lower()}")
+        
+    suggestion.status = "APPROVED"
+    suggestion.moderation_notes = req.moderation_notes
+    
+    # Process based on type
+    dest = db.query(Destination).filter(Destination.slug == suggestion.destination_slug).first()
+    if not dest:
+        raise HTTPException(status_code=400, detail="Destination not found")
+        
+    if suggestion.suggestion_type == "NEW_PLACE":
+        from app.services.travel_service import slugify
+        new_place = Place(
+            destination_id=dest.id,
+            name=suggestion.place_name,
+            slug=slugify(suggestion.place_name),
+            place_type=suggestion.place_type,
+            description=suggestion.details,
+            status="ACTIVE",
+            verification_status="USER_SUBMITTED"
+        )
+        db.add(new_place)
+        
+    db.commit()
+    return {"success": True, "message": "Suggestion approved"}
+
+@router.post("/place-suggestions/{suggestion_id}/reject")
+def reject_place_suggestion(
+    suggestion_id: str,
+    req: SuggestionReviewRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    suggestion = db.query(PlaceSuggestion).filter(PlaceSuggestion.id == suggestion_id).first()
+    if not suggestion:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+        
+    if suggestion.status != "PENDING":
+        raise HTTPException(status_code=400, detail=f"Suggestion already {suggestion.status.lower()}")
+        
+    suggestion.status = "REJECTED"
+    suggestion.moderation_notes = req.moderation_notes
+    db.commit()
+    return {"success": True, "message": "Suggestion rejected"}

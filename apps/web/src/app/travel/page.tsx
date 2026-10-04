@@ -207,7 +207,7 @@ export default async function TravelHubPage() {
               </Link>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {transportData.routes.slice(0, 2).map((route) => (
+              {transportData.routes.slice(0, 4).map((route) => (
                 <TransportRouteCard key={route.id} route={route} />
               ))}
             </div>

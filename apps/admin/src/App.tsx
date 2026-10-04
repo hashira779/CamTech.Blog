@@ -9,6 +9,7 @@ const Storage = lazy(() => import('./pages/Storage'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Tourism = lazy(() => import('./pages/Tourism'));
 const ProvinceDetails = lazy(() => import('./pages/ProvinceDetails'));
+const PlaceSuggestions = lazy(() => import('./pages/PlaceSuggestions'));
 const DatabaseMigration = lazy(() => import('./pages/Database'));
 const Login = lazy(() => import('./pages/Login'));
 
@@ -38,6 +39,7 @@ function App() {
             <Route path="database" element={<DatabaseMigration />} />
             <Route path="tourism" element={<Tourism />} />
             <Route path="tourism/:slug" element={<ProvinceDetails />} />
+            <Route path="suggestions" element={<PlaceSuggestions />} />
           </Route>
         </Routes>
       </Suspense>
