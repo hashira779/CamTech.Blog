@@ -594,10 +594,10 @@ Return a JSON object with these keys ONLY:
                     gallery_raw = [destination.hero_image_url] if destination.hero_image_url else []
                 
             if hero_url:
-                place.hero_image_url = await self._sync_single_image(hero_url, destination.name)
+                place.hero_image_url = await self._sync_single_image(hero_url, destination.name, place.name)
                 
             if gallery_raw and isinstance(gallery_raw, list):
-                gallery_tasks = [self._sync_single_image(url, destination.name) for url in gallery_raw[:4] if url and url.startswith("http")]
+                gallery_tasks = [self._sync_single_image(url, destination.name, place.name) for url in gallery_raw[:4] if url and url.startswith("http")]
                 if gallery_tasks:
                     synced_gallery = await asyncio.gather(*gallery_tasks, return_exceptions=True)
                     place.gallery_json = json.dumps([item for item in synced_gallery if isinstance(item, str)])
@@ -622,7 +622,7 @@ Return a JSON object with these keys ONLY:
         finally:
             db.close()
 
-    async def _sync_single_image(self, img_url: str, dest_name: str) -> str:
+    async def _sync_single_image(self, img_url: str, dest_name: str, place_name: str = None) -> str:
         """
         Downloads image bytes ONCE and uploads to both Google Drive (backup) and Cloudflare R2 (fast CDN) in parallel.
         Returns the Cloudflare R2 public CDN URL if available, otherwise falls back to img_url.
@@ -658,6 +658,11 @@ Return a JSON object with these keys ONLY:
             filename = f"image{ext}"
 
         folder_path = f"Destinations/{dest_name}"
+        if place_name:
+            import re
+            safe_place = re.sub(r'[^a-zA-Z0-9_\-\s]', '', place_name).strip()
+            if safe_place:
+                folder_path = f"{folder_path}/{safe_place}"
 
         async def upload_gdrive():
             try:
@@ -723,13 +728,13 @@ Return a JSON object with these keys ONLY:
             # 1. Google Drive for persistent backup
             # 2. Cloudflare R2 for fast public display
             if hero_url and hero_url.startswith("http"):
-                hero_url = await self._sync_single_image(hero_url, dest_name)
+                hero_url = await self._sync_single_image(hero_url, dest_name, name)
 
             # Process gallery items concurrently
             try:
                 gallery_list = json.loads(gallery_json) if isinstance(gallery_json, str) else (gallery_json or [])
                 if gallery_list and isinstance(gallery_list, list):
-                    gallery_tasks = [self._sync_single_image(g, dest_name) for g in gallery_list[:4] if g and g.startswith("http")]
+                    gallery_tasks = [self._sync_single_image(g, dest_name, name) for g in gallery_list[:4] if g and g.startswith("http")]
                     if gallery_tasks:
                         synced_items = await asyncio.gather(*gallery_tasks, return_exceptions=True)
                         gallery_json = json.dumps([item for item in synced_items if isinstance(item, str)])
