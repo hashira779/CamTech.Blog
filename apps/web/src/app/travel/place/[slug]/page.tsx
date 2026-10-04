@@ -202,10 +202,10 @@ export default async function PlaceDetailPage({ params }: PageProps) {
 
             {/* Specialized Accommodation Details (Hotels) */}
             {isHotel && hotel && (
-              <section className="bg-gradient-to-br from-indigo-950 to-neutral-900 text-white rounded-3xl p-6 sm:p-8 border border-indigo-900/50 shadow-lg">
+              <section className="bg-zinc-900 text-white rounded-3xl p-6 sm:p-8 border border-zinc-800 shadow-md">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                   <div>
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-300">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                       Accommodations & Amenities
                     </span>
                     <h3 className="text-2xl font-bold mt-1">
@@ -213,12 +213,12 @@ export default async function PlaceDetailPage({ params }: PageProps) {
                     </h3>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs text-neutral-400">Typical Rates</span>
+                    <span className="text-xs text-zinc-400">Typical Rates</span>
                     <p className="text-lg font-bold text-amber-300">{hotel.price_range}</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t border-indigo-900/60 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t border-zinc-800 text-xs">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className={`h-4 w-4 ${hotel.has_swimming_pool ? "text-emerald-400" : "text-neutral-500"}`} />
                     <span>Swimming Pool: {hotel.has_swimming_pool ? "Yes" : "No"}</span>
@@ -232,11 +232,11 @@ export default async function PlaceDetailPage({ params }: PageProps) {
                     <span>Breakfast: {hotel.has_breakfast ? "Included" : "Available"}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-indigo-300" />
+                    <Clock className="h-4 w-4 text-zinc-400" />
                     <span>Check-in: {hotel.check_in_time}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-indigo-300" />
+                    <Clock className="h-4 w-4 text-zinc-400" />
                     <span>Check-out: {hotel.check_out_time}</span>
                   </div>
                 </div>
@@ -247,7 +247,7 @@ export default async function PlaceDetailPage({ params }: PageProps) {
                       href={hotel.booking_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm shadow-md transition-all"
+                      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white hover:bg-zinc-100 text-zinc-950 font-bold text-sm shadow-xs transition-all"
                     >
                       Visit Official Booking Portal <ExternalLink className="h-4 w-4" />
                     </a>

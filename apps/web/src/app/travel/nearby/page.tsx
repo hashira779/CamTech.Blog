@@ -68,15 +68,15 @@ export default function NearbySearchPage() {
       </nav>
 
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-emerald-500/15 via-teal-500/5 to-background border rounded-2xl p-6 sm:p-10 mb-8">
+      <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl p-6 sm:p-10 mb-8">
         <div className="max-w-3xl">
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800 mb-3">
-            <Compass className="w-3.5 h-3.5" /> Spherical Haversine Geolocation Engine
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 bg-zinc-200/70 dark:bg-zinc-800 px-3 py-1 rounded-full border border-zinc-300/50 dark:border-zinc-700/50 mb-3">
+            <Compass className="w-3.5 h-3.5 text-zinc-500" /> Spherical Haversine Geolocation Engine
           </span>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3 text-zinc-900 dark:text-white">
             What is Near Me?
           </h1>
-          <p className="text-muted-foreground text-sm sm:text-base leading-relaxed mb-6">
+          <p className="text-zinc-600 dark:text-zinc-400 text-sm sm:text-base leading-relaxed mb-6 font-normal">
             Calculate exact spherical distances, walking times, and tuk-tuk driving estimates from any landmark or heritage monument across Cambodia without relying on third-party commercial mapping dependencies.
           </p>
 

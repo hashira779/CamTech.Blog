@@ -51,15 +51,15 @@ export default function TransportPage() {
       </nav>
 
       {/* Hero Header */}
-      <div className="bg-gradient-to-r from-primary/15 via-primary/5 to-background border rounded-2xl p-6 sm:p-10 mb-8">
+      <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl p-6 sm:p-10 mb-8">
         <div className="max-w-3xl">
-          <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 px-3 py-1 rounded-full mb-3">
-            <Bus className="w-3.5 h-3.5" /> Intercity Transport Engine
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 bg-zinc-200/70 dark:bg-zinc-800 px-3 py-1 rounded-full border border-zinc-300/50 dark:border-zinc-700/50 mb-3">
+            <Bus className="w-3.5 h-3.5 text-zinc-500" /> Intercity Transport Engine
           </span>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3 text-zinc-900 dark:text-white">
             Cambodia Transport Routes, Buses & Schedules
           </h1>
-          <p className="text-muted-foreground text-sm sm:text-base leading-relaxed mb-6">
+          <p className="text-zinc-600 dark:text-zinc-400 text-sm sm:text-base leading-relaxed mb-6 font-normal">
             Compare verified highway coach operators, luxury 15-seater minivans, scenic passenger trains, and high-speed island ferries with verified schedules, live pricing, and direct official booking links.
           </p>
 

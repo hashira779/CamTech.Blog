@@ -218,53 +218,50 @@ export default function TripPlannerPage() {
   return (
     <div className="min-h-screen pb-28 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       {/* ━━━ 1. HERO HEADER ━━━ */}
-      <section className="relative overflow-hidden bg-slate-950 text-white border-b border-slate-800/80">
-        {/* Ambient background blur */}
+      <section className="relative overflow-hidden bg-zinc-950 text-white border-b border-zinc-800">
+        {/* Ambient photo background with refined contrast */}
         <div
           className="absolute inset-0 bg-cover bg-center transition-all duration-700"
           style={{
             backgroundImage: `url('${
               currentDestination?.hero_image_url || "/images/destinations/siem-reap.jpg"
             }')`,
-            filter: "blur(36px) brightness(0.25) saturate(1.4)",
-            transform: "scale(1.15)",
+            filter: "brightness(0.22) saturate(1.1)",
+            transform: "scale(1.08)",
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/40 to-slate-950" />
+        <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/80 via-zinc-950/60 to-zinc-950" />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-16">
           <div className="max-w-3xl">
-            {/* Breadcrumb badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/15 border border-teal-500/30 text-teal-300 text-xs font-semibold tracking-wide mb-4 backdrop-blur-md">
-              <Navigation className="h-3.5 w-3.5 text-teal-400" />
+            {/* Editorial breadcrumb badge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-zinc-300 text-xs font-medium tracking-wide mb-5 backdrop-blur-md">
+              <Navigation className="h-3.5 w-3.5 text-zinc-400" />
               <span>Cambodia Travel Intelligence</span>
-              <span className="text-slate-400">•</span>
-              <span className="text-amber-300">Deterministic Engine</span>
+              <span className="text-zinc-600">•</span>
+              <span className="text-zinc-200">Verified Ground Truth</span>
             </div>
 
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1]">
-              Cambodia Itinerary{" "}
-              <span className="bg-gradient-to-r from-teal-300 via-amber-200 to-amber-400 bg-clip-text text-transparent">
-                Architect
-              </span>
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] text-white">
+              Cambodia Itinerary Architect
             </h1>
 
-            <p className="mt-4 text-base sm:text-lg text-slate-300/90 leading-relaxed font-light">
-              Craft a personalized multi-day journey across any of Cambodia&apos;s 25
+            <p className="mt-4 text-base sm:text-lg text-zinc-300/90 leading-relaxed font-normal max-w-2xl">
+              Curate a bespoke multi-day journey across any of Cambodia&apos;s 25
               provinces. Geocoded stops, verified local cuisine, authentic Khmer
               heritage, and accurate travel times from the database.
             </p>
 
             {/* Quick stats banner */}
-            <div className="mt-6 flex flex-wrap items-center gap-4 text-xs font-medium text-slate-300">
-              <span className="inline-flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full border border-white/10">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> All 25 Provinces
+            <div className="mt-6 flex flex-wrap items-center gap-3 text-xs font-medium text-zinc-300">
+              <span className="inline-flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-full border border-white/10">
+                <CheckCircle2 className="h-3.5 w-3.5 text-zinc-300" /> All 25 Provinces
               </span>
-              <span className="inline-flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full border border-white/10">
-                <Sparkles className="h-3.5 w-3.5 text-amber-400" /> Verified Photos & Landmarks
+              <span className="inline-flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-full border border-white/10">
+                <Sparkles className="h-3.5 w-3.5 text-amber-400" /> 118 Verified Places
               </span>
-              <span className="inline-flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full border border-white/10">
-                <Clock className="h-3.5 w-3.5 text-teal-400" /> Real-time 0ms Caching
+              <span className="inline-flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-full border border-white/10">
+                <Clock className="h-3.5 w-3.5 text-zinc-300" /> Instant 0ms Cache
               </span>
             </div>
           </div>
@@ -277,14 +274,14 @@ export default function TripPlannerPage() {
           
           {/* LEFT: Controls Form (5 cols on lg) */}
           <div className="lg:col-span-5 space-y-6">
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-md space-y-7 sticky top-6">
+            <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 sm:p-7 border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-6 sticky top-6">
               
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-                <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Sliders className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+              <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800">
+                <h2 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                  <Sliders className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />
                   <span>Customize Your Trip</span>
                 </h2>
-                <span className="text-xs text-slate-500 font-medium">
+                <span className="text-xs text-zinc-500 font-medium">
                   {durationDays} Days • {travelStyle}
                 </span>
               </div>
@@ -292,21 +289,21 @@ export default function TripPlannerPage() {
               {/* 1. Destination Selector with 25 Provinces */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-teal-500" /> Destination Province
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-zinc-500" /> Destination Province
                   </label>
-                  <span className="text-[11px] text-teal-600 dark:text-teal-400 font-semibold">
-                    {destinations.length} Provinces Available
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
+                    {destinations.length} Provinces
                   </span>
                 </div>
 
-                {/* Search / Dropdown Combo */}
+                {/* Dropdown */}
                 <div className="relative">
                   <select
                     id="destination-select"
                     value={destinationSlug}
                     onChange={(e) => handleSelectProvince(e.target.value)}
-                    className="w-full pl-3 pr-10 py-3 rounded-2xl text-sm font-semibold bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none cursor-pointer transition-all shadow-xs"
+                    className="w-full pl-3 pr-10 py-3 rounded-2xl text-sm font-semibold bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white appearance-none cursor-pointer transition-all shadow-2xs"
                   >
                     {destinations.length > 0 ? (
                       destinations.map((dest) => (
@@ -318,12 +315,12 @@ export default function TripPlannerPage() {
                       <option value="siem-reap">Siem Reap (សៀមរាប)</option>
                     )}
                   </select>
-                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                 </div>
 
                 {/* Popular Quick-Select Pills */}
                 <div className="mt-3">
-                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-2">
+                  <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-2">
                     Popular Destinations:
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -336,11 +333,11 @@ export default function TripPlannerPage() {
                           type="button"
                           onClick={() => handleSelectProvince(slug)}
                           className={`
-                            px-2.5 py-1 rounded-lg text-xs font-medium transition-all
+                            px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer
                             ${
                               isSelected
-                                ? "bg-teal-600 text-white font-bold shadow-xs scale-102"
-                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-bold shadow-2xs"
+                                : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
                             }
                           `}
                         >
@@ -355,10 +352,10 @@ export default function TripPlannerPage() {
               {/* 2. Duration Days (1 to 7) */}
               <div>
                 <div className="flex justify-between items-center mb-2.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-amber-500" /> Duration of Stay
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-zinc-500" /> Duration of Stay
                   </label>
-                  <span className="text-xs font-extrabold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/60 px-2.5 py-0.5 rounded-full border border-teal-200 dark:border-teal-800">
+                  <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5 rounded-full border border-zinc-200 dark:border-zinc-700">
                     {durationDays} {durationDays === 1 ? "Day" : "Days"} Itinerary
                   </span>
                 </div>
@@ -373,11 +370,11 @@ export default function TripPlannerPage() {
                         handleGeneratePlan(destinationSlug, num, travelStyle, budgetLevel, selectedInterests);
                       }}
                       className={`
-                        py-2 rounded-xl text-xs font-bold transition-all text-center
+                        py-2 rounded-xl text-xs font-bold transition-all text-center cursor-pointer
                         ${
                           durationDays === num
-                            ? "bg-teal-600 text-white shadow-md shadow-teal-600/25 scale-105"
-                            : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200/60 dark:border-slate-700/60"
+                            ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 shadow-2xs"
+                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200/60 dark:border-zinc-700/60"
                         }
                       `}
                     >
@@ -396,14 +393,14 @@ export default function TripPlannerPage() {
                     setDurationDays(days);
                     handleGeneratePlan(destinationSlug, days, travelStyle, budgetLevel, selectedInterests);
                   }}
-                  className="w-full accent-teal-600 cursor-pointer h-2 bg-slate-200 dark:bg-slate-700 rounded-lg"
+                  className="w-full accent-zinc-900 dark:accent-white cursor-pointer h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg"
                 />
               </div>
 
               {/* 3. Travel Style */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2.5 flex items-center gap-1.5">
-                  <Luggage className="h-3.5 w-3.5 text-indigo-500" /> Travel Style & Pace
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-2.5 flex items-center gap-1.5">
+                  <Luggage className="h-3.5 w-3.5 text-zinc-500" /> Travel Style & Pace
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   {TRAVEL_STYLES.map((style) => {
@@ -418,21 +415,21 @@ export default function TripPlannerPage() {
                           handleGeneratePlan(destinationSlug, durationDays, style.id, budgetLevel, selectedInterests);
                         }}
                         className={`
-                          p-3 rounded-2xl border text-left transition-all flex flex-col justify-between
+                          p-3 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer
                           ${
                             isSelected
-                              ? "bg-teal-50 dark:bg-teal-950/40 border-teal-500 text-slate-900 dark:text-white shadow-xs"
-                              : "border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                              ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 border-zinc-900 dark:border-white shadow-2xs"
+                              : "border-zinc-200/80 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
                           }
                         `}
                       >
                         <div className="flex items-center gap-2 mb-1">
-                          <Icon className={`h-4 w-4 ${isSelected ? "text-teal-600 dark:text-teal-400" : "text-slate-400"}`} />
-                          <span className={`font-bold ${isSelected ? "text-teal-700 dark:text-teal-300" : ""}`}>
+                          <Icon className={`h-4 w-4 ${isSelected ? "text-white dark:text-zinc-950" : "text-zinc-400"}`} />
+                          <span className="font-bold">
                             {style.label}
                           </span>
                         </div>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                        <p className={`text-[10px] leading-tight ${isSelected ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-500 dark:text-zinc-400"}`}>
                           {style.desc}
                         </p>
                       </button>
@@ -444,10 +441,10 @@ export default function TripPlannerPage() {
               {/* 4. Budget Level */}
               <div>
                 <div className="flex items-center justify-between mb-2.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <DollarSign className="h-3.5 w-3.5 text-emerald-500" /> Budget Tier
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                    <DollarSign className="h-3.5 w-3.5 text-zinc-500" /> Budget Tier
                   </label>
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-[11px] text-zinc-500">
                     {BUDGET_OPTIONS.find((b) => b.id === budgetLevel)?.name}
                   </span>
                 </div>
@@ -464,16 +461,16 @@ export default function TripPlannerPage() {
                           handleGeneratePlan(destinationSlug, durationDays, travelStyle, b.id, selectedInterests);
                         }}
                         className={`
-                          py-2.5 rounded-xl border transition-all flex flex-col items-center justify-center
+                          py-2.5 rounded-xl border transition-all flex flex-col items-center justify-center cursor-pointer
                           ${
                             isSelected
-                              ? "bg-teal-600 text-white border-teal-600 shadow-md shadow-teal-600/20 scale-102"
-                              : "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 border-zinc-900 dark:border-white shadow-2xs"
+                              : "border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                           }
                         `}
                       >
                         <span className="text-sm font-extrabold">{b.label}</span>
-                        <span className={`text-[10px] font-normal ${isSelected ? "text-teal-100" : "text-slate-400"}`}>
+                        <span className={`text-[10px] font-normal ${isSelected ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-400"}`}>
                           {b.name}
                         </span>
                       </button>
@@ -484,7 +481,7 @@ export default function TripPlannerPage() {
 
               {/* 5. Interests */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-2 flex items-center gap-1.5">
                   <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Activity Highlights
                 </label>
                 <div className="flex flex-wrap gap-1.5">
@@ -496,11 +493,11 @@ export default function TripPlannerPage() {
                         type="button"
                         onClick={() => handleInterestToggle(item.label)}
                         className={`
-                          px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5
+                          px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer
                           ${
                             isSelected
-                              ? "bg-slate-900 dark:bg-white text-white dark:text-slate-950 font-bold shadow-xs scale-102"
-                              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200/50 dark:border-slate-700/50"
+                              ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-bold shadow-2xs"
+                              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200/50 dark:border-zinc-700/50"
                           }
                         `}
                       >
@@ -512,21 +509,21 @@ export default function TripPlannerPage() {
                 </div>
               </div>
 
-              {/* Action Button */}
+              {/* Action Button: World-Class Solid Charcoal / White Button */}
               <button
                 type="button"
                 onClick={() => handleGeneratePlan()}
                 disabled={loading}
-                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-teal-600 via-teal-500 to-amber-500 text-white font-bold text-sm shadow-lg shadow-teal-600/25 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                className="w-full py-3.5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-950 font-bold text-sm shadow-xs hover:shadow transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-[0.99]"
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
-                    <Compass className="h-4 w-4 animate-spin text-white" />
+                    <Compass className="h-4 w-4 animate-spin text-white dark:text-zinc-950" />
                     <span>Analyzing Route & Computing Itinerary...</span>
                   </span>
                 ) : (
                   <>
-                    <Sparkles className="h-4 w-4 text-amber-200" />
+                    <Sparkles className="h-4 w-4 text-amber-400 dark:text-amber-600" />
                     <span>Regenerate Itinerary Plan</span>
                   </>
                 )}
@@ -603,17 +600,17 @@ export default function TripPlannerPage() {
                       {tripPlan.summary}
                     </p>
 
-                    <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
+                    <div className="mt-5 pt-5 border-t border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4">
                       {/* Metric Badges */}
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border border-teal-200/60 dark:border-teal-800/60">
-                          <Calendar className="h-3 w-3" /> {tripPlan.duration_days} Days
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/70 dark:border-zinc-700/70">
+                          <Calendar className="h-3.5 w-3.5 text-zinc-500" /> {tripPlan.duration_days} Days
                         </span>
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
-                          <Luggage className="h-3 w-3" /> {tripPlan.travel_style}
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/70 dark:border-zinc-700/70">
+                          <Luggage className="h-3.5 w-3.5 text-zinc-500" /> {tripPlan.travel_style}
                         </span>
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60">
-                          <DollarSign className="h-3 w-3" /> Budget {tripPlan.budget_level}
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/70 dark:border-zinc-700/70">
+                          <DollarSign className="h-3.5 w-3.5 text-zinc-500" /> Budget {tripPlan.budget_level}
                         </span>
                       </div>
 
@@ -622,25 +619,25 @@ export default function TripPlannerPage() {
                         <button
                           type="button"
                           onClick={handleSaveTrip}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-semibold text-zinc-800 dark:text-zinc-200 border border-zinc-200/60 dark:border-zinc-700/60 transition-colors cursor-pointer"
                         >
-                          <Bookmark className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+                          <Bookmark className="h-3.5 w-3.5 text-zinc-500" />
                           <span>{savedSuccess ? "Saved!" : "Save Plan"}</span>
                         </button>
                         <button
                           type="button"
                           onClick={handleCopyShareLink}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-semibold text-zinc-800 dark:text-zinc-200 border border-zinc-200/60 dark:border-zinc-700/60 transition-colors cursor-pointer"
                         >
-                          <Share2 className="h-3.5 w-3.5 text-indigo-500" />
+                          <Share2 className="h-3.5 w-3.5 text-zinc-500" />
                           <span>{copiedLink ? "Link Copied!" : "Share"}</span>
                         </button>
                         <button
                           type="button"
                           onClick={handlePrint}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-semibold text-zinc-800 dark:text-zinc-200 border border-zinc-200/60 dark:border-zinc-700/60 transition-colors cursor-pointer"
                         >
-                          <Printer className="h-3.5 w-3.5 text-slate-500" />
+                          <Printer className="h-3.5 w-3.5 text-zinc-500" />
                           <span>Print</span>
                         </button>
                       </div>
@@ -658,8 +655,8 @@ export default function TripPlannerPage() {
                         px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer
                         ${
                           selectedDayTab === "ALL"
-                            ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs"
-                            : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200/80 dark:border-slate-800"
+                            ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 shadow-2xs"
+                            : "bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
                         }
                       `}
                     >
@@ -671,11 +668,11 @@ export default function TripPlannerPage() {
                         type="button"
                         onClick={() => setSelectedDayTab(day.day_number)}
                         className={`
-                          px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer
+                          px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer
                           ${
                             selectedDayTab === day.day_number
-                              ? "bg-teal-600 text-white font-bold shadow-xs scale-102"
-                              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200/80 dark:border-slate-800 hover:text-teal-600 dark:hover:text-teal-400"
+                              ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-bold shadow-2xs"
+                              : "bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
                           }
                         `}
                       >
@@ -690,24 +687,24 @@ export default function TripPlannerPage() {
                   {displayedDays.map((day) => (
                     <div
                       key={day.day_number}
-                      className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 border border-slate-200/80 dark:border-slate-800 shadow-sm"
+                      className="bg-white dark:bg-zinc-900 rounded-3xl p-6 sm:p-7 border border-zinc-200/80 dark:border-zinc-800 shadow-xs"
                     >
                       {/* Day Title and Theme */}
-                      <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-5">
+                      <div className="flex items-start justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4 mb-5">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 text-white font-extrabold text-lg flex items-center justify-center shadow-xs">
+                          <div className="h-9 w-9 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-bold text-sm flex items-center justify-center shadow-2xs">
                             {day.day_number}
                           </div>
                           <div>
-                            <h3 className="font-extrabold text-base sm:text-lg text-slate-900 dark:text-white tracking-tight">
+                            <h3 className="font-bold text-base sm:text-lg text-zinc-900 dark:text-white tracking-tight">
                               {day.title}
                             </h3>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-light">
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 font-normal">
                               {day.theme}
                             </p>
                           </div>
                         </div>
-                        <span className="text-xs font-semibold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/50 px-2.5 py-1 rounded-full border border-teal-200/60 dark:border-teal-800/60">
+                        <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5 rounded-full border border-zinc-200/60 dark:border-zinc-700/60">
                           {day.items.length} Stops
                         </span>
                       </div>
@@ -717,10 +714,10 @@ export default function TripPlannerPage() {
                         {day.items.map((item, idx) => (
                           <div
                             key={idx}
-                            className="group flex flex-col sm:flex-row items-start gap-4 p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 hover:bg-slate-100/90 dark:hover:bg-slate-800/70 border border-slate-100 dark:border-slate-800/80 transition-all duration-300"
+                            className="group flex flex-col sm:flex-row items-start gap-4 p-4 rounded-2xl bg-zinc-50/70 dark:bg-zinc-800/30 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-800/60 transition-all duration-200"
                           >
                             {/* Verified Photo */}
-                            <div className="relative w-full sm:w-32 sm:h-28 h-44 rounded-2xl overflow-hidden bg-slate-800 shrink-0 shadow-xs">
+                            <div className="relative w-full sm:w-32 sm:h-28 h-44 rounded-2xl overflow-hidden bg-zinc-800 shrink-0 shadow-2xs">
                               {item.place_slug ? (
                                 <Link href={`/travel/place/${item.place_slug}`} className="block w-full h-full">
                                   <img
@@ -730,7 +727,7 @@ export default function TripPlannerPage() {
                                       "/images/destinations/siem-reap.jpg"
                                     }
                                     alt={item.title}
-                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108"
+                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                   />
                                 </Link>
                               ) : (
@@ -744,11 +741,11 @@ export default function TripPlannerPage() {
                                   className="w-full h-full object-cover"
                                 />
                               )}
-                              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent opacity-60 pointer-events-none" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/70 via-transparent to-transparent opacity-60 pointer-events-none" />
                               
                               {/* Rating badge overlay */}
                               {item.rating && (
-                                <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-slate-950/85 backdrop-blur-md text-amber-300 border border-amber-400/20 shadow-xs pointer-events-none">
+                                <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-zinc-950/85 backdrop-blur-md text-amber-300 border border-zinc-800 shadow-2xs pointer-events-none">
                                   <Star className="h-2.5 w-2.5 fill-amber-300" />
                                   <span>{item.rating.toFixed(1)}</span>
                                 </div>
@@ -758,24 +755,24 @@ export default function TripPlannerPage() {
                             {/* Content */}
                             <div className="flex-1 min-w-0">
                               <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                                <span className="font-extrabold text-xs text-teal-600 dark:text-teal-400">
+                                <span className="font-bold text-xs text-zinc-900 dark:text-white">
                                   {item.start_time}
                                 </span>
-                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
                                   {item.time_of_day}
                                 </span>
                                 {item.place_type && (
-                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60">
                                     {item.place_type}
                                   </span>
                                 )}
                               </div>
 
-                              <h4 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-snug">
+                              <h4 className="font-bold text-sm sm:text-base text-zinc-900 dark:text-white leading-snug">
                                 {item.place_slug ? (
                                   <Link
                                     href={`/travel/place/${item.place_slug}`}
-                                    className="hover:text-teal-600 dark:hover:text-teal-400 inline-flex items-center gap-1.5 transition-colors"
+                                    className="hover:text-zinc-600 dark:hover:text-zinc-300 inline-flex items-center gap-1.5 transition-colors"
                                   >
                                     <span>{item.title}</span>
                                     <ArrowRight className="h-3.5 w-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
@@ -785,18 +782,18 @@ export default function TripPlannerPage() {
                                 )}
                               </h4>
 
-                              <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
                                 {item.description}
                               </p>
 
                               {/* Duration, Cost and Explore Badge */}
-                              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
-                                <div className="flex items-center gap-2.5 text-xs text-slate-500 dark:text-slate-400">
+                              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60">
+                                <div className="flex items-center gap-2.5 text-xs text-zinc-500 dark:text-zinc-400">
                                   <span className="flex items-center gap-1 font-medium">
-                                    <Clock className="h-3 w-3 text-slate-400" /> ~{item.duration_minutes} min
+                                    <Clock className="h-3 w-3 text-zinc-400" /> ~{item.duration_minutes} min
                                   </span>
                                   <span>•</span>
-                                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                  <span className="font-semibold text-zinc-700 dark:text-zinc-300">
                                     Est. {item.estimated_cost}
                                   </span>
                                 </div>
@@ -804,7 +801,7 @@ export default function TripPlannerPage() {
                                 {item.place_slug && (
                                   <Link
                                     href={`/travel/place/${item.place_slug}`}
-                                    className="inline-flex items-center gap-1 text-xs font-bold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors"
+                                    className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-900 dark:text-zinc-100 hover:underline transition-colors"
                                   >
                                     <span>View Place Guide</span>
                                     <ArrowRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-1" />
@@ -820,25 +817,25 @@ export default function TripPlannerPage() {
                 </div>
 
                 {/* Bottom Navigation Links */}
-                <div className="bg-gradient-to-br from-teal-500/10 via-amber-500/10 to-indigo-500/10 rounded-3xl p-6 border border-teal-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="bg-zinc-100 dark:bg-zinc-900 rounded-3xl p-6 border border-zinc-200/80 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div>
-                    <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                    <h4 className="font-bold text-sm text-zinc-900 dark:text-white">
                       Want to customize this journey further?
                     </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                       Explore transportation options or suggest additional hidden gems in {tripPlan.destination_name}.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Link
                       href="/travel/transport"
-                      className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                      className="px-3.5 py-2 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 transition-colors"
                     >
                       Buses & Transit
                     </Link>
                     <Link
                       href="/travel/suggest"
-                      className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-xs transition-colors"
+                      className="px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-semibold shadow-2xs transition-colors"
                     >
                       Suggest Place
                     </Link>
@@ -846,12 +843,12 @@ export default function TripPlannerPage() {
                 </div>
               </div>
             ) : (
-              <div className="py-24 text-center rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm p-8">
-                <Compass className="h-10 w-10 text-teal-500 mx-auto animate-spin" />
-                <h3 className="mt-4 text-base font-bold text-slate-900 dark:text-white">
+              <div className="py-24 text-center rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs p-8">
+                <Compass className="h-8 w-8 text-zinc-400 mx-auto animate-spin" />
+                <h3 className="mt-4 text-base font-bold text-zinc-900 dark:text-white">
                   Synthesizing Verified Cambodia Itinerary...
                 </h3>
-                <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
+                <p className="mt-1 text-xs text-zinc-500 max-w-sm mx-auto">
                   Pulling verified attractions, photos, opening times, and authentic
                   Khmer cuisine recommendations from our database.
                 </p>

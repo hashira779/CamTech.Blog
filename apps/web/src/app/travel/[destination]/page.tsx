@@ -71,7 +71,7 @@ export default async function DestinationPage({ params }: PageProps) {
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/70 to-transparent" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2 text-xs font-semibold text-rose-400 mb-3 uppercase tracking-wider">
+          <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 mb-3 uppercase tracking-wider">
             <Link href="/travel" className="hover:underline">
               Travel
             </Link>
@@ -101,11 +101,11 @@ export default async function DestinationPage({ params }: PageProps) {
                 <span>Best time: {destination.best_time_to_visit || "Nov - Mar"}</span>
               </div>
               <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
-                <MapPin className="h-4 w-4 text-rose-400" />
+                <MapPin className="h-4 w-4 text-zinc-400" />
                 <span>Coordinates: {destination.latitude}°N, {destination.longitude}°E</span>
               </div>
               <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
-                <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                <ShieldCheck className="h-4 w-4 text-zinc-300" />
                 <span>{places.length} Verified Records</span>
               </div>
             </div>
@@ -113,25 +113,25 @@ export default async function DestinationPage({ params }: PageProps) {
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href={`/travel/planner?destination=${destination.slug}`}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 font-bold text-sm text-white shadow-lg shadow-rose-600/30 transition-all hover:scale-105"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white hover:bg-zinc-100 font-bold text-sm text-zinc-950 shadow-xs transition-all"
               >
                 <Navigation className="h-4 w-4" /> Plan {destination.name} Trip
               </Link>
               <Link
                 href="/travel/transport"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-700 text-white text-sm transition-all"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white text-sm backdrop-blur-md transition-all"
               >
-                <Bus className="h-4 w-4 text-emerald-400" /> Getting Here (Buses & Routes)
+                <Bus className="h-4 w-4 text-zinc-300" /> Getting Here (Buses & Routes)
               </Link>
               <Link
                 href={`/travel/nearby?place=${destination.slug === "siem-reap" ? "angkor-wat" : ""}`}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-700 text-white text-sm transition-all"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white text-sm backdrop-blur-md transition-all"
               >
-                <Footprints className="h-4 w-4 text-sky-400" /> What's Near Here?
+                <Footprints className="h-4 w-4 text-zinc-300" /> What's Near Here?
               </Link>
               <Link
                 href="/travel/suggest"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 border border-neutral-700 text-neutral-300 text-sm transition-all"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-300 hover:text-white text-sm backdrop-blur-md transition-all"
               >
                 Suggest Place
               </Link>
@@ -163,7 +163,7 @@ export default async function DestinationPage({ params }: PageProps) {
           <div className="p-6 border-b border-neutral-100 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-rose-600" /> Geocoded Map & Coordinates
+                <MapPin className="h-5 w-5 text-zinc-500" /> Geocoded Map & Coordinates
               </h2>
               <p className="text-xs text-neutral-500 mt-1">
                 Verified GPS coordinates for major temples, heritage hotels, and markets.
@@ -181,10 +181,10 @@ export default async function DestinationPage({ params }: PageProps) {
               {places.slice(0, 8).map((p) => (
                 <div
                   key={p.id}
-                  className="bg-neutral-900/90 border border-neutral-800 p-3 rounded-xl backdrop-blur-sm flex flex-col justify-between hover:border-rose-500/50 transition-colors"
+                  className="bg-neutral-900/90 border border-neutral-800 p-3 rounded-xl backdrop-blur-sm flex flex-col justify-between hover:border-zinc-500 transition-colors"
                 >
                   <div>
-                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-rose-400">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">
                       {p.place_type}
                     </span>
                     <h4 className="font-bold text-xs text-white line-clamp-1 mt-0.5">
@@ -195,7 +195,7 @@ export default async function DestinationPage({ params }: PageProps) {
                     <span>{p.latitude?.toFixed(4)}, {p.longitude?.toFixed(4)}</span>
                     <Link
                       href={`/travel/place/${p.slug}`}
-                      className="text-rose-400 hover:text-rose-300 font-semibold"
+                      className="text-zinc-300 hover:text-white font-semibold"
                     >
                       View →
                     </Link>
@@ -225,28 +225,28 @@ export default async function DestinationPage({ params }: PageProps) {
                 <Link
                   key={trip.id}
                   href={`/travel/trips/${trip.slug}`}
-                  className="group rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 hover:shadow-xl transition-all flex flex-col justify-between"
+                  className="group rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 hover:shadow-lg transition-all flex flex-col justify-between"
                 >
                   <div>
-                    <div className="flex items-center gap-2 text-xs font-bold text-rose-600 mb-2">
-                      <span className="px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">
+                      <span className="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700">
                         {trip.duration_days} Days
                       </span>
                       <span>{trip.travel_style}</span>
                       <span>•</span>
                       <span>Budget {trip.budget_level}</span>
                     </div>
-                    <h3 className="text-lg font-bold text-neutral-900 dark:text-white group-hover:text-rose-600 transition-colors">
+                    <h3 className="text-lg font-bold text-neutral-900 dark:text-white group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">
                       {trip.title}
                     </h3>
-                    <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-300 line-clamp-2 leading-relaxed">
+                    <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400 line-clamp-2 leading-relaxed">
                       {trip.description}
                     </p>
                   </div>
 
                   <div className="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between text-xs font-semibold text-neutral-500">
                     <span>{trip.days?.length || 3} Detailed Day Schedules</span>
-                    <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                    <span className="text-zinc-900 dark:text-zinc-100 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                       Explore Full Itinerary <ArrowRight className="h-3.5 w-3.5" />
                     </span>
                   </div>

@@ -195,9 +195,9 @@ export default async function TripDetailPage({ params }: PageProps) {
         <div className="text-center py-8">
           <Link
             href={`/travel/planner?destination=${trip.destination?.slug || "siem-reap"}`}
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-rose-600 to-indigo-600 text-white font-bold text-sm shadow-xl shadow-rose-600/20 hover:scale-105 transition-all"
+            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-950 font-bold text-sm shadow-xs hover:shadow transition-all"
           >
-            <Sparkles className="h-4 w-4 text-amber-300" /> Generate Your Custom Daily Discovery Itinerary
+            <Sparkles className="h-4 w-4 text-amber-400" /> Generate Your Custom Itinerary
           </Link>
         </div>
       </div>

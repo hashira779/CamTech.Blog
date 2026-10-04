@@ -77,35 +77,32 @@ export default async function TravelHubPage() {
   return (
     <div className="min-h-screen pb-24 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       {/* ━━━ 1. HERO BANNER ━━━ */}
-      <section className="relative overflow-hidden bg-slate-950 text-white">
+      <section className="relative overflow-hidden bg-zinc-950 text-white border-b border-zinc-800">
         {/* Ambient background blur */}
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
             backgroundImage: `url('${siemReap?.hero_image_url || "/images/places/angkor-wat.jpg"}')`,
-            filter: "blur(40px) brightness(0.28) saturate(1.5)",
-            transform: "scale(1.15)",
+            filter: "brightness(0.25) saturate(1.1)",
+            transform: "scale(1.05)",
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 via-slate-950/30 to-slate-950" />
+        <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/80 via-zinc-950/50 to-zinc-950" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 sm:pt-20 pb-20 sm:pb-28">
           {/* Breadcrumb intro */}
-          <div className="animate-fade-up flex items-center gap-2 text-slate-400 text-xs font-medium tracking-wide mb-5">
-            <Compass className="h-3.5 w-3.5 text-teal-400" />
+          <div className="animate-fade-up flex items-center gap-2 text-zinc-400 text-xs font-medium tracking-wide mb-5">
+            <Compass className="h-3.5 w-3.5 text-zinc-400" />
             <span>Travel Hub</span>
             <ChevronRight className="h-3 w-3" />
-            <span className="text-slate-200">Kingdom of Cambodia</span>
+            <span className="text-zinc-200">Kingdom of Cambodia</span>
           </div>
 
-          <h1 className="animate-fade-up stagger-1 text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight max-w-3xl leading-[1.1]">
-            Explore the{" "}
-            <span className="bg-gradient-to-r from-teal-300 via-amber-200 to-amber-400 bg-clip-text text-transparent">
-              Kingdom of Wonder
-            </span>
+          <h1 className="animate-fade-up stagger-1 text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight max-w-3xl leading-[1.1] text-white">
+            Explore the Kingdom of Wonder
           </h1>
 
-          <p className="animate-fade-up stagger-2 mt-4 text-base sm:text-lg text-slate-300/90 max-w-2xl leading-relaxed font-light">
+          <p className="animate-fade-up stagger-2 mt-4 text-base sm:text-lg text-zinc-300 leading-relaxed font-normal max-w-2xl">
             Handpicked sacred temples, secret jungle cascades, pristine islands,
             and authentic local gastronomy across all 25 provinces. Verified on
             the ground.
@@ -121,22 +118,22 @@ export default async function TravelHubPage() {
               },
               {
                 href: "/travel/planner",
-                icon: <Navigation className="h-4 w-4 text-amber-400" />,
+                icon: <Navigation className="h-4 w-4" />,
                 label: "Trip Planner",
               },
               {
                 href: "/travel/transport",
-                icon: <Bus className="h-4 w-4 text-emerald-400" />,
+                icon: <Bus className="h-4 w-4" />,
                 label: "Transit & Buses",
               },
               {
                 href: "/travel/nearby",
-                icon: <Footprints className="h-4 w-4 text-sky-400" />,
+                icon: <Footprints className="h-4 w-4" />,
                 label: "Near Me",
               },
               {
                 href: "/travel/suggest",
-                icon: <PlusCircle className="h-4 w-4 text-slate-400" />,
+                icon: <PlusCircle className="h-4 w-4" />,
                 label: "Suggest Place",
               },
             ].map((btn) => (
@@ -144,12 +141,12 @@ export default async function TravelHubPage() {
                 key={btn.href}
                 href={btn.href}
                 className={`
-                  inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-medium
-                  transition-all duration-300 hover:-translate-y-0.5
+                  inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold
+                  transition-all duration-200 cursor-pointer
                   ${
                     btn.accent
-                      ? "bg-teal-600 hover:bg-teal-500 text-white shadow-lg shadow-teal-600/25"
-                      : "bg-white/10 backdrop-blur-md text-slate-200 hover:text-white hover:bg-white/20 border border-white/10"
+                      ? "bg-white text-zinc-950 hover:bg-zinc-100 shadow-xs"
+                      : "bg-white/10 backdrop-blur-md text-zinc-200 hover:text-white hover:bg-white/20 border border-white/15"
                   }
                 `}
               >
@@ -219,7 +216,7 @@ export default async function TravelHubPage() {
                     {dest.overview}
                   </p>
 
-                  <div className="mt-3.5 inline-flex items-center gap-1.5 text-xs font-semibold text-teal-300 group-hover:text-teal-200 transition-colors">
+                  <div className="mt-3.5 inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-300 group-hover:text-white transition-colors">
                     Explore Destination
                     <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" />
                   </div>
@@ -233,20 +230,20 @@ export default async function TravelHubPage() {
         <section className="animate-fade-up">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
             <div>
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-1">
-                <Sparkles className="h-3.5 w-3.5" /> Iconic Landmarks & Heritage
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
+                <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Iconic Landmarks & Heritage
               </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
                 Must-Visit Tourist Attractions
               </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-xl">
                 Ancient stone temples, cascading jungle waterfalls, crystal-clear
                 island bays, and royal landmarks verified in our database.
               </p>
             </div>
             <Link
               href="/travel/siem-reap?type=TEMPLE,ATTRACTION"
-              className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 transition-colors group"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors group"
             >
               All attractions
               <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
@@ -261,13 +258,13 @@ export default async function TravelHubPage() {
         <section className="animate-fade-up">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
             <div>
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-teal-600 dark:text-teal-400 mb-1">
-                <Compass className="h-3.5 w-3.5" /> Complete Kingdom Directory
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
+                <Compass className="h-3.5 w-3.5 text-zinc-400" /> Complete Kingdom Directory
               </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">
                 Explore Cambodia&apos;s 25 Provinces
               </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-xl">
                 From coastal seafood havens to mystical highland mountains and
                 Mekong river communities. Filter by region to plan your trip.
               </p>
@@ -281,19 +278,19 @@ export default async function TravelHubPage() {
         {/* ━━━ 5. CURATED MULTI-DAY TRIP ITINERARIES ━━━ */}
         {trips.length > 0 && (
           <section className="animate-fade-up">
-            <div className="rounded-2xl bg-gradient-to-br from-indigo-50/70 to-slate-50/70 dark:from-slate-900/60 dark:to-slate-900/30 border border-slate-200/80 dark:border-slate-800/80 p-6 sm:p-8">
+            <div className="rounded-3xl bg-zinc-100/90 dark:bg-zinc-900/80 border border-zinc-200/80 dark:border-zinc-800 p-6 sm:p-8">
               <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
                 <div>
-                  <span className="text-xs font-bold uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-1 block">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1 block">
                     Curated Schedules
                   </span>
-                  <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  <h2 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white tracking-tight">
                     Multi-Day Travel Itineraries
                   </h2>
                 </div>
                 <Link
                   href="/travel/planner"
-                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors group"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors group"
                 >
                   Build custom plan
                   <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
@@ -305,35 +302,35 @@ export default async function TravelHubPage() {
                   <Link
                     key={trip.id}
                     href={`/travel/trips/${trip.slug}`}
-                    className="group flex flex-col sm:flex-row bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200/80 dark:border-slate-800/80 shadow-xs hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+                    className="group flex flex-col sm:flex-row bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 shadow-2xs hover:shadow-md transition-all duration-300 hover:-translate-y-0.5"
                   >
-                    <div className="sm:w-2/5 relative aspect-[16/10] sm:aspect-auto overflow-hidden bg-slate-800">
+                    <div className="sm:w-2/5 relative aspect-[16/10] sm:aspect-auto overflow-hidden bg-zinc-800">
                       <img
                         src={trip.hero_image_url || "/images/places/angkor-wat.jpg"}
                         alt={trip.title}
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                       />
-                      <div className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md rounded-full px-2.5 py-1 text-[11px] font-bold text-white border border-white/10">
+                      <div className="absolute top-3 left-3 bg-zinc-950/80 backdrop-blur-md rounded-full px-2.5 py-1 text-[11px] font-bold text-white border border-white/10">
                         {trip.duration_days} Days
                       </div>
                     </div>
                     <div className="p-5 sm:w-3/5 flex flex-col justify-between">
                       <div>
-                        <div className="flex items-center gap-2 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 mb-1.5">
+                        <div className="flex items-center gap-2 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-1.5">
                           <span>{trip.travel_style}</span>
                           <span className="w-1 h-1 rounded-full bg-current opacity-40" />
                           <span>{trip.budget_level} Budget</span>
                         </div>
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors leading-snug">
+                        <h3 className="text-base font-bold text-zinc-900 dark:text-white group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors leading-snug">
                           {trip.title}
                         </h3>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 line-clamp-2 leading-relaxed">
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 line-clamp-2 leading-relaxed">
                           {trip.description}
                         </p>
                       </div>
-                      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs text-slate-500">
+                      <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs text-zinc-500">
                         <span>{trip.days?.length || 3} daily stops</span>
-                        <span className="font-semibold text-slate-900 dark:text-white flex items-center gap-1 transition-transform duration-300 group-hover:translate-x-1">
+                        <span className="font-semibold text-zinc-900 dark:text-white flex items-center gap-1 transition-transform duration-300 group-hover:translate-x-1">
                           View Itinerary <ArrowRight className="h-3.5 w-3.5" />
                         </span>
                       </div>
@@ -350,20 +347,20 @@ export default async function TravelHubPage() {
           <section className="animate-fade-up">
             <div className="flex items-end justify-between mb-6">
               <div>
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-1">
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
                   <Bus className="w-3.5 h-3.5" /> Intercity Transit
                 </span>
-                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                <h2 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white tracking-tight">
                   Buses, Vans & Schedules
                 </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
                   Verified daily departures, ticket rates, and direct booking
                   links.
                 </p>
               </div>
               <Link
                 href="/travel/transport"
-                className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 transition-colors group"
+                className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors group"
               >
                 All routes{" "}
                 <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
@@ -382,13 +379,13 @@ export default async function TravelHubPage() {
           <section className="animate-fade-up">
             <div className="flex items-end justify-between mb-6">
               <div>
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-violet-600 dark:text-violet-400 mb-1">
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
                   <BookOpen className="w-3.5 h-3.5" /> Field Guides
                 </span>
-                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                <h2 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white tracking-tight">
                   Practical Travel Knowledge
                 </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
                   Logistics, dress codes, dawn timings, and temple etiquette.
                 </p>
               </div>
@@ -406,13 +403,13 @@ export default async function TravelHubPage() {
           <section className="animate-fade-up">
             <div className="flex items-end justify-between mb-6">
               <div>
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-amber-500 mb-1">
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
                   <Calendar className="w-3.5 h-3.5" /> Cultural Calendar
                 </span>
-                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                <h2 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white tracking-tight">
                   Upcoming Festivals & Gatherings
                 </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
                   Sacred celebrations, international marathons, and water
                   festivals.
                 </p>
@@ -428,20 +425,16 @@ export default async function TravelHubPage() {
 
         {/* ━━━ 9. INTERACTIVE TRIP PLANNER CTA ━━━ */}
         <section className="animate-fade-up">
-          <div className="relative overflow-hidden rounded-3xl bg-slate-950 text-white border border-slate-800">
-            {/* Ambient decorative glow */}
-            <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-teal-500/15 blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
-
+          <div className="relative overflow-hidden rounded-3xl bg-zinc-950 text-white border border-zinc-800">
             <div className="relative z-10 p-8 sm:p-12 lg:p-16 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
               <div className="max-w-xl">
-                <span className="text-xs uppercase font-extrabold tracking-[0.2em] text-teal-400 mb-3 block">
+                <span className="text-xs uppercase font-bold tracking-widest text-zinc-400 mb-3 block">
                   Trip Engine
                 </span>
                 <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight">
                   Plan Your Dream Cambodia Adventure
                 </h2>
-                <p className="mt-3 text-sm sm:text-base text-slate-300 leading-relaxed font-light">
+                <p className="mt-3 text-sm sm:text-base text-zinc-300 leading-relaxed font-normal">
                   Tell us your dates, budget, and travel style. Get an optimized
                   day-by-day itinerary with routes, opening times, and authentic
                   dining stops.
@@ -450,13 +443,13 @@ export default async function TravelHubPage() {
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link
                   href="/travel/planner"
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-teal-600 hover:bg-teal-500 text-white font-semibold text-sm transition-all duration-300 hover:-translate-y-0.5 shadow-lg shadow-teal-600/25"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white hover:bg-zinc-100 text-zinc-950 font-bold text-sm transition-all shadow-xs"
                 >
                   <Navigation className="h-4 w-4" /> Start Planning
                 </Link>
                 <Link
                   href="/travel/suggest"
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white font-medium text-sm transition-all duration-300 hover:-translate-y-0.5 border border-white/10"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white/10 hover:bg-white/20 text-zinc-200 hover:text-white font-medium text-sm transition-all border border-white/15"
                 >
                   <PlusCircle className="h-4 w-4" /> Suggest a Place
                 </Link>
