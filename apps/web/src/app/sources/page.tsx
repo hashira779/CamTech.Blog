@@ -10,15 +10,15 @@ export default async function SourcesDirectoryPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Header Banner */}
-      <div className="p-8 rounded-3xl bg-gradient-to-r from-emerald-950 via-slate-900 to-indigo-950 text-white space-y-2 shadow-xl">
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-emerald-400">
+      <div className="p-8 rounded-3xl bg-zinc-950 text-white space-y-2 border border-zinc-800 shadow-xs">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">
           <Database className="h-4 w-4" />
           <span>Transparency & Attribution</span>
         </div>
-        <h1 className="text-3xl sm:text-4xl font-black tracking-tight">
+        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
           Verified Source Registry
         </h1>
-        <p className="text-xs sm:text-sm text-neutral-300 max-w-3xl leading-relaxed">
+        <p className="text-xs sm:text-sm text-zinc-300 max-w-3xl leading-relaxed font-normal">
           Daily Discovery maintains a strict, auditable Source Registry. We never scrape full text or mirror external publishers.
           Every external report is independently summarized, credited, and attributed to its original publisher.
         </p>
