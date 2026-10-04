@@ -44,3 +44,12 @@ The Daily Discovery database schema is designed for Unicode-safety (supporting m
 
 ### `audit_logs`
 - Tamper-evident admin log recording user, action, entity, previous value, new value, and timestamp.
+
+---
+
+## 2. Dynamic Database Configuration ("Super System")
+
+As part of the Super System architecture, the database connection is no longer strictly bound to `.env` variables on the server.
+- **Admin UI Migration Wizard**: The `apps/admin` SPA provides a visual interface to connect to a new database dynamically.
+- **On-the-fly Migrations**: Administrators can apply Alembic schema migrations directly through the Admin UI.
+- **Zero-Downtime Reconfiguration**: Switching database hosts (e.g. from local SQLite to remote PostgreSQL) can be performed without stopping the FastApi server process.

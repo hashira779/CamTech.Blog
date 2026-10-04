@@ -57,3 +57,5 @@ volumes:
 # Apply schema & seed initial content
 python database/seed_data.py
 ```
+
+*Note: Migrations and Database connections can now also be executed dynamically through the `/admin` UI using the **Database Migration Wizard**, which is part of the "Super System" architecture.*
