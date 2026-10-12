@@ -36,7 +36,16 @@ export default function Login() {
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      const detail = err.response?.data?.detail || 'Incorrect credentials or server offline.';
+      let detail = err.response?.data?.detail;
+      if (!detail) {
+        if (err.response?.status === 502 || err.response?.status === 503 || err.response?.status === 504) {
+          detail = 'Backend service is restarting for deployment updates. Please wait a moment and try again.';
+        } else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+          detail = 'Connection timed out. Please check your network and try again.';
+        } else {
+          detail = 'Incorrect credentials or server offline.';
+        }
+      }
       setError(detail);
     } finally {
       setLoading(false);
