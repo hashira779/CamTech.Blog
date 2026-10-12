@@ -31,11 +31,18 @@ def ensure_database_schema():
             ("symbol_image_url", "VARCHAR(500)"),
         ]
 
-        with engine.begin() as conn:
-            for col_name, col_type in symbol_columns:
-                if col_name not in existing_columns:
-                    logger.info(f"Adding missing column '{col_name}' to 'destinations' table...")
-                    conn.execute(text(f"ALTER TABLE destinations ADD COLUMN {col_name} {col_type}"))
+        is_postgres = not engine.url.drivername.startswith("sqlite")
+        for col_name, col_type in symbol_columns:
+            if col_name not in existing_columns:
+                try:
+                    with engine.begin() as conn:
+                        logger.info(f"Adding missing column '{col_name}' to 'destinations' table...")
+                        if is_postgres:
+                            conn.execute(text(f"ALTER TABLE destinations ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+                        else:
+                            conn.execute(text(f"ALTER TABLE destinations ADD COLUMN {col_name} {col_type}"))
+                except Exception as col_err:
+                    logger.warning(f"Column '{col_name}' migration notice: {col_err}")
 
         # Check if symbols need seeding
         json_path = os.path.join(os.path.dirname(__file__), "..", "data_province_symbols.json")
@@ -45,7 +52,7 @@ def ensure_database_schema():
 
             db = SessionLocal()
             try:
-                unseeded = db.query(Destination).filter(Destination.symbol_name == None).all()
+                unseeded = db.query(Destination).filter(Destination.symbol_name.is_(None)).all()
                 if unseeded:
                     logger.info(f"Found {len(unseeded)} destinations without symbols. Seeding from dynamic data...")
                     for dest in unseeded:

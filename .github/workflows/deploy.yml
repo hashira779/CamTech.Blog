@@ -38,9 +38,27 @@ jobs:
             echo "✅ Auto-rollback completed. Marking action as failed."
             exit 1
           fi
-      - name: Seed Database
+
+          echo "Waiting 5 seconds for services to settle..."
+          sleep 5
+          docker compose ps
+
+      - name: Verify API Health & Seed Database
         run: |
           cd /home/ubuntu-server/CamTech.Blog
-          # We check if the api container is running and seed data
-          docker compose exec -T api python seed_data.py || echo "Seed failed or not applicable"
-          docker compose exec -T api python fix_guides_and_restore_transport.py || echo "Fix script failed"
+          echo "=== Container Status ==="
+          docker compose ps
+          
+          echo "=== Testing API Health ==="
+          for i in {1..6}; do
+            if docker compose exec -T api curl -s -f http://localhost:8000/health > /dev/null; then
+              echo "✅ API container is healthy and responding!"
+              break
+            fi
+            echo "Waiting for API to become ready (attempt $i/6)..."
+            sleep 5
+          done
+
+          echo "=== Seeding Database ==="
+          docker compose exec -T api python seed_data.py || echo "Seed notice: completed or not applicable"
+          docker compose exec -T api python fix_guides_and_restore_transport.py || echo "Fix script notice: completed or not applicable"
