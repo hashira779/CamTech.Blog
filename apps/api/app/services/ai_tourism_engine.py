@@ -29,8 +29,11 @@ from app.services.s3_service import s3_service
 logger = logging.getLogger(__name__)
 
 async def _call_you_com(prompt: str, api_key: str) -> str:
-    if not api_key:
+    if not api_key or not str(api_key).strip():
         return None
+    api_key = str(api_key).strip()
+
+    # 1. Try You.com Research API (fast 'lite' effort for rapid response)
     try:
         url = "https://api.you.com/v1/research"
         headers = {
@@ -38,33 +41,65 @@ async def _call_you_com(prompt: str, api_key: str) -> str:
             "Content-Type": "application/json"
         }
         payload = {
-            "input": f"{prompt}\n\nIMPORTANT: Return ONLY valid JSON. No markdown blocks.",
-            "research_effort": "standard"
+            "input": f"{prompt}\n\nIMPORTANT: Return ONLY valid JSON. No conversational commentary or markdown introduction.",
+            "research_effort": "lite"
+        }
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            res = await client.post(url, json=payload, headers=headers)
+            if res.status_code == 200:
+                data = res.json()
+                content = data.get("output", {}).get("content", "")
+                if isinstance(content, (dict, list)):
+                    return json.dumps(content)
+                if content:
+                    # Clean out citation marks like [[1]] or [[2]]
+                    cleaned = re.sub(r'\[\[\d+\]\]', '', str(content))
+                    return cleaned
+    except Exception as e:
+        logger.warning(f"You.com Research API failed: {e}")
+
+    # 2. Try You.com Answer API as fallback (supported on standard developer keys)
+    try:
+        url = "https://api.you.com/v1/answer"
+        headers = {
+            "X-API-Key": api_key,
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "query": f"{prompt}\n\nReturn strictly valid JSON only."
         }
         async with httpx.AsyncClient(timeout=15.0) as client:
             res = await client.post(url, json=payload, headers=headers)
-            res.raise_for_status()
-            data = res.json()
-            return data.get("output", {}).get("content", "")
+            if res.status_code == 200:
+                data = res.json()
+                answer = data.get("answer", "")
+                if answer:
+                    cleaned = re.sub(r'\[\[\d+\]\]', '', str(answer))
+                    return cleaned
     except Exception as e:
-        logger.warning(f"You.com Research API failed: {e}")
-        return None
+        logger.warning(f"You.com Answer API fallback failed: {e}")
+
+    return None
 
 async def _you_web_search(query: str, api_key: str) -> dict:
-    """Uses You.com Web Search API to get real search highlights and image thumbnails."""
-    if not api_key:
+    """Uses You.com Web Search API (https://ydc-index.io/v1/search) to get real search highlights and image thumbnails."""
+    if not api_key or not str(api_key).strip():
         return None
-    try:
-        url = "https://api.you.com/v1/search"
-        headers = {"X-API-Key": api_key}
-        params = {"query": query}
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            res = await client.get(url, params=params, headers=headers)
-            res.raise_for_status()
-            return res.json()
-    except Exception as e:
-        logger.warning(f"You.com Web Search API failed: {e}")
-        return None
+    api_key = str(api_key).strip()
+    headers = {"X-API-Key": api_key}
+    params = {"query": query}
+
+    # Primary official URL for You.com Search index is https://ydc-index.io/v1/search
+    for url in ["https://ydc-index.io/v1/search", "https://api.you.com/v1/search"]:
+        try:
+            async with httpx.AsyncClient(timeout=12.0) as client:
+                res = await client.get(url, params=params, headers=headers)
+                if res.status_code == 200:
+                    return res.json()
+        except Exception as e:
+            logger.warning(f"You.com Web Search at {url} failed: {e}")
+            continue
+    return None
 
 async def fetch_wiki_images(place_name: str, province_name: str, local_name: str = None) -> list[str]:
     """Uses Wikipedia API with policy-compliant headers and fast queries to find real photos."""
@@ -360,14 +395,37 @@ Return a JSON array of objects. Each object must have these keys:
                 }
 
             # Parse response
+            places_data = None
             try:
                 places_data = json.loads(response_text)
             except json.JSONDecodeError:
-                match = re.search(r'```(?:json)?\n(.*?)\n```', response_text, re.DOTALL)
+                # 1. Try markdown code block
+                match = re.search(r'```(?:json)?\s*(\[.*?\])\s*```', response_text, re.DOTALL)
                 if match:
-                    places_data = json.loads(match.group(1))
-                else:
-                    raise ValueError(f"Failed to parse AI response for {destination.name}")
+                    try:
+                        places_data = json.loads(match.group(1))
+                    except Exception:
+                        pass
+                
+                # 2. Try raw brackets if markdown search missed
+                if not places_data:
+                    match = re.search(r'(\[\s*\{.*?\}\s*\])', response_text, re.DOTALL)
+                    if match:
+                        try:
+                            places_data = json.loads(match.group(1))
+                        except Exception:
+                            pass
+
+                if not places_data:
+                    logger.warning(f"Failed to parse JSON from AI response, using curated fallback: {response_text[:100]}...")
+                    curated_places = self._get_curated_fallback_places(dest_slug, dest_name, dest_id, default_hero, existing_names_set)
+                    return {
+                        "province": dest_name,
+                        "province_slug": dest_slug,
+                        "discovered": len(curated_places),
+                        "places_data": curated_places,
+                        "source": "curated_heritage"
+                    }
 
             if not isinstance(places_data, list):
                 places_data = [places_data]
@@ -495,7 +553,12 @@ Return a JSON array of objects. Each object must have these keys:
                 if search_data and "results" in search_data and "web" in search_data["results"]:
                     for idx, result in enumerate(search_data["results"]["web"][:5]):
                         title = result.get("title", "")
-                        highlights = "\n".join(result.get("contents", {}).get("highlights", []))
+                        snippets = result.get("snippets", [])
+                        if not snippets and result.get("description"):
+                            snippets = [result.get("description")]
+                        elif not snippets and result.get("contents", {}).get("highlights"):
+                            snippets = result.get("contents", {}).get("highlights", [])
+                        highlights = "\n".join(snippets) if isinstance(snippets, list) else str(snippets)
                         search_context += f"Source {idx+1}: {title}\n{highlights}\n\n"
                         
                         # Grab real thumbnails!
