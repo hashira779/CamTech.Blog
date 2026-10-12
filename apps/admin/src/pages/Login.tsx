@@ -10,8 +10,8 @@ export default function Login() {
   const redirectPath = searchParams.get('redirect') || '/dashboard';
   const isSessionExpired = searchParams.get('expired') === '1' || searchParams.get('expired') === 'true';
 
-  const [email, setEmail] = useState('admin@dailydiscovery.com');
-  const [password, setPassword] = useState('AdminDaily2026!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
