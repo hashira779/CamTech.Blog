@@ -121,16 +121,28 @@ async def fetch_wiki_images(place_name: str, province_name: str, local_name: str
         "diagram", "locator", ".svg", "emblem", "seal_of", "district_in"
     ]
 
-    async with httpx.AsyncClient(timeout=6.0, headers=headers) as client:
+    async with httpx.AsyncClient(timeout=5.0, headers=headers) as client:
         # Search Wikipedia with distinct queries
         for q in dict.fromkeys(queries):
-            url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(q)}&gsrlimit=5&prop=pageimages&piprop=original&format=json"
+            url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(q)}&gsrlimit=3&prop=pageimages|extracts&exintro=1&explaintext=1&piprop=original&format=json"
             try:
                 res = await client.get(url)
                 if res.status_code == 200:
                     pages = res.json().get("query", {}).get("pages", {})
                     candidates = []
                     for p in pages.values():
+                        title = p.get("title", "")
+                        extract = p.get("extract", "").lower()
+                        # Strict relevance check: must relate to Cambodia, Khmer, or target province
+                        is_relevant = (
+                            "cambodia" in extract or "khmer" in extract or
+                            (province_name and province_name.lower() in extract) or
+                            "cambodia" in title.lower() or
+                            (clean_name and clean_name.lower() in title.lower())
+                        )
+                        if not is_relevant:
+                            continue
+
                         if "original" in p:
                             src = p["original"]["source"]
                             src_lower = src.lower()
@@ -144,6 +156,88 @@ async def fetch_wiki_images(place_name: str, province_name: str, local_name: str
     return []
 
 
+
+# Distinct category-specific photo library (Unsplash royalty-free images tailored to Cambodia / SE Asia travel)
+CATEGORY_FALLBACK_IMAGES = {
+    "WATERFALL": [
+        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1511497584788-87676104235f?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=800&auto=format&fit=crop&q=80",
+    ],
+    "TEMPLE": [
+        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=800&auto=format&fit=crop&q=80",
+    ],
+    "HOTEL": [
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&auto=format&fit=crop&q=80",
+    ],
+    "RESORT": [
+        "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?w=800&auto=format&fit=crop&q=80",
+    ],
+    "NATIONAL_PARK": [
+        "https://images.unsplash.com/photo-1448375240586-882707db888b?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1511497584788-87676104235f?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=800&auto=format&fit=crop&q=80",
+    ],
+    "ACTIVITY": [
+        "https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1534567153574-2b12153a87f0?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=800&auto=format&fit=crop&q=80",
+    ],
+    "RESTAURANT": [
+        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1552611052-33e04de081de?w=800&auto=format&fit=crop&q=80",
+    ],
+    "CAFE": [
+        "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop&q=80",
+    ],
+    "MARKET": [
+        "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506484381205-f7945653044d?w=800&auto=format&fit=crop&q=80",
+    ],
+    "MUSEUM": [
+        "https://images.unsplash.com/photo-1565034946487-077786996e27?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=800&auto=format&fit=crop&q=80",
+    ],
+    "BEACH": [
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1519046904884-53103b34b206?w=800&auto=format&fit=crop&q=80",
+    ],
+    "LAKE": [
+        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1439853941329-a93ac9e8636e?w=800&auto=format&fit=crop&q=80",
+    ],
+    "MOUNTAIN": [
+        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80",
+    ],
+    "VILLAGE": [
+        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=800&auto=format&fit=crop&q=80",
+    ],
+    "ATTRACTION": [
+        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=800&auto=format&fit=crop&q=80",
+    ]
+}
+
+def get_category_fallback_photo(place_type: str, name: str) -> str:
+    """Return a unique, themed photo based on place_type and name hash."""
+    ptype = (place_type or "ATTRACTION").upper()
+    pool = CATEGORY_FALLBACK_IMAGES.get(ptype, CATEGORY_FALLBACK_IMAGES["ATTRACTION"])
+    idx = abs(hash(name)) % len(pool)
+    return pool[idx]
 
 # All 25 provinces/cities of Cambodia
 CAMBODIA_PROVINCES = [
@@ -208,11 +302,13 @@ class AITourismEngine:
             name = p.get("name", "").strip()
             if not name:
                 continue
+            p_type = p.get("place_type", "ATTRACTION")
             is_dup = name.lower() in existing_names_set
+            hero_photo = get_category_fallback_photo(p_type, name)
             processed.append({
                 "name": name,
                 "local_name": p.get("local_name"),
-                "place_type": p.get("place_type", "ATTRACTION"),
+                "place_type": p_type,
                 "description": p.get("description", f"Notable tourist landmark in {dest_name} Province, Cambodia."),
                 "description_km": p.get("description_km"),
                 "address": p.get("address", f"{dest_name} Province, Cambodia"),
@@ -226,10 +322,43 @@ class AITourismEngine:
                 "rating": p.get("rating", 4.7),
                 "is_duplicate": is_dup,
                 "destination_id": dest_id,
-                "hero_image_url": default_hero,
+                "hero_image_url": hero_photo,
                 "gallery_json": "[]"
             })
         return processed
+
+    async def _resolve_candidate_image(
+        self,
+        name: str,
+        dest_name: str,
+        place_type: str,
+        local_name: str = None,
+        you_api_key: str = None,
+        default_hero: str = None
+    ) -> str:
+        """Find a real photo via Wikipedia or You.com; fall back to a distinct category photo."""
+        # 1. Try fast Wikipedia image lookup with relevance filter
+        try:
+            wiki_imgs = await asyncio.wait_for(fetch_wiki_images(name, dest_name, local_name), timeout=2.5)
+            if wiki_imgs:
+                return wiki_imgs[0]
+        except Exception:
+            pass
+
+        # 2. Try fast You.com Web Search thumbnails
+        if you_api_key:
+            try:
+                search_data = await asyncio.wait_for(_you_web_search(f"{name} {dest_name} Cambodia", you_api_key), timeout=2.5)
+                if search_data and "results" in search_data and "web" in search_data["results"]:
+                    for r in search_data["results"]["web"][:4]:
+                        thumb = r.get("thumbnail_url")
+                        if thumb and thumb.startswith("http") and not any(bad in thumb.lower() for bad in ["logo", "icon", "favicon"]):
+                            return thumb
+            except Exception:
+                pass
+
+        # 3. Use distinct, high-quality category-specific photo
+        return get_category_fallback_photo(place_type, name)
 
     def _ensure_cambodia_destinations(self, db):
         """Ensure all 25 provinces exist as Destinations in the database."""
@@ -430,20 +559,21 @@ Return a JSON array of objects. Each object must have these keys:
             if not isinstance(places_data, list):
                 places_data = [places_data]
 
-            # Format places for review card quickly; full image resolution & syncing is deferred to approval
-            processed_places = []
+            # Enrich candidate places with authentic, distinct images in parallel
             default_hero = destination.hero_image_url or "/images/destinations/phnom-penh.jpg"
-            for p in places_data:
+            async def _enrich_candidate(p):
                 name = p.get("name", "").strip()
-                if not name:
-                    continue
-
+                p_type = p.get("place_type", "ATTRACTION")
+                local_name = p.get("local_name")
+                hero = await self._resolve_candidate_image(name, dest_name, p_type, local_name, you_api_key, default_hero)
                 p["is_duplicate"] = name.lower() in existing_names_set
                 p["destination_id"] = dest_id
-                p["hero_image_url"] = default_hero
+                p["hero_image_url"] = hero
                 p["gallery_json"] = "[]"
+                return p
 
-                processed_places.append(p)
+            valid_places = [p for p in places_data if p.get("name", "").strip()]
+            processed_places = await asyncio.gather(*[_enrich_candidate(p) for p in valid_places])
 
             # Return raw data for approval immediately (typically under 3-5 seconds)
             return {
@@ -811,15 +941,35 @@ Return a JSON object with these keys ONLY:
         # Fetch images for the approved place OUTSIDE the database session
         hero_url = place_dict.get("hero_image_url")
         gallery_json = place_dict.get("gallery_json", "[]")
-        
-        # Fetch images if not already provided or if placeholder
+
+        # Load You.com key if configured
+        db = SessionLocal()
+        try:
+            you_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'YOU_API_KEY').first()
+            you_api_key = you_key_setting.value_json if you_key_setting else os.environ.get("YOU_API_KEY")
+        finally:
+            db.close()
+
+        # Fetch real images if not already provided or if placeholder/province cover
         if not hero_url or "/images/destinations/" in hero_url:
+            # 1. Try Wikipedia with relevance verification
             img_urls = await fetch_wiki_images(name, dest_name, place_dict.get("local_name"))
+
+            # 2. Try You.com Web Search thumbnails
+            if not img_urls and you_api_key:
+                try:
+                    search_data = await _you_web_search(f"{name} {dest_name} Cambodia", you_api_key)
+                    if search_data and "results" in search_data and "web" in search_data["results"]:
+                        img_urls = [r.get("thumbnail_url") for r in search_data["results"]["web"] if r.get("thumbnail_url") and not any(bad in r.get("thumbnail_url", "").lower() for bad in ["logo", "icon", "favicon"])]
+                except Exception:
+                    pass
+
             if img_urls:
                 hero_url = img_urls[0]
                 gallery_json = json.dumps(img_urls[:4])
-            elif dest_hero:
-                hero_url = dest_hero
+            else:
+                # 3. Use distinct category-specific photo
+                hero_url = get_category_fallback_photo(place_dict.get("place_type"), name)
 
         # Dual storage synchronization:
         # 1. Google Drive for persistent backup
