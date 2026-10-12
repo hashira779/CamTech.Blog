@@ -1,14 +1,25 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Lock, Mail, ArrowRight, ShieldCheck, AlertCircle, Info } from 'lucide-react';
 import { api } from '../lib/api';
+import { setAuth, isAuthenticated } from '../lib/auth';
 
 export default function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectPath = searchParams.get('redirect') || '/dashboard';
+  const isSessionExpired = searchParams.get('expired') === '1' || searchParams.get('expired') === 'true';
+
   const [email, setEmail] = useState('admin@dailydiscovery.com');
   const [password, setPassword] = useState('AdminDaily2026!');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      navigate(redirectPath, { replace: true });
+    }
+  }, [navigate, redirectPath]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,9 +29,8 @@ export default function Login() {
     try {
       const res = await api.post('/auth/login', { email, password });
       if (res.data?.access_token) {
-        localStorage.setItem('admin_token', res.data.access_token);
-        localStorage.setItem('admin_user', JSON.stringify(res.data.user || {}));
-        navigate('/dashboard');
+        setAuth(res.data.access_token, res.data.user || {});
+        navigate(redirectPath, { replace: true });
       } else {
         setError('No access token received from server.');
       }
@@ -52,6 +62,13 @@ export default function Login() {
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-sm px-4 sm:px-0">
         <div className="bg-zinc-900/50 p-6 sm:p-7 rounded-lg border border-zinc-800/80 shadow-2xl backdrop-blur-sm">
+          {isSessionExpired && !error && (
+            <div className="mb-4 p-3 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs flex items-center gap-2">
+              <Info size={14} className="shrink-0" />
+              <span>Your session expired or authentication is required. Please sign in to continue.</span>
+            </div>
+          )}
+
           {error && (
             <div className="mb-4 p-3 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
               <AlertCircle size={14} className="shrink-0" />

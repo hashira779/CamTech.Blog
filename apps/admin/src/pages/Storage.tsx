@@ -11,6 +11,7 @@ import {
   HardDrive
 } from 'lucide-react';
 import { api } from '../lib/api';
+import { useToast } from '../components/ui/Toast';
 
 interface StorageProvider {
   id: string;
@@ -35,6 +36,7 @@ export default function Storage() {
   const [providers, setProviders] = useState<StorageProvider[]>([]);
   const [policies, setPolicies] = useState<StoragePolicy[]>([]);
   const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
 
   // View States
   const [view, setView] = useState<'list' | 'create_provider'>('list');
@@ -125,7 +127,10 @@ export default function Storage() {
   }, []);
 
   const handleSaveProvider = async () => {
-    if (!providerName) return alert("Provider Name is required");
+    if (!providerName.trim()) {
+      showToast('error', "Provider Name is required");
+      return;
+    }
     
     setSavingProvider(true);
     try {
@@ -178,27 +183,29 @@ export default function Storage() {
 
       if (editingId) {
         await api.put(`/admin/storage-config/providers/${editingId}`, payload);
+        showToast('success', 'Storage provider updated successfully.');
       } else {
         await api.post('/admin/storage-config/providers', payload);
+        showToast('success', 'Storage provider connected successfully.');
       }
       
       resetForm();
       setView('list');
       fetchData();
     } catch (e: any) {
-      alert(e.response?.data?.detail || "Failed to add provider");
+      showToast('error', e.response?.data?.detail || "Failed to save provider");
     } finally {
       setSavingProvider(false);
     }
   };
 
   const handleDeleteProvider = async (id: string) => {
-    if (!confirm("Delete this provider?")) return;
     try {
       await api.delete(`/admin/storage-config/providers/${id}`);
+      showToast('success', 'Storage provider disconnected.');
       fetchData();
     } catch (e: any) {
-      alert(e.response?.data?.detail || "Failed to delete provider");
+      showToast('error', e.response?.data?.detail || "Failed to delete provider");
     }
   };
 
@@ -206,20 +213,21 @@ export default function Storage() {
     if (!newPolicy.provider_id) return;
     try {
       await api.post('/admin/storage-config/policies', newPolicy);
+      showToast('success', 'Routing policy registered.');
       setShowPolicyModal(false);
       fetchData();
-    } catch (e) {
-      alert("Failed to add policy");
+    } catch {
+      showToast('error', "Failed to create routing policy");
     }
   };
 
   const handleDeletePolicy = async (id: string) => {
-    if (!confirm("Delete this routing rule?")) return;
     try {
       await api.delete(`/admin/storage-config/policies/${id}`);
+      showToast('success', 'Routing policy deleted.');
       fetchData();
-    } catch (e) {
-      alert("Failed to delete policy");
+    } catch {
+      showToast('error', "Failed to remove policy");
     }
   };
 
@@ -450,32 +458,46 @@ export default function Storage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
-              {providers.map(p => (
-                <tr key={p.id} className="hover:bg-zinc-800/30">
-                  <td className="px-6 py-4 flex items-center gap-3">
-                    <Cloud size={16} className="text-zinc-500" />
-                    <span className="font-medium text-zinc-200">{p.name}</span>
-                    {p.is_default && <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">DEFAULT</span>}
-                  </td>
-                  <td className="px-6 py-4 font-mono text-xs text-orange-400">{p.provider_type}</td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 font-medium">
-                      <CheckCircle2 size={12} /> Connected
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-zinc-500">
-                    {new Date(p.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button onClick={() => handleEditProvider(p)} className="text-zinc-500 hover:text-orange-400 transition-colors p-1.5 hover:bg-orange-500/10 rounded mr-2" title="Edit Provider">
-                      <FolderOpen size={16} />
-                    </button>
-                    <button onClick={() => handleDeleteProvider(p.id)} className="text-zinc-500 hover:text-rose-400 transition-colors p-1.5 hover:bg-rose-500/10 rounded" title="Delete Provider">
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {loading ? (
+                <>
+                  {[1, 2, 3].map((n) => (
+                    <tr key={n} className="border-b border-zinc-800/60">
+                      <td className="px-6 py-4"><div className="h-4 w-36 skeleton-shimmer rounded" /></td>
+                      <td className="px-6 py-4"><div className="h-4 w-20 skeleton-shimmer rounded" /></td>
+                      <td className="px-6 py-4"><div className="h-5 w-24 skeleton-shimmer rounded-full" /></td>
+                      <td className="px-6 py-4"><div className="h-4 w-24 skeleton-shimmer rounded" /></td>
+                      <td className="px-6 py-4 text-right"><div className="h-6 w-16 skeleton-shimmer rounded ml-auto" /></td>
+                    </tr>
+                  ))}
+                </>
+              ) : (
+                providers.map(p => (
+                  <tr key={p.id} className="hover:bg-zinc-800/30">
+                    <td className="px-6 py-4 flex items-center gap-3">
+                      <Cloud size={16} className="text-zinc-500" />
+                      <span className="font-medium text-zinc-200">{p.name}</span>
+                      {p.is_default && <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">DEFAULT</span>}
+                    </td>
+                    <td className="px-6 py-4 font-mono text-xs text-orange-400">{p.provider_type}</td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 font-medium">
+                        <CheckCircle2 size={12} /> Connected
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-zinc-500">
+                      {new Date(p.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button onClick={() => handleEditProvider(p)} className="text-zinc-500 hover:text-orange-400 transition-colors p-1.5 hover:bg-orange-500/10 rounded mr-2" title="Edit Provider">
+                        <FolderOpen size={16} />
+                      </button>
+                      <button onClick={() => handleDeleteProvider(p.id)} className="text-zinc-500 hover:text-rose-400 transition-colors p-1.5 hover:bg-rose-500/10 rounded" title="Delete Provider">
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
               {providers.length === 0 && !loading && (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-zinc-500 border-dashed border-zinc-800">
@@ -513,22 +535,34 @@ export default function Storage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
-              {policies.map(p => (
-                <tr key={p.id} className="hover:bg-zinc-800/30">
-                  <td className="px-6 py-4">
-                    <span className="text-xs font-bold text-orange-500 bg-orange-500/10 px-2.5 py-1 rounded-full border border-orange-500/20">{p.entity_type}</span>
-                  </td>
-                  <td className="px-6 py-4 flex items-center gap-2">
-                    <span className="font-medium text-zinc-200">{p.provider_name}</span>
-                    <span className="text-zinc-500 text-xs font-mono">({p.provider_type})</span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button onClick={() => handleDeletePolicy(p.id)} className="text-zinc-500 hover:text-rose-400 transition-colors p-1.5 hover:bg-rose-500/10 rounded">
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {loading ? (
+                <>
+                  {[1, 2].map((n) => (
+                    <tr key={n} className="border-b border-zinc-800/60">
+                      <td className="px-6 py-4"><div className="h-5 w-24 skeleton-shimmer rounded-full" /></td>
+                      <td className="px-6 py-4"><div className="h-4 w-40 skeleton-shimmer rounded" /></td>
+                      <td className="px-6 py-4 text-right"><div className="h-6 w-8 skeleton-shimmer rounded ml-auto" /></td>
+                    </tr>
+                  ))}
+                </>
+              ) : (
+                policies.map(p => (
+                  <tr key={p.id} className="hover:bg-zinc-800/30">
+                    <td className="px-6 py-4">
+                      <span className="text-xs font-bold text-orange-500 bg-orange-500/10 px-2.5 py-1 rounded-full border border-orange-500/20">{p.entity_type}</span>
+                    </td>
+                    <td className="px-6 py-4 flex items-center gap-2">
+                      <span className="font-medium text-zinc-200">{p.provider_name}</span>
+                      <span className="text-zinc-500 text-xs font-mono">({p.provider_type})</span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button onClick={() => handleDeletePolicy(p.id)} className="text-zinc-500 hover:text-rose-400 transition-colors p-1.5 hover:bg-rose-500/10 rounded">
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
               {policies.length === 0 && !loading && (
                 <tr>
                   <td colSpan={3} className="px-6 py-12 text-center text-zinc-500 border-dashed border-zinc-800">

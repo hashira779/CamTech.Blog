@@ -28,8 +28,7 @@ from app.services.s3_service import s3_service
 
 logger = logging.getLogger(__name__)
 
-def _call_you_com(prompt: str, api_key: str) -> str:
-    import httpx
+async def _call_you_com(prompt: str, api_key: str) -> str:
     if not api_key:
         return None
     try:
@@ -42,46 +41,44 @@ def _call_you_com(prompt: str, api_key: str) -> str:
             "input": f"{prompt}\n\nIMPORTANT: Return ONLY valid JSON. No markdown blocks.",
             "research_effort": "standard"
         }
-        res = httpx.post(url, json=payload, headers=headers, timeout=60.0)
-        res.raise_for_status()
-        data = res.json()
-        return data.get("output", {}).get("content", "")
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            res = await client.post(url, json=payload, headers=headers)
+            res.raise_for_status()
+            data = res.json()
+            return data.get("output", {}).get("content", "")
     except Exception as e:
         logger.warning(f"You.com Research API failed: {e}")
         return None
 
-def _you_web_search(query: str, api_key: str) -> dict:
+async def _you_web_search(query: str, api_key: str) -> dict:
     """Uses You.com Web Search API to get real search highlights and image thumbnails."""
-    import httpx
     if not api_key:
         return None
     try:
         url = "https://api.you.com/v1/search"
         headers = {"X-API-Key": api_key}
         params = {"query": query}
-        res = httpx.get(url, params=params, headers=headers, timeout=15.0)
-        res.raise_for_status()
-        return res.json()
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.get(url, params=params, headers=headers)
+            res.raise_for_status()
+            return res.json()
     except Exception as e:
         logger.warning(f"You.com Web Search API failed: {e}")
         return None
 
 async def fetch_wiki_images(place_name: str, province_name: str, local_name: str = None) -> list[str]:
-    """Uses Wikipedia API with policy-compliant headers, multi-query variations, and flag/svg filtering to find real photos."""
+    """Uses Wikipedia API with policy-compliant headers and fast queries to find real photos."""
     ua = "CamTechBlogDiscovery/2.0 (https://blog.camtech.cam; contact@camtech.cam) python-httpx/0.28.1"
     headers = {"User-Agent": ua}
     
     clean_name = re.sub(r'\(.*?\)', '', place_name).strip()
     queries = [
-        f"{place_name} {province_name}",
         f"{place_name} Cambodia",
-        place_name,
-        f"{clean_name} {province_name}",
-        f"{clean_name} Cambodia",
-        clean_name,
+        f"{place_name} {province_name}",
     ]
+    if clean_name and clean_name != place_name:
+        queries.append(f"{clean_name} Cambodia")
     if local_name and local_name.strip():
-        queries.append(f"{local_name.strip()} {province_name}")
         queries.append(local_name.strip())
 
     BAD_KEYWORDS = [
@@ -89,10 +86,10 @@ async def fetch_wiki_images(place_name: str, province_name: str, local_name: str
         "diagram", "locator", ".svg", "emblem", "seal_of", "district_in"
     ]
 
-    async with httpx.AsyncClient(timeout=12, headers=headers) as client:
-        # 1. Search English Wikipedia with distinct queries
+    async with httpx.AsyncClient(timeout=6.0, headers=headers) as client:
+        # Search Wikipedia with distinct queries
         for q in dict.fromkeys(queries):
-            url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(q)}&gsrlimit=10&prop=pageimages&piprop=original&format=json"
+            url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(q)}&gsrlimit=5&prop=pageimages&piprop=original&format=json"
             try:
                 res = await client.get(url)
                 if res.status_code == 200:
@@ -108,24 +105,6 @@ async def fetch_wiki_images(place_name: str, province_name: str, local_name: str
                         return candidates
             except Exception as e:
                 logger.debug(f"Wiki search error for {q}: {e}")
-
-        # 2. Search Khmer Wikipedia if local_name is available
-        if local_name and local_name.strip():
-            url = f"https://km.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(local_name.strip())}&gsrlimit=5&prop=pageimages&piprop=original&format=json"
-            try:
-                res = await client.get(url)
-                if res.status_code == 200:
-                    pages = res.json().get("query", {}).get("pages", {})
-                    candidates = []
-                    for p in pages.values():
-                        if "original" in p:
-                            src = p["original"]["source"]
-                            if not any(bad in src.lower() for bad in BAD_KEYWORDS):
-                                candidates.append(src)
-                    if candidates:
-                        return candidates
-            except Exception:
-                pass
 
     return []
 
@@ -217,7 +196,7 @@ class AITourismEngine:
             logger.info(f"Updated/Created {created_count} destination records with verified images.")
             
     def _get_dynamic_fallback_models(self, client) -> list[str]:
-        """Dynamically fetch available models and prioritize newer versions."""
+        """Prioritized list of Google Gemini models."""
         preferred = [
             settings.AI_MODEL_NAME or 'gemini-3.8-flash',
             'gemini-3.8-flash',
@@ -226,22 +205,7 @@ class AITourismEngine:
             'gemini-3.0-pro',
             'gemini-3.0-flash'
         ]
-        try:
-            available = [m.name.replace('models/', '') for m in client.models.list()]
-            dynamic_list = [m for m in preferred if m in available]
-            
-            # Filter out any deprecated '2.5' models in case the API still lists them
-            dynamic_list = [m for m in dynamic_list if '2.5' not in m]
-            
-            # If for some reason preferred models aren't there, append other available gemini models
-            if not dynamic_list:
-                dynamic_list = [m for m in available if 'gemini' in m and '2.5' not in m]
-                
-            # Remove duplicates while preserving order
-            return list(dict.fromkeys(dynamic_list)) if dynamic_list else preferred
-        except Exception as e:
-            logger.warning(f"Could not fetch dynamic models: {e}")
-            return preferred
+        return list(dict.fromkeys(preferred))
 
     async def discover_places_for_province(self, province_slug: str) -> dict:
         """Use Gemini AI to discover tourist places for a single province."""
@@ -257,8 +221,6 @@ class AITourismEngine:
             # Check how many places already exist for this destination
             existing_count = db.query(Place).filter(Place.destination_id == destination.id).count()
             existing_names = [p.name for p in db.query(Place.name).filter(Place.destination_id == destination.id).all()]
-
-            model_name = settings.AI_MODEL_NAME or 'gemini-3.8-flash'
 
             prompt = f"""You are an expert Cambodia travel researcher and database builder.
 
@@ -293,13 +255,13 @@ Return a JSON array of objects. Each object must have these keys:
 - rating: Estimated rating 1.0-5.0
 """
 
-            # Fallback model chain — dynamically checked against API to avoid 404s
+            # Fallback model chain
             fallback_models = self._get_dynamic_fallback_models(client)
 
             # Check if we have You.com API key
             you_api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'YOU_API_KEY').first()
             you_api_key = you_api_key_setting.value_json if you_api_key_setting else os.environ.get("YOU_API_KEY")
-            you_response_text = _call_you_com(prompt, you_api_key)
+            you_response_text = await _call_you_com(prompt, you_api_key)
             
             response_text = None
             last_error = None
@@ -311,14 +273,18 @@ Return a JSON array of objects. Each object must have these keys:
                 for model_to_try in fallback_models:
                     try:
                         logger.info(f"Trying model: {model_to_try}")
-                        response = client.models.generate_content(
-                            model=model_to_try,
-                            contents=prompt,
-                            config=types.GenerateContentConfig(
-                                temperature=0.4,
-                                response_mime_type="application/json"
+                        
+                        def _generate_gemini(m=model_to_try):
+                            return client.models.generate_content(
+                                model=m,
+                                contents=prompt,
+                                config=types.GenerateContentConfig(
+                                    temperature=0.4,
+                                    response_mime_type="application/json"
+                                )
                             )
-                        )
+
+                        response = await asyncio.to_thread(_generate_gemini)
                         response_text = response.text
                         logger.info(f"Success with model: {model_to_try}")
                         break  # Success! Stop trying
@@ -347,8 +313,9 @@ Return a JSON array of objects. Each object must have these keys:
             if not isinstance(places_data, list):
                 places_data = [places_data]
 
-            # Check which places already exist and format for UI review
+            # Format places for review card quickly; full image resolution & syncing is deferred to approval
             processed_places = []
+            default_hero = destination.hero_image_url or "/images/destinations/phnom-penh.jpg"
             for p in places_data:
                 name = p.get("name", "").strip()
                 if not name:
@@ -361,21 +328,12 @@ Return a JSON array of objects. Each object must have these keys:
 
                 p["is_duplicate"] = bool(existing)
                 p["destination_id"] = destination.id
-
-                # Automatically discover real photo preview for review card
-                try:
-                    img_urls = await fetch_wiki_images(name, destination.name, p.get("local_name"))
-                    if img_urls:
-                        p["hero_image_url"] = img_urls[0]
-                        p["gallery_json"] = json.dumps(img_urls[:4])
-                    elif destination.hero_image_url:
-                        p["hero_image_url"] = destination.hero_image_url
-                except Exception:
-                    p["hero_image_url"] = destination.hero_image_url
+                p["hero_image_url"] = default_hero
+                p["gallery_json"] = "[]"
 
                 processed_places.append(p)
 
-            # Return raw data for approval immediately
+            # Return raw data for approval immediately (typically under 3-5 seconds)
             return {
                 "province": destination.name,
                 "province_slug": destination.slug,
@@ -435,8 +393,9 @@ Return a JSON array of objects. Each object must have these keys:
                 logger.info(f"🔍 Scanning {prov['name']}...")
                 result = await self.discover_places_for_province(prov["slug"])
                 results.append(result)
-                total_inserted += result["inserted"]
-                logger.info(f"✅ {prov['name']}: {result['inserted']} new places added.")
+                discovered_count = result.get("discovered", 0)
+                total_inserted += discovered_count
+                logger.info(f"✅ {prov['name']}: {discovered_count} new places discovered.")
             except Exception as e:
                 error_msg = f"❌ {prov['name']}: {str(e)}"
                 errors.append(error_msg)
@@ -471,7 +430,7 @@ Return a JSON array of objects. Each object must have these keys:
             
             if you_api_key:
                 logger.info(f"Using You.com Web Search for '{place.name}' context...")
-                search_data = _you_web_search(f"{place.name} {destination.name} Cambodia tourism", you_api_key)
+                search_data = await _you_web_search(f"{place.name} {destination.name} Cambodia tourism", you_api_key)
                 if search_data and "results" in search_data and "web" in search_data["results"]:
                     for idx, result in enumerate(search_data["results"]["web"][:5]):
                         title = result.get("title", "")
@@ -513,7 +472,7 @@ Return a JSON object with these keys ONLY:
             fallback_models = self._get_dynamic_fallback_models(client)
 
             # Use You.com Research API as fallback
-            you_response_text = _call_you_com(prompt, you_api_key)
+            you_response_text = await _call_you_com(prompt, you_api_key)
             
             response_text = None
             last_error = None
@@ -528,15 +487,17 @@ Return a JSON object with these keys ONLY:
                         if "gemini-3.8" in model_to_try or "gemini-3.5" in model_to_try or "gemini-2.5" in model_to_try:
                             tools_config = [types.Tool(google_search=types.GoogleSearch())]
                             
-                        response = client.models.generate_content(
-                            model=model_to_try,
-                            contents=prompt,
-                            config=types.GenerateContentConfig(
-                                temperature=0.7,
-                                response_mime_type="application/json",
-                                tools=tools_config
+                        def _generate_update(m=model_to_try, tc=tools_config):
+                            return client.models.generate_content(
+                                model=m,
+                                contents=prompt,
+                                config=types.GenerateContentConfig(
+                                    temperature=0.7,
+                                    response_mime_type="application/json",
+                                    tools=tc
+                                )
                             )
-                        )
+                        response = await asyncio.to_thread(_generate_update)
                         response_text = response.text
                         break
                     except Exception as model_err:

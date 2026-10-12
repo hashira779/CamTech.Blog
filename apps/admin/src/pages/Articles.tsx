@@ -5,11 +5,13 @@ import {
   Trash2, 
   ExternalLink, 
   RefreshCw,
-  Radio,
-  X
+  X,
+  Sparkles,
+  FileText
 } from 'lucide-react';
 import { api } from '../lib/api';
 import type { ApiArticle } from '../lib/api';
+import { useToast } from '../components/ui/Toast';
 
 export default function Articles() {
   const [articles, setArticles] = useState<ApiArticle[]>([]);
@@ -19,6 +21,7 @@ export default function Articles() {
   const [countryFilter, setCountryFilter] = useState<'ALL' | 'KH' | 'WORLD'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
+  const { success: toastSuccess, error: toastError, info: toastInfo } = useToast();
   
   // Create Article Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,7 +32,7 @@ export default function Articles() {
   const [newCountry, setNewCountry] = useState('KH');
   const [newSourceUrl, setNewSourceUrl] = useState('');
 
-  const fetchArticles = async () => {
+  const fetchArticles = async (showToast = false) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -42,8 +45,12 @@ export default function Articles() {
         setArticles(res.data.items);
         setTotalCount(res.data.total || res.data.items.length);
       }
+      if (showToast) {
+        toastSuccess('Articles list refreshed');
+      }
     } catch (err) {
-      console.error('Failed to fetch real articles:', err);
+      console.error('Failed to fetch articles:', err);
+      toastError('Failed to load articles');
     } finally {
       setLoading(false);
     }
@@ -54,15 +61,16 @@ export default function Articles() {
   }, [countryFilter]);
 
   const handleAIGenerate = async () => {
-    if (!confirm('Are you sure you want Google AI to generate and publish a new World tech news article right now?')) return;
+    if (!confirm('Generate a new international technology news article draft?')) return;
     setAiGenerating(true);
+    toastInfo('Generating article draft in the background...', 'Editorial Assistant');
     try {
       await api.post('/admin/ai/generate-news');
-      fetchArticles();
-      alert('AI successfully generated and published a new article!');
+      await fetchArticles();
+      toastSuccess('New article draft published successfully!', 'Editorial Workflow');
     } catch (err) {
       console.error('AI Generation Failed:', err);
-      alert('Failed to generate news. Check server logs.');
+      toastError('Failed to generate news article. Please check service logs.');
     } finally {
       setAiGenerating(false);
     }
@@ -92,23 +100,25 @@ export default function Articles() {
       setNewSummary('');
       setNewContent('');
       setNewSourceUrl('');
+      toastSuccess(`Published "${newTitle}"`, 'Story Live');
       fetchArticles();
     } catch (err) {
       console.error('Failed to create article:', err);
-      alert('Note: Publishing requires admin authentication token. If not logged in, please sign in.');
+      toastError('Failed to create article. Please ensure you are signed in.');
     } finally {
       setCreating(false);
     }
   };
 
   const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`Are you sure you want to delete "${title}" from the live database?`)) return;
+    if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
     try {
       await api.delete(`/articles/${id}`);
-      fetchArticles();
+      setArticles(prev => prev.filter(a => a.id !== id));
+      toastSuccess(`Deleted "${title}"`, 'Article Removed');
     } catch (err) {
       console.error('Failed to delete article:', err);
-      alert('Failed to delete. Make sure you are authenticated with an admin token.');
+      toastError('Failed to delete article.');
     }
   };
 
@@ -125,22 +135,22 @@ export default function Articles() {
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6 font-sans">
-      {/* Header */}
+      {/* 1. Standard Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-zinc-800/80">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-zinc-100 tracking-tight">Articles Management</h1>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <Radio size={10} className="animate-pulse" /> Live DB ({totalCount})
-            </span>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">Articles</h1>
+            <span className="badge-pill badge-zinc font-mono">{totalCount} stories</span>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">Directly query and publish content to PostgreSQL database.</p>
+          <p className="text-xs text-zinc-400 mt-1">
+            Manage editorial coverage, regional reporting, and publication workflows.
+          </p>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button 
-            onClick={fetchArticles}
+            onClick={() => fetchArticles(true)}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-md transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-lg transition-all disabled:opacity-50"
           >
             <RefreshCw size={13} className={loading ? 'animate-spin text-zinc-400' : 'text-zinc-400'} />
             <span>Refresh</span>
@@ -148,36 +158,36 @@ export default function Articles() {
           <button 
             onClick={handleAIGenerate}
             disabled={aiGenerating}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-3.5 py-1.5 rounded-md text-xs transition-colors shadow-sm disabled:opacity-50"
+            className="flex items-center gap-1.5 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-500/25 font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50"
           >
-            {aiGenerating ? <RefreshCw size={14} className="animate-spin" /> : <Plus size={14} />}
-            <span>AI Auto-News</span>
+            {aiGenerating ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
+            <span>Auto-Draft Story</span>
           </button>
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-1.5 bg-zinc-100 hover:bg-white text-zinc-950 font-medium px-3.5 py-1.5 rounded-md text-xs transition-colors shadow-sm"
+            className="flex items-center gap-1.5 bg-zinc-100 hover:bg-white text-zinc-950 font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm"
           >
             <Plus size={14} />
-            <span>Create Article</span>
+            <span>New Article</span>
           </button>
         </div>
       </div>
 
-      {/* Filter Tabs & Search Controls */}
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
+      {/* 2. Filter Toolbar */}
+      <div className="flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
         {/* Status Filter Tabs */}
-        <div className="flex items-center p-0.5 rounded-md bg-zinc-900 border border-zinc-800 text-[11px] font-mono shrink-0 overflow-x-auto">
+        <div className="flex items-center p-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] shrink-0 overflow-x-auto">
           {(['All', 'PUBLISHED', 'DRAFT'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setFilterTab(tab)}
-              className={`px-3 py-1.5 rounded transition-colors whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-md transition-all whitespace-nowrap font-medium ${
                 filterTab === tab
-                  ? 'bg-zinc-800 text-zinc-100 font-medium'
+                  ? 'bg-zinc-800 text-zinc-100 shadow-sm'
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >
-              {tab === 'All' ? `All (${totalCount})` : tab}
+              {tab === 'All' ? `All (${totalCount})` : tab === 'PUBLISHED' ? 'Published' : 'Drafts'}
             </button>
           ))}
         </div>
@@ -190,14 +200,22 @@ export default function Articles() {
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search live articles by title or slug..." 
-              className="w-full bg-zinc-900/60 border border-zinc-800 rounded-md py-1.5 pl-8 pr-3 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-700 transition-colors"
+              placeholder="Filter stories by title or slug..." 
+              className="w-full bg-zinc-950/80 border border-zinc-800 rounded-lg py-1.5 pl-8 pr-8 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-700 transition-all"
             />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+              >
+                <X size={13} />
+              </button>
+            )}
           </div>
           <select 
             value={countryFilter}
             onChange={(e: any) => setCountryFilter(e.target.value)}
-            className="bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs rounded-md px-3 py-1.5 focus:outline-none focus:border-zinc-700 cursor-pointer"
+            className="bg-zinc-950/80 border border-zinc-800 text-zinc-300 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-zinc-700 cursor-pointer shrink-0"
           >
             <option value="ALL">All Regions</option>
             <option value="KH">Cambodia (KH)</option>
@@ -206,93 +224,106 @@ export default function Articles() {
         </div>
       </div>
 
-      {/* Main Data Table */}
-      <div className="rounded-lg bg-zinc-900/40 border border-zinc-800/80 overflow-hidden">
+      {/* 3. Main Data Table (With Full Skeleton State) */}
+      <div className="rounded-xl bg-zinc-900/60 border border-zinc-800/80 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-zinc-800/80 bg-zinc-950/40 text-zinc-400 font-mono text-[10px] uppercase tracking-wider">
-                <th className="py-3 px-4 w-10">
-                  <input type="checkbox" className="rounded border-zinc-700 bg-zinc-900 text-zinc-100 focus:ring-0" />
-                </th>
-                <th className="py-3 px-4 font-medium">Article Title & Slug</th>
+                <th className="py-3 px-5 font-medium">Story Title</th>
                 <th className="py-3 px-4 font-medium">Region</th>
                 <th className="py-3 px-4 font-medium">Status</th>
                 <th className="py-3 px-4 font-medium">Attribution</th>
                 <th className="py-3 px-4 font-medium text-right">Views</th>
-                <th className="py-3 px-4 font-medium text-right">Actions</th>
+                <th className="py-3 px-5 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60 font-sans">
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-zinc-500 font-mono text-xs">
-                    Loading records from PostgreSQL database...
-                  </td>
-                </tr>
+                [1, 2, 3, 4, 5, 6].map((i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="py-4 px-5">
+                      <div className="h-3.5 bg-zinc-800 rounded w-2/3 mb-1.5" />
+                      <div className="h-2.5 bg-zinc-800/60 rounded w-1/3" />
+                    </td>
+                    <td className="py-4 px-4"><div className="h-4 w-12 bg-zinc-800 rounded-full" /></td>
+                    <td className="py-4 px-4"><div className="h-4 w-16 bg-zinc-800 rounded-full" /></td>
+                    <td className="py-4 px-4"><div className="h-3 w-24 bg-zinc-800/60 rounded" /></td>
+                    <td className="py-4 px-4 text-right"><div className="h-3 w-10 bg-zinc-800 rounded ml-auto" /></td>
+                    <td className="py-4 px-5 text-right"><div className="h-4 w-12 bg-zinc-800 rounded ml-auto" /></td>
+                  </tr>
+                ))
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-zinc-500 font-mono text-xs">
-                    No articles match your query.
+                  <td colSpan={6} className="py-16 text-center text-zinc-500 text-xs">
+                    <FileText size={32} className="mx-auto text-zinc-600 mb-2.5" />
+                    <p className="font-medium text-zinc-300">No articles found</p>
+                    <p className="text-zinc-500 mt-1">Try adjusting your keyword or region filter.</p>
                   </td>
                 </tr>
               ) : (
                 filtered.map((article) => (
                   <tr key={article.id} className="hover:bg-zinc-800/30 transition-colors group">
-                    <td className="py-3 px-4">
-                      <input type="checkbox" className="rounded border-zinc-700 bg-zinc-900 text-zinc-100 focus:ring-0" />
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-medium text-zinc-200 group-hover:text-white transition-colors line-clamp-1 max-w-md">
+                    <td className="py-3.5 px-5">
+                      <div className="font-medium text-zinc-200 group-hover:text-white transition-colors line-clamp-1 max-w-lg">
                         {article.title}
                       </div>
-                      {article.title_km && (
-                        <div className="text-[11px] text-zinc-400 line-clamp-1 mt-0.5">
+                      {article.title_km ? (
+                        <div className="text-[11px] text-zinc-500 line-clamp-1 mt-0.5 font-sans">
                           {article.title_km}
                         </div>
+                      ) : (
+                        <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                          /{article.slug}
+                        </div>
                       )}
-                      <div className="text-[10px] text-zinc-500 font-mono mt-0.5 flex items-center gap-1.5">
-                        <span>{article.id.slice(0, 8)}</span>
-                        <span>·</span>
-                        <span>/{article.slug}</span>
-                      </div>
                     </td>
-                    <td className="py-3 px-4 text-zinc-400 font-mono text-[11px]">
-                      {article.country}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 rounded-full border ${
-                        article.status === 'PUBLISHED'
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                          : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                    <td className="py-3.5 px-4">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-medium border ${
+                        article.country === 'KH'
+                          ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                          : 'bg-zinc-800 text-zinc-400 border-zinc-700/60'
                       }`}>
-                        <span className={`w-1 h-1 rounded-full ${
-                          article.status === 'PUBLISHED' ? 'bg-emerald-400' : 'bg-zinc-500'
-                        }`} />
-                        {article.status}
+                        {article.country || 'GLOBAL'}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-zinc-300">
-                      {article.source_attribution_text || 'Editorial Desk'}
+                    <td className="py-3.5 px-4">
+                      <span className="badge-pill badge-emerald">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <span>{article.status}</span>
+                      </span>
                     </td>
-                    <td className="py-3 px-4 text-right font-mono text-zinc-300">
-                      {article.views_count.toLocaleString()}
+                    <td className="py-3.5 px-4 text-zinc-400 font-mono text-[11px] truncate max-w-[150px]">
+                      {article.primary_source_url ? (
+                        <a 
+                          href={article.primary_source_url} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="hover:text-zinc-200 hover:underline flex items-center gap-1"
+                        >
+                          <span className="truncate">{new URL(article.primary_source_url).hostname.replace('www.', '')}</span>
+                          <ExternalLink size={10} className="shrink-0" />
+                        </a>
+                      ) : 'Direct'}
                     </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
+                    <td className="py-3.5 px-4 text-right font-mono text-zinc-400">
+                      {(article.views_count || 0).toLocaleString()}
+                    </td>
+                    <td className="py-3.5 px-5 text-right">
+                      <div className="flex items-center justify-end gap-2">
                         <a
-                          href={article.country === 'KH' ? `https://blog.camtech.cam/cambodia/news/${article.slug}` : `https://blog.camtech.cam/world/news/${article.slug}`}
+                          href={`https://blog.camtech.cam/${article.country === 'KH' ? 'cambodia' : 'world'}/news/${article.slug}`}
                           target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
-                          title="View live post on blog.camtech.cam"
+                          rel="noreferrer"
+                          className="p-1.5 text-zinc-400 hover:text-white rounded-md hover:bg-zinc-800 transition-colors"
+                          title="View live publication"
                         >
                           <ExternalLink size={13} />
                         </a>
-                        <button 
+                        <button
                           onClick={() => handleDelete(article.id, article.title)}
-                          className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors"
-                          title="Delete from database"
+                          className="p-1.5 text-rose-400 hover:text-rose-300 rounded-md hover:bg-rose-500/10 transition-colors"
+                          title="Delete article"
                         >
                           <Trash2 size={13} />
                         </button>
@@ -305,24 +336,22 @@ export default function Articles() {
           </table>
         </div>
 
-        {/* Pagination Footer */}
+        {/* Footer info */}
         <div className="p-3 px-5 border-t border-zinc-800/80 bg-zinc-950/40 flex items-center justify-between text-xs text-zinc-400 font-mono">
-          <span>Showing {filtered.length} of {totalCount} live database records</span>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-zinc-500">PostgreSQL 16 Connection Active</span>
-          </div>
+          <span>Showing {filtered.length} of {totalCount} total stories</span>
+          <span className="text-[10px] text-zinc-500">FastAPI & PostgreSQL Synced</span>
         </div>
       </div>
 
-      {/* Modal: Create Article */}
+      {/* 4. Modal: Create Article */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-lg max-w-xl w-full p-6 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-              <h3 className="text-sm font-semibold text-zinc-100">Create Live Article</h3>
+              <h3 className="text-sm font-semibold text-zinc-100">Write New Story</h3>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="text-zinc-400 hover:text-zinc-200 p-1"
+                className="text-zinc-400 hover:text-zinc-200 p-1 rounded-md hover:bg-zinc-800"
               >
                 <X size={16} />
               </button>
@@ -330,78 +359,78 @@ export default function Articles() {
 
             <form onSubmit={handleCreateArticle} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-zinc-300">Article Title</label>
+                <label className="block text-xs font-medium text-zinc-300 mb-1">Headline</label>
                 <input
                   type="text"
                   required
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="e.g. Cambodia AI Innovation Hub Opens in Phnom Penh"
-                  className="mt-1 w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-3 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600"
+                  placeholder="e.g. Cambodia Tech Summit Expands Digital Hub in Phnom Penh"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg py-2 px-3 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-zinc-300">Region</label>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">Region</label>
                   <select
                     value={newCountry}
                     onChange={(e) => setNewCountry(e.target.value)}
-                    className="mt-1 w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-3 text-xs text-zinc-200 focus:outline-none focus:border-zinc-600"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg py-2 px-3 text-xs text-zinc-200 focus:outline-none focus:border-zinc-600"
                   >
                     <option value="KH">Cambodia (KH)</option>
                     <option value="WORLD">World</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-zinc-300">Primary Source URL</label>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">Primary Source URL</label>
                   <input
                     type="url"
                     value={newSourceUrl}
                     onChange={(e) => setNewSourceUrl(e.target.value)}
                     placeholder="https://akp.gov.kh"
-                    className="mt-1 w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-3 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg py-2 px-3 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-300">Summary (Lead paragraph)</label>
+                <label className="block text-xs font-medium text-zinc-300 mb-1">Summary (Lead paragraph)</label>
                 <textarea
                   required
                   rows={2}
                   value={newSummary}
                   onChange={(e) => setNewSummary(e.target.value)}
-                  placeholder="Brief synopsis displayed on home feed..."
-                  className="mt-1 w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-3 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600"
+                  placeholder="Key summary displayed in cards and RSS feeds..."
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg py-2 px-3 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-300">Article Content (Markdown)</label>
+                <label className="block text-xs font-medium text-zinc-300 mb-1">Story Content (Markdown supported)</label>
                 <textarea
                   rows={4}
                   value={newContent}
                   onChange={(e) => setNewContent(e.target.value)}
                   placeholder="Full article content body..."
-                  className="mt-1 w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-3 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg py-2 px-3 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-800">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-3 py-1.5 rounded-md text-xs text-zinc-400 hover:text-zinc-200 bg-zinc-800 hover:bg-zinc-700"
+                  className="px-3.5 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 bg-zinc-800/80 hover:bg-zinc-800"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={creating}
-                  className="px-3.5 py-1.5 rounded-md text-xs font-medium text-zinc-950 bg-zinc-100 hover:bg-white disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-950 bg-zinc-100 hover:bg-white disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
                 >
-                  {creating ? 'Publishing...' : 'Publish to Database'}
+                  {creating ? 'Publishing...' : 'Publish Story'}
                 </button>
               </div>
             </form>

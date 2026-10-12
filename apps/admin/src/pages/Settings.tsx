@@ -6,6 +6,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { api } from '../lib/api';
+import { useToast } from '../components/ui/Toast';
 
 interface SystemSetting {
   key: string;
@@ -17,6 +18,7 @@ export default function Settings() {
   const [, setSettings] = useState<SystemSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { showToast } = useToast();
 
   // Form states
   const [geminiKey, setGeminiKey] = useState('');
@@ -41,6 +43,7 @@ export default function Settings() {
       });
     } catch (err) {
       console.error('Failed to fetch settings:', err);
+      showToast('error', 'Unable to retrieve system configurations.');
     } finally {
       setLoading(false);
     }
@@ -49,13 +52,6 @@ export default function Settings() {
   useEffect(() => {
     fetchSettings();
   }, []);
-
-  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-
-  const showToast = (type: 'success' | 'error', text: string) => {
-    setToastMessage({ type, text });
-    setTimeout(() => setToastMessage(null), 3000);
-  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -68,10 +64,10 @@ export default function Settings() {
         { key: 'TELEGRAM_CHANNEL_ID', value_json: telegramChannel, description: 'Telegram Channel ID (e.g., @camtechblog)' },
       ];
       await api.put('/admin/settings', updates);
-      showToast('success', 'Settings saved successfully!');
+      showToast('success', 'System configurations saved successfully.');
     } catch (err) {
       console.error('Failed to save settings:', err);
-      showToast('error', 'Failed to save settings.');
+      showToast('error', 'Failed to update system configurations.');
     } finally {
       setSaving(false);
     }
@@ -79,18 +75,18 @@ export default function Settings() {
 
   return (
     <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6 font-sans">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-zinc-800/80">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-zinc-100 tracking-tight">System Settings</h1>
+            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">System Settings</h1>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">Configure API keys, Telegram automation, and integrations.</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Configure external API integrations, distribution channels, and system secrets.</p>
         </div>
         <div className="flex items-center gap-2.5">
           <button 
             onClick={fetchSettings}
             disabled={loading || saving}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-md transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-lg transition-colors disabled:opacity-50"
           >
             <RefreshCw size={13} className={loading ? 'animate-spin text-zinc-400' : 'text-zinc-400'} />
             <span>Refresh</span>
@@ -99,17 +95,42 @@ export default function Settings() {
           <button 
             onClick={handleSave}
             disabled={loading || saving}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-1.5 rounded-md text-xs transition-colors shadow-sm disabled:opacity-50"
+            className="flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-950 font-medium px-4 py-1.5 rounded-lg text-xs transition-colors shadow-xs disabled:opacity-50"
           >
             {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-            <span>{saving ? 'Saving...' : 'Save Settings'}</span>
+            <span>{saving ? 'Saving...' : 'Save Changes'}</span>
           </button>
         </div>
       </div>
 
       {loading ? (
-        <div className="py-20 text-center text-zinc-500 font-mono text-sm">
-          Loading Configurations...
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
+            <div className="h-5 w-48 skeleton-shimmer rounded mb-4" />
+            <div className="space-y-2">
+              <div className="h-3 w-28 skeleton-shimmer rounded" />
+              <div className="h-10 w-full skeleton-shimmer rounded-lg" />
+            </div>
+            <div className="space-y-2">
+              <div className="h-3 w-36 skeleton-shimmer rounded" />
+              <div className="h-10 w-full skeleton-shimmer rounded-lg" />
+            </div>
+            <div className="space-y-2">
+              <div className="h-3 w-32 skeleton-shimmer rounded" />
+              <div className="h-10 w-full skeleton-shimmer rounded-lg" />
+            </div>
+          </div>
+          <div className="bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
+            <div className="h-5 w-40 skeleton-shimmer rounded mb-4" />
+            <div className="space-y-2">
+              <div className="h-3 w-32 skeleton-shimmer rounded" />
+              <div className="h-10 w-full skeleton-shimmer rounded-lg" />
+            </div>
+            <div className="space-y-2">
+              <div className="h-3 w-36 skeleton-shimmer rounded" />
+              <div className="h-10 w-full skeleton-shimmer rounded-lg" />
+            </div>
+          </div>
         </div>
       ) : (
         <div className="space-y-6">
@@ -191,26 +212,6 @@ export default function Settings() {
               </div>
             </div>
           </div>
-          
-        </div>
-      )}
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border ${
-          toastMessage.type === 'success' 
-            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-            : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-        }`}>
-          {toastMessage.type === 'success' ? (
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          ) : (
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          )}
-          <span className="text-sm font-medium">{toastMessage.text}</span>
         </div>
       )}
     </div>

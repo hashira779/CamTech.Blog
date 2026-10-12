@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getToken, logout } from './auth';
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api/v1',
@@ -9,12 +10,27 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('admin_token');
+  const token = getToken();
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      logout();
+      // Only redirect if not already on the login page to avoid redirect loops
+      if (!window.location.pathname.startsWith('/login')) {
+        const currentPath = window.location.pathname + window.location.search;
+        window.location.href = `/login?expired=1&redirect=${encodeURIComponent(currentPath)}`;
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Helper for handling API responses cleanly
 export interface DashboardStatsResponse {

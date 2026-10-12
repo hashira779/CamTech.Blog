@@ -1,27 +1,35 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   FileText, 
   Settings, 
   Users, 
   LogOut, 
-  ExternalLink,
-  ShieldCheck,
-  Layers,
-  HardDrive,
-  MapPin,
-  Database
+  ExternalLink, 
+  ShieldCheck, 
+  Layers, 
+  HardDrive, 
+  MapPin, 
+  Database 
 } from 'lucide-react';
+import { getUser, logout } from '../../lib/auth';
 
 export default function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const user = getUser();
 
-  const mainNav = [
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const mainNav: Array<{ name: string; path: string; icon: any; badge?: string }> = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Articles', path: '/articles', icon: FileText, badge: '1,248' },
-    { name: 'Storage', path: '/storage', icon: HardDrive },
-    { name: 'Tourism AI', path: '/tourism', icon: MapPin },
-    { name: 'Suggestions', path: '/suggestions', icon: ShieldCheck },
+    { name: 'Articles', path: '/articles', icon: FileText },
+    { name: 'Destinations', path: '/tourism', icon: MapPin },
+    { name: 'Place Approvals', path: '/suggestions', icon: ShieldCheck },
+    { name: 'Media Storage', path: '/storage', icon: HardDrive },
   ];
 
   const systemNav = [
@@ -135,23 +143,25 @@ export default function Sidebar() {
       {/* Footer Profile */}
       <div className="p-3 border-t border-zinc-800/80 bg-zinc-950/60 flex items-center justify-between">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700/80 flex items-center justify-center text-zinc-300 text-xs font-semibold shrink-0">
-            A
+          <div className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-300 text-xs font-semibold shrink-0">
+            {(user?.full_name || user?.email || 'A')[0].toUpperCase()}
           </div>
           <div className="min-w-0 flex flex-col">
-            <span className="text-xs font-medium text-zinc-200 truncate leading-tight">Admin User</span>
+            <span className="text-xs font-medium text-zinc-200 truncate leading-tight">
+              {user?.full_name || user?.email || 'Admin User'}
+            </span>
             <span className="text-[10px] text-zinc-500 truncate flex items-center gap-1">
-              <ShieldCheck size={10} className="text-emerald-500" /> Superadmin
+              <ShieldCheck size={10} className="text-emerald-500" /> {user?.role || 'Administrator'}
             </span>
           </div>
         </div>
-        <Link 
-          to="/login"
+        <button 
+          onClick={handleLogout}
           title="Sign out"
           className="p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900 rounded transition-colors"
         >
           <LogOut size={14} />
-        </Link>
+        </button>
       </div>
     </aside>
   );
