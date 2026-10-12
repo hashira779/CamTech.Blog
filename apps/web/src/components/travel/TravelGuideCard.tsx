@@ -9,7 +9,7 @@ interface TravelGuideCardProps {
 
 export function TravelGuideCard({ guide }: TravelGuideCardProps) {
   return (
-    <div className="bg-card text-card-foreground rounded-xl border overflow-hidden shadow-sm hover:border-primary/50 transition-all flex flex-col justify-between">
+    <div className="group hover-lift bg-card text-card-foreground rounded-2xl border border-border/80 overflow-hidden shadow-2xs hover:shadow-xl hover:border-primary/50 transition-all duration-300 flex flex-col justify-between">
       {guide.hero_image_url && (
         <div className="h-44 w-full relative overflow-hidden bg-muted">
           <img

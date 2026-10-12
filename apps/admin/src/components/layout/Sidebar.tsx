@@ -76,12 +76,12 @@ export default function Sidebar() {
                   to={item.path}
                   className={`flex items-center justify-between px-2.5 py-2 rounded-md text-xs transition-colors duration-150 ${
                     isActive 
-                      ? 'bg-zinc-800/90 text-white font-medium border-l-2 border-white pl-2' 
+                      ? 'bg-zinc-800/90 text-white font-medium border-l-2 border-emerald-500 pl-2' 
                       : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/80'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <Icon size={15} className={isActive ? 'text-white' : 'text-zinc-400'} />
+                    <Icon size={15} className={isActive ? 'text-emerald-400' : 'text-zinc-400'} />
                     <span>{item.name}</span>
                   </div>
                   {item.badge && (
@@ -110,12 +110,12 @@ export default function Sidebar() {
                   to={item.path}
                   className={`flex items-center justify-between px-2.5 py-2 rounded-md text-xs transition-colors duration-150 ${
                     isActive 
-                      ? 'bg-zinc-800/90 text-white font-medium border-l-2 border-white pl-2' 
+                      ? 'bg-zinc-800/90 text-white font-medium border-l-2 border-emerald-500 pl-2' 
                       : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/80'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <Icon size={15} className={isActive ? 'text-white' : 'text-zinc-400'} />
+                    <Icon size={15} className={isActive ? 'text-emerald-400' : 'text-zinc-400'} />
                     <span>{item.name}</span>
                   </div>
                 </Link>

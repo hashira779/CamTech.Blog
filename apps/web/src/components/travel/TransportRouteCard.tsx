@@ -12,7 +12,7 @@ export function TransportRouteCard({ route }: TransportRouteCardProps) {
   const schedules = route.schedules || [];
 
   return (
-    <div className="bg-card text-card-foreground rounded-xl border p-5 shadow-sm hover:border-primary/50 transition-all flex flex-col justify-between">
+    <div className="hover-lift bg-card text-card-foreground rounded-2xl border border-border/80 p-5 shadow-2xs hover:shadow-xl hover:border-primary/50 transition-all duration-300 flex flex-col justify-between">
       <div>
         {/* Header with Operator & Badges */}
         <div className="flex items-start justify-between gap-4 mb-3">
