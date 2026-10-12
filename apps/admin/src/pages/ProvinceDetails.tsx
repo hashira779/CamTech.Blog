@@ -24,7 +24,6 @@ import {
   Save,
   Camera,
   Utensils,
-  BookOpen,
   Palette
 } from 'lucide-react';
 import { api } from '../lib/api';
@@ -235,7 +234,7 @@ export default function ProvinceDetails() {
     setIsScanning(true);
     toastInfo(`AI is scanning province destinations for ${provinceName}...`, 'Discovery in Progress');
     try {
-      const res = await api.post(`/admin/ai/tourism-scan/${slug}`);
+      const res = await api.post(`/admin/ai/tourism-scan/${slug}`, null, { timeout: 120000 });
       if (res.data.status === 'failed') {
         const msg = res.data.message || 'Scan failed.';
         toastError(msg);
@@ -248,8 +247,9 @@ export default function ProvinceDetails() {
       toastSuccess(`Discovered ${res.data.places_data?.length || 0} candidate places!`, 'Scan Finished');
     } catch (err: any) {
       console.error(err);
-      const msg = err.response?.status === 524 
-        ? 'Scan took longer than 100 seconds (Cloudflare 524). The server is busy; please try again.' 
+      const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout') || err.response?.status === 524;
+      const msg = isTimeout 
+        ? 'Scan took longer than expected (timeout). Please try again or check your Gemini AI API Key in Settings.' 
         : (err.response?.data?.detail || 'Failed to scan. Check logs.');
       toastError(msg);
     } finally {

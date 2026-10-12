@@ -148,11 +148,53 @@ class AITourismEngine:
 
     def _get_gemini_client(self, db):
         """Get Gemini client using API key from DB settings or env fallback."""
+        if genai is None:
+            return None
         api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'GEMINI_API_KEY').first()
         api_key = api_key_setting.value_json if api_key_setting else settings.AI_API_KEY
         if not api_key:
-            raise ValueError("Google AI API Key is not configured. Set it in Admin > Settings.")
+            return None
         return genai.Client(api_key=api_key)
+
+    def _get_curated_fallback_places(self, province_slug: str, dest_name: str, dest_id: str, default_hero: str, existing_names_set: set) -> list[dict]:
+        """Load verified heritage candidate places for this province."""
+        json_path = os.path.join(os.path.dirname(__file__), "..", "data_province_candidates.json")
+        candidates = []
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    all_candidates = json.load(f)
+                    candidates = all_candidates.get(province_slug, [])
+            except Exception as e:
+                logger.warning(f"Failed to load candidate places JSON: {e}")
+
+        processed = []
+        for p in candidates:
+            name = p.get("name", "").strip()
+            if not name:
+                continue
+            is_dup = name.lower() in existing_names_set
+            processed.append({
+                "name": name,
+                "local_name": p.get("local_name"),
+                "place_type": p.get("place_type", "ATTRACTION"),
+                "description": p.get("description", f"Notable tourist landmark in {dest_name} Province, Cambodia."),
+                "description_km": p.get("description_km"),
+                "address": p.get("address", f"{dest_name} Province, Cambodia"),
+                "latitude": p.get("latitude"),
+                "longitude": p.get("longitude"),
+                "opening_hours": p.get("opening_hours", "08:00 AM - 05:00 PM daily"),
+                "price_level": p.get("price_level", "$$"),
+                "phone": p.get("phone"),
+                "website": p.get("website"),
+                "tags": p.get("tags", ["Heritage", "Culture"]),
+                "rating": p.get("rating", 4.7),
+                "is_duplicate": is_dup,
+                "destination_id": dest_id,
+                "hero_image_url": default_hero,
+                "gallery_json": "[]"
+            })
+        return processed
 
     def _ensure_cambodia_destinations(self, db):
         """Ensure all 25 provinces exist as Destinations in the database."""
@@ -196,15 +238,16 @@ class AITourismEngine:
             logger.info(f"Updated/Created {created_count} destination records with verified images.")
             
     def _get_dynamic_fallback_models(self, client) -> list[str]:
-        """Prioritized list of Google Gemini models."""
-        preferred = [
-            settings.AI_MODEL_NAME or 'gemini-3.8-flash',
-            'gemini-3.8-flash',
-            'gemini-3.5-flash',
-            'gemini-3.1-pro-preview',
-            'gemini-3.0-pro',
-            'gemini-3.0-flash'
-        ]
+        """Prioritized list of real Google Gemini models."""
+        preferred = []
+        if settings.AI_MODEL_NAME and not any(fake in settings.AI_MODEL_NAME for fake in ["3.8", "3.5", "3.0", "3.1"]):
+            preferred.append(settings.AI_MODEL_NAME)
+        preferred.extend([
+            'gemini-2.5-flash',
+            'gemini-2.0-flash',
+            'gemini-1.5-flash',
+            'gemini-1.5-pro'
+        ])
         return list(dict.fromkeys(preferred))
 
     async def discover_places_for_province(self, province_slug: str) -> dict:
@@ -248,7 +291,7 @@ IMPORTANT RULES:
 - For each place, assign a place_type from: ATTRACTION, TEMPLE, RESTAURANT, CAFE, MARKET, MUSEUM, WATERFALL, HOTEL, RESORT, ACTIVITY, HIDDEN_GEM, NATIONAL_PARK, BEACH, LAKE, MOUNTAIN, VILLAGE
 
 Already in database ({existing_count} places): {', '.join(existing_names[:20]) if existing_names else 'None yet'}
-Please find 15-20 NEW places that are NOT already in the database.
+Please find 8-12 NEW places that are NOT already in the database.
 
 Return a JSON array of objects. Each object must have these keys:
 - name: English name
@@ -267,22 +310,14 @@ Return a JSON array of objects. Each object must have these keys:
 - rating: Estimated rating 1.0-5.0
 """
 
-            # Fallback model chain
-            fallback_models = self._get_dynamic_fallback_models(client)
-
-            # Check if we have You.com API key
-            you_response_text = await _call_you_com(prompt, you_api_key)
-            
             response_text = None
             last_error = None
-            
-            if you_response_text:
-                response_text = you_response_text
-                logger.info("Success with You.com API")
-            else:
+
+            if client:
+                fallback_models = self._get_dynamic_fallback_models(client)
                 for model_to_try in fallback_models:
                     try:
-                        logger.info(f"Trying model: {model_to_try}")
+                        logger.info(f"Trying Gemini model: {model_to_try}")
                         
                         def _generate_gemini(m=model_to_try):
                             return client.models.generate_content(
@@ -294,21 +329,35 @@ Return a JSON array of objects. Each object must have these keys:
                                 )
                             )
 
-                        response = await asyncio.to_thread(_generate_gemini)
+                        # Strict 14-second timeout per model so overall request never times out
+                        response = await asyncio.wait_for(asyncio.to_thread(_generate_gemini), timeout=14.0)
                         response_text = response.text
                         logger.info(f"Success with model: {model_to_try}")
-                        break  # Success! Stop trying
+                        break
+                    except asyncio.TimeoutError:
+                        logger.warning(f"Model {model_to_try} timed out after 14s, trying next model...")
+                        last_error = TimeoutError(f"Model {model_to_try} timed out")
+                        continue
                     except Exception as model_err:
                         last_error = model_err
-                        error_msg = str(model_err)
-                        if any(err_code in error_msg for err_code in ["503", "UNAVAILABLE", "overloaded", "404", "NOT_FOUND", "429", "RESOURCE_EXHAUSTED", "quota"]):
-                            logger.warning(f"Model {model_to_try} failed ({error_msg[:30]}), trying next...")
-                            continue
-                        else:
-                            raise model_err  # Non-recoverable error
-    
-                if response_text is None:
-                    raise last_error or Exception("All AI models are currently unavailable. Please try again later.")
+                        logger.warning(f"Model {model_to_try} failed: {model_err}, trying next...")
+                        continue
+
+            if not response_text and you_api_key:
+                logger.info("Trying You.com API fallback...")
+                response_text = await _call_you_com(prompt, you_api_key)
+
+            # If all external AI failed or no API key, use verified curated heritage candidates!
+            if not response_text:
+                logger.info(f"External AI unavailable or unconfigured, using curated heritage database for {dest_name}...")
+                curated_places = self._get_curated_fallback_places(dest_slug, dest_name, dest_id, default_hero, existing_names_set)
+                return {
+                    "province": dest_name,
+                    "province_slug": dest_slug,
+                    "discovered": len(curated_places),
+                    "places_data": curated_places,
+                    "source": "curated_heritage"
+                }
 
             # Parse response
             try:
@@ -481,21 +530,22 @@ Return a JSON object with these keys ONLY:
 """
             fallback_models = self._get_dynamic_fallback_models(client)
 
-            # Use You.com Research API as fallback
-            you_response_text = await _call_you_com(prompt, you_api_key)
-            
             response_text = None
             last_error = None
-            
-            if you_response_text:
-                response_text = you_response_text
-                logger.info("Success with You.com API")
-            else:
+
+            if you_api_key:
+                logger.info("Attempting You.com API for place update...")
+                response_text = await _call_you_com(prompt, you_api_key)
+
+            if not response_text and client:
                 for model_to_try in fallback_models:
                     try:
                         tools_config = None
-                        if "gemini-3.8" in model_to_try or "gemini-3.5" in model_to_try or "gemini-2.5" in model_to_try:
-                            tools_config = [types.Tool(google_search=types.GoogleSearch())]
+                        if "gemini-2.5" in model_to_try or "gemini-2.0" in model_to_try:
+                            try:
+                                tools_config = [types.Tool(google_search=types.GoogleSearch())]
+                            except Exception:
+                                tools_config = None
                             
                         def _generate_update(m=model_to_try, tc=tools_config):
                             return client.models.generate_content(
@@ -507,20 +557,22 @@ Return a JSON object with these keys ONLY:
                                     tools=tc
                                 )
                             )
-                        response = await asyncio.to_thread(_generate_update)
+                        response = await asyncio.wait_for(asyncio.to_thread(_generate_update), timeout=18.0)
                         response_text = response.text
                         break
+                    except asyncio.TimeoutError:
+                        logger.warning(f"Update model {model_to_try} timed out after 18s")
+                        continue
                     except Exception as model_err:
                         last_error = model_err
-                        error_msg = str(model_err)
-                        if any(err_code in error_msg for err_code in ["503", "UNAVAILABLE", "overloaded", "404", "NOT_FOUND", "429", "RESOURCE_EXHAUSTED", "quota"]):
-                            logger.warning(f"Update model {model_to_try} failed ({error_msg[:30]}), trying next...")
-                            continue
-                        else:
-                            raise model_err
+                        logger.warning(f"Update model {model_to_try} failed: {model_err}")
+                        continue
                 
-                if response_text is None:
-                    raise last_error or Exception("All AI models are currently unavailable.")
+            if response_text is None:
+                return {
+                    "status": "failed",
+                    "message": "AI update unavailable. Please check Google Gemini API Key in Settings."
+                }
 
             try:
                 ai_data = json.loads(response_text)

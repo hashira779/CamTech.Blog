@@ -1,0 +1,1372 @@
+{
+  "phnom-penh": [
+    {
+      "name": "Royal Palace of Cambodia",
+      "local_name": "ព្រះបរមរាជវាំង",
+      "place_type": "ATTRACTION",
+      "description": "The official residence of the King of Cambodia featuring Khmer-style throne halls and beautiful golden spires.",
+      "price_level": "$$",
+      "tags": [
+        "Royal",
+        "Architecture",
+        "Culture"
+      ]
+    },
+    {
+      "name": "Silver Pagoda (Wat Preah Keo Morakot)",
+      "local_name": "វត្តព្រះកែវមរកត",
+      "place_type": "TEMPLE",
+      "description": "Famed for its floor covered with over 5,000 pure silver tiles and life-sized gold Buddha encrusted with diamonds.",
+      "price_level": "$$",
+      "tags": [
+        "Temple",
+        "Gold",
+        "Buddhism"
+      ]
+    },
+    {
+      "name": "National Museum of Cambodia",
+      "local_name": "សារមន្ទីរជាតិ",
+      "place_type": "MUSEUM",
+      "description": "Houses the worlds largest collection of Khmer historical sculptures, bronzes, and archaeological treasures.",
+      "price_level": "$$",
+      "tags": [
+        "Museum",
+        "History",
+        "Khmer"
+      ]
+    },
+    {
+      "name": "Wat Phnom Hill Sanctuary",
+      "local_name": "វត្តភ្នំដូនពេញ",
+      "place_type": "TEMPLE",
+      "description": "The historical hilltop pagoda where Lady Penh discovered sacred Buddha statues in 1372, founding the city.",
+      "price_level": "$",
+      "tags": [
+        "Founding Site",
+        "Pagoda",
+        "Heritage"
+      ]
+    },
+    {
+      "name": "Central Market (Phsar Thmey)",
+      "local_name": "ផ្សារធំថ្មី",
+      "place_type": "MARKET",
+      "description": "Art Deco architectural marvel from 1937 with a towering central dome and bustling local stalls.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Shopping",
+        "Art Deco"
+      ]
+    },
+    {
+      "name": "Sisowath Quay Riverside",
+      "local_name": "មាត់ទន្លេស៊ីសុវត្ថិ",
+      "place_type": "ATTRACTION",
+      "description": "Bustling promenade overlooking the convergence of the Mekong and Tonle Sap rivers with street food and cafes.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Walkway"
+      ]
+    },
+    {
+      "name": "Tuol Sleng Genocide Museum (S-21)",
+      "local_name": "សារមន្ទីរប្រល័យពូជសាសន៍ទួលស្លែង",
+      "place_type": "MUSEUM",
+      "description": "Former high school converted into security prison 21 during the Khmer Rouge era, now an educational memorial.",
+      "price_level": "$$",
+      "tags": [
+        "History",
+        "Memorial",
+        "Education"
+      ]
+    },
+    {
+      "name": "Koh Dach (Silk Island)",
+      "local_name": "កោះដាច់",
+      "place_type": "VILLAGE",
+      "description": "Tranquil Mekong river island where generational artisans weave pure Cambodian silk by hand on wooden looms.",
+      "price_level": "$",
+      "tags": [
+        "Silk",
+        "Eco-Tourism",
+        "Artisan"
+      ]
+    }
+  ],
+  "siem-reap": [
+    {
+      "name": "Banteay Srei (Citadel of Women)",
+      "local_name": "ប្រាសាទបន្ទាយស្រី",
+      "place_type": "TEMPLE",
+      "description": "10th-century pink sandstone jewel celebrated for the most intricate and delicate carvings in the ancient world.",
+      "price_level": "$$$",
+      "tags": [
+        "UNESCO",
+        "Sandstone",
+        "Carvings"
+      ]
+    },
+    {
+      "name": "Ta Prohm Temple",
+      "local_name": "ប្រាសាទតាព្រហ្ម",
+      "place_type": "TEMPLE",
+      "description": "Famous jungle temple intertwined with massive silk-cotton tree roots and twisting banyan vines.",
+      "price_level": "$$$",
+      "tags": [
+        "Jungle",
+        "Roots",
+        "Photography"
+      ]
+    },
+    {
+      "name": "Phnom Bakheng Sunset Hill",
+      "local_name": "ភ្នំបាខែង",
+      "place_type": "ATTRACTION",
+      "description": "Steep hill temple offering sweeping 360-degree sunset panoramas of Angkor Wat in the evening canopy.",
+      "price_level": "$$$",
+      "tags": [
+        "Sunset",
+        "Viewpoint",
+        "Ancient"
+      ]
+    },
+    {
+      "name": "Angkor National Museum",
+      "local_name": "សារមន្ទីរជាតិអង្គរ",
+      "place_type": "MUSEUM",
+      "description": "Ultra-modern museum featuring the Hall of 1,000 Buddhas and multimedia Khmer history galleries.",
+      "price_level": "$$",
+      "tags": [
+        "Museum",
+        "Culture",
+        "Air Conditioned"
+      ]
+    },
+    {
+      "name": "Kompong Phluk Floating Village",
+      "local_name": "ភូមិបណ្តែតទឹកកំពង់ភ្លុក",
+      "place_type": "VILLAGE",
+      "description": "Fascinating Tonle Sap stilt village rising 10 meters on wooden stilts over dense flooded mangrove forests.",
+      "price_level": "$$",
+      "tags": [
+        "Tonle Sap",
+        "Floating Village",
+        "Mangroves"
+      ]
+    },
+    {
+      "name": "Phare, The Cambodian Circus",
+      "local_name": "ហ្វារ ពន្លឺសិល្បៈ",
+      "place_type": "ACTIVITY",
+      "description": "World-class theatrical performance blending Cambodian folklore, high-energy acrobatics, and live music.",
+      "price_level": "$$$",
+      "tags": [
+        "Theater",
+        "Acrobatics",
+        "Art"
+      ]
+    },
+    {
+      "name": "Preah Khan Temple",
+      "local_name": "ប្រាសាទព្រះខ័ន",
+      "place_type": "TEMPLE",
+      "description": "Grand 12th-century monastic temple complex built by King Jayavarman VII with sacred stone halls and galleries.",
+      "price_level": "$$$",
+      "tags": [
+        "Monastery",
+        "Heritage",
+        "Ruins"
+      ]
+    }
+  ],
+  "sihanoukville": [
+    {
+      "name": "Koh Rong Island (Long Set Beach)",
+      "local_name": "កោះរ៉ុង",
+      "place_type": "BEACH",
+      "description": "Pristine 7km stretch of white sand, turquoise water, and bioluminescent plankton night swims.",
+      "price_level": "$$",
+      "tags": [
+        "Islands",
+        "Beaches",
+        "Plankton"
+      ]
+    },
+    {
+      "name": "Koh Rong Sanloem (Saracen Bay)",
+      "local_name": "កោះរ៉ុងសន្លឹម",
+      "place_type": "BEACH",
+      "description": "Shallow crystal waters, tranquil hammock resorts, and quiet tropical jungle trails.",
+      "price_level": "$$",
+      "tags": [
+        "Relaxation",
+        "Snorkeling",
+        "Resorts"
+      ]
+    },
+    {
+      "name": "Ream National Park",
+      "local_name": "ឧទ្យានជាតិព្រះសីហនុរាម",
+      "place_type": "NATIONAL_PARK",
+      "description": "Coastal mangrove reserve with dolphin estuaries, hidden waterfalls, and abundant birdlife.",
+      "price_level": "$",
+      "tags": [
+        "Ecology",
+        "Nature",
+        "Mangroves"
+      ]
+    },
+    {
+      "name": "Kbal Chhay Waterfall",
+      "local_name": "ទឹកធ្លាក់ក្បាលឆាយ",
+      "place_type": "WATERFALL",
+      "description": "Tiered cascading forest waterfall popular for refreshing afternoon picnics and freshwater dips.",
+      "price_level": "$",
+      "tags": [
+        "Waterfall",
+        "Picnic",
+        "Freshwater"
+      ]
+    },
+    {
+      "name": "Otres Beach",
+      "local_name": "ឆ្នេរអូរឈើទាល/អូរត្រេស",
+      "place_type": "BEACH",
+      "description": "Laid-back sandy coastline known for chilled seaside dining, sailing, and fiery Gulf of Thailand sunsets.",
+      "price_level": "$",
+      "tags": [
+        "Beachfront",
+        "Sunset",
+        "Seafood"
+      ]
+    }
+  ],
+  "battambang": [
+    {
+      "name": "Battambang Bamboo Train (Norry)",
+      "local_name": "ឡូរីបាត់ដំបង",
+      "place_type": "ACTIVITY",
+      "description": "Unique hand-built motorized bamboo platforms on rail tracks gliding through emerald rice paddies.",
+      "price_level": "$",
+      "tags": [
+        "Adventure",
+        "Railway",
+        "Iconic"
+      ]
+    },
+    {
+      "name": "Phnom Sampeau Bat Caves",
+      "local_name": "ភ្នំសំពៅ និងរូងប្រចៀវ",
+      "place_type": "ATTRACTION",
+      "description": "Limestone mountain where millions of bats spiral into the dusk twilight sky in an unbroken river.",
+      "price_level": "$",
+      "tags": [
+        "Wildlife",
+        "Cave",
+        "Sunset"
+      ]
+    },
+    {
+      "name": "Wat Banan Temple",
+      "local_name": "ប្រាសាទវត្តឯកភ្នំ/បាណន់",
+      "place_type": "TEMPLE",
+      "description": "11th-century hilltop temple atop 350 stone steps resembling a miniature Angkor Wat.",
+      "price_level": "$",
+      "tags": [
+        "Hilltop",
+        "Temples",
+        "Panorama"
+      ]
+    },
+    {
+      "name": "Ek Phnom Ancient Temple",
+      "local_name": "ប្រាសាទឯកភ្នំ",
+      "place_type": "TEMPLE",
+      "description": "11th-century sandstone sanctuary surrounded by lotus ponds and a colossal white seated Buddha.",
+      "price_level": "$",
+      "tags": [
+        "History",
+        "Khmer",
+        "Sandstone"
+      ]
+    },
+    {
+      "name": "Romcheik 5 Art Space",
+      "local_name": "មជ្ឈមណ្ឌលសិល្បៈរំចេក៥",
+      "place_type": "MUSEUM",
+      "description": "Independent contemporary art museum displaying cutting-edge paintings and sculptures by local masters.",
+      "price_level": "$",
+      "tags": [
+        "Art",
+        "Contemporary",
+        "Culture"
+      ]
+    }
+  ],
+  "kampot": [
+    {
+      "name": "Bokor Hill Station & National Park",
+      "local_name": "ឧទ្យានជាតិព្រះមុនីវង្សបូកគោ",
+      "place_type": "NATIONAL_PARK",
+      "description": "Misty 1,000-meter mountain plateau featuring French colonial casino ruins, giant Lok Yeay Mao statue, and cool breezes.",
+      "price_level": "$$",
+      "tags": [
+        "Plateau",
+        "History",
+        "Cool Climate"
+      ]
+    },
+    {
+      "name": "Popokvil Waterfall",
+      "local_name": "ទឹកធ្លាក់ពពកវិល",
+      "place_type": "WATERFALL",
+      "description": "Two-tier waterfall on Bokor plateau surrounded by mist and wild orchids, flowing strongest during green season.",
+      "price_level": "$",
+      "tags": [
+        "Waterfall",
+        "Nature",
+        "Orchids"
+      ]
+    },
+    {
+      "name": "La Plantation Pepper Farm",
+      "local_name": "ចម្ការម្រេចឡាផ្លេនថេសិន",
+      "place_type": "ATTRACTION",
+      "description": "World-renowned certified organic farm producing the finest Kampot black, red, and white pepper with guided tastings.",
+      "price_level": "FREE",
+      "tags": [
+        "Agritourism",
+        "Pepper",
+        "Tasting"
+      ]
+    },
+    {
+      "name": "Phnom Chhngok Cave Temple",
+      "local_name": "ប្រាសាទល្អាងភ្នំឈ្ងោក",
+      "place_type": "TEMPLE",
+      "description": "Pre-Angkorian 7th-century brick shrine built inside a dramatic natural karst limestone cavern with stalactites.",
+      "price_level": "$",
+      "tags": [
+        "Cave",
+        "Pre-Angkorian",
+        "Karst"
+      ]
+    },
+    {
+      "name": "Teuk Chhou Rapids & River",
+      "local_name": "ទឹកឈូ",
+      "place_type": "ATTRACTION",
+      "description": "Natural boulder river rapids lined with thatched bamboo huts for swimming and chilling out with tropical fruits.",
+      "price_level": "$",
+      "tags": [
+        "River",
+        "Swimming",
+        "Durian"
+      ]
+    }
+  ],
+  "kep": [
+    {
+      "name": "Kep Crab Market (Phsar Kdam)",
+      "local_name": "ផ្សារក្តាមកែប",
+      "place_type": "MARKET",
+      "description": "World-famous seaside market where live blue crabs are pulled straight from ocean baskets and stir-fried with green Kampot peppercorns.",
+      "price_level": "$$",
+      "tags": [
+        "Crab",
+        "Seafood",
+        "Culinary"
+      ]
+    },
+    {
+      "name": "Kep National Park Trail",
+      "local_name": "ឧទ្យានជាតិកែប",
+      "place_type": "NATIONAL_PARK",
+      "description": "8km mountain jungle loop road with sweeping viewpoints over Phu Quoc and Rabbit Island.",
+      "price_level": "$",
+      "tags": [
+        "Hiking",
+        "Jungle",
+        "Viewpoint"
+      ]
+    },
+    {
+      "name": "Rabbit Island (Koh Tonsay)",
+      "local_name": "កោះទន្សាយ",
+      "place_type": "BEACH",
+      "description": "Tranquil off-grid island a 20-minute wooden boat ride away with secluded swimming beaches and fresh coconut groves.",
+      "price_level": "$$",
+      "tags": [
+        "Island",
+        "Boat Trip",
+        "Snorkeling"
+      ]
+    },
+    {
+      "name": "Angkaul White Beach",
+      "local_name": "ឆ្នេរអង្កោល",
+      "place_type": "BEACH",
+      "description": "Quiet undeveloped stretch of pristine coastal sand bordered by casuarina trees near the Vietnam border.",
+      "price_level": "FREE",
+      "tags": [
+        "Hidden Gem",
+        "Beach",
+        "Peaceful"
+      ]
+    }
+  ],
+  "kratie": [
+    {
+      "name": "Kampi Irrawaddy Dolphin Site",
+      "local_name": "កន្លែងមើលផ្សោតកាំពី",
+      "place_type": "ATTRACTION",
+      "description": "The premier deep-water canyon pool on the Mekong where endangered freshwater Irrawaddy dolphins breach peacefully.",
+      "price_level": "$$",
+      "tags": [
+        "Dolphins",
+        "Mekong",
+        "Wildlife"
+      ]
+    },
+    {
+      "name": "Koh Trong Island",
+      "local_name": "កោះទ្រង់",
+      "place_type": "VILLAGE",
+      "description": "Peaceful sandbar island accessible by ferry with cycling paths through pomelo orchards and community homestays.",
+      "price_level": "$",
+      "tags": [
+        "Cycling",
+        "Eco-Tourism",
+        "Pomelo"
+      ]
+    },
+    {
+      "name": "Phnom Sombok Hillside Pagoda",
+      "local_name": "ភ្នំសំបុក",
+      "place_type": "TEMPLE",
+      "description": "Serene meditation monastery atop 300 steps lined with colourful monk statues and lush forested views.",
+      "price_level": "FREE",
+      "tags": [
+        "Pagoda",
+        "Meditation",
+        "Viewpoint"
+      ]
+    },
+    {
+      "name": "100-Pillar Pagoda (Wat Sambor)",
+      "local_name": "វត្តសសរ១០០",
+      "place_type": "TEMPLE",
+      "description": "Historic royal pagoda dating back to the Chenla era, rebuilt with 100 grand timber pillars.",
+      "price_level": "FREE",
+      "tags": [
+        "History",
+        "Chenla",
+        "Timber"
+      ]
+    }
+  ],
+  "mondulkiri": [
+    {
+      "name": "Bou Sra Waterfall",
+      "local_name": "ទឹកធ្លាក់ប៊ូស្រា",
+      "place_type": "WATERFALL",
+      "description": "Cambodias most mighty two-tiered jungle waterfall thundering down massive basalt cliffs.",
+      "price_level": "$",
+      "tags": [
+        "Mighty Waterfall",
+        "Nature",
+        "Indigenous"
+      ]
+    },
+    {
+      "name": "Elephant Valley Project",
+      "local_name": "ជម្រកដំរីមណ្ឌលគិរី",
+      "place_type": "ACTIVITY",
+      "description": "Ethical elephant sanctuary where rescued Asian elephants roam freely through dense jungle valleys.",
+      "price_level": "$$$",
+      "tags": [
+        "Ethical",
+        "Elephants",
+        "Sanctuary"
+      ]
+    },
+    {
+      "name": "Sen Monorom Pine Tree Hills",
+      "local_name": "ភ្នំស្រល់សែនមនោរម្យ",
+      "place_type": "ATTRACTION",
+      "description": "Rolling grassy hills forested with fragrant pine trees, offering cool highland breezes and golden sunsets.",
+      "price_level": "FREE",
+      "tags": [
+        "Highland",
+        "Pine Trees",
+        "Cool Air"
+      ]
+    },
+    {
+      "name": "Sea of Forests Viewpoint",
+      "local_name": "ចំណុចសមុទ្រឈើ",
+      "place_type": "ATTRACTION",
+      "description": "Sweeping hilltop panorama overlooking unbroken green jungle canopy stretching all the way to Vietnam.",
+      "price_level": "FREE",
+      "tags": [
+        "Viewpoint",
+        "Green Canopy",
+        "Photography"
+      ]
+    }
+  ],
+  "ratanakiri": [
+    {
+      "name": "Yeak Laom Volcanic Crater Lake",
+      "local_name": "បឹងយក្សឡោម",
+      "place_type": "ATTRACTION",
+      "description": "4,000-year-old circular crater lake filled with emerald-clear waters sacred to indigenous Tampuen people.",
+      "price_level": "$",
+      "tags": [
+        "Volcano",
+        "Sacred Lake",
+        "Swimming"
+      ]
+    },
+    {
+      "name": "Cha Ong Waterfall",
+      "local_name": "ទឹកធ្លាក់ចាអ៊ុង",
+      "place_type": "WATERFALL",
+      "description": "Dramatic 25-meter cascade plunging over an eroded rock cliff with a cavernous walking path behind the falls.",
+      "price_level": "$",
+      "tags": [
+        "Waterfall",
+        "Cave Behind",
+        "Nature"
+      ]
+    },
+    {
+      "name": "Ka Chanh Waterfall",
+      "local_name": "ទឹកធ្លាក់កាចាញ",
+      "place_type": "WATERFALL",
+      "description": "Lush forest waterfall with wooden suspension bridge offering heart-pumping vantage points.",
+      "price_level": "$",
+      "tags": [
+        "Waterfall",
+        "Suspension Bridge",
+        "Jungle"
+      ]
+    },
+    {
+      "name": "Lumphat Wildlife Sanctuary",
+      "local_name": "ដែនជម្រកសត្វព្រៃលំផាត់",
+      "place_type": "NATIONAL_PARK",
+      "description": "Sprawling wilderness home to rare giant ibises, leopards, and untouched dry deciduous dipterocarp forests.",
+      "price_level": "$$",
+      "tags": [
+        "Wilderness",
+        "Birdwatching",
+        "Adventure"
+      ]
+    }
+  ],
+  "stung-treng": [
+    {
+      "name": "Preah Nimith / Sopheakmit Waterfall",
+      "local_name": "ទឹកធ្លាក់ព្រះនិមិត្ត",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Stung Treng province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Stung Treng Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកស្ទឹងត្រែង",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Stung Treng Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្រស្ទឹងត្រែង",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Stung Treng Central Market",
+      "local_name": "ផ្សារធំស្ទឹងត្រែង",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ],
+  "pursat": [
+    {
+      "name": "Kampong Luong Floating Town",
+      "local_name": "ភូមិបណ្តែតទឹកកំពង់លួង",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Pursat province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Pursat Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកពោធិ៍សាត់",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Pursat Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្រពោធិ៍សាត់",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Pursat Central Market",
+      "local_name": "ផ្សារធំពោធិ៍សាត់",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ],
+  "kampong-cham": [
+    {
+      "name": "Koh Paen Bamboo Bridge & Island",
+      "local_name": "ស្ពានឫស្សីកោះប៉ែន",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Kampong Cham province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Kampong Cham Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកកំពង់ចាម",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Kampong Cham Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្រកំពង់ចាម",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Kampong Cham Central Market",
+      "local_name": "ផ្សារធំកំពង់ចាម",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ],
+  "kampong-chhnang": [
+    {
+      "name": "Ondong Russey Traditional Pottery Village",
+      "local_name": "ភូមិស្មូនឆ្នាំងអណ្តូងឫស្សី",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Kampong Chhnang province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Kampong Chhnang Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកកំពង់ឆ្នាំង",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Kampong Chhnang Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្រកំពង់ឆ្នាំង",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Kampong Chhnang Central Market",
+      "local_name": "ផ្សារធំកំពង់ឆ្នាំង",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ],
+  "kampong-speu": [
+    {
+      "name": "Kirirom Pine Forest National Park",
+      "local_name": "ឧទ្យានជាតិគិរីរម្យ",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Kampong Speu province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Kampong Speu Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកកំពង់ស្ពឺ",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Kampong Speu Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្រកំពង់ស្ពឺ",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Kampong Speu Central Market",
+      "local_name": "ផ្សារធំកំពង់ស្ពឺ",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ],
+  "kampong-thom": [
+    {
+      "name": "Sambor Prei Kuk UNESCO Temples",
+      "local_name": "ប្រាសាទសម្បូរព្រៃគុក",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Kampong Thom province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Kampong Thom Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកកំពង់ធំ",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Kampong Thom Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្រកំពង់ធំ",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Kampong Thom Central Market",
+      "local_name": "ផ្សារធំកំពង់ធំ",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ],
+  "kandal": [
+    {
+      "name": "Oudong Mountain Royal Stupas",
+      "local_name": "ភ្នំព្រះរាជទ្រព្យ (ឧដុង្គ)",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Kandal province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Kandal Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកកណ្តាល",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Kandal Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្រកណ្តាល",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Kandal Central Market",
+      "local_name": "ផ្សារធំកណ្តាល",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ],
+  "koh-kong": [
+    {
+      "name": "Tatai Eco River & Waterfall",
+      "local_name": "ទឹកធ្លាក់តាតៃ",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Koh Kong province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Koh Kong Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកកោះកុង",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Koh Kong Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្រកោះកុង",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Koh Kong Central Market",
+      "local_name": "ផ្សារធំកោះកុង",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ],
+  "preah-vihear": [
+    {
+      "name": "Preah Vihear Cliffside Temple (UNESCO)",
+      "local_name": "ប្រាសាទព្រះវិហារ",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Preah Vihear province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Preah Vihear Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកព្រះវិហារ",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Preah Vihear Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្រព្រះវិហារ",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Preah Vihear Central Market",
+      "local_name": "ផ្សារធំព្រះវិហារ",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ],
+  "prey-veng": [
+    {
+      "name": "Ba Phnom Historical Sacred Hill",
+      "local_name": "រមណីយដ្ឋានបាភ្នំ",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Prey Veng province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Prey Veng Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកព្រៃវែង",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Prey Veng Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្រព្រៃវែង",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Prey Veng Central Market",
+      "local_name": "ផ្សារធំព្រៃវែង",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ],
+  "svay-rieng": [
+    {
+      "name": "Prey Ba Sak Eco-Tourism Forest",
+      "local_name": "រមណីយដ្ឋានព្រៃបាសាក់",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Svay Rieng province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Svay Rieng Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកស្វាយរៀង",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Svay Rieng Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្រស្វាយរៀង",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Svay Rieng Central Market",
+      "local_name": "ផ្សារធំស្វាយរៀង",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ],
+  "takeo": [
+    {
+      "name": "Phnom Chisor Ancient Sanctuary",
+      "local_name": "ប្រាសាទភ្នំជីសូរ",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Takeo province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Takeo Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកតាកែវ",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Takeo Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្រតាកែវ",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Takeo Central Market",
+      "local_name": "ផ្សារធំតាកែវ",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ],
+  "banteay-meanchey": [
+    {
+      "name": "Banteay Chhmar Ancient Fortress Temple",
+      "local_name": "ប្រាសាទបន្ទាយឆ្មារ",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Banteay Meanchey province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Banteay Meanchey Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកបន្ទាយមានជ័យ",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Banteay Meanchey Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្របន្ទាយមានជ័យ",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Banteay Meanchey Central Market",
+      "local_name": "ផ្សារធំបន្ទាយមានជ័យ",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ],
+  "oddar-meanchey": [
+    {
+      "name": "Dangrek Mountains Natural Viewpoint",
+      "local_name": "ជួរភ្នំដងរែក",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Oddar Meanchey province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Oddar Meanchey Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកឧត្ដរមានជ័យ",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Oddar Meanchey Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្រឧត្ដរមានជ័យ",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Oddar Meanchey Central Market",
+      "local_name": "ផ្សារធំឧត្ដរមានជ័យ",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ],
+  "pailin": [
+    {
+      "name": "Phnom Yat Golden Stupa & Gem Mountain",
+      "local_name": "ភ្នំយ៉ាត ប៉ៃលិន",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Pailin province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Pailin Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកប៉ៃលិន",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Pailin Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្រប៉ៃលិន",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Pailin Central Market",
+      "local_name": "ផ្សារធំប៉ៃលិន",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ],
+  "tboung-khmum": [
+    {
+      "name": "Chup Historic Rubber Plantation",
+      "local_name": "ចម្ការកៅស៊ូជប់",
+      "place_type": "ATTRACTION",
+      "description": "The most celebrated cultural and natural landmark in Tboung Khmum province, loved by travelers.",
+      "price_level": "$",
+      "tags": [
+        "Top Attraction",
+        "Heritage",
+        "Must Visit"
+      ]
+    },
+    {
+      "name": "Tboung Khmum Riverside Park & Promenade",
+      "local_name": "សួនមាត់ទឹកត្បូងឃ្មុំ",
+      "place_type": "ATTRACTION",
+      "description": "Scenic waterfront promenade with beautiful walking paths, local street dining, and peaceful sunset views.",
+      "price_level": "FREE",
+      "tags": [
+        "Riverside",
+        "Sunset",
+        "Community"
+      ]
+    },
+    {
+      "name": "Tboung Khmum Historic Pagoda",
+      "local_name": "វត្តអារាមប្រវត្តិសាស្ត្រត្បូងឃ្មុំ",
+      "place_type": "TEMPLE",
+      "description": "Ancient Buddhist pagoda surrounded by sacred trees and traditional Khmer architectural motifs.",
+      "price_level": "FREE",
+      "tags": [
+        "Temple",
+        "Buddhism",
+        "Spiritual"
+      ]
+    },
+    {
+      "name": "Tboung Khmum Central Market",
+      "local_name": "ផ្សារធំត្បូងឃ្មុំ",
+      "place_type": "MARKET",
+      "description": "Vibrant morning market brimming with authentic regional culinary specialties, fresh tropical fruits, and provincial crafts.",
+      "price_level": "$",
+      "tags": [
+        "Market",
+        "Street Food",
+        "Local Culture"
+      ]
+    }
+  ]
+}
