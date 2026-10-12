@@ -259,13 +259,26 @@ export default async function PlaceDetailPage({ params }: PageProps) {
             {/* Gallery */}
             {gallery.length > 0 && (
               <section className="bg-white dark:bg-neutral-900 rounded-3xl p-6 sm:p-8 border border-neutral-200 dark:border-neutral-800">
-                <h3 className="text-lg font-bold text-neutral-900 dark:text-white mb-4">
-                  Visual Gallery
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
+                    Visual Gallery
+                  </h3>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-500 dark:bg-rose-500/20 dark:text-rose-400">
+                    {gallery.length} Photos
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
                   {gallery.map((img, idx) => (
-                    <div key={idx} className="rounded-2xl overflow-hidden aspect-[4/3] bg-neutral-100 dark:bg-neutral-800">
-                      <img src={img} alt={`${place.name} ${idx + 1}`} className="w-full h-full object-cover" />
+                    <div 
+                      key={idx} 
+                      className="group relative rounded-2xl overflow-hidden aspect-[4/3] bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800/80 shadow-xs"
+                    >
+                      <img 
+                        src={img} 
+                        alt={`${place.name} - Photo ${idx + 1}`} 
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
+                        loading="lazy"
+                      />
                     </div>
                   ))}
                 </div>

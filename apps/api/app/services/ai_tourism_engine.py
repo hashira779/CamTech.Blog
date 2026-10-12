@@ -101,8 +101,14 @@ async def _you_web_search(query: str, api_key: str) -> dict:
             continue
     return None
 
-async def fetch_wiki_images(place_name: str, province_name: str, local_name: str = None) -> list[str]:
-    """Uses Wikipedia API with policy-compliant headers and fast queries to find real photos."""
+BAD_IMAGE_KEYWORDS = [
+    "flag", "symbol", "coat_of_arms", "icon", "map", "logo", "stub", 
+    "diagram", "locator", ".svg", "emblem", "seal_of", "district_in",
+    "blank", "placeholder", "commons-logo", "wikivoyage", "wikidata"
+]
+
+async def fetch_wiki_images(place_name: str, province_name: str, local_name: str = None, max_images: int = 15) -> list[str]:
+    """Uses Wikipedia API with pageimages and embedded article media to find real photos."""
     ua = "CamTechBlogDiscovery/2.0 (https://blog.camtech.cam; contact@camtech.cam) python-httpx/0.28.1"
     headers = {"User-Agent": ua}
     
@@ -116,20 +122,16 @@ async def fetch_wiki_images(place_name: str, province_name: str, local_name: str
     if local_name and local_name.strip():
         queries.append(local_name.strip())
 
-    BAD_KEYWORDS = [
-        "flag", "symbol", "coat_of_arms", "icon", "map", "logo", "stub", 
-        "diagram", "locator", ".svg", "emblem", "seal_of", "district_in"
-    ]
+    found_images = []
+    seen = set()
 
-    async with httpx.AsyncClient(timeout=5.0, headers=headers) as client:
-        # Search Wikipedia with distinct queries
+    async with httpx.AsyncClient(timeout=6.0, headers=headers) as client:
         for q in dict.fromkeys(queries):
             url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(q)}&gsrlimit=3&prop=pageimages|extracts&exintro=1&explaintext=1&piprop=original&format=json"
             try:
                 res = await client.get(url)
                 if res.status_code == 200:
                     pages = res.json().get("query", {}).get("pages", {})
-                    candidates = []
                     for p in pages.values():
                         title = p.get("title", "")
                         extract = p.get("extract", "").lower()
@@ -143,92 +145,318 @@ async def fetch_wiki_images(place_name: str, province_name: str, local_name: str
                         if not is_relevant:
                             continue
 
+                        # 1. Primary Pageimage
                         if "original" in p:
                             src = p["original"]["source"]
-                            src_lower = src.lower()
-                            if not any(bad in src_lower for bad in BAD_KEYWORDS):
-                                candidates.append(src)
-                    if candidates:
-                        return candidates
+                            src_clean = src.split("?")[0]
+                            if not any(bad in src_clean.lower() for bad in BAD_IMAGE_KEYWORDS):
+                                if src_clean not in seen:
+                                    seen.add(src_clean)
+                                    found_images.append(src)
+
+                        # 2. Extract photos embedded within the Wikipedia article
+                        if title and len(found_images) < max_images:
+                            art_url = f"https://en.wikipedia.org/w/api.php?action=query&titles={urllib.parse.quote(title)}&generator=images&gimlimit=25&prop=imageinfo&iiprop=url|mime&format=json"
+                            try:
+                                art_res = await client.get(art_url)
+                                if art_res.status_code == 200:
+                                    art_pages = art_res.json().get("query", {}).get("pages", {})
+                                    for img_p in art_pages.values():
+                                        for info in img_p.get("imageinfo", []):
+                                            u = info.get("url", "")
+                                            u_clean = u.split("?")[0]
+                                            mime = info.get("mime", "")
+                                            if "image/" in mime and not any(bad in u_clean.lower() for bad in BAD_IMAGE_KEYWORDS):
+                                                if any(u_clean.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".webp"]):
+                                                    if u_clean not in seen:
+                                                        seen.add(u_clean)
+                                                        found_images.append(u)
+                            except Exception:
+                                pass
             except Exception as e:
                 logger.debug(f"Wiki search error for {q}: {e}")
 
-    return []
+            if len(found_images) >= max_images:
+                break
 
+    return found_images
 
+async def fetch_commons_images(place_name: str, province_name: str, max_images: int = 15) -> list[str]:
+    """Queries Wikimedia Commons open media library for verified cultural and travel photos."""
+    ua = "CamTechBlogDiscovery/2.0 (https://blog.camtech.cam; contact@camtech.cam) python-httpx/0.28.1"
+    headers = {"User-Agent": ua}
+    clean_name = re.sub(r'\(.*?\)', '', place_name).strip()
+    
+    queries = [
+        f"{clean_name} {province_name}",
+        f"{clean_name} Cambodia",
+        clean_name
+    ]
+    
+    found = []
+    seen = set()
 
-# Distinct category-specific photo library (Unsplash royalty-free images tailored to Cambodia / SE Asia travel)
+    async with httpx.AsyncClient(timeout=6.0, headers=headers) as client:
+        for q in queries:
+            url = f"https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(q)}&gsrnamespace=6&prop=imageinfo&iiprop=url|mime&format=json&gsrlimit={max_images}"
+            try:
+                res = await client.get(url)
+                if res.status_code == 200:
+                    pages = res.json().get("query", {}).get("pages", {})
+                    for p in pages.values():
+                        for info in p.get("imageinfo", []):
+                            u = info.get("url", "")
+                            u_clean = u.split("?")[0]
+                            mime = info.get("mime", "")
+                            if "image/" in mime and not any(bad in u_clean.lower() for bad in BAD_IMAGE_KEYWORDS):
+                                if any(u_clean.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".webp"]):
+                                    if u_clean not in seen:
+                                        seen.add(u_clean)
+                                        found.append(u)
+            except Exception:
+                pass
+            if len(found) >= max_images:
+                break
+
+    return found
+
+async def fetch_you_images(place_name: str, province_name: str, you_api_key: str, max_images: int = 12) -> list[str]:
+    """Queries You.com Web Search index to extract real travel thumbnails and images."""
+    if not you_api_key:
+        return []
+    found = []
+    seen = set()
+    try:
+        search_data = await asyncio.wait_for(_you_web_search(f"{place_name} {province_name} Cambodia travel tourism", you_api_key), timeout=4.0)
+        if search_data and "results" in search_data:
+            # 1. Image results if present
+            for img_item in search_data["results"].get("images", []):
+                u = img_item.get("url") or img_item.get("thumbnail_url")
+                if u and u.startswith("http") and u not in seen:
+                    seen.add(u)
+                    found.append(u)
+            # 2. Web search thumbnails (TripAdvisor, Booking, blogs)
+            for r in search_data["results"].get("web", []):
+                thumb = r.get("thumbnail_url")
+                if thumb and thumb.startswith("http") and not any(bad in thumb.lower() for bad in ["logo", "icon", "favicon"]):
+                    if thumb not in seen:
+                        seen.add(thumb)
+                        found.append(thumb)
+    except Exception:
+        pass
+    return found[:max_images]
+
+# Distinct category-specific photo library (Rich royalty-free images tailored to Cambodia / SE Asia travel)
 CATEGORY_FALLBACK_IMAGES = {
     "WATERFALL": [
-        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1511497584788-87676104235f?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1518457607834-6e8d80c183c5?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1498855926480-d98e83099315?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1444464666168-49d633b86797?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
     ],
     "TEMPLE": [
-        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1565034946487-077786996e27?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506484381205-f7945653044d?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
     ],
     "HOTEL": [
-        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1596394516093-501ba68a0ba6?w=900&auto=format&fit=crop&q=80",
     ],
     "RESORT": [
-        "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1519046904884-53103b34b206?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1439853941329-a93ac9e8636e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=900&auto=format&fit=crop&q=80",
     ],
     "NATIONAL_PARK": [
-        "https://images.unsplash.com/photo-1448375240586-882707db888b?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1511497584788-87676104235f?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1448375240586-882707db888b?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1518457607834-6e8d80c183c5?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1498855926480-d98e83099315?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1444464666168-49d633b86797?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1534567153574-2b12153a87f0?w=900&auto=format&fit=crop&q=80",
     ],
     "ACTIVITY": [
-        "https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1534567153574-2b12153a87f0?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1534567153574-2b12153a87f0?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1448375240586-882707db888b?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
     ],
     "RESTAURANT": [
-        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1552611052-33e04de081de?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1552611052-33e04de081de?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506484381205-f7945653044d?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=900&auto=format&fit=crop&q=80",
     ],
     "CAFE": [
-        "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1552611052-33e04de081de?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506484381205-f7945653044d?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=900&auto=format&fit=crop&q=80",
     ],
     "MARKET": [
-        "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506484381205-f7945653044d?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506484381205-f7945653044d?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1552611052-33e04de081de?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=900&auto=format&fit=crop&q=80",
     ],
     "MUSEUM": [
-        "https://images.unsplash.com/photo-1565034946487-077786996e27?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1565034946487-077786996e27?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506484381205-f7945653044d?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
     ],
     "BEACH": [
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1519046904884-53103b34b206?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1519046904884-53103b34b206?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1439853941329-a93ac9e8636e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=900&auto=format&fit=crop&q=80",
     ],
     "LAKE": [
-        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1439853941329-a93ac9e8636e?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1439853941329-a93ac9e8636e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1519046904884-53103b34b206?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1518457607834-6e8d80c183c5?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1498855926480-d98e83099315?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1444464666168-49d633b86797?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
     ],
     "MOUNTAIN": [
-        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1518457607834-6e8d80c183c5?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1498855926480-d98e83099315?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1444464666168-49d633b86797?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1448375240586-882707db888b?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
     ],
     "VILLAGE": [
-        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506484381205-f7945653044d?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1565034946487-077786996e27?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
     ],
     "ATTRACTION": [
-        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1565034946487-077786996e27?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=900&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=900&auto=format&fit=crop&q=80",
     ]
 }
 
@@ -238,6 +466,17 @@ def get_category_fallback_photo(place_type: str, name: str) -> str:
     pool = CATEGORY_FALLBACK_IMAGES.get(ptype, CATEGORY_FALLBACK_IMAGES["ATTRACTION"])
     idx = abs(hash(name)) % len(pool)
     return pool[idx]
+
+def get_category_fallback_gallery(place_type: str, name: str, count: int = 12) -> list[str]:
+    """Return a full, ordered list of unique themed photos for a place's gallery."""
+    ptype = (place_type or "ATTRACTION").upper()
+    pool = CATEGORY_FALLBACK_IMAGES.get(ptype, CATEGORY_FALLBACK_IMAGES["ATTRACTION"])
+    start_idx = abs(hash(name)) % len(pool)
+    gallery = []
+    for i in range(min(count, len(pool))):
+        gallery.append(pool[(start_idx + i) % len(pool)])
+    return gallery
+
 
 # All 25 provinces/cities of Cambodia
 CAMBODIA_PROVINCES = [
@@ -305,6 +544,7 @@ class AITourismEngine:
             p_type = p.get("place_type", "ATTRACTION")
             is_dup = name.lower() in existing_names_set
             hero_photo = get_category_fallback_photo(p_type, name)
+            gallery_photos = get_category_fallback_gallery(p_type, name, 12)
             processed.append({
                 "name": name,
                 "local_name": p.get("local_name"),
@@ -323,9 +563,71 @@ class AITourismEngine:
                 "is_duplicate": is_dup,
                 "destination_id": dest_id,
                 "hero_image_url": hero_photo,
-                "gallery_json": "[]"
+                "gallery_json": json.dumps(gallery_photos)
             })
         return processed
+
+    async def _resolve_place_images(
+        self,
+        name: str,
+        dest_name: str,
+        place_type: str,
+        local_name: str = None,
+        you_api_key: str = None,
+        target_count: int = 12
+    ) -> tuple[str, list[str]]:
+        """
+        Multi-source intelligent image discovery:
+        Finds at least 10-12+ authentic images for a place across:
+        1. Wikipedia article pageimages & section photos
+        2. Wikimedia Commons high-resolution photography
+        3. You.com web search thumbnails
+        4. Curated category travel photo library padding (ensuring 10+ photos)
+        """
+        all_images = []
+        seen = set()
+
+        def _add(u: str):
+            if not u or not u.startswith("http"):
+                return
+            clean = u.split("?")[0].strip()
+            if clean not in seen and not any(bad in clean.lower() for bad in BAD_IMAGE_KEYWORDS):
+                seen.add(clean)
+                all_images.append(u)
+
+        # 1. Concurrently query Wikipedia & Wikimedia Commons
+        try:
+            tasks = [
+                fetch_wiki_images(name, dest_name, local_name, max_images=10),
+                fetch_commons_images(name, dest_name, max_images=12)
+            ]
+            if you_api_key:
+                tasks.append(fetch_you_images(name, dest_name, you_api_key, max_images=8))
+
+            results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=4.5)
+            for res in results:
+                if isinstance(res, list):
+                    for img in res:
+                        _add(img)
+        except Exception as e:
+            logger.debug(f"Image discovery notice for {name}: {e}")
+
+        # 2. Pad from rich category library to guarantee at least target_count (10-12+) photos
+        ptype = (place_type or "ATTRACTION").upper()
+        pool = CATEGORY_FALLBACK_IMAGES.get(ptype, CATEGORY_FALLBACK_IMAGES["ATTRACTION"])
+        start_idx = abs(hash(name)) % len(pool)
+
+        for i in range(len(pool)):
+            if len(all_images) >= target_count:
+                break
+            _add(pool[(start_idx + i) % len(pool)])
+
+        if not all_images:
+            _add("https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80")
+
+        hero = all_images[0]
+        gallery = all_images[:target_count]
+        return hero, gallery
 
     async def _resolve_candidate_image(
         self,
@@ -336,29 +638,10 @@ class AITourismEngine:
         you_api_key: str = None,
         default_hero: str = None
     ) -> str:
-        """Find a real photo via Wikipedia or You.com; fall back to a distinct category photo."""
-        # 1. Try fast Wikipedia image lookup with relevance filter
-        try:
-            wiki_imgs = await asyncio.wait_for(fetch_wiki_images(name, dest_name, local_name), timeout=2.5)
-            if wiki_imgs:
-                return wiki_imgs[0]
-        except Exception:
-            pass
+        """Compatibility wrapper returning primary hero image."""
+        hero, _ = await self._resolve_place_images(name, dest_name, place_type, local_name, you_api_key, target_count=12)
+        return hero
 
-        # 2. Try fast You.com Web Search thumbnails
-        if you_api_key:
-            try:
-                search_data = await asyncio.wait_for(_you_web_search(f"{name} {dest_name} Cambodia", you_api_key), timeout=2.5)
-                if search_data and "results" in search_data and "web" in search_data["results"]:
-                    for r in search_data["results"]["web"][:4]:
-                        thumb = r.get("thumbnail_url")
-                        if thumb and thumb.startswith("http") and not any(bad in thumb.lower() for bad in ["logo", "icon", "favicon"]):
-                            return thumb
-            except Exception:
-                pass
-
-        # 3. Use distinct, high-quality category-specific photo
-        return get_category_fallback_photo(place_type, name)
 
     def _ensure_cambodia_destinations(self, db):
         """Ensure all 25 provinces exist as Destinations in the database."""
@@ -565,11 +848,11 @@ Return a JSON array of objects. Each object must have these keys:
                 name = p.get("name", "").strip()
                 p_type = p.get("place_type", "ATTRACTION")
                 local_name = p.get("local_name")
-                hero = await self._resolve_candidate_image(name, dest_name, p_type, local_name, you_api_key, default_hero)
+                hero, gallery = await self._resolve_place_images(name, dest_name, p_type, local_name, you_api_key, target_count=12)
                 p["is_duplicate"] = name.lower() in existing_names_set
                 p["destination_id"] = dest_id
                 p["hero_image_url"] = hero
-                p["gallery_json"] = "[]"
+                p["gallery_json"] = json.dumps(gallery)
                 return p
 
             valid_places = [p for p in places_data if p.get("name", "").strip()]
@@ -776,31 +1059,45 @@ Return a JSON object with these keys ONLY:
                 else:
                     raise ValueError(f"Failed to parse AI response.")
 
-            # Assign explicitly extracted Real You.com images or Wikipedia fallback
-            hero_url = None
-            gallery_raw = []
+            # Multi-source photo discovery: discover at least 10-12+ authentic images per place
+            hero_url, gallery_raw = await self._resolve_place_images(
+                ai_data.get("name", place_name),
+                dest_name,
+                ai_data.get("place_type", "ATTRACTION"),
+                ai_data.get("local_name", place_local_name),
+                you_api_key,
+                target_count=12
+            )
+
+            # Prepend any extracted You.com web thumbnails
             if extracted_images:
-                hero_url = extracted_images[0]
-                gallery_raw = extracted_images[1:]
-            else:
-                # Fallback to Wikipedia images with full query variations
-                wiki_images = await fetch_wiki_images(ai_data.get("name", place_name), dest_name, ai_data.get("local_name", place_local_name))
-                if wiki_images:
-                    hero_url = wiki_images[0]
-                    gallery_raw = wiki_images
-                elif not place_curr_hero or "/images/destinations/" in place_curr_hero:
-                    hero_url = dest_hero
-                    gallery_raw = [dest_hero] if dest_hero else []
-                
+                for ext_u in reversed(extracted_images):
+                    if ext_u and ext_u not in gallery_raw:
+                        gallery_raw.insert(0, ext_u)
+                hero_url = gallery_raw[0]
+
             if hero_url:
-                hero_url = await self._sync_single_image(hero_url, dest_name, ai_data.get("name", place_name))
-                
+                try:
+                    hero_url = await self._sync_single_image(hero_url, dest_name, ai_data.get("name", place_name))
+                except Exception as hero_err:
+                    logger.warning(f"Hero sync notice: {hero_err}")
+
             synced_gallery_json = None
-            if gallery_raw and isinstance(gallery_raw, list):
-                gallery_tasks = [self._sync_single_image(url, dest_name, ai_data.get("name", place_name)) for url in gallery_raw[:4] if url and url.startswith("http")]
-                if gallery_tasks:
-                    synced_gallery = await asyncio.gather(*gallery_tasks, return_exceptions=True)
-                    synced_gallery_json = json.dumps([item for item in synced_gallery if isinstance(item, str)])
+            if gallery_raw:
+                try:
+                    gallery_tasks = [self._sync_single_image(url, dest_name, ai_data.get("name", place_name)) for url in gallery_raw[:12] if url and url.startswith("http")]
+                    if gallery_tasks:
+                        synced_gallery = await asyncio.gather(*gallery_tasks, return_exceptions=True)
+                        synced_items = [
+                            synced if isinstance(synced, str) else orig
+                            for synced, orig in zip(synced_gallery, gallery_raw[:12])
+                            if isinstance(synced, str) or isinstance(orig, str)
+                        ]
+                        synced_gallery_json = json.dumps(synced_items)
+                except Exception as g_err:
+                    logger.warning(f"Gallery sync error: {g_err}")
+                    synced_gallery_json = json.dumps(gallery_raw[:12])
+
 
             # Fast atomic write to DB
             db = SessionLocal()
@@ -950,26 +1247,22 @@ Return a JSON object with these keys ONLY:
         finally:
             db.close()
 
-        # Fetch real images if not already provided or if placeholder/province cover
-        if not hero_url or "/images/destinations/" in hero_url:
-            # 1. Try Wikipedia with relevance verification
-            img_urls = await fetch_wiki_images(name, dest_name, place_dict.get("local_name"))
-
-            # 2. Try You.com Web Search thumbnails
-            if not img_urls and you_api_key:
-                try:
-                    search_data = await _you_web_search(f"{name} {dest_name} Cambodia", you_api_key)
-                    if search_data and "results" in search_data and "web" in search_data["results"]:
-                        img_urls = [r.get("thumbnail_url") for r in search_data["results"]["web"] if r.get("thumbnail_url") and not any(bad in r.get("thumbnail_url", "").lower() for bad in ["logo", "icon", "favicon"])]
-                except Exception:
-                    pass
-
-            if img_urls:
-                hero_url = img_urls[0]
-                gallery_json = json.dumps(img_urls[:4])
-            else:
-                # 3. Use distinct category-specific photo
-                hero_url = get_category_fallback_photo(place_dict.get("place_type"), name)
+        # Check gallery completeness: ensure at least 10+ photos
+        gallery_list = json.loads(gallery_json) if isinstance(gallery_json, str) else (gallery_json or [])
+        if not hero_url or "/images/destinations/" in hero_url or len(gallery_list) < 10:
+            discovered_hero, discovered_gallery = await self._resolve_place_images(
+                name,
+                dest_name,
+                place_dict.get("place_type", "ATTRACTION"),
+                place_dict.get("local_name"),
+                you_api_key,
+                target_count=12
+            )
+            if not hero_url or "/images/destinations/" in hero_url:
+                hero_url = discovered_hero
+            if len(gallery_list) < 10:
+                gallery_list = discovered_gallery
+            gallery_json = json.dumps(gallery_list)
 
         # Dual storage synchronization:
         # 1. Google Drive for persistent backup
@@ -980,16 +1273,21 @@ Return a JSON object with these keys ONLY:
             except Exception as hero_err:
                 logger.warning(f"Hero image sync failed for {name}, keeping original URL: {hero_err}")
 
-        # Process gallery items concurrently
+        # Process gallery items concurrently (up to 12 photos)
         try:
-            gallery_list = json.loads(gallery_json) if isinstance(gallery_json, str) else (gallery_json or [])
             if gallery_list and isinstance(gallery_list, list):
-                gallery_tasks = [self._sync_single_image(g, dest_name, name) for g in gallery_list[:4] if g and g.startswith("http")]
+                gallery_tasks = [self._sync_single_image(g, dest_name, name) for g in gallery_list[:12] if g and g.startswith("http")]
                 if gallery_tasks:
                     synced_items = await asyncio.gather(*gallery_tasks, return_exceptions=True)
-                    gallery_json = json.dumps([item for item in synced_items if isinstance(item, str)])
+                    final_gallery = [
+                        synced if isinstance(synced, str) else orig
+                        for synced, orig in zip(synced_items, gallery_list[:12])
+                        if isinstance(synced, str) or isinstance(orig, str)
+                    ]
+                    gallery_json = json.dumps(final_gallery)
         except Exception as gal_err:
             logger.warning(f"Gallery sync error: {gal_err}")
+
 
         # Fast atomic insert into DB
         db = SessionLocal()

@@ -817,6 +817,13 @@ export default function ProvinceDetails() {
             const tags = parseTags(place.tags_json);
             const isExpanded = expandedId === place.id;
             const typeColor = TYPE_COLORS[place.place_type] || 'bg-zinc-700/50 text-zinc-300 border-zinc-600/30';
+            const galleryList: string[] = (() => {
+              try {
+                return place.gallery_json ? JSON.parse(place.gallery_json) : [];
+              } catch {
+                return [];
+              }
+            })();
             
             return (
               <div 
@@ -866,6 +873,11 @@ export default function ProvinceDetails() {
                       {place.rating && (
                         <span className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-[10px] font-medium">
                           <Star size={10} className="fill-amber-400" /> {place.rating}
+                        </span>
+                      )}
+                      {galleryList.length > 0 && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full text-[10px] font-medium">
+                          <Camera size={10} /> {galleryList.length} photos
                         </span>
                       )}
                       {place.price_level && (
@@ -1082,62 +1094,99 @@ export default function ProvinceDetails() {
               {pendingApproval.places.length === 0 ? (
                 <div className="text-center py-12 text-zinc-500 text-sm">No new places found.</div>
               ) : (
-                pendingApproval.places.map((place, idx) => (
-                  <div key={idx} className="flex flex-col sm:flex-row gap-4 p-4 border border-zinc-800 rounded-xl bg-zinc-950/60 items-start">
-                    {place.hero_image_url && (
-                      <div className="w-full sm:w-28 h-20 bg-zinc-900 rounded-lg overflow-hidden shrink-0 border border-zinc-800">
-                        <img 
-                          src={resolveImageUrl(place.hero_image_url)} 
-                          alt={place.name} 
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.onerror = null;
-                            e.currentTarget.src = "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=300&auto=format&fit=crop&q=80";
-                          }}
-                        />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <h3 className="font-semibold text-zinc-200 text-sm">{place.name}</h3>
-                        {place.local_name && <span className="text-xs text-zinc-500 font-sans">{place.local_name}</span>}
-                      </div>
-                      <p className="text-xs text-zinc-400 mb-2.5 line-clamp-2 leading-relaxed">{place.description}</p>
-                      <div className="flex flex-wrap gap-2">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${TYPE_COLORS[place.place_type] || 'bg-zinc-800 text-zinc-300'}`}>
-                          {place.place_type}
-                        </span>
-                        {place.rating && (
-                          <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-[10px] font-medium">
-                            ★ {place.rating}
-                          </span>
-                        )}
-                        {place.address && <span className="text-[10px] text-zinc-500">{place.address}</span>}
-                      </div>
-                    </div>
-                    <div className="flex items-center sm:items-start shrink-0 pt-2 sm:pt-0">
-                      {place.is_duplicate ? (
-                        <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-                          <CheckCircle size={14} /> Saved
+                pendingApproval.places.map((place, idx) => {
+                  const candGallery: string[] = (() => {
+                    try {
+                      return place.gallery_json ? JSON.parse(place.gallery_json) : [];
+                    } catch {
+                      return [];
+                    }
+                  })();
+
+                  return (
+                    <div key={idx} className="flex flex-col sm:flex-row gap-4 p-4 border border-zinc-800 rounded-xl bg-zinc-950/60 items-start">
+                      {place.hero_image_url && (
+                        <div className="w-full sm:w-28 h-20 bg-zinc-900 rounded-lg overflow-hidden shrink-0 border border-zinc-800">
+                          <img 
+                            src={resolveImageUrl(place.hero_image_url)} 
+                            alt={place.name} 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=300&auto=format&fit=crop&q=80";
+                            }}
+                          />
                         </div>
-                      ) : savingPlaceId === idx.toString() ? (
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-lg text-xs font-medium animate-pulse">
-                          <RefreshCw size={12} className="animate-spin text-blue-400" />
-                          <span>Uploading...</span>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => handleApproveSave(place, idx)}
-                          disabled={isApprovingAll || savingPlaceId !== null}
-                          className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50"
-                        >
-                          <Zap size={12} />
-                          Approve & Save
-                        </button>
                       )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h3 className="font-semibold text-zinc-200 text-sm">{place.name}</h3>
+                          {place.local_name && <span className="text-xs text-zinc-500 font-sans">{place.local_name}</span>}
+                        </div>
+                        <p className="text-xs text-zinc-400 mb-2.5 line-clamp-2 leading-relaxed">{place.description}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${TYPE_COLORS[place.place_type] || 'bg-zinc-800 text-zinc-300'}`}>
+                            {place.place_type}
+                          </span>
+                          {place.rating && (
+                            <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-[10px] font-medium">
+                              ★ {place.rating}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-full text-[10px] font-medium">
+                            <Camera size={10} /> {candGallery.length > 0 ? `${candGallery.length} photos found` : '1 photo'}
+                          </span>
+                          {place.address && <span className="text-[10px] text-zinc-500">{place.address}</span>}
+                        </div>
+
+                        {/* Candidate Multi-Photo Preview Strip */}
+                        {candGallery.length > 0 && (
+                          <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+                            {candGallery.slice(0, 8).map((gUrl, gIdx) => (
+                              <div key={gIdx} className="w-12 h-9 rounded-md overflow-hidden bg-zinc-900 border border-zinc-800 shrink-0">
+                                <img 
+                                  src={resolveImageUrl(gUrl)} 
+                                  alt="" 
+                                  className="w-full h-full object-cover" 
+                                  onError={(e) => {
+                                    e.currentTarget.onerror = null;
+                                    e.currentTarget.src = "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=100&auto=format&fit=crop&q=60";
+                                  }}
+                                />
+                              </div>
+                            ))}
+                            {candGallery.length > 8 && (
+                              <div className="w-12 h-9 rounded-md bg-zinc-900 border border-zinc-800 shrink-0 flex items-center justify-center text-[10px] font-medium text-zinc-400">
+                                +{candGallery.length - 8}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center sm:items-start shrink-0 pt-2 sm:pt-0">
+                        {place.is_duplicate ? (
+                          <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                            <CheckCircle size={14} /> Saved
+                          </div>
+                        ) : savingPlaceId === idx.toString() ? (
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-lg text-xs font-medium animate-pulse">
+                            <RefreshCw size={12} className="animate-spin text-blue-400" />
+                            <span>Uploading...</span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleApproveSave(place, idx)}
+                            disabled={isApprovingAll || savingPlaceId !== null}
+                            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50"
+                          >
+                            <Zap size={12} />
+                            Approve & Save
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
