@@ -246,236 +246,34 @@ async def fetch_you_images(place_name: str, province_name: str, you_api_key: str
         pass
     return found[:max_images]
 
-# Distinct category-specific photo library (Rich royalty-free images tailored to Cambodia / SE Asia travel)
-CATEGORY_FALLBACK_IMAGES = {
-    "WATERFALL": [
-        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1518457607834-6e8d80c183c5?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1498855926480-d98e83099315?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1444464666168-49d633b86797?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
-    ],
-    "TEMPLE": [
-        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1565034946487-077786996e27?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506484381205-f7945653044d?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
-    ],
-    "HOTEL": [
-        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1596394516093-501ba68a0ba6?w=900&auto=format&fit=crop&q=80",
-    ],
-    "RESORT": [
-        "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1519046904884-53103b34b206?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1439853941329-a93ac9e8636e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=900&auto=format&fit=crop&q=80",
-    ],
-    "NATIONAL_PARK": [
-        "https://images.unsplash.com/photo-1448375240586-882707db888b?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1518457607834-6e8d80c183c5?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1498855926480-d98e83099315?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1444464666168-49d633b86797?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1534567153574-2b12153a87f0?w=900&auto=format&fit=crop&q=80",
-    ],
-    "ACTIVITY": [
-        "https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1534567153574-2b12153a87f0?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1448375240586-882707db888b?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
-    ],
-    "RESTAURANT": [
-        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1552611052-33e04de081de?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506484381205-f7945653044d?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=900&auto=format&fit=crop&q=80",
-    ],
-    "CAFE": [
-        "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1552611052-33e04de081de?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506484381205-f7945653044d?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=900&auto=format&fit=crop&q=80",
-    ],
-    "MARKET": [
-        "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506484381205-f7945653044d?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1552611052-33e04de081de?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=900&auto=format&fit=crop&q=80",
-    ],
-    "MUSEUM": [
-        "https://images.unsplash.com/photo-1565034946487-077786996e27?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506484381205-f7945653044d?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
-    ],
-    "BEACH": [
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1519046904884-53103b34b206?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1439853941329-a93ac9e8636e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=900&auto=format&fit=crop&q=80",
-    ],
-    "LAKE": [
-        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1439853941329-a93ac9e8636e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1519046904884-53103b34b206?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1518457607834-6e8d80c183c5?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1498855926480-d98e83099315?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1444464666168-49d633b86797?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
-    ],
-    "MOUNTAIN": [
-        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1518457607834-6e8d80c183c5?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1498855926480-d98e83099315?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1444464666168-49d633b86797?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1448375240586-882707db888b?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
-    ],
-    "VILLAGE": [
-        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506484381205-f7945653044d?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1565034946487-077786996e27?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
-    ],
-    "ATTRACTION": [
-        "https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1528181304800-259b08848526?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1565034946487-077786996e27?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1546268060-2592ff93ee24?w=900&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=900&auto=format&fit=crop&q=80",
-    ]
+# Minimal single fallback photo per category — only used when ALL real image sources fail
+CATEGORY_FALLBACK_IMAGE = {
+    "WATERFALL":     "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Bou_Sra_Waterfall.jpg/800px-Bou_Sra_Waterfall.jpg",
+    "TEMPLE":        "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Angkor_Wat.jpg/800px-Angkor_Wat.jpg",
+    "ACCOMMODATION": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Raffles_Hotel_Le_Royal.jpg/800px-Raffles_Hotel_Le_Royal.jpg",
+    "RESTAURANT":    "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Phnom_Penh_-_Street_Food.jpg/800px-Phnom_Penh_-_Street_Food.jpg",
+    "CAFE":          "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Phnom_Penh_-_Street_Food.jpg/800px-Phnom_Penh_-_Street_Food.jpg",
+    "MARKET":        "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Phsar_Thmei.jpg/800px-Phsar_Thmei.jpg",
+    "MUSEUM":        "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/National_Museum_Phnom_Penh.jpg/800px-National_Museum_Phnom_Penh.jpg",
+    "NATIONAL_PARK": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Bokor_National_Park.jpg/800px-Bokor_National_Park.jpg",
+    "BEACH":         "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Otres_Beach.jpg/800px-Otres_Beach.jpg",
+    "LAKE":          "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Tonle_Sap_Lake.jpg/800px-Tonle_Sap_Lake.jpg",
+    "MOUNTAIN":      "https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Bokor_National_Park.jpg/800px-Bokor_National_Park.jpg",
+    "VILLAGE":       "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Bou_Sra_Waterfall.jpg/800px-Bou_Sra_Waterfall.jpg",
+    "ACTIVITY":      "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Angkor_Wat.jpg/800px-Angkor_Wat.jpg",
+    "ATTRACTION":    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Angkor_Wat.jpg/800px-Angkor_Wat.jpg",
+    "RESORT":        "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Raffles_Hotel_Le_Royal.jpg/800px-Raffles_Hotel_Le_Royal.jpg",
+    "HIDDEN_GEM":    "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Bou_Sra_Waterfall.jpg/800px-Bou_Sra_Waterfall.jpg",
 }
 
 def get_category_fallback_photo(place_type: str, name: str) -> str:
-    """Return a unique, themed photo based on place_type and name hash."""
+    """Return a single fallback photo for a place type. Only used when real image sources fail."""
     ptype = (place_type or "ATTRACTION").upper()
-    pool = CATEGORY_FALLBACK_IMAGES.get(ptype, CATEGORY_FALLBACK_IMAGES["ATTRACTION"])
-    idx = abs(hash(name)) % len(pool)
-    return pool[idx]
+    return CATEGORY_FALLBACK_IMAGE.get(ptype, CATEGORY_FALLBACK_IMAGE["ATTRACTION"])
 
 def get_category_fallback_gallery(place_type: str, name: str, count: int = 12) -> list[str]:
-    """Return a full, ordered list of unique themed photos for a place's gallery."""
-    ptype = (place_type or "ATTRACTION").upper()
-    pool = CATEGORY_FALLBACK_IMAGES.get(ptype, CATEGORY_FALLBACK_IMAGES["ATTRACTION"])
-    start_idx = abs(hash(name)) % len(pool)
-    gallery = []
-    for i in range(min(count, len(pool))):
-        gallery.append(pool[(start_idx + i) % len(pool)])
-    return gallery
+    """Return a minimal fallback gallery. Real images should come from Wikipedia/Commons/web search."""
+    return [get_category_fallback_photo(place_type, name)]
 
 
 # All 25 provinces/cities of Cambodia
@@ -612,18 +410,9 @@ class AITourismEngine:
         except Exception as e:
             logger.debug(f"Image discovery notice for {name}: {e}")
 
-        # 2. Pad from rich category library to guarantee at least target_count (10-12+) photos
-        ptype = (place_type or "ATTRACTION").upper()
-        pool = CATEGORY_FALLBACK_IMAGES.get(ptype, CATEGORY_FALLBACK_IMAGES["ATTRACTION"])
-        start_idx = abs(hash(name)) % len(pool)
-
-        for i in range(len(pool)):
-            if len(all_images) >= target_count:
-                break
-            _add(pool[(start_idx + i) % len(pool)])
-
+        # If no images discovered from Wikipedia/Commons/web search, use category fallback
         if not all_images:
-            _add("https://images.unsplash.com/photo-1540611025311-01df3cef54b5?w=900&auto=format&fit=crop&q=80")
+            _add(get_category_fallback_photo(place_type, name))
 
         hero = all_images[0]
         gallery = all_images[:target_count]
@@ -1155,6 +944,11 @@ Return a JSON object with these keys ONLY:
         """
         if not img_url or not img_url.startswith("http"):
             return img_url
+
+        has_gdrive = storage_service.is_configured()
+        has_r2 = s3_service.is_configured()
+        if not has_gdrive and not has_r2:
+            return img_url
             
         # If already on Cloudflare R2, no need to re-upload
         r2_client, r2_cfg = s3_service._get_client_and_config()
@@ -1191,12 +985,16 @@ Return a JSON object with these keys ONLY:
                 folder_path = f"{folder_path}/{safe_place}"
 
         async def upload_gdrive():
+            if not has_gdrive:
+                return
             try:
                 await storage_service.upload_file(filename, content, content_type, folder_path)
             except Exception as e:
                 logger.warning(f"Google Drive upload warning: {e}")
 
         async def upload_r2():
+            if not has_r2:
+                return None
             try:
                 return await s3_service.upload_file(filename, content, content_type, folder_path)
             except Exception as e:
