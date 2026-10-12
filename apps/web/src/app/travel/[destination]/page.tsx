@@ -7,21 +7,15 @@ import {
   Calendar,
   Info,
   ShieldCheck,
-  Star,
-  Compass,
-  ArrowRight,
-  Filter,
   Navigation,
-  Sparkles,
-  Hotel,
-  Coffee,
-  ShoppingBag,
-  ExternalLink,
   Bus,
   Footprints,
-  BookOpen
+  ArrowRight,
+  BookOpen,
 } from "lucide-react";
 import { getDestinationBySlug, getTrips, searchTransportRoutes, getTravelGuides, getTravelEvents } from "@/lib/api";
+import { getProvinceSymbol } from "@/data/province_symbols";
+import { ProvinceSymbolShowcase } from "@/components/travel/ProvinceSymbolShowcase";
 import { PlaceFilterGrid } from "./PlaceFilterGrid";
 import { TransportRouteCard } from "@/components/travel/TransportRouteCard";
 import { TravelGuideCard } from "@/components/travel/TravelGuideCard";
@@ -57,6 +51,7 @@ export default async function DestinationPage({ params }: PageProps) {
   }
 
   const places = destination.places || [];
+  const provinceSymbol = getProvinceSymbol(destination.slug);
 
   return (
     <div className="min-h-screen pb-24">
@@ -127,7 +122,7 @@ export default async function DestinationPage({ params }: PageProps) {
                 href={`/travel/nearby?place=${destination.slug === "siem-reap" ? "angkor-wat" : ""}`}
                 className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white text-sm backdrop-blur-md transition-all"
               >
-                <Footprints className="h-4 w-4 text-zinc-300" /> What's Near Here?
+                <Footprints className="h-4 w-4 text-zinc-300" /> What&apos;s Near Here?
               </Link>
               <Link
                 href="/travel/suggest"
@@ -141,7 +136,12 @@ export default async function DestinationPage({ params }: PageProps) {
       </section>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 space-y-12">
-        {/* 2. Practical Traveler Guidelines Alert */}
+        {/* 2. Iconic Provincial Symbol & Tourism Promotion Showcase */}
+        {provinceSymbol && (
+          <ProvinceSymbolShowcase symbol={provinceSymbol} />
+        )}
+
+        {/* 3. Practical Traveler Guidelines Alert */}
         {destination.practical_info && (
           <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 p-5 sm:p-6 flex items-start gap-4">
             <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-400 shrink-0">

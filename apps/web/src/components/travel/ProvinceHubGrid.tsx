@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Destination } from "@/types";
 import regionData from "@/data/region_categories.json";
+import { getProvinceSymbol } from "@/data/province_symbols";
 
 interface ProvinceHubGridProps {
   destinations: Destination[];
@@ -86,55 +87,63 @@ export function ProvinceHubGrid({ destinations }: ProvinceHubGridProps) {
 
       {/* 3-Column Editorial Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredDestinations.map((dest, i) => (
-          <Link
-            key={`${activeCategory}-${dest.id || dest.slug}`}
-            href={`/travel/${dest.slug}`}
-            style={{ animationDelay: `${(i % 9) * 0.05}s` }}
-            className="animate-fade-up group relative rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col h-full"
-          >
-            {/* Image Header with Aspect Ratio */}
-            <div className="relative aspect-[16/10] overflow-hidden bg-zinc-800">
-              {dest.hero_image_url ? (
-                <img
-                  src={dest.hero_image_url}
-                  alt={dest.name}
-                  loading={i < 6 ? "eager" : "lazy"}
-                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-                />
-              ) : (
-                <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
-                  <MapPin className="h-8 w-8 text-zinc-600" />
-                </div>
-              )}
-              {/* Subtle gradient vignette */}
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/85 via-transparent to-transparent opacity-80 group-hover:opacity-60 transition-opacity" />
-
-              {/* Top Floating Badges */}
-              <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-zinc-950/80 backdrop-blur-md text-amber-300 border border-zinc-800 shadow-2xs">
-                  {dest.name_km || "កម្ពុជា"}
-                </span>
-                {dest.is_featured && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-950/80 text-zinc-200 border border-zinc-700/60 backdrop-blur-xs">
-                    <Sparkles className="h-2.5 w-2.5 text-amber-400" /> Featured
-                  </span>
+        {filteredDestinations.map((dest, i) => {
+          const symbol = getProvinceSymbol(dest.slug);
+          return (
+            <Link
+              key={`${activeCategory}-${dest.id || dest.slug}`}
+              href={`/travel/${dest.slug}`}
+              style={{ animationDelay: `${(i % 9) * 0.05}s` }}
+              className="animate-fade-up group relative rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col h-full"
+            >
+              {/* Image Header with Aspect Ratio */}
+              <div className="relative aspect-[16/10] overflow-hidden bg-zinc-800">
+                {dest.hero_image_url ? (
+                  <img
+                    src={dest.hero_image_url}
+                    alt={dest.name}
+                    loading={i < 6 ? "eager" : "lazy"}
+                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
+                    <MapPin className="h-8 w-8 text-zinc-600" />
+                  </div>
                 )}
+                {/* Subtle gradient vignette */}
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/85 via-transparent to-transparent opacity-80 group-hover:opacity-60 transition-opacity" />
+
+                {/* Top Floating Badges */}
+                <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-zinc-950/80 backdrop-blur-md text-amber-300 border border-zinc-800 shadow-2xs">
+                    {dest.name_km || "កម្ពុជា"}
+                  </span>
+                  {dest.is_featured && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-950/80 text-zinc-200 border border-zinc-700/60 backdrop-blur-xs">
+                      <Sparkles className="h-2.5 w-2.5 text-amber-400" /> Featured
+                    </span>
+                  )}
+                </div>
+
+                {/* Bottom Image Overlay Title */}
+                <div className="absolute bottom-3 left-4 right-4">
+                  <h3 className="text-xl font-bold text-white tracking-tight drop-shadow-xs group-hover:text-zinc-200 transition-colors">
+                    {dest.name}
+                  </h3>
+                </div>
               </div>
 
-              {/* Bottom Image Overlay Title */}
-              <div className="absolute bottom-3 left-4 right-4">
-                <h3 className="text-xl font-bold text-white tracking-tight drop-shadow-xs group-hover:text-zinc-200 transition-colors">
-                  {dest.name}
-                </h3>
-              </div>
-            </div>
-
-            {/* Card Content Body */}
-            <div className="p-5 flex-1 flex flex-col justify-between">
-              <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed">
-                {dest.overview}
-              </p>
+              {/* Card Content Body */}
+              <div className="p-5 flex-1 flex flex-col justify-between">
+                <div>
+                  <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed">
+                    {dest.overview}
+                  </p>
+                  <div className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg w-fit">
+                    <span>{symbol.emoji}</span>
+                    <span className="truncate max-w-[210px]">{symbol.symbolName}</span>
+                  </div>
+                </div>
 
               <div className="mt-4 pt-3.5 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
@@ -150,7 +159,8 @@ export function ProvinceHubGrid({ destinations }: ProvinceHubGridProps) {
               </div>
             </div>
           </Link>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
