@@ -218,14 +218,26 @@ class AITourismEngine:
             if not destination:
                 raise ValueError(f"Province '{province_slug}' not found in database.")
 
-            # Check how many places already exist for this destination
-            existing_count = db.query(Place).filter(Place.destination_id == destination.id).count()
-            existing_names = [p.name for p in db.query(Place.name).filter(Place.destination_id == destination.id).all()]
+            dest_id = destination.id
+            dest_name = destination.name
+            dest_slug = destination.slug
+            default_hero = destination.hero_image_url or "/images/destinations/phnom-penh.jpg"
 
+            # Check how many places already exist for this destination
+            existing_count = db.query(Place).filter(Place.destination_id == dest_id).count()
+            existing_names = [p.name for p in db.query(Place.name).filter(Place.destination_id == dest_id).all()]
+            existing_names_set = set(n.strip().lower() for n in existing_names)
+
+            you_api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'YOU_API_KEY').first()
+            you_api_key = you_api_key_setting.value_json if you_api_key_setting else os.environ.get("YOU_API_KEY")
+        finally:
+            db.close()
+
+        try:
             prompt = f"""You are an expert Cambodia travel researcher and database builder.
 
 Your task: Find real, existing tourist attractions, temples, restaurants, hotels, markets, waterfalls, 
-natural sites, museums, and hidden gems in **{destination.name} Province, Cambodia**.
+natural sites, museums, and hidden gems in **{dest_name} Province, Cambodia**.
 
 IMPORTANT RULES:
 - Only include REAL places that actually exist. Do NOT invent fictional places.
@@ -259,8 +271,6 @@ Return a JSON array of objects. Each object must have these keys:
             fallback_models = self._get_dynamic_fallback_models(client)
 
             # Check if we have You.com API key
-            you_api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'YOU_API_KEY').first()
-            you_api_key = you_api_key_setting.value_json if you_api_key_setting else os.environ.get("YOU_API_KEY")
             you_response_text = await _call_you_com(prompt, you_api_key)
             
             response_text = None
@@ -321,13 +331,8 @@ Return a JSON array of objects. Each object must have these keys:
                 if not name:
                     continue
 
-                existing = db.query(Place).filter(
-                    Place.destination_id == destination.id,
-                    Place.name == name
-                ).first()
-
-                p["is_duplicate"] = bool(existing)
-                p["destination_id"] = destination.id
+                p["is_duplicate"] = name.lower() in existing_names_set
+                p["destination_id"] = dest_id
                 p["hero_image_url"] = default_hero
                 p["gallery_json"] = "[]"
 
@@ -335,14 +340,13 @@ Return a JSON array of objects. Each object must have these keys:
 
             # Return raw data for approval immediately (typically under 3-5 seconds)
             return {
-                "province": destination.name,
-                "province_slug": destination.slug,
+                "province": dest_name,
+                "province_slug": dest_slug,
                 "discovered": len(processed_places),
                 "places_data": processed_places
             }
 
         except Exception as e:
-            db.rollback()
             logger.error(f"AI Tourism Engine error for {province_slug}: {e}")
             
             # If it's an API Error from google-genai, return a friendly message
@@ -360,8 +364,6 @@ Return a JSON array of objects. Each object must have these keys:
                 "error": error_str,
                 "message": user_message
             }
-        finally:
-            db.close()
 
     async def run_full_scan(self) -> dict:
         """
@@ -421,16 +423,26 @@ Return a JSON array of objects. Each object must have these keys:
             if not destination:
                 return {"status": "failed", "message": "Destination not found."}
 
-            # 1. Fetch real-world data from You.com Web Search to augment AI prompt
+            place_name = place.name
+            place_local_name = place.local_name
+            place_curr_hero = place.hero_image_url
+            dest_name = destination.name
+            dest_hero = destination.hero_image_url
+
             you_api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'YOU_API_KEY').first()
             you_api_key = you_api_key_setting.value_json if you_api_key_setting else os.environ.get("YOU_API_KEY")
-            
+            client = self._get_gemini_client(db)
+        finally:
+            db.close()
+
+        try:
+            # 1. Fetch real-world data from You.com Web Search to augment AI prompt
             search_context = ""
             extracted_images = []
             
             if you_api_key:
-                logger.info(f"Using You.com Web Search for '{place.name}' context...")
-                search_data = await _you_web_search(f"{place.name} {destination.name} Cambodia tourism", you_api_key)
+                logger.info(f"Using You.com Web Search for '{place_name}' context...")
+                search_data = await _you_web_search(f"{place_name} {dest_name} Cambodia tourism", you_api_key)
                 if search_data and "results" in search_data and "web" in search_data["results"]:
                     for idx, result in enumerate(search_data["results"]["web"][:5]):
                         title = result.get("title", "")
@@ -442,10 +454,8 @@ Return a JSON array of objects. Each object must have these keys:
                         if thumb and thumb not in extracted_images:
                             extracted_images.append(thumb)
             
-            client = self._get_gemini_client(db)
-            
             prompt = f"""You are an expert Cambodia travel blogger and researcher.
-I have a place in my database named "{place.name}" located in {destination.name} Province, Cambodia.
+I have a place in my database named "{place_name}" located in {dest_name} Province, Cambodia.
 Please write a highly detailed, up-to-date blog post.
 
 {"Here is some fresh search data to base your writing on:" if search_context else ""}
@@ -521,24 +531,6 @@ Return a JSON object with these keys ONLY:
                 else:
                     raise ValueError(f"Failed to parse AI response.")
 
-            # Update place object
-            place.name = ai_data.get("name", place.name)
-            place.local_name = ai_data.get("local_name") or place.local_name
-            place.place_type = ai_data.get("place_type") or place.place_type
-            place.description = ai_data.get("description") or place.description
-            place.description_km = ai_data.get("description_km") or place.description_km
-            place.address = ai_data.get("address") or place.address
-            place.latitude = ai_data.get("latitude") or place.latitude
-            place.longitude = ai_data.get("longitude") or place.longitude
-            place.phone = ai_data.get("phone") or place.phone
-            place.website = ai_data.get("website") or place.website
-            place.opening_hours = ai_data.get("opening_hours") or place.opening_hours
-            place.price_level = ai_data.get("price_level") or place.price_level
-            place.rating = ai_data.get("rating") or place.rating
-            
-            if ai_data.get("tags") and isinstance(ai_data["tags"], list):
-                place.tags_json = json.dumps(ai_data["tags"])
-                
             # Assign explicitly extracted Real You.com images or Wikipedia fallback
             hero_url = None
             gallery_raw = []
@@ -547,31 +539,63 @@ Return a JSON object with these keys ONLY:
                 gallery_raw = extracted_images[1:]
             else:
                 # Fallback to Wikipedia images with full query variations
-                wiki_images = await fetch_wiki_images(place.name, destination.name, place.local_name)
+                wiki_images = await fetch_wiki_images(ai_data.get("name", place_name), dest_name, ai_data.get("local_name", place_local_name))
                 if wiki_images:
                     hero_url = wiki_images[0]
                     gallery_raw = wiki_images
-                elif not place.hero_image_url or "/images/destinations/" in place.hero_image_url:
-                    hero_url = destination.hero_image_url
-                    gallery_raw = [destination.hero_image_url] if destination.hero_image_url else []
+                elif not place_curr_hero or "/images/destinations/" in place_curr_hero:
+                    hero_url = dest_hero
+                    gallery_raw = [dest_hero] if dest_hero else []
                 
             if hero_url:
-                place.hero_image_url = await self._sync_single_image(hero_url, destination.name, place.name)
+                hero_url = await self._sync_single_image(hero_url, dest_name, ai_data.get("name", place_name))
                 
+            synced_gallery_json = None
             if gallery_raw and isinstance(gallery_raw, list):
-                gallery_tasks = [self._sync_single_image(url, destination.name, place.name) for url in gallery_raw[:4] if url and url.startswith("http")]
+                gallery_tasks = [self._sync_single_image(url, dest_name, ai_data.get("name", place_name)) for url in gallery_raw[:4] if url and url.startswith("http")]
                 if gallery_tasks:
                     synced_gallery = await asyncio.gather(*gallery_tasks, return_exceptions=True)
-                    place.gallery_json = json.dumps([item for item in synced_gallery if isinstance(item, str)])
+                    synced_gallery_json = json.dumps([item for item in synced_gallery if isinstance(item, str)])
 
-            place.verification_status = "AI_UPDATED"
-            
-            db.commit()
+            # Fast atomic write to DB
+            db = SessionLocal()
+            try:
+                place = db.query(Place).filter(Place.id == place_id).first()
+                if not place:
+                    return {"status": "failed", "message": "Place not found during commit."}
 
-            return {"status": "success", "message": f"Updated {place.name} successfully."}
+                place.name = ai_data.get("name", place.name)
+                place.local_name = ai_data.get("local_name") or place.local_name
+                place.place_type = ai_data.get("place_type") or place.place_type
+                place.description = ai_data.get("description") or place.description
+                place.description_km = ai_data.get("description_km") or place.description_km
+                place.address = ai_data.get("address") or place.address
+                place.latitude = ai_data.get("latitude") or place.latitude
+                place.longitude = ai_data.get("longitude") or place.longitude
+                place.phone = ai_data.get("phone") or place.phone
+                place.website = ai_data.get("website") or place.website
+                place.opening_hours = ai_data.get("opening_hours") or place.opening_hours
+                place.price_level = ai_data.get("price_level") or place.price_level
+                place.rating = ai_data.get("rating") or place.rating
+                
+                if ai_data.get("tags") and isinstance(ai_data["tags"], list):
+                    place.tags_json = json.dumps(ai_data["tags"])
+
+                if hero_url:
+                    place.hero_image_url = hero_url
+                if synced_gallery_json:
+                    place.gallery_json = synced_gallery_json
+
+                place.verification_status = "AI_UPDATED"
+                db.commit()
+                return {"status": "success", "message": f"Updated {place.name} successfully."}
+            except Exception as commit_err:
+                db.rollback()
+                raise commit_err
+            finally:
+                db.close()
 
         except Exception as e:
-            db.rollback()
             logger.error(f"Failed to update place via AI: {e}")
             error_str = str(e)
             user_message = f"Error: {error_str}"
@@ -581,8 +605,6 @@ Return a JSON object with these keys ONLY:
                 user_message = "Your Google Gemini API Key is invalid. Please check Settings."
                 
             return {"status": "failed", "message": user_message}
-        finally:
-            db.close()
 
     async def _sync_single_image(self, img_url: str, dest_name: str, place_name: str = None) -> str:
         """
@@ -654,58 +676,63 @@ Return a JSON object with these keys ONLY:
         return img_url
 
     async def save_approved_place(self, place_dict: dict) -> dict:
+        name = place_dict.get("name", "").strip()
+        dest_id = place_dict.get("destination_id")
+        if not name or not dest_id:
+            raise ValueError("Missing name or destination_id")
+
         db = SessionLocal()
         try:
-            name = place_dict.get("name", "").strip()
-            dest_id = place_dict.get("destination_id")
-            if not name or not dest_id:
-                raise ValueError("Missing name or destination_id")
-
             existing = db.query(Place).filter(Place.destination_id == dest_id, Place.name == name).first()
             if existing:
                 return {"status": "skipped", "message": "Already exists"}
 
+            destination = db.query(Destination).filter(Destination.id == dest_id).first()
+            dest_name = destination.name if destination else "Cambodia"
+            dest_hero = destination.hero_image_url if destination else None
+        finally:
+            db.close()
+
+        # Fetch images for the approved place OUTSIDE the database session
+        hero_url = place_dict.get("hero_image_url")
+        gallery_json = place_dict.get("gallery_json", "[]")
+        
+        # Fetch images if not already provided or if placeholder
+        if not hero_url or "/images/destinations/" in hero_url:
+            img_urls = await fetch_wiki_images(name, dest_name, place_dict.get("local_name"))
+            if img_urls:
+                hero_url = img_urls[0]
+                gallery_json = json.dumps(img_urls[:4])
+            elif dest_hero:
+                hero_url = dest_hero
+
+        # Dual storage synchronization:
+        # 1. Google Drive for persistent backup
+        # 2. Cloudflare R2 for fast public display
+        if hero_url and hero_url.startswith("http"):
+            try:
+                hero_url = await self._sync_single_image(hero_url, dest_name, name)
+            except Exception as hero_err:
+                logger.warning(f"Hero image sync failed for {name}, keeping original URL: {hero_err}")
+
+        # Process gallery items concurrently
+        try:
+            gallery_list = json.loads(gallery_json) if isinstance(gallery_json, str) else (gallery_json or [])
+            if gallery_list and isinstance(gallery_list, list):
+                gallery_tasks = [self._sync_single_image(g, dest_name, name) for g in gallery_list[:4] if g and g.startswith("http")]
+                if gallery_tasks:
+                    synced_items = await asyncio.gather(*gallery_tasks, return_exceptions=True)
+                    gallery_json = json.dumps([item for item in synced_items if isinstance(item, str)])
+        except Exception as gal_err:
+            logger.warning(f"Gallery sync error: {gal_err}")
+
+        # Fast atomic insert into DB
+        db = SessionLocal()
+        try:
             base_slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
             slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
             while db.query(Place).filter(Place.slug == slug).first():
                 slug = f"{base_slug}-{uuid.uuid4().hex[:6]}"
-
-            # Fetch images for the approved place
-            destination = db.query(Destination).filter(Destination.id == dest_id).first()
-            dest_name = destination.name if destination else "Cambodia"
-            
-            hero_url = place_dict.get("hero_image_url")
-            gallery_json = place_dict.get("gallery_json", "[]")
-            
-            # Fetch images if not already provided or if placeholder
-            if not hero_url or "/images/destinations/" in hero_url:
-                img_urls = await fetch_wiki_images(name, dest_name, place_dict.get("local_name"))
-                if img_urls:
-                    hero_url = img_urls[0]
-                    gallery_json = json.dumps(img_urls[:4])
-                elif destination and destination.hero_image_url:
-                    hero_url = destination.hero_image_url
-
-            # Dual storage synchronization:
-            # 1. Google Drive for persistent backup
-            # 2. Cloudflare R2 for fast public display
-            if hero_url and hero_url.startswith("http"):
-                try:
-                    hero_url = await self._sync_single_image(hero_url, dest_name, name)
-                except Exception as hero_err:
-                    logger.warning(f"Hero image sync failed for {name}, keeping original URL: {hero_err}")
-
-            # Process gallery items concurrently
-            try:
-                gallery_list = json.loads(gallery_json) if isinstance(gallery_json, str) else (gallery_json or [])
-                if gallery_list and isinstance(gallery_list, list):
-                    gallery_tasks = [self._sync_single_image(g, dest_name, name) for g in gallery_list[:4] if g and g.startswith("http")]
-                    if gallery_tasks:
-                        synced_items = await asyncio.gather(*gallery_tasks, return_exceptions=True)
-                        gallery_json = json.dumps([item for item in synced_items if isinstance(item, str)])
-            except Exception as gal_err:
-                logger.warning(f"Gallery sync error: {gal_err}")
-
 
             new_place = Place(
                 id=uuid.uuid4().hex,

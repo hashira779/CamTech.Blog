@@ -3,7 +3,7 @@ import { getToken, logout } from './auth';
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api/v1',
-  timeout: 180000,
+  timeout: 45000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -17,15 +17,23 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+let isRedirecting = false;
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      logout();
-      // Only redirect if not already on the login page to avoid redirect loops
-      if (!window.location.pathname.startsWith('/login')) {
-        const currentPath = window.location.pathname + window.location.search;
-        window.location.href = `/login?expired=1&redirect=${encodeURIComponent(currentPath)}`;
+      if (!isRedirecting) {
+        isRedirecting = true;
+        logout();
+        // Only redirect if not already on the login page to avoid redirect loops
+        if (!window.location.pathname.startsWith('/login')) {
+          const currentPath = window.location.pathname + window.location.search;
+          window.location.href = `/login?expired=1&redirect=${encodeURIComponent(currentPath)}`;
+        }
+        setTimeout(() => {
+          isRedirecting = false;
+        }, 3000);
       }
     }
     return Promise.reject(error);

@@ -42,6 +42,8 @@ class NearbyService:
         results = []
 
         for p in places:
+            if p.latitude is None or p.longitude is None:
+                continue
             dist = haversine_km(lat, lng, p.latitude, p.longitude)
             if dist <= radius_km:
                 walk_mins = max(1, round((dist / 4.5) * 60))
@@ -68,7 +70,7 @@ class NearbyService:
         Find all places near a specific landmark/attraction (e.g. Angkor Wat).
         """
         ref_place = self.db.query(Place).filter(Place.slug == place_slug).first()
-        if not ref_place:
+        if not ref_place or ref_place.latitude is None or ref_place.longitude is None:
             return None
 
         nearby_items = self.search_nearby_coordinates(
