@@ -37,6 +37,19 @@ class Destination(Base):
     status = Column(String(30), default="ACTIVE")  # ACTIVE, ARCHIVED
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+    # Dynamic Provincial Landmark & Symbol attributes
+    symbol_name = Column(String(200), nullable=True)
+    symbol_name_km = Column(String(200), nullable=True)
+    symbol_nickname = Column(String(255), nullable=True)
+    symbol_nickname_km = Column(String(255), nullable=True)
+    symbol_monument_type = Column(String(100), nullable=True)
+    symbol_story = Column(Text, nullable=True)
+    symbol_photo_spot_tip = Column(Text, nullable=True)
+    symbol_must_try_specialty = Column(Text, nullable=True)
+    symbol_accent_color = Column(String(50), nullable=True)
+    symbol_emoji = Column(String(20), nullable=True)
+    symbol_image_url = Column(String(500), nullable=True)
+
     country = relationship("Country", back_populates="destinations")
     places = relationship("Place", back_populates="destination")
     trips = relationship("Trip", back_populates="destination")

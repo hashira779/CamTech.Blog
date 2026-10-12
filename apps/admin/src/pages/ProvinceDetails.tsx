@@ -19,10 +19,39 @@ import {
   Filter,
   CheckCircle,
   X,
-  Sparkles
+  Sparkles,
+  Edit3,
+  Save,
+  Camera,
+  Utensils,
+  BookOpen,
+  Palette
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useToast } from '../components/ui/Toast';
+
+export interface DestinationDetail {
+  id?: string;
+  slug: string;
+  name: string;
+  name_km?: string;
+  overview?: string;
+  overview_km?: string;
+  hero_image_url?: string;
+  best_time_to_visit?: string;
+  is_featured?: boolean;
+  symbol_name?: string;
+  symbol_name_km?: string;
+  symbol_nickname?: string;
+  symbol_nickname_km?: string;
+  symbol_monument_type?: string;
+  symbol_story?: string;
+  symbol_photo_spot_tip?: string;
+  symbol_must_try_specialty?: string;
+  symbol_accent_color?: string;
+  symbol_emoji?: string;
+  symbol_image_url?: string;
+}
 
 const resolveImageUrl = (url?: string) => {
   if (!url) return '';
@@ -100,9 +129,43 @@ export default function ProvinceDetails() {
   const [isUpdatingAll, setIsUpdatingAll] = useState(false);
   const [updatingPlaceId, setUpdatingPlaceId] = useState<string | null>(null);
 
+  // Dynamic Destination & Provincial Symbol State
+  const [destination, setDestination] = useState<DestinationDetail | null>(null);
+  const [isEditingDest, setIsEditingDest] = useState(false);
+  const [destFormData, setDestFormData] = useState<Partial<DestinationDetail>>({});
+  const [isSavingDest, setIsSavingDest] = useState(false);
+
   useEffect(() => {
     fetchPlaces();
+    fetchDestination();
   }, [slug]);
+
+  const fetchDestination = async () => {
+    try {
+      const res = await api.get<DestinationDetail>(`/travel/destinations/${slug}`);
+      if (res.data) {
+        setDestination(res.data);
+        setDestFormData(res.data);
+      }
+    } catch (err) {
+      console.warn('Could not load destination metadata:', err);
+    }
+  };
+
+  const handleSaveDestination = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingDest(true);
+    try {
+      await api.patch(`/admin/destinations/${slug}`, destFormData);
+      toastSuccess('Province & Symbol details successfully updated!', 'Saved');
+      setIsEditingDest(false);
+      await fetchDestination();
+    } catch (err: any) {
+      toastError(err.response?.data?.detail || 'Failed to update destination details.');
+    } finally {
+      setIsSavingDest(false);
+    }
+  };
 
   const fetchPlaces = async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -309,9 +372,17 @@ export default function ProvinceDetails() {
             <ArrowLeft size={16} />
           </button>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">{provinceName}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">{destination?.name || provinceName}</h1>
+              {destination?.name_km && (
+                <span className="text-lg text-zinc-400 font-sans font-medium">({destination.name_km})</span>
+              )}
               <span className="badge-pill badge-emerald">Active Hub</span>
+              {destination?.is_featured && (
+                <span className="badge-pill badge-amber font-mono flex items-center gap-1">
+                  <Star size={10} className="fill-amber-400" /> Featured
+                </span>
+              )}
             </div>
             <p className="text-xs text-zinc-400 mt-1 flex items-center gap-2">
               <span>{places.length} registered destinations</span>
@@ -326,6 +397,13 @@ export default function ProvinceDetails() {
         {/* Action Toolbar */}
         <div className="flex items-center gap-2.5 flex-wrap">
           <button 
+            onClick={() => setIsEditingDest(!isEditingDest)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 rounded-lg transition-all shadow-sm cursor-pointer"
+          >
+            <Edit3 size={13} />
+            <span>{isEditingDest ? 'Close Editor' : 'Edit Province Symbol'}</span>
+          </button>
+          <button 
             onClick={handleUpdateAll}
             disabled={isUpdatingAll || isScanning || loading || places.length === 0}
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 rounded-lg transition-all shadow-sm disabled:opacity-50"
@@ -334,9 +412,9 @@ export default function ProvinceDetails() {
             <span>Update All via AI</span>
           </button>
           <button 
-            onClick={() => fetchPlaces()}
+            onClick={() => { fetchPlaces(); fetchDestination(); }}
             disabled={loading || isUpdatingAll}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-zinc-300 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 rounded-lg transition-all shadow-sm disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-zinc-300 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 rounded-lg transition-all shadow-sm disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
             <span>Refresh</span>
@@ -344,13 +422,267 @@ export default function ProvinceDetails() {
           <button 
             onClick={handleScan}
             disabled={isScanning || isUpdatingAll}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg text-xs transition-all shadow-md hover:shadow-emerald-950/40 disabled:opacity-50"
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg text-xs transition-all shadow-md hover:shadow-emerald-950/40 disabled:opacity-50 cursor-pointer"
           >
             {isScanning ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
             <span>{isScanning ? 'Scanning...' : 'Scan with AI'}</span>
           </button>
         </div>
       </div>
+
+      {/* 1.5. Dynamic Provincial Symbol & Metadata Card */}
+      {destination && (
+        <div className="rounded-2xl bg-zinc-900/70 border border-zinc-800 p-5 shadow-sm space-y-4">
+          {!isEditingDest ? (
+            <div className="flex flex-col lg:flex-row items-start justify-between gap-6">
+              <div className="flex items-start gap-4">
+                <div 
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0 border border-white/10 shadow-lg relative overflow-hidden"
+                  style={{ 
+                    backgroundColor: destination.symbol_accent_color ? `${destination.symbol_accent_color}22` : '#10b98122',
+                    borderColor: destination.symbol_accent_color || '#10b981'
+                  }}
+                >
+                  <span>{destination.symbol_emoji || '🏛️'}</span>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-lg font-bold text-white tracking-tight">
+                      {destination.symbol_name || 'Provincial Symbol & Landmark'}
+                    </h2>
+                    {destination.symbol_name_km && (
+                      <span className="text-sm font-sans text-amber-400 font-medium">
+                        {destination.symbol_name_km}
+                      </span>
+                    )}
+                    {destination.symbol_monument_type && (
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
+                        {destination.symbol_monument_type}
+                      </span>
+                    )}
+                  </div>
+                  {destination.symbol_nickname && (
+                    <p className="text-xs text-zinc-300 italic">
+                      &ldquo;{destination.symbol_nickname}&rdquo;
+                      {destination.symbol_nickname_km && ` (${destination.symbol_nickname_km})`}
+                    </p>
+                  )}
+                  {destination.symbol_story && (
+                    <p className="text-xs text-zinc-400 line-clamp-2 max-w-3xl pt-1 leading-relaxed">
+                      {destination.symbol_story}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-4 pt-2 text-[11px] text-zinc-400">
+                    {destination.symbol_photo_spot_tip && (
+                      <span className="flex items-center gap-1.5 text-sky-400">
+                        <Camera size={13} />
+                        <span className="text-zinc-300 line-clamp-1">Photo Spot: {destination.symbol_photo_spot_tip}</span>
+                      </span>
+                    )}
+                    {destination.symbol_must_try_specialty && (
+                      <span className="flex items-center gap-1.5 text-emerald-400">
+                        <Utensils size={13} />
+                        <span className="text-zinc-300 line-clamp-1">Specialty: {destination.symbol_must_try_specialty}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0 self-end lg:self-center">
+                {destination.hero_image_url && (
+                  <img 
+                    src={resolveImageUrl(destination.hero_image_url)} 
+                    alt={destination.name}
+                    className="w-24 h-16 rounded-xl object-cover border border-zinc-800 shadow-sm"
+                  />
+                )}
+                <button
+                  onClick={() => setIsEditingDest(true)}
+                  className="px-3.5 py-2 text-xs font-medium text-zinc-200 bg-zinc-800 hover:bg-zinc-700 rounded-lg border border-zinc-700 flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Edit3 size={13} />
+                  <span>Edit Symbol</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSaveDestination} className="space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+                <div className="flex items-center gap-2">
+                  <Palette size={16} className="text-amber-400" />
+                  <h3 className="text-sm font-bold text-white">Edit Destination & Cultural Symbol</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingDest(false)}
+                  className="text-zinc-400 hover:text-white text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                <div>
+                  <label className="block text-zinc-400 mb-1 font-medium">Khmer Name (ឈ្មោះខេត្ត)</label>
+                  <input
+                    type="text"
+                    value={destFormData.name_km || ''}
+                    onChange={(e) => setDestFormData({ ...destFormData, name_km: e.target.value })}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-zinc-600"
+                    placeholder="e.g. សៀមរាប"
+                  />
+                </div>
+                <div>
+                  <label className="block text-zinc-400 mb-1 font-medium">Symbol Emoji</label>
+                  <input
+                    type="text"
+                    value={destFormData.symbol_emoji || ''}
+                    onChange={(e) => setDestFormData({ ...destFormData, symbol_emoji: e.target.value })}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-zinc-600"
+                    placeholder="e.g. 🏛️"
+                  />
+                </div>
+                <div>
+                  <label className="block text-zinc-400 mb-1 font-medium">Accent Color (Hex)</label>
+                  <input
+                    type="text"
+                    value={destFormData.symbol_accent_color || ''}
+                    onChange={(e) => setDestFormData({ ...destFormData, symbol_accent_color: e.target.value })}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-zinc-600"
+                    placeholder="e.g. #f59e0b"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-zinc-400 mb-1 font-medium">Symbol Landmark Name</label>
+                  <input
+                    type="text"
+                    value={destFormData.symbol_name || ''}
+                    onChange={(e) => setDestFormData({ ...destFormData, symbol_name: e.target.value })}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-zinc-600"
+                    placeholder="e.g. Angkor Wat Temple Towers"
+                  />
+                </div>
+                <div>
+                  <label className="block text-zinc-400 mb-1 font-medium">Symbol Name (Khmer)</label>
+                  <input
+                    type="text"
+                    value={destFormData.symbol_name_km || ''}
+                    onChange={(e) => setDestFormData({ ...destFormData, symbol_name_km: e.target.value })}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-zinc-600"
+                    placeholder="e.g. កំពូលប្រាសាទអង្គរវត្ត"
+                  />
+                </div>
+                <div>
+                  <label className="block text-zinc-400 mb-1 font-medium">Monument Type</label>
+                  <input
+                    type="text"
+                    value={destFormData.symbol_monument_type || ''}
+                    onChange={(e) => setDestFormData({ ...destFormData, symbol_monument_type: e.target.value })}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-zinc-600"
+                    placeholder="e.g. UNESCO World Heritage Wonder"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-zinc-400 mb-1 font-medium">Symbol Nickname</label>
+                  <input
+                    type="text"
+                    value={destFormData.symbol_nickname || ''}
+                    onChange={(e) => setDestFormData({ ...destFormData, symbol_nickname: e.target.value })}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-zinc-600"
+                    placeholder="e.g. Cradle of Khmer Civilization"
+                  />
+                </div>
+                <div>
+                  <label className="block text-zinc-400 mb-1 font-medium">Symbol Nickname (Khmer)</label>
+                  <input
+                    type="text"
+                    value={destFormData.symbol_nickname_km || ''}
+                    onChange={(e) => setDestFormData({ ...destFormData, symbol_nickname_km: e.target.value })}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-zinc-600"
+                    placeholder="e.g. បេះដូងនៃអរិយធម៌ខ្មែរ"
+                  />
+                </div>
+                <div>
+                  <label className="block text-zinc-400 mb-1 font-medium">Hero Image URL</label>
+                  <input
+                    type="text"
+                    value={destFormData.hero_image_url || ''}
+                    onChange={(e) => setDestFormData({ ...destFormData, hero_image_url: e.target.value })}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-zinc-600"
+                    placeholder="e.g. /images/destinations/siem-reap.jpg"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="block text-zinc-400 mb-1 font-medium">Photo Spot Tip</label>
+                  <input
+                    type="text"
+                    value={destFormData.symbol_photo_spot_tip || ''}
+                    onChange={(e) => setDestFormData({ ...destFormData, symbol_photo_spot_tip: e.target.value })}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-zinc-600"
+                    placeholder="e.g. Position camera beside the northern reflection pond at 5:15 AM..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-zinc-400 mb-1 font-medium">Must-Try Specialty Food</label>
+                  <input
+                    type="text"
+                    value={destFormData.symbol_must_try_specialty || ''}
+                    onChange={(e) => setDestFormData({ ...destFormData, symbol_must_try_specialty: e.target.value })}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-zinc-600"
+                    placeholder="e.g. Fresh Kampot Durian slices, Black Pepper Crab..."
+                  />
+                </div>
+              </div>
+
+              <div className="text-xs">
+                <label className="block text-zinc-400 mb-1 font-medium">Story & Historical Significance</label>
+                <textarea
+                  rows={2}
+                  value={destFormData.symbol_story || ''}
+                  onChange={(e) => setDestFormData({ ...destFormData, symbol_story: e.target.value })}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-zinc-200 focus:outline-none focus:border-zinc-600"
+                  placeholder="Tell the cultural folklore and background of this landmark..."
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!destFormData.is_featured}
+                    onChange={(e) => setDestFormData({ ...destFormData, is_featured: e.target.checked })}
+                    className="rounded bg-zinc-950 border-zinc-700 text-amber-500 focus:ring-0"
+                  />
+                  <span>Feature as Top Hub on Homepage</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingDest(false)}
+                    className="px-3 py-1.5 text-xs text-zinc-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingDest}
+                    className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-1.5 rounded-lg text-xs transition-all shadow-md cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingDest ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
+                    <span>{isSavingDest ? 'Saving...' : 'Save Symbol'}</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
 
       {/* 2. Top Summary KPI Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">

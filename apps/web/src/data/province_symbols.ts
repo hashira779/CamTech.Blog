@@ -1,3 +1,5 @@
+import { Destination } from "@/types";
+
 export interface ProvinceSymbol {
   slug: string;
   name: string;
@@ -496,15 +498,11 @@ export const PROVINCE_SYMBOLS: Record<string, ProvinceSymbol> = {
   },
 };
 
-export function getProvinceSymbol(slug: string): ProvinceSymbol {
-  if (PROVINCE_SYMBOLS[slug]) {
-    return PROVINCE_SYMBOLS[slug];
-  }
-  // Fallback for custom or unlisted destination
-  return {
+export function getProvinceSymbol(slug: string, destination?: Destination | null): ProvinceSymbol {
+  const fallback = PROVINCE_SYMBOLS[slug] || {
     slug,
-    name: slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-    nameKm: "កម្ពុជា",
+    name: destination?.name || slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    nameKm: destination?.name_km || "កម្ពុជា",
     symbolName: "Provincial Landmark & Cultural Symbol",
     symbolNameKm: "និមិត្តសញ្ញាខេត្ត",
     nickname: "Heart of Ancient Khmer Heritage",
@@ -518,6 +516,31 @@ export function getProvinceSymbol(slug: string): ProvinceSymbol {
     ringGlow: "rgba(20, 184, 166, 0.4)",
     accentColor: "#14b8a6",
     emoji: "🇰🇭",
-    image: "/images/places/angkor-wat.jpg",
+    image: destination?.hero_image_url || "/images/places/angkor-wat.jpg",
+  };
+
+  if (!destination) {
+    return fallback;
+  }
+
+  // Dynamic priority: live API values override static fallback
+  return {
+    slug: destination.slug || fallback.slug,
+    name: destination.name || fallback.name,
+    nameKm: destination.name_km || fallback.nameKm,
+    symbolName: destination.symbol_name || fallback.symbolName,
+    symbolNameKm: destination.symbol_name_km || fallback.symbolNameKm,
+    nickname: destination.symbol_nickname || fallback.nickname,
+    nicknameKm: destination.symbol_nickname_km || fallback.nicknameKm,
+    monumentType: destination.symbol_monument_type || fallback.monumentType,
+    highlights: fallback.highlights,
+    story: destination.symbol_story || fallback.story,
+    photoSpotTip: destination.symbol_photo_spot_tip || fallback.photoSpotTip,
+    mustTrySpecialty: destination.symbol_must_try_specialty || fallback.mustTrySpecialty,
+    badgeGradient: fallback.badgeGradient,
+    ringGlow: fallback.ringGlow,
+    accentColor: destination.symbol_accent_color || fallback.accentColor,
+    emoji: destination.symbol_emoji || fallback.emoji,
+    image: destination.symbol_image_url || destination.hero_image_url || fallback.image,
   };
 }

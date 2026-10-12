@@ -281,6 +281,17 @@ export interface Destination {
   country?: Country;
   places?: Place[];
   trips?: Trip[];
+  symbol_name?: string;
+  symbol_name_km?: string;
+  symbol_nickname?: string;
+  symbol_nickname_km?: string;
+  symbol_monument_type?: string;
+  symbol_story?: string;
+  symbol_photo_spot_tip?: string;
+  symbol_must_try_specialty?: string;
+  symbol_accent_color?: string;
+  symbol_emoji?: string;
+  symbol_image_url?: string;
 }
 
 export interface TripDayItem {

@@ -1,14 +1,20 @@
 import Link from "next/link";
-import { getArticles } from "@/lib/api";
+import { getArticles, getTrending } from "@/lib/api";
 import { NewsCard } from "@/components/news/NewsCard";
 import { AdSlot } from "@/components/ads/AdSlot";
 
 export const revalidate = 60;
 
 export default async function CambodiaNewsPage() {
-  const { items } = await getArticles({ country: "KH", limit: 20 });
+  const [{ items }, trending] = await Promise.all([
+    getArticles({ country: "KH", limit: 20 }),
+    getTrending(),
+  ]);
   const featuredArticles = items.slice(0, 2);
-  const latestArticles = items.slice(2);
+  const latestArticles = items.slice(2, 10);
+  const topInsights = trending.editor_picks?.length > 0 
+    ? trending.editor_picks.slice(0, 4) 
+    : items.slice(10, 14);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-[#FAF9F6]">
@@ -83,11 +89,13 @@ export default async function CambodiaNewsPage() {
               </h3>
               
               <div className="space-y-6 divide-y-[1px] divide-neutral-100">
-                {[1, 2, 3, 4].map((i) => (
-                  <Link key={i} href="#" className="block pt-6 first:pt-0 group">
-                    <span className="text-[10px] text-neutral-400 uppercase tracking-widest font-semibold block mb-1">Analysis</span>
+                {topInsights.map((art) => (
+                  <Link key={art.id} href={`/cambodia/news/${art.slug}`} className="block pt-6 first:pt-0 group">
+                    <span className="text-[10px] text-neutral-400 uppercase tracking-widest font-semibold block mb-1">
+                      {typeof art.category === "object" ? (art.category as any)?.name : (art.category || "Insight")}
+                    </span>
                     <h4 className="text-base font-serif text-neutral-900 leading-snug group-hover:text-neutral-500 transition-colors">
-                      The Quiet Rise of Neo-Minimalism in Urban Architecture
+                      {art.title}
                     </h4>
                   </Link>
                 ))}

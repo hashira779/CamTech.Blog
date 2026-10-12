@@ -31,6 +31,17 @@ class DestinationBase(BaseModel):
     best_time_to_visit: Optional[str] = None
     practical_info: Optional[str] = None
     is_featured: Optional[bool] = False
+    symbol_name: Optional[str] = None
+    symbol_name_km: Optional[str] = None
+    symbol_nickname: Optional[str] = None
+    symbol_nickname_km: Optional[str] = None
+    symbol_monument_type: Optional[str] = None
+    symbol_story: Optional[str] = None
+    symbol_photo_spot_tip: Optional[str] = None
+    symbol_must_try_specialty: Optional[str] = None
+    symbol_accent_color: Optional[str] = None
+    symbol_emoji: Optional[str] = None
+    symbol_image_url: Optional[str] = None
 
 class DestinationCreate(DestinationBase):
     country_id: str

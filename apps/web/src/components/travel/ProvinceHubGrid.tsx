@@ -88,7 +88,7 @@ export function ProvinceHubGrid({ destinations }: ProvinceHubGridProps) {
       {/* 3-Column Editorial Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredDestinations.map((dest, i) => {
-          const symbol = getProvinceSymbol(dest.slug);
+          const symbol = getProvinceSymbol(dest.slug, dest);
           return (
             <Link
               key={`${activeCategory}-${dest.id || dest.slug}`}

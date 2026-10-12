@@ -28,6 +28,8 @@ from app.api.v1.storage_config import router as storage_config_router
 async def lifespan(app: FastAPI):
     # Initialize database tables on startup
     Base.metadata.create_all(bind=engine)
+    from app.common.schema_migration import ensure_database_schema
+    ensure_database_schema()
     
     # Start background schedulers
     from apscheduler.schedulers.asyncio import AsyncIOScheduler

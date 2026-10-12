@@ -354,6 +354,17 @@ class DestinationUpdateRequest(BaseModel):
     overview: Optional[str] = None
     best_time_to_visit: Optional[str] = None
     is_featured: Optional[bool] = None
+    symbol_name: Optional[str] = None
+    symbol_name_km: Optional[str] = None
+    symbol_nickname: Optional[str] = None
+    symbol_nickname_km: Optional[str] = None
+    symbol_monument_type: Optional[str] = None
+    symbol_story: Optional[str] = None
+    symbol_photo_spot_tip: Optional[str] = None
+    symbol_must_try_specialty: Optional[str] = None
+    symbol_accent_color: Optional[str] = None
+    symbol_emoji: Optional[str] = None
+    symbol_image_url: Optional[str] = None
 
 @router.patch("/destinations/{slug}")
 def admin_update_destination(
@@ -362,7 +373,7 @@ def admin_update_destination(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    """Update destination details (hero image, overview, etc.)"""
+    """Update destination details (hero image, overview, symbol, etc.)"""
     from app.models.location import Destination
     dest = db.query(Destination).filter(Destination.slug == slug).first()
     if not dest:
@@ -375,6 +386,28 @@ def admin_update_destination(
         dest.best_time_to_visit = update.best_time_to_visit
     if update.is_featured is not None:
         dest.is_featured = update.is_featured
+    if update.symbol_name is not None:
+        dest.symbol_name = update.symbol_name
+    if update.symbol_name_km is not None:
+        dest.symbol_name_km = update.symbol_name_km
+    if update.symbol_nickname is not None:
+        dest.symbol_nickname = update.symbol_nickname
+    if update.symbol_nickname_km is not None:
+        dest.symbol_nickname_km = update.symbol_nickname_km
+    if update.symbol_monument_type is not None:
+        dest.symbol_monument_type = update.symbol_monument_type
+    if update.symbol_story is not None:
+        dest.symbol_story = update.symbol_story
+    if update.symbol_photo_spot_tip is not None:
+        dest.symbol_photo_spot_tip = update.symbol_photo_spot_tip
+    if update.symbol_must_try_specialty is not None:
+        dest.symbol_must_try_specialty = update.symbol_must_try_specialty
+    if update.symbol_accent_color is not None:
+        dest.symbol_accent_color = update.symbol_accent_color
+    if update.symbol_emoji is not None:
+        dest.symbol_emoji = update.symbol_emoji
+    if update.symbol_image_url is not None:
+        dest.symbol_image_url = update.symbol_image_url
     db.commit()
     db.refresh(dest)
     return {"success": True, "slug": dest.slug, "hero_image_url": dest.hero_image_url}

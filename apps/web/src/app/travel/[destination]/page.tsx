@@ -51,7 +51,7 @@ export default async function DestinationPage({ params }: PageProps) {
   }
 
   const places = destination.places || [];
-  const provinceSymbol = getProvinceSymbol(destination.slug);
+  const provinceSymbol = getProvinceSymbol(destination.slug, destination);
 
   return (
     <div className="min-h-screen pb-24">
