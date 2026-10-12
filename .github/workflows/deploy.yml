@@ -32,7 +32,10 @@ jobs:
           
           echo "Starting deployment (minimal downtime)..."
           if ! docker compose up -d --remove-orphans; then
-            echo "❌ Deployment failed! Initiating auto-rollback to $PREV_COMMIT..."
+            echo "❌ Deployment failed! Printing container logs..."
+            docker compose ps -a
+            docker compose logs --tail 80 api || true
+            echo "Initiating auto-rollback to $PREV_COMMIT..."
             git reset --hard $PREV_COMMIT
             docker compose up -d --remove-orphans
             echo "✅ Auto-rollback completed. Marking action as failed."
