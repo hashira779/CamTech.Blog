@@ -26,6 +26,7 @@ from app.models.audit import SiteSetting
 from app.services.google_drive_service import storage_service
 from app.services.s3_service import s3_service
 from app.services.image_search_service import image_search_service
+from app.services import ai_gateway
 
 logger = logging.getLogger(__name__)
 
@@ -335,19 +336,9 @@ CAMBODIA_PROVINCES = [
 
 class AITourismEngine:
     """
-    Super engine that uses Google Gemini to discover and populate tourist places
-    for all 25 provinces of Cambodia automatically.
+    Super engine that uses the pluggable AI gateway to discover and populate tourist
+    places for all 25 provinces of Cambodia automatically.
     """
-
-    def _get_gemini_client(self, db):
-        """Get Gemini client using API key from DB settings or env fallback."""
-        if genai is None:
-            return None
-        api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'GEMINI_API_KEY').first()
-        api_key = api_key_setting.value_json if api_key_setting else settings.AI_API_KEY
-        if not api_key:
-            return None
-        return genai.Client(api_key=api_key)
 
     def _get_curated_fallback_places(self, province_slug: str, dest_name: str, dest_id: str, default_hero: str, existing_names_set: set) -> list[dict]:
         """Load verified heritage candidate places for this province."""
@@ -502,24 +493,10 @@ class AITourismEngine:
             db.commit()
             logger.info(f"Updated/Created {created_count} destination records with verified images.")
             
-    def _get_dynamic_fallback_models(self, client) -> list[str]:
-        """Prioritized list of real Google Gemini models."""
-        preferred = []
-        if settings.AI_MODEL_NAME and not any(fake in settings.AI_MODEL_NAME for fake in ["3.8", "3.5", "3.0", "3.1"]):
-            preferred.append(settings.AI_MODEL_NAME)
-        preferred.extend([
-            'gemini-2.5-flash',
-            'gemini-2.0-flash',
-            'gemini-1.5-flash',
-            'gemini-1.5-pro'
-        ])
-        return list(dict.fromkeys(preferred))
-
     async def discover_places_for_province(self, province_slug: str, auto_save: bool = False) -> dict:
         """Use Gemini AI to discover tourist places for a single province."""
         db = SessionLocal()
         try:
-            client = self._get_gemini_client(db)
             self._ensure_cambodia_destinations(db)
 
             destination = db.query(Destination).filter(Destination.slug == province_slug).first()
@@ -576,37 +553,14 @@ Return a JSON array of objects. Each object must have these keys:
 """
 
             response_text = None
-            last_error = None
 
-            if client:
-                fallback_models = self._get_dynamic_fallback_models(client)
-                for model_to_try in fallback_models:
-                    try:
-                        logger.info(f"Trying Gemini model: {model_to_try}")
-                        
-                        def _generate_gemini(m=model_to_try):
-                            return client.models.generate_content(
-                                model=m,
-                                contents=prompt,
-                                config=types.GenerateContentConfig(
-                                    temperature=0.4,
-                                    response_mime_type="application/json"
-                                )
-                            )
-
-                        # Strict 14-second timeout per model so overall request never times out
-                        response = await asyncio.wait_for(asyncio.to_thread(_generate_gemini), timeout=14.0)
-                        response_text = response.text
-                        logger.info(f"Success with model: {model_to_try}")
-                        break
-                    except asyncio.TimeoutError:
-                        logger.warning(f"Model {model_to_try} timed out after 14s, trying next model...")
-                        last_error = TimeoutError(f"Model {model_to_try} timed out")
-                        continue
-                    except Exception as model_err:
-                        last_error = model_err
-                        logger.warning(f"Model {model_to_try} failed: {model_err}, trying next...")
-                        continue
+            if ai_gateway.has_any_configured_provider():
+                text, meta = await asyncio.to_thread(
+                    ai_gateway.generate_text, prompt, use_search=True, timeout=30.0
+                )
+                if text:
+                    response_text = text
+                    logger.info(f"Place discovery via {(meta or {}).get('engine')}")
 
             if not response_text and you_api_key:
                 logger.info("Trying You.com API fallback...")
@@ -800,7 +754,6 @@ Return a JSON array of objects. Each object must have these keys:
 
             you_api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'YOU_API_KEY').first()
             you_api_key = you_api_key_setting.value_json if you_api_key_setting else os.environ.get("YOU_API_KEY")
-            client = self._get_gemini_client(db)
         finally:
             db.close()
 
@@ -853,50 +806,23 @@ Return a JSON object with these keys ONLY:
 - tags: Array of string tags, e.g. ["UNESCO", "Family Friendly", "Photography"]
 - rating: Estimated rating 1.0-5.0
 """
-            fallback_models = self._get_dynamic_fallback_models(client)
-
             response_text = None
-            last_error = None
 
             if you_api_key:
                 logger.info("Attempting You.com API for place update...")
                 response_text = await _call_you_com(prompt, you_api_key)
 
-            if not response_text and client:
-                for model_to_try in fallback_models:
-                    try:
-                        tools_config = None
-                        if "gemini-2.5" in model_to_try or "gemini-2.0" in model_to_try:
-                            try:
-                                tools_config = [types.Tool(google_search=types.GoogleSearch())]
-                            except Exception:
-                                tools_config = None
-                            
-                        def _generate_update(m=model_to_try, tc=tools_config):
-                            return client.models.generate_content(
-                                model=m,
-                                contents=prompt,
-                                config=types.GenerateContentConfig(
-                                    temperature=0.7,
-                                    response_mime_type="application/json",
-                                    tools=tc
-                                )
-                            )
-                        response = await asyncio.wait_for(asyncio.to_thread(_generate_update), timeout=18.0)
-                        response_text = response.text
-                        break
-                    except asyncio.TimeoutError:
-                        logger.warning(f"Update model {model_to_try} timed out after 18s")
-                        continue
-                    except Exception as model_err:
-                        last_error = model_err
-                        logger.warning(f"Update model {model_to_try} failed: {model_err}")
-                        continue
-                
+            if not response_text and ai_gateway.has_any_configured_provider():
+                text, meta = await asyncio.to_thread(
+                    ai_gateway.generate_text, prompt, use_search=True, timeout=30.0
+                )
+                if text:
+                    response_text = text
+
             if response_text is None:
                 return {
                     "status": "failed",
-                    "message": "AI update unavailable. Please check Google Gemini API Key in Settings."
+                    "message": "AI update unavailable. Configure an AI provider (and optional You.com key) in Settings."
                 }
 
             try:

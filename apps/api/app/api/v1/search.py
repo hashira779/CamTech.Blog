@@ -14,6 +14,7 @@ async def search_answer(
 ):
     """AI answer grounded in the site's own verified content (news, travel, quizzes, tools...)."""
     from app.services.ai_content_service import ai_content_service
+    from app.services import ai_gateway
 
     hits = SearchService.search(db=db, query_text=q, limit=8)
     citations = [
@@ -23,8 +24,7 @@ async def search_answer(
     if not hits:
         return SearchAnswerResponse(query=q, answer=None, citations=[])
 
-    client = ai_content_service._get_gemini_client(db)
-    if not client:
+    if not ai_gateway.has_any_configured_provider():
         return SearchAnswerResponse(query=q, answer=None, citations=citations)
 
     context = "\n".join(f"- [{h['type']}] {h['title']}: {h['summary']}" for h in hits)
@@ -34,7 +34,7 @@ async def search_answer(
         f"Question: {q}\nContent:\n{context}\n"
         'Return JSON: {"answer": string}'
     )
-    data, model = await ai_content_service._generate_json(client, prompt, use_search=False, timeout=25.0)
+    data, model = await ai_content_service._generate_json(prompt, use_search=False, timeout=25.0)
     answer = data.get("answer") if isinstance(data, dict) else None
     return SearchAnswerResponse(query=q, answer=answer, engine=model, citations=citations)
 

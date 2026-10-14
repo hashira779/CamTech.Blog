@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import asyncio
 import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
@@ -17,6 +18,7 @@ from app.common.database import SessionLocal
 from app.models.discovery import Discovery
 from app.models.audit import SiteSetting
 from app.services.image_search_service import image_search_service
+from app.services import ai_gateway
 
 logger = logging.getLogger(__name__)
 
@@ -102,16 +104,6 @@ class DiscoveryService:
     """Service for AI-powered generation and discovery of visual science/tech explainers."""
 
     @classmethod
-    def _get_gemini_client(cls, db):
-        if genai is None:
-            return None
-        api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'GEMINI_API_KEY').first()
-        api_key = api_key_setting.value_json if api_key_setting else settings.AI_API_KEY
-        if not api_key:
-            return None
-        return genai.Client(api_key=api_key)
-
-    @classmethod
     async def scan_and_generate_discoveries(cls, count: int = 2) -> Dict[str, Any]:
         """Discovers and generates in-depth scientific & technological discovery explainers."""
         db = SessionLocal()
@@ -119,13 +111,12 @@ class DiscoveryService:
         skipped_count = 0
 
         try:
-            client = cls._get_gemini_client(db)
             existing_slugs = set(s[0] for s in db.query(Discovery.slug).all())
             existing_titles = set(t[0].lower().strip() for t in db.query(Discovery.title).all())
 
-            # Try Gemini AI discovery generation
+            # Try AI gateway discovery generation
             generated_data = []
-            if client:
+            if ai_gateway.has_any_configured_provider():
                 prompt = f"""You are a world-class science and engineering explainer writer (like Kurzgesagt or Scientific American).
 Generate {count} fascinating, in-depth visual science or technology discovery articles explaining HOW something groundbreaking works.
 Choose from cutting-edge topics:
@@ -153,20 +144,11 @@ Return STRICT JSON ARRAY OF OBJECTS with these exact keys:
 ]
 Do NOT repeat basic tutorials. Deliver mind-expanding, accurate technical journalism. Only output valid JSON."""
 
-                for model in ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']:
-                    try:
-                        res = client.models.generate_content(
-                            model=model,
-                            contents=prompt,
-                            config=types.GenerateContentConfig(temperature=0.7, response_mime_type="application/json")
-                        )
-                        if res and res.text:
-                            parsed = json.loads(res.text)
-                            if isinstance(parsed, list):
-                                generated_data = parsed
-                                break
-                    except Exception as e:
-                        logger.warning(f"Discovery generation failed on {model}: {e}")
+                data, meta = await asyncio.to_thread(
+                    ai_gateway.generate_json, prompt, use_search=False, timeout=90.0
+                )
+                if isinstance(data, list):
+                    generated_data = data
 
             # Fallback to curated candidates if AI is unavailable or returned empty
             if not generated_data:

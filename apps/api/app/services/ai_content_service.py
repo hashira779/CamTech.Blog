@@ -21,20 +21,20 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 try:
-    from google import genai
-    from google.genai import types
+    from google import genai  # noqa: F401 (optional; gateway uses REST, this is legacy)
+    from google.genai import types  # noqa: F401
 except ImportError:  # SDK optional at import time
     genai = None
     types = None
 
-from app.common.config import settings
 from app.common.database import SessionLocal
-from app.models.audit import AuditLog, SiteSetting
+from app.models.audit import AuditLog
 from app.models.discovery import Discovery
 from app.models.guide_event import Event, TravelGuide
 from app.models.location import Destination
 from app.models.quiz import Quiz, QuizQuestion
 from app.services.image_search_service import image_search_service
+from app.services import ai_gateway
 
 logger = logging.getLogger(__name__)
 
@@ -60,81 +60,32 @@ def _meta(engine: str) -> str:
 
 
 class AIContentService:
-    """Shared Gemini client + JSON generation helpers for all content generators."""
+    """Generators for Discoveries, Daily Quiz and Travel content.
 
-    def _get_gemini_client(self, db):
-        if genai is None:
-            return None
-        key_row = db.query(SiteSetting).filter(SiteSetting.key == "GEMINI_API_KEY").first()
-        api_key = key_row.value_json if key_row else settings.AI_API_KEY
-        if not api_key:
-            return None
-        return genai.Client(api_key=api_key)
-
-    def _fallback_models(self) -> List[str]:
-        preferred = []
-        if settings.AI_MODEL_NAME and not any(f in settings.AI_MODEL_NAME for f in ["3.8", "3.5", "3.0", "3.1"]):
-            preferred.append(settings.AI_MODEL_NAME)
-        preferred.extend(["gemini-2.5-flash", "gemini-2.0-flash"])
-        return list(dict.fromkeys(preferred))
-
-    @staticmethod
-    def _extract_json(text: str) -> Any:
-        if not text:
-            return None
-        cleaned = re.sub(r"```(?:json)?", "", text).strip()
-        for candidate in (cleaned,):
-            try:
-                return json.loads(candidate)
-            except Exception:
-                pass
-        for open_ch, close_ch in (("[", "]"), ("{", "}")):
-            start, end = cleaned.find(open_ch), cleaned.rfind(close_ch)
-            if start != -1 and end > start:
-                try:
-                    return json.loads(cleaned[start:end + 1])
-                except Exception:
-                    continue
-        return None
+    All AI calls go through the pluggable multi-provider gateway (see ai_gateway), so any
+    enabled vendor (Gemini, OpenAI, Anthropic, Groq, ...) can back generation and a single
+    missing key never stops the pipeline.
+    """
 
     async def _generate_json(
         self,
-        client,
         prompt: str,
         use_search: bool = True,
         timeout: float = 90.0,
     ) -> Tuple[Any, Optional[str]]:
-        """Call Gemini across fallback models; returns (parsed_json, model_name)."""
-        for model in self._fallback_models():
-            tools = None
-            if use_search and ("gemini-2.5" in model or "gemini-2.0" in model):
-                try:
-                    tools = [types.Tool(google_search=types.GoogleSearch())]
-                except Exception:
-                    tools = None
-
-            def _call(m=model, tc=tools):
-                return client.models.generate_content(
-                    model=m,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        temperature=0.5,
-                        response_mime_type=None if tc else "application/json",
-                        tools=tc,
-                    ),
-                )
-
-            try:
-                resp = await asyncio.wait_for(asyncio.to_thread(_call), timeout=timeout)
-                data = self._extract_json(resp.text or "")
-                if data is None:
-                    logger.warning(f"[AIContent] Model {model} returned unparseable JSON")
-                    continue
-                return data, model
-            except Exception as e:
-                logger.warning(f"[AIContent] Model {model} failed: {e}")
-                continue
-        return None, None
+        """Route through the AI gateway; returns (parsed_json, engine_string)."""
+        try:
+            data, meta = await asyncio.wait_for(
+                asyncio.to_thread(ai_gateway.generate_json, prompt, use_search=use_search, timeout=timeout),
+                timeout=timeout + 15.0,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("[AIContent] gateway timed out")
+            return None, None
+        engine = (meta or {}).get("engine")
+        if data is None:
+            logger.warning(f"[AIContent] gateway returned no parseable JSON: {(meta or {}).get('details')}")
+        return data, engine
 
     @staticmethod
     def _audit(db, action: str, entity: str, entity_id: str, detail: str):
@@ -165,12 +116,11 @@ class AIContentService:
     async def generate_discoveries(self, count: int = 2) -> Dict[str, Any]:
         db = SessionLocal()
         try:
-            client = self._get_gemini_client(db)
             existing_titles = [t for (t,) in db.query(Discovery.title).all()]
         finally:
             db.close()
 
-        if not client:
+        if not ai_gateway.has_any_configured_provider():
             return {"status": "skipped", "reason": "no_ai_key", "generated": 0}
 
         avoid = "\n".join(f"- {t}" for t in existing_titles[-60:]) or "- (none yet)"
@@ -191,7 +141,7 @@ Return a JSON array of {count} objects, each with:
 - interactive_type: one of [step_breakdown, comparison, simulator, interactive_diagram]
 - sources: array of 2-4 authoritative source names/URLs
 """
-        data, model = await self._generate_json(client, prompt)
+        data, model = await self._generate_json(prompt)
         if not isinstance(data, list):
             data = [data] if isinstance(data, dict) else []
         if not data or not model:
@@ -257,11 +207,10 @@ Return a JSON array of {count} objects, each with:
             existing = db.query(Quiz).filter(Quiz.featured_date == today).first()
             if existing:
                 return {"status": "skipped", "reason": "already_exists", "generated": 0}
-            client = self._get_gemini_client(db)
         finally:
             db.close()
 
-        if not client:
+        if not ai_gateway.has_any_configured_provider():
             return {"status": "skipped", "reason": "no_ai_key", "generated": 0}
 
         day_index = datetime.now(KH_TZ).timetuple().tm_yday
@@ -276,7 +225,7 @@ Return JSON with:
 - estimated_minutes: integer 2-6
 - questions: array of 5 objects {{question, choices (4 strings), correct_answer_idx (0-3), explanation (1-2 sentences), source_reference (source name or URL)}}
 """
-        data, model = await self._generate_json(client, prompt, use_search=True, timeout=60.0)
+        data, model = await self._generate_json(prompt, use_search=True, timeout=60.0)
         if not isinstance(data, dict) or not data.get("questions") or not model:
             return {"status": "failed", "error": "generation_failed", "generated": 0}
 
@@ -331,7 +280,6 @@ Return JSON with:
     async def generate_travel_content(self, max_destinations: int = 3) -> Dict[str, Any]:
         db = SessionLocal()
         try:
-            client = self._get_gemini_client(db)
             rows = (
                 db.query(Destination, TravelGuide.id)
                 .outerjoin(TravelGuide, TravelGuide.destination_id == Destination.id)
@@ -348,7 +296,7 @@ Return JSON with:
         finally:
             db.close()
 
-        if not client:
+        if not ai_gateway.has_any_configured_provider():
             return {"status": "skipped", "reason": "no_ai_key", "generated": 0}
 
         guides = events = 0
@@ -363,7 +311,7 @@ Return JSON with:
 - guide: {{title, summary (1-2 sentences), content (400-600 word Markdown with ## subheadings), read_time_minutes (e.g. "6 min")}}
 - events: array of objects {{name, event_type (FESTIVAL|CULTURAL|EXHIBITION|CONCERT|SPORTS), venue, start_date, end_date, description (1-2 sentences)}}
 """
-            data, model = await self._generate_json(client, prompt, use_search=True, timeout=90.0)
+            data, model = await self._generate_json(prompt, use_search=True, timeout=90.0)
             if not isinstance(data, dict) or not model:
                 continue
             model_used = model

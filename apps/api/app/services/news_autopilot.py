@@ -2,7 +2,8 @@
 News Autopilot — hands-off lifecycle management for AI-generated news.
 
 Policy (Hybrid publishing + archive-not-delete):
-  1. AUTO-PUBLISH: AI_DRAFT articles produced by a real AI engine (Gemini) are published
+  1. AUTO-PUBLISH: AI_DRAFT articles produced by a real configured AI provider (see the
+     pluggable gateway) are published
      automatically once they are older than the review window (default 2h) AND pass the
      editorial quality gate. Editors can stop any draft by rejecting it (or moving it to
      IN_REVIEW / NEEDS_REVISION) before the window ends.
@@ -27,6 +28,7 @@ from sqlalchemy.orm import Session
 from app.models.article import Article, ArticleRevision
 from app.models.audit import AuditLog, SiteSetting
 from app.services.article_service import ArticleService
+from app.services import ai_gateway
 
 logger = logging.getLogger("NewsAutopilot")
 
@@ -60,8 +62,23 @@ TRUSTED_ENGINES = {"gemini", "gemini_search_grounded"}
 
 
 def is_trusted_engine(engine: str) -> bool:
-    """Gemini model names (gemini-2.5-flash, ...) and legacy tags are trusted."""
-    return engine in TRUSTED_ENGINES or str(engine).startswith("gemini")
+    """Return True only for drafts produced by a real configured AI provider.
+
+    The pluggable gateway tags engines as ``<provider_id>:<model>`` (e.g.
+    ``openai:gpt-4o-mini``, ``gemini:gemini-2.5-flash``). Legacy bare ``gemini`` /
+    ``gemini_search_grounded`` tags and any ``gemini*`` model name stay trusted. Template,
+    local-extraction, fallback and untagged output (see ai_gateway.NON_TRUSTED_ENGINES) are
+    never trusted and always need manual editorial review.
+    """
+    eng = str(engine or "").strip().lower()
+    if not eng or eng in ai_gateway.NON_TRUSTED_ENGINES:
+        return False
+    if eng in TRUSTED_ENGINES or eng.startswith("gemini"):
+        return True
+    if ":" in eng:  # gateway provider engine
+        provider_id = eng.split(":", 1)[0].strip()
+        return bool(provider_id) and provider_id not in ai_gateway.NON_TRUSTED_ENGINES
+    return False
 
 
 def _utcnow_naive() -> datetime:
@@ -173,7 +190,7 @@ def evaluate_draft(db: Session, article: Article, run_quality_gate: bool = True)
 
     engine = _engine(meta)
     if not is_trusted_engine(engine):
-        return PublishVerdict(False, f"Drafted by '{engine}' fallback, not Gemini; needs manual review", None)
+        return PublishVerdict(False, f"Drafted by '{engine}' (local/template), not a configured AI provider; needs manual review", None)
 
     min_chars = get_int(db, "AUTOPILOT_MIN_CONTENT_CHARS")
     if len((article.content or "").strip()) < min_chars:

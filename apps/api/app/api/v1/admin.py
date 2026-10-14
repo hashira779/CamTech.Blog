@@ -535,6 +535,48 @@ def update_site_settings(updates: List[SettingUpdate], db: Session = Depends(get
     db.commit()
     return {"success": True}
 
+
+# --------------------------------------------------------------------------- AI providers
+class ProvidersUpdate(BaseModel):
+    providers: List[Dict[str, Any]]
+
+class ProviderTest(BaseModel):
+    provider_id: str
+
+@router.get("/ai-providers")
+def get_ai_providers(current_user: User = Depends(require_admin)):
+    """Redacted provider config (fallback order) plus the built-in vendor catalog."""
+    from app.services import ai_gateway
+    return {
+        "providers": ai_gateway.redacted_providers(),
+        "catalog": ai_gateway.catalog(),
+        "has_active": ai_gateway.has_any_configured_provider(),
+    }
+
+@router.put("/ai-providers")
+def save_ai_providers(
+    payload: ProvidersUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Persist the provider registry. Masked keys keep the stored secret; a real string
+    overwrites it; '__CLEAR__' removes it. Order in the list is fallback priority."""
+    from app.services import ai_gateway
+    try:
+        ai_gateway.save_providers(db, payload.providers)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Invalid provider config: {e}")
+    return {"success": True, "providers": ai_gateway.redacted_providers()}
+
+@router.post("/ai-providers/test")
+def test_ai_provider(
+    payload: ProviderTest,
+    current_user: User = Depends(require_admin),
+):
+    """Ping one provider with a tiny prompt so the editor can verify a key works."""
+    from app.services import ai_gateway
+    return ai_gateway.test_provider(payload.provider_id)
+
 from app.services.ai_tourism_engine import ai_tourism_engine
 
 @router.post("/ai/tourism-scan")

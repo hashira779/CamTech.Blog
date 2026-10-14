@@ -1,8 +1,10 @@
 """
-AI News Service — Multi-category automated news generation with Google Search grounding.
+AI News Service — Multi-category automated news generation with web-grounded research.
 Generates 2-3 articles per category per run, uses deduplication, and sends to AI_DRAFT
-status for editorial review before publishing.
+status for editorial review before publishing. All AI calls go through the pluggable
+multi-provider gateway (see ai_gateway), so any enabled vendor can back generation.
 """
+import asyncio
 import json
 import uuid
 import re
@@ -10,21 +12,13 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional, List
 
-try:
-    from google import genai
-    from google.genai import types
-except ImportError:
-    genai = None
-    types = None
-
-from app.common.config import settings
 from app.common.database import SessionLocal
 from app.models.article import Article
 from app.models.category import Category
 from app.models.author import Author
-from app.models.audit import SiteSetting
 from app.deduplication.detector import detect_duplicates
 from app.services.image_search_service import image_search_service
+from app.services import ai_gateway
 
 logger = logging.getLogger(__name__)
 
@@ -108,29 +102,6 @@ class AINewsService:
     def __init__(self):
         pass
 
-    def _get_gemini_client(self, db):
-        """Get Gemini client using API key from DB settings or env fallback."""
-        if genai is None:
-            return None
-        api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'GEMINI_API_KEY').first()
-        api_key = api_key_setting.value_json if api_key_setting else settings.AI_API_KEY
-        if not api_key:
-            return None
-        return genai.Client(api_key=api_key)
-
-    def _get_fallback_models(self) -> list[str]:
-        """Prioritized list of real Google Gemini models."""
-        preferred = []
-        if settings.AI_MODEL_NAME and not any(fake in settings.AI_MODEL_NAME for fake in ["3.8", "3.5", "3.0", "3.1"]):
-            preferred.append(settings.AI_MODEL_NAME)
-        preferred.extend([
-            'gemini-2.5-flash',
-            'gemini-2.0-flash',
-            'gemini-1.5-flash',
-            'gemini-1.5-pro'
-        ])
-        return list(dict.fromkeys(preferred))
-
     def _resolve_category_id(self, db, category_slug: str) -> Optional[str]:
         """Find or create a category by slug."""
         cat = db.query(Category).filter(Category.slug == category_slug).first()
@@ -185,19 +156,18 @@ class AINewsService:
         **kwargs
     ) -> dict:
         """
-        Generate multiple news articles for a specific category using Gemini AI
-        with Google Search grounding for real-time factual accuracy.
+        Generate multiple news articles for a specific category using the pluggable AI
+        gateway (web-grounded research when the provider supports it) for real-time accuracy.
         """
         cat_config = CATEGORY_PROMPTS.get(category_slug)
         if not cat_config:
             return {"status": "failed", "error": f"Unknown category: {category_slug}"}
 
+        if not ai_gateway.has_any_configured_provider():
+            return {"status": "failed", "error": "No AI provider is configured. Add a provider key in Settings."}
+
         db = SessionLocal()
         try:
-            client = self._get_gemini_client(db)
-            if not client:
-                return {"status": "failed", "error": "Google AI API Key is not configured. Cannot generate news."}
-
             category_id = override_category_id or self._resolve_category_id(db, category_slug)
             author_id = override_author_id or self._resolve_system_author(db)
             existing_titles = self._get_existing_titles(db)
@@ -229,85 +199,21 @@ Return a JSON array of {articles_count} article objects. Each object must have:
 - seo_title: SEO-optimized title (max 60 chars)
 - seo_description: SEO meta description (max 155 chars)
 """
-        import asyncio
+        # Generate via the pluggable gateway: tries every enabled provider in fallback order,
+        # uses web-grounded research when the provider supports it, and extracts JSON from text.
+        data, meta = await asyncio.to_thread(
+            ai_gateway.generate_json, prompt, use_search=True, timeout=90.0
+        )
+        if data is None:
+            details = (meta or {}).get("details", [])
+            logger.warning(f"[AINews:{category_slug}] gateway failed: {details}")
+            return {"status": "failed", "error": "No AI provider produced a response. " + "; ".join(details)[:300]}
 
-        response_text = None
-        last_error = None
-        fallback_models = self._get_fallback_models()
-
-        for model_to_try in fallback_models:
-            try:
-                logger.info(f"[AINews:{category_slug}] Trying model: {model_to_try}")
-
-                # Enable Google Search grounding for Gemini 2.x models
-                tools_config = None
-                if "gemini-2.5" in model_to_try or "gemini-2.0" in model_to_try:
-                    try:
-                        tools_config = [types.Tool(google_search=types.GoogleSearch())]
-                    except Exception:
-                        tools_config = None
-
-                def _generate(m=model_to_try, tc=tools_config):
-                    # Gemini 2.x rejects response_mime_type=application/json combined with the
-                    # google_search tool, so only request JSON mode when no tool is attached.
-                    # The JSON is extracted from plain text below either way.
-                    return client.models.generate_content(
-                        model=m,
-                        contents=prompt,
-                        config=types.GenerateContentConfig(
-                            temperature=0.5,
-                            response_mime_type=None if tc else "application/json",
-                            tools=tc,
-                        )
-                    )
-
-                response = await asyncio.wait_for(asyncio.to_thread(_generate), timeout=90.0)
-                response_text = response.text
-                logger.info(f"[AINews:{category_slug}] Success with model: {model_to_try}")
-                break
-
-            except asyncio.TimeoutError:
-                logger.warning(f"[AINews:{category_slug}] Model {model_to_try} timed out")
-                last_error = TimeoutError(f"Model {model_to_try} timed out")
-                continue
-            except Exception as model_err:
-                last_error = model_err
-                logger.warning(f"[AINews:{category_slug}] Model {model_to_try} failed: {model_err}")
-                continue
-
-        if not response_text:
-            error_str = str(last_error) if last_error else "No AI response"
-            user_message = f"Error: {error_str}"
-            if "API key not valid" in error_str or "API_KEY_INVALID" in error_str:
-                user_message = "Your Google Gemini API Key is invalid. Please check Settings."
-            elif "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower():
-                user_message = "Gemini API Quota Exceeded. Please try again later."
-            return {"status": "failed", "error": user_message}
-
-        # Parse response
-        articles_data = None
-        try:
-            articles_data = json.loads(response_text)
-        except json.JSONDecodeError:
-            match = re.search(r'```(?:json)?\s*(\[.*?\])\s*```', response_text, re.DOTALL)
-            if match:
-                try:
-                    articles_data = json.loads(match.group(1))
-                except Exception:
-                    pass
-            if not isinstance(articles_data, list):
-                start, end = response_text.find("["), response_text.rfind("]")
-                if start != -1 and end > start:
-                    try:
-                        articles_data = json.loads(response_text[start:end + 1])
-                    except Exception:
-                        return {"status": "failed", "error": "Failed to parse AI response JSON"}
-
-        if isinstance(articles_data, dict):
-            articles_data = [articles_data]
-        if not isinstance(articles_data, list):
-            return {"status": "failed", "error": "Failed to parse AI response JSON"}
+        articles_data = data if isinstance(data, list) else ([data] if isinstance(data, dict) else [])
         articles_data = [a for a in articles_data if isinstance(a, dict)]
+        engine = (meta or {}).get("engine", "unknown")
+        if not articles_data:
+            return {"status": "failed", "error": "Failed to parse AI response JSON"}
 
         # Save articles with deduplication
         saved = []
@@ -369,7 +275,7 @@ Return a JSON array of {articles_count} article objects. Each object must have:
                     seo_title=data.get("seo_title"),
                     seo_description=data.get("seo_description"),
                     ai_draft_metadata=json.dumps({
-                        "generator": "gemini_search_grounded",
+                        "generator": engine,
                         "category": category_slug,
                         "generated_at": datetime.now(timezone.utc).isoformat(),
                         "tags": data.get("tags", []),
