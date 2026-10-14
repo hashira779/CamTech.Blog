@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Place } from "@/types";
+import PlaceImage from "@/components/travel/place-image";
 import {
   Star,
   ShieldCheck,
@@ -111,8 +112,8 @@ export function PlaceFilterGrid({ places, destinationSlug }: Props) {
                 className="group flex flex-col bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
               >
                 <div className="relative aspect-[16/10] overflow-hidden bg-neutral-100 dark:bg-neutral-800">
-                  <img
-                    src={place.hero_image_url || "/images/places/angkor-wat.jpg"}
+                  <PlaceImage
+                    src={place.hero_image_url}
                     alt={place.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />

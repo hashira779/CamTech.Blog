@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   RefreshCw,
@@ -8,10 +8,36 @@ import {
   ChevronRight,
   Star,
   MapPin,
+  AlertTriangle,
   Image as ImageIcon
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useToast } from '../components/ui/Toast';
+
+interface TourismScanStatus {
+  running: boolean;
+  started_at?: string | null;
+  finished_at?: string | null;
+  discovery_source?: string | null;
+  provinces_total: number;
+  provinces_done: number;
+  current_province?: string | null;
+  new_places: number;
+  candidates: number;
+  duplicates_skipped: number;
+  generic_withheld: number;
+  errors: string[];
+  last_summary?: {
+    status?: string;
+    provinces_scanned?: number;
+    new_places?: number;
+    candidates?: number;
+    duplicates_skipped?: number;
+    generic_withheld?: number;
+    discovery_source?: string;
+    error_count?: number;
+  } | null;
+}
 
 export interface DestinationItem {
   id?: string;
@@ -97,8 +123,13 @@ export default function Tourism() {
   const [destinations, setDestinations] = useState<DestinationItem[]>(DEFAULT_PROVINCES);
   const [loading, setLoading] = useState(true);
   const [fullScanRunning, setFullScanRunning] = useState(false);
+  const [scan, setScan] = useState<TourismScanStatus | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const { success: toastSuccess, error: toastError, info: toastInfo } = useToast();
+  const scanPollRef = useRef<number | null>(null);
+  const watchingRef = useRef(false);
+  const sawRunningRef = useRef(false);
+  const notStartedPollsRef = useRef(0);
+  const { success: toastSuccess, error: toastError, warning: toastWarning, info: toastInfo } = useToast();
 
   useEffect(() => {
     fetchDestinations();
@@ -122,25 +153,134 @@ export default function Tourism() {
     }
   };
 
-  const handleFullScan = async () => {
-    if (!confirm('This will trigger automated discovery across all 25 provinces. This operation runs in the background. Proceed?')) return;
-    setFullScanRunning(true);
-    toastInfo('Initiating full discovery scan across all 25 provinces...', 'Tourism Engine');
-    try {
-      const res = await api.post<{ status?: string, message?: string, total_new_places?: number }>('/admin/ai/tourism-scan');
-      if (res.data.status === 'failed') {
-        toastError(res.data.message || 'Scan failed.');
-        return;
-      }
-      toastSuccess(`Full scan complete! ${res.data.total_new_places || 0} new destinations discovered.`, 'Discovery Complete');
-      fetchDestinations();
-    } catch (err: any) {
-      console.error(err);
-      toastError(err.response?.data?.detail || 'Full scan failed. Check server logs.');
-    } finally {
-      setFullScanRunning(false);
+  const describeFinish = (s: TourismScanStatus) => {
+    const summary = s.last_summary || {};
+    const added = summary.new_places ?? s.new_places ?? 0;
+    const dupes = summary.duplicates_skipped ?? s.duplicates_skipped ?? 0;
+    const withheld = summary.generic_withheld ?? s.generic_withheld ?? 0;
+    const provinces = summary.provinces_scanned ?? s.provinces_total;
+    const sourceNote = (summary.discovery_source ?? s.discovery_source) === 'curated_heritage_list'
+      ? ' No AI provider is configured, so the built-in heritage list was used - add an API key in Settings for researched discoveries.'
+      : '';
+
+    if ((summary.error_count ?? 0) > 0 && added === 0) {
+      return {
+        kind: 'warning' as const,
+        text: `Scan stopped after ${provinces} provinces with ${summary.error_count} error(s) and added nothing. Check the API logs.${sourceNote}`,
+      };
+    }
+    if (added > 0) {
+      return {
+        kind: 'success' as const,
+        text: `Scan finished: ${added} new place(s) added across ${provinces} provinces. ${dupes} duplicate spelling(s) and ${withheld} generic placeholder(s) were not added.${sourceNote}`,
+      };
+    }
+    return {
+      kind: 'info' as const,
+      text: `Scan finished across ${provinces} provinces: nothing new to add. ${dupes} candidate(s) were already in the directory and ${withheld} were generic placeholders.${sourceNote}`,
+    };
+  };
+
+  const stopScanPolling = () => {
+    if (scanPollRef.current !== null) {
+      window.clearInterval(scanPollRef.current);
+      scanPollRef.current = null;
     }
   };
+
+  const pollScan = async () => {
+    try {
+      const res = await api.get<TourismScanStatus>('/admin/ai/tourism-scan/status');
+      const s = res.data;
+      setScan(s);
+      if (s.running) {
+        sawRunningRef.current = true;
+        setFullScanRunning(true);
+        return;
+      }
+      if (sawRunningRef.current) {
+        sawRunningRef.current = false;
+        setFullScanRunning(false);
+        stopScanPolling();
+        const outcome = describeFinish(s);
+        if (outcome.kind === 'success') toastSuccess(outcome.text, 'Discovery complete');
+        else if (outcome.kind === 'warning') toastWarning(outcome.text, 'Discovery problem');
+        else toastInfo(outcome.text, 'Discovery complete');
+        fetchDestinations();
+      } else if (watchingRef.current) {
+        // The scan was started but this poll could not see it running yet. Wait a few
+        // cycles before calling it a failure - the job only marks itself running after
+        // it has re-created the 25 destination rows.
+        notStartedPollsRef.current += 1;
+        if (notStartedPollsRef.current < 5) return;
+        watchingRef.current = false;
+        setFullScanRunning(false);
+        stopScanPolling();
+        toastWarning('The server reported no running scan. Check the API logs.', 'Discovery not started');
+      }
+    } catch (err: any) {
+      watchingRef.current = false;
+      sawRunningRef.current = false;
+      setFullScanRunning(false);
+      stopScanPolling();
+      toastError(err?.response?.data?.detail || 'Could not read scan progress from the server.');
+    }
+  };
+
+  const watchScan = () => {
+    watchingRef.current = true;
+    stopScanPolling();
+    scanPollRef.current = window.setInterval(pollScan, 5000);
+    // Give the background task a moment to set running=true before the first read.
+    window.setTimeout(pollScan, 1500);
+  };
+
+  const handleFullScan = async () => {
+    if (!confirm('This researches all 25 provinces and auto-saves places that are genuinely new. It runs in the background and can take many minutes. Proceed?')) return;
+    setFullScanRunning(true);
+    toastInfo('Discovery started across all 25 provinces - progress shows in the header.', 'Tourism Engine');
+    try {
+      const res = await api.post<{ status?: string; discovery_source?: string; message?: string }>('/admin/ai/tourism-scan');
+      if (res.data.discovery_source === 'curated_heritage_list') {
+        toastInfo('No AI provider key is configured: discovery will use the built-in heritage list, not live research.', 'Curated mode');
+      }
+      watchScan();
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      if (err?.response?.status === 409) {
+        toastInfo(detail || 'A discovery scan is already running.', 'Already running');
+        sawRunningRef.current = true;
+        watchScan();
+        return;
+      }
+      setFullScanRunning(false);
+      toastError(detail || 'Could not start the scan. Check server logs.');
+    }
+  };
+
+  // A scan keeps running server-side across page reloads, so pick its progress back up.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get<TourismScanStatus>('/admin/ai/tourism-scan/status');
+        if (cancelled) return;
+        setScan(res.data);
+        if (res.data.running) {
+          sawRunningRef.current = true;
+          setFullScanRunning(true);
+          stopScanPolling();
+          scanPollRef.current = window.setInterval(pollScan, 5000);
+        }
+      } catch {
+        /* progress is optional; the button still surfaces request errors */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      stopScanPolling();
+    };
+  }, []);
 
   const [enhancingImages, setEnhancingImages] = useState(false);
 
@@ -213,10 +353,72 @@ export default function Tourism() {
             className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg text-xs transition-all shadow-md hover:shadow-emerald-950/40 disabled:opacity-50 cursor-pointer"
           >
             {fullScanRunning ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            <span>{fullScanRunning ? 'Scanning 25 Provinces...' : 'Discover New Places'}</span>
+            <span>
+              {fullScanRunning && scan
+                ? `Scanning ${scan.provinces_done}/${scan.provinces_total} provinces...`
+                : 'Discover New Places'}
+            </span>
           </button>
         </div>
       </div>
+
+      {/* 1b. Discovery progress - the scan runs server-side, so this is the real state */}
+      {scan && (scan.running || scan.last_summary) && (() => {
+        const done = scan.provinces_done;
+        const total = scan.provinces_total || 25;
+        const pct = Math.min(100, Math.round((done / total) * 100));
+        const summary = scan.last_summary;
+        const source = scan.discovery_source ?? summary?.discovery_source;
+        return (
+          <div className="p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800/80 space-y-2">
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <span className="flex items-center gap-2 font-medium text-zinc-200">
+                {scan.running ? (
+                  <>
+                    <RefreshCw size={12} className="animate-spin text-emerald-400" />
+                    <span>Researching {scan.current_province || 'the next province'} - province {done} of {total}</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={12} className="text-emerald-400" />
+                    <span>Last scan finished - {summary?.provinces_scanned ?? done} provinces searched</span>
+                  </>
+                )}
+              </span>
+              <span className="text-zinc-500 font-mono text-[10px] uppercase tracking-wide">
+                {source === 'curated_heritage_list' ? 'Curated heritage list' : 'AI research'}
+              </span>
+            </div>
+
+            <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${scan.running ? 'bg-emerald-500' : 'bg-zinc-600'}`}
+                style={{ width: `${scan.running ? pct : 100}%` }}
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-zinc-400 font-mono">
+              <span className="text-emerald-400">{scan.new_places} new places</span>
+              <span>{scan.candidates} candidates seen</span>
+              <span>{scan.duplicates_skipped} duplicate spellings skipped</span>
+              <span>{scan.generic_withheld} generic placeholders withheld</span>
+              {scan.errors && scan.errors.length > 0 && (
+                <span className="flex items-center gap-1 text-amber-400">
+                  <AlertTriangle size={11} /> {scan.errors.length} province error(s)
+                </span>
+              )}
+            </div>
+
+            {!scan.running && scan.new_places === 0 && (
+              <p className="text-[11px] text-zinc-500 leading-relaxed">
+                Nothing new was added: every candidate either repeats a place already in the directory
+                or is a generic placeholder such as &quot;Takeo Historic Pagoda&quot;. Configure an AI
+                provider in Settings to research live sources instead of the built-in list.
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* 2. Search Toolbar */}
       <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80">

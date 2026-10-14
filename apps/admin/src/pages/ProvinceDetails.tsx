@@ -88,6 +88,9 @@ interface Place {
   created_at?: string;
   destination_id?: string;
   is_duplicate?: boolean;
+  duplicate_of?: string | null;
+  generic_placeholder?: boolean;
+  saved_to_db?: boolean;
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -244,7 +247,16 @@ export default function ProvinceDetails() {
         province: res.data.province,
         places: res.data.places_data || []
       });
-      toastSuccess(`Discovered ${res.data.places_data?.length || 0} candidate places!`, 'Scan Finished');
+      const places: Place[] = res.data.places_data || [];
+      const fresh = places.filter(p => !p.is_duplicate && !p.generic_placeholder).length;
+      const dupes = places.filter(p => p.is_duplicate).length;
+      const generic = places.filter(p => p.generic_placeholder && !p.is_duplicate).length;
+      const notes = [
+        `${fresh} new place(s) available to approve`,
+        dupes ? `${dupes} already in the directory` : null,
+        generic ? `${generic} generic placeholder(s) not saved` : null,
+      ].filter(Boolean).join(' - ');
+      toastSuccess(`Scan of ${res.data.province}: ${notes}.`, 'Scan Finished');
     } catch (err: any) {
       console.error(err);
       const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout') || err.response?.status === 524;
@@ -263,13 +275,18 @@ export default function ProvinceDetails() {
     try {
       const res = await api.post('/admin/ai/tourism-save', place);
       if (res.data.status === 'success' || res.data.status === 'skipped') {
+        const wasSaved = res.data.status === 'success';
         setPendingApproval(prev => {
           if (!prev) return prev;
           const newPlaces = [...prev.places];
-          newPlaces[index].is_duplicate = true;
+          newPlaces[index] = { ...newPlaces[index], is_duplicate: !wasSaved, saved_to_db: wasSaved };
           return { ...prev, places: newPlaces };
         });
-        toastSuccess(`Saved "${place.name}" to Cloudflare R2 & Google Drive`);
+        if (wasSaved) {
+          toastSuccess(`Saved "${place.name}" to Cloudflare R2 & Google Drive`);
+        } else {
+          toastInfo(res.data.message || `"${place.name}" is already in the directory.`, 'Not saved');
+        }
         fetchPlaces(true);
       }
     } catch (err: any) {
@@ -282,14 +299,17 @@ export default function ProvinceDetails() {
 
   const handleApproveAll = async () => {
     if (!pendingApproval || isApprovingAll) return;
+    // Bulk approval follows the same rules as the automated scan: what is already stored,
+    // and what only names a generic landmark, stays out unless approved one at a time.
     const unapproved = pendingApproval.places
       .map((p, i) => ({ place: p, index: i }))
-      .filter(x => !x.place.is_duplicate);
+      .filter(x => !x.place.is_duplicate && !x.place.generic_placeholder);
     
     if (unapproved.length === 0) return;
     
     setIsApprovingAll(true);
     let savedCount = 0;
+    let alreadyStored = 0;
     
     for (let i = 0; i < unapproved.length; i++) {
       const item = unapproved[i];
@@ -302,12 +322,14 @@ export default function ProvinceDetails() {
       
       try {
         const res = await api.post('/admin/ai/tourism-save', item.place);
+        const wasSaved = res.data.status === 'success';
         if (res.data.status === 'success' || res.data.status === 'skipped') {
-          savedCount++;
+          if (wasSaved) savedCount++;
+          if (res.data.status === 'skipped') alreadyStored++;
           setPendingApproval(prev => {
             if (!prev) return prev;
             const newPlaces = [...prev.places];
-            newPlaces[item.index].is_duplicate = true;
+            newPlaces[item.index] = { ...newPlaces[item.index], is_duplicate: !wasSaved, saved_to_db: wasSaved };
             return { ...prev, places: newPlaces };
           });
         }
@@ -319,8 +341,11 @@ export default function ProvinceDetails() {
     setSavingPlaceId(null);
     setIsApprovingAll(false);
     setApprovalProgress(null);
-    const msg = `Successfully saved ${savedCount} places to Cloudflare R2 & Google Drive!`;
-    toastSuccess(msg, 'Approval Completed');
+    const msg = alreadyStored > 0
+      ? `Saved ${savedCount} place(s); ${alreadyStored} turned out to already be in the directory.`
+      : `Successfully saved ${savedCount} places to Cloudflare R2 & Google Drive!`;
+    if (savedCount === 0) toastInfo(msg, 'Nothing new saved');
+    else toastSuccess(msg, 'Approval Completed');
     await fetchPlaces(true);
   };
 
@@ -990,14 +1015,14 @@ export default function ProvinceDetails() {
                       </div>
                     )}
 
-                    {/* Gallery Thumbnails */}
+                    {/* Gallery Thumbnails — only verified, place-matched photos are stored here */}
                     {(() => {
                       try {
                         const gallery = place.gallery_json ? JSON.parse(place.gallery_json) : [];
                         if (Array.isArray(gallery) && gallery.length > 0) {
                           return (
                             <div className="pt-2 border-t border-zinc-800/60">
-                              <span className="text-zinc-500 text-[11px] mb-2 block font-medium">Gallery ({gallery.length} images)</span>
+                              <span className="text-zinc-500 text-[11px] mb-2 block font-medium">Verified gallery ({gallery.length} image{gallery.length === 1 ? "" : "s"})</span>
                               <div className="flex gap-2.5 overflow-x-auto pb-2">
                                 {gallery.map((img: string, i: number) => (
                                   <a key={i} href={img} target="_blank" rel="noreferrer" className="shrink-0 block w-24 h-16 rounded-lg overflow-hidden border border-zinc-700/60 hover:border-zinc-500 transition-colors">
@@ -1008,6 +1033,11 @@ export default function ProvinceDetails() {
                             </div>
                           );
                         }
+                        return (
+                          <div className="pt-2 border-t border-zinc-800/60">
+                            <span className="text-zinc-600 text-[11px] block">No verified photo yet — generic stock images are no longer added automatically.</span>
+                          </div>
+                        );
                       } catch (e) {}
                       return null;
                     })()}
@@ -1043,7 +1073,7 @@ export default function ProvinceDetails() {
               <div className="flex items-center gap-3">
                 <button 
                   onClick={handleApproveAll} 
-                  disabled={isApprovingAll || savingPlaceId !== null || pendingApproval.places.filter(p => !p.is_duplicate).length === 0}
+                  disabled={isApprovingAll || savingPlaceId !== null || pendingApproval.places.filter(p => !p.is_duplicate && !p.generic_placeholder).length === 0}
                   className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg text-xs transition-all shadow-md disabled:opacity-50"
                 >
                   {isApprovingAll ? (
@@ -1054,7 +1084,7 @@ export default function ProvinceDetails() {
                   ) : (
                     <>
                       <CheckCircle2 size={14} />
-                      <span>Approve All ({pendingApproval.places.filter(p => !p.is_duplicate).length})</span>
+                      <span>Approve All ({pendingApproval.places.filter(p => !p.is_duplicate && !p.generic_placeholder).length})</span>
                     </>
                   )}
                 </button>
@@ -1164,9 +1194,30 @@ export default function ProvinceDetails() {
                         )}
                       </div>
                       <div className="flex items-center sm:items-start shrink-0 pt-2 sm:pt-0">
-                        {place.is_duplicate ? (
+                        {place.saved_to_db ? (
                           <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
                             <CheckCircle size={14} /> Saved
+                          </div>
+                        ) : place.is_duplicate ? (
+                          <div className="flex flex-col items-end gap-0.5 text-xs text-zinc-400 font-medium px-3 py-1.5 bg-zinc-800/70 border border-zinc-700/60 rounded-lg">
+                            <span className="flex items-center gap-1.5"><CheckCircle size={14} /> Already in directory</span>
+                            {place.duplicate_of && (
+                              <span className="text-[10px] text-zinc-500 font-normal truncate max-w-[190px]" title={place.duplicate_of}>
+                                as “{place.duplicate_of}”
+                              </span>
+                            )}
+                          </div>
+                        ) : place.generic_placeholder ? (
+                          <div className="flex flex-col items-end gap-1 text-xs text-amber-400 font-medium px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                            <span>Generic placeholder</span>
+                            <button
+                              onClick={() => handleApproveSave(place, idx)}
+                              disabled={isApprovingAll || savingPlaceId !== null}
+                              className="text-[10px] font-normal text-zinc-400 hover:text-white underline decoration-dotted disabled:opacity-50 cursor-pointer"
+                              title="Save anyway - this entry only names a generic landmark, not a researched place"
+                            >
+                              Save anyway
+                            </button>
                           </div>
                         ) : savingPlaceId === idx.toString() ? (
                           <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-lg text-xs font-medium animate-pulse">

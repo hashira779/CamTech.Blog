@@ -68,7 +68,20 @@ async def lifespan(app: FastAPI):
                 from app.services.ai_tourism_engine import ai_tourism_engine
                 logger.info("Weekly AI Tourism Scan started...")
                 result = await ai_tourism_engine.run_full_scan()
-                logger.info(f"Weekly scan complete: {result['total_new_places']} new places added.")
+                if result.get("status") == "already_running":
+                    logger.info("Weekly tourism scan skipped: another scan is already running.")
+                else:
+                    logger.info(
+                        "Weekly scan complete: %s new place(s) from %s candidate(s) across %s provinces "
+                        "(%s duplicate spelling(s) skipped, %s generic placeholder(s) withheld, source=%s, errors=%s).",
+                        result.get("total_new_places", 0),
+                        result.get("total_candidates", 0),
+                        result.get("total_provinces_scanned", 0),
+                        result.get("duplicates_skipped", 0),
+                        result.get("generic_withheld", 0),
+                        result.get("discovery_source"),
+                        len(result.get("errors") or []),
+                    )
             except Exception as e:
                 logger.error(f"Weekly tourism scan failed: {e}")
 

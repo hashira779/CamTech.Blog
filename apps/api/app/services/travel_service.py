@@ -216,9 +216,22 @@ class TravelService:
                 Place.status == "ACTIVE"
             ).all()
 
-        # Fail-safe: if destination has no places in DB, pull active Cambodian highlights so links are always valid
+        # Honest behaviour: a province with no directory entries gets an empty plan. The old
+        # fail-safe pulled 12 active places from anywhere in Cambodia, so a Kep or Pailin trip
+        # was published with Angkor Wat in it.
         if not places:
-            places = db.query(Place).filter(Place.status == "ACTIVE").limit(12).all()
+            return TripPlanResponse(
+                destination_name=dest_name,
+                destination_slug=req.destination_slug,
+                duration_days=min(max(1, req.duration_days), 7),
+                travel_style=req.travel_style,
+                budget_level=req.budget_level,
+                summary=(
+                    f"{dest_name} has no places in the directory yet, so there is nothing to plan with. "
+                    "Add temples, places to stay, and restaurants for this province, then generate the plan again."
+                ),
+                days=[],
+            )
 
         # Categorize available places
         temples = [p for p in places if p.place_type in ("TEMPLE", "ATTRACTION", "MUSEUM")]

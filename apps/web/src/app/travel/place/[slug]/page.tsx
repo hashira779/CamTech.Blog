@@ -21,6 +21,7 @@ import {
   Share2
 } from "lucide-react";
 import { getPlaceBySlug, getPlaces } from "@/lib/api";
+import PlaceImage from "@/components/travel/place-image";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -74,12 +75,14 @@ export default async function PlaceDetailPage({ params }: PageProps) {
     <div className="min-h-screen pb-24">
       {/* 1. Header Banner */}
       <section className="relative overflow-hidden bg-neutral-950 text-white py-14 lg:py-20">
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-30 filter blur-[2px] scale-105"
-          style={{
-            backgroundImage: `url('${place.hero_image_url || "/images/places/angkor-wat.jpg"}')`,
-          }}
-        />
+        {place.hero_image_url && (
+          <div
+            className="absolute inset-0 bg-cover bg-center opacity-30 filter blur-[2px] scale-105"
+            style={{
+              backgroundImage: `url('${place.hero_image_url}')`,
+            }}
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/70 to-transparent" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -159,11 +162,7 @@ export default async function PlaceDetailPage({ params }: PageProps) {
           <div className="lg:col-span-2 space-y-10">
             {/* Hero Image */}
             <div className="rounded-3xl overflow-hidden shadow-sm border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900 aspect-[16/10]">
-              <img
-                src={place.hero_image_url || "/images/places/angkor-wat.jpg"}
-                alt={place.name}
-                className="w-full h-full object-cover"
-              />
+              <PlaceImage src={place.hero_image_url} alt={place.name} />
             </div>
 
             {/* Description */}
@@ -392,10 +391,11 @@ export default async function PlaceDetailPage({ params }: PageProps) {
                       className="group flex items-center gap-3"
                     >
                       <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 shrink-0">
-                        <img
-                          src={rel.hero_image_url || "/images/places/angkor-wat.jpg"}
+                        <PlaceImage
+                          src={rel.hero_image_url}
                           alt={rel.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          compact
                         />
                       </div>
                       <div className="flex-1 min-w-0">

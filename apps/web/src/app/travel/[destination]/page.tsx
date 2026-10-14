@@ -6,7 +6,6 @@ import {
   MapPin,
   Calendar,
   Info,
-  ShieldCheck,
   Navigation,
   Bus,
   Footprints,
@@ -16,6 +15,7 @@ import {
 import { getDestinationBySlug, getTrips, searchTransportRoutes, getTravelGuides, getTravelEvents } from "@/lib/api";
 import { getProvinceSymbol } from "@/data/province_symbols";
 import { ProvinceSymbolShowcase } from "@/components/travel/ProvinceSymbolShowcase";
+import ProvinceMap from "@/components/travel/ProvinceMap";
 import { PlaceFilterGrid } from "./PlaceFilterGrid";
 import { TransportRouteCard } from "@/components/travel/TransportRouteCard";
 import { TravelGuideCard } from "@/components/travel/TravelGuideCard";
@@ -38,10 +38,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function DestinationPage({ params }: PageProps) {
   const { destination: slug } = await params;
+  // The transport directory only pairs each province with one reference origin: the capital,
+  // or Siem Reap when the province *is* the capital. The section labels this explicitly.
+  const transportOriginSlug = slug === "phnom-penh" ? "siem-reap" : "phnom-penh";
   const [destination, trips, transportData, guides, events] = await Promise.all([
     getDestinationBySlug(slug),
     getTrips({ destination: slug }),
-    searchTransportRoutes(slug === "phnom-penh" ? "siem-reap" : "phnom-penh", slug),
+    searchTransportRoutes(transportOriginSlug, slug),
     getTravelGuides(slug),
     getTravelEvents(slug),
   ]);
@@ -50,19 +53,47 @@ export default async function DestinationPage({ params }: PageProps) {
     notFound();
   }
 
-  const places = destination.places || [];
+  const transportOriginLabel = transportOriginSlug
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+  // The destination payload carries every linked row, including archived/merged ones; the public
+  // page shows only what is currently listed.
+  const places = (destination.places || []).filter((p) => p.status === "ACTIVE");
   const provinceSymbol = getProvinceSymbol(destination.slug, destination);
+
+  // Only places that actually carry GPS coordinates can be plotted; the rest stay in the grid.
+  const mapPlaces = places
+    .filter(
+      (p) =>
+        typeof p.latitude === "number" &&
+        typeof p.longitude === "number" &&
+        Number.isFinite(p.latitude) &&
+        Number.isFinite(p.longitude) &&
+        !(p.latitude === 0 && p.longitude === 0),
+    )
+    .map((p) => ({
+      slug: p.slug,
+      name: p.name,
+      place_type: p.place_type,
+      latitude: p.latitude as number,
+      longitude: p.longitude as number,
+    }));
+
+  const hasCoordinates =
+    typeof destination.latitude === "number" && typeof destination.longitude === "number";
 
   return (
     <div className="min-h-screen pb-24">
       {/* 1. Destination Hero Banner */}
       <section className="relative overflow-hidden bg-neutral-950 text-white py-16 lg:py-24">
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-35 filter blur-[1px] scale-105"
-          style={{
-            backgroundImage: `url('${destination.hero_image_url || "/images/places/angkor-wat.jpg"}')`,
-          }}
-        />
+        {destination.hero_image_url && (
+          <div
+            className="absolute inset-0 bg-cover bg-center opacity-35 filter blur-[1px] scale-105"
+            style={{ backgroundImage: `url('${destination.hero_image_url}')` }}
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/70 to-transparent" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -91,17 +122,23 @@ export default async function DestinationPage({ params }: PageProps) {
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-4 text-xs sm:text-sm text-neutral-300">
+              {destination.best_time_to_visit && (
+                <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
+                  <Calendar className="h-4 w-4 text-amber-400" />
+                  <span>Best time: {destination.best_time_to_visit}</span>
+                </div>
+              )}
+              {hasCoordinates && (
+                <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
+                  <MapPin className="h-4 w-4 text-zinc-400" />
+                  <span className="tabular-nums">
+                    {destination.latitude?.toFixed(4)}°N, {destination.longitude?.toFixed(4)}°E
+                  </span>
+                </div>
+              )}
               <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
-                <Calendar className="h-4 w-4 text-amber-400" />
-                <span>Best time: {destination.best_time_to_visit || "Nov - Mar"}</span>
-              </div>
-              <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
-                <MapPin className="h-4 w-4 text-zinc-400" />
-                <span>Coordinates: {destination.latitude}°N, {destination.longitude}°E</span>
-              </div>
-              <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
-                <ShieldCheck className="h-4 w-4 text-zinc-300" />
-                <span>{places.length} Verified Records</span>
+                <Info className="h-4 w-4 text-zinc-300" />
+                <span>{places.length} places listed</span>
               </div>
             </div>
 
@@ -158,53 +195,14 @@ export default async function DestinationPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* 3. Interactive Geocoded Coordinates Panel */}
-        <section className="rounded-3xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
-          <div className="p-6 border-b border-neutral-100 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-zinc-500" /> Geocoded Map & Coordinates
-              </h2>
-              <p className="text-xs text-neutral-500 mt-1">
-                Verified GPS coordinates for major temples, heritage hotels, and markets.
-              </p>
-            </div>
-            <div className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
-              {places.length} Locations Mapped
-            </div>
-          </div>
-
-          <div className="relative bg-neutral-950 h-72 sm:h-96 overflow-hidden flex items-center justify-center p-6">
-            {/* Stylized vector map representation with active pins */}
-            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px]" />
-            <div className="relative z-10 w-full max-w-4xl grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {places.slice(0, 8).map((p) => (
-                <div
-                  key={p.id}
-                  className="bg-neutral-900/90 border border-neutral-800 p-3 rounded-xl backdrop-blur-sm flex flex-col justify-between hover:border-zinc-500 transition-colors"
-                >
-                  <div>
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-400">
-                      {p.place_type}
-                    </span>
-                    <h4 className="font-bold text-xs text-white line-clamp-1 mt-0.5">
-                      {p.name}
-                    </h4>
-                  </div>
-                  <div className="mt-2 text-[10px] text-neutral-400 flex items-center justify-between">
-                    <span>{p.latitude?.toFixed(4)}, {p.longitude?.toFixed(4)}</span>
-                    <Link
-                      href={`/travel/place/${p.slug}`}
-                      className="text-zinc-300 hover:text-white font-semibold"
-                    >
-                      View →
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        {/* 3. Open-source map of every geocoded place in this province */}
+        <ProvinceMap
+          places={mapPlaces}
+          totalPlaces={places.length}
+          destinationName={destination.name}
+          centerLat={hasCoordinates ? destination.latitude : undefined}
+          centerLng={hasCoordinates ? destination.longitude : undefined}
+        />
 
         {/* 4. Curated Multi-Day Itineraries for this Destination */}
         {trips.length > 0 && (
@@ -215,7 +213,7 @@ export default async function DestinationPage({ params }: PageProps) {
                   Curated {destination.name} Itineraries
                 </h2>
                 <p className="text-xs text-neutral-500 mt-1">
-                  Tested day-by-day schedules with duration and time-of-day breakdowns.
+                  Day-by-day plans assembled from the places listed for this province.
                 </p>
               </div>
             </div>
@@ -267,8 +265,10 @@ export default async function DestinationPage({ params }: PageProps) {
                 <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
                   Getting to {destination.name} (Buses & Minivans)
                 </h2>
-                <p className="text-xs text-neutral-500 mt-1">
-                  Verified schedules, operator safety ratings, and direct official booking links.
+                <p className="text-xs text-neutral-500 mt-1 leading-relaxed max-w-2xl">
+                  {transportData.routes.length} route{transportData.routes.length === 1 ? "" : "s"} from{" "}
+                  {transportOriginLabel} recorded in our transport directory. Fares and departure
+                  times change often, so reconfirm with the operator before you travel.
                 </p>
               </div>
               <Link
@@ -292,10 +292,10 @@ export default async function DestinationPage({ params }: PageProps) {
           <section>
             <div className="mb-6">
               <div className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-primary mb-1">
-                <BookOpen className="w-3.5 h-3.5" /> Curated Field Guides
+                <BookOpen className="w-3.5 h-3.5" /> Field Guides
               </div>
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
-                Expert Guides & Etiquette for {destination.name}
+                Guides &amp; Etiquette for {destination.name}
               </h2>
               <p className="text-xs text-neutral-500 mt-1">
                 Practical timing advice, photography viewpoints, and cultural heritage rules.

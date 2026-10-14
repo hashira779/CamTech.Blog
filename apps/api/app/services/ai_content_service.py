@@ -34,6 +34,7 @@ from app.models.guide_event import Event, TravelGuide
 from app.models.location import Destination
 from app.models.quiz import Quiz, QuizQuestion
 from app.services.image_search_service import image_search_service
+from app.services.ai_tourism_engine import content_image_matches, filter_live_images
 from app.services import ai_gateway
 
 logger = logging.getLogger(__name__)
@@ -109,6 +110,33 @@ class AIContentService:
         except Exception as e:
             logger.warning(f"[AIContent] image search failed for '{title}': {e}")
             return None, None, None
+
+    async def _find_verified_travel_image(
+        self, subject: str, destination: str, query: Optional[str] = None
+    ) -> Optional[str]:
+        """Hero image for a guide/event — only when the photo is really about this subject.
+
+        Travel content must not fall back to the generic curated pool: a Madrid street photo
+        once illustrated an "Angkor Wat Sunrise" guide. When nothing matches, the hero stays
+        empty and the card renders without an image instead of a wrong one.
+        """
+        try:
+            url, _credit, alt = await image_search_service.search_news_image(
+                title=query or subject, category="travel", country="KH"
+            )
+        except Exception as e:
+            logger.warning(f"[AIContent] travel image search failed for '{subject}': {e}")
+            return None
+
+        if not url or not content_image_matches(url, context=alt or "", subject=subject, destination=destination):
+            logger.info(f"[AIContent] rejected unverified travel hero for '{subject}' ({url or 'no result'})")
+            return None
+
+        live = await filter_live_images([url], timeout=6.0, overall_budget=10.0)
+        if not live:
+            logger.info(f"[AIContent] travel hero is dead/unreachable for '{subject}': {url}")
+            return None
+        return live[0]
 
     # ------------------------------------------------------------------ #
     # Discoveries                                                         #
@@ -322,7 +350,9 @@ Return JSON with:
                     g_title = str(guide["title"])[:200]
                     dup = db.query(TravelGuide).filter(TravelGuide.title == g_title).first()
                     if not dup:
-                        img_url, img_credit, _ = await self._find_image(f"{g_title} {dest_name}", category="travel", country="KH")
+                        img_url = await self._find_verified_travel_image(
+                            g_title, dest_name, query=f"{g_title} {dest_name}"
+                        )
                         g = TravelGuide(
                             destination_id=dest_id,
                             title=g_title,
@@ -347,7 +377,9 @@ Return JSON with:
                     e_name = str(ev["name"])[:200]
                     if db.query(Event).filter(Event.name == e_name, Event.destination_id == dest_id).first():
                         continue
-                    img_url, _, _ = await self._find_image(f"{e_name} festival Cambodia", category="travel", country="KH")
+                    img_url = await self._find_verified_travel_image(
+                        e_name, dest_name, query=f"{e_name} festival Cambodia"
+                    )
                     e = Event(
                         destination_id=dest_id,
                         name=e_name,

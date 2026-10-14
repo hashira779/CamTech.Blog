@@ -28,6 +28,13 @@ BAD_IMAGE_KEYWORDS = [
 ]
 
 # High-resolution magazine-grade photography for News (1600px, Q=85, auto-format)
+#
+# READ THIS BEFORE ADDING AN ENTRY: the trailing comments describe what the photo *looks like*,
+# not what it proves. None of these Unsplash IDs were checked against a location, so they must
+# never caption a named Cambodian place, guide or event. `photo-1539037116277-4db20889f2d4`
+# spent months in these pools labelled "Cambodia Angkor Sunrise" while actually showing Madrid's
+# Gran Via, and it illustrated an Angkor Wat guide on the public site. Place and travel-content
+# heroes go through ai_tourism_engine.verify_place_image / content_image_matches instead.
 CATEGORY_NEWS_IMAGE_POOLS = {
     "technology": [
         "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1600&q=85", # Circuitry & Microchips
@@ -43,13 +50,12 @@ CATEGORY_NEWS_IMAGE_POOLS = {
     ],
     "cambodia": [
         "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=1600&q=85", # Modern Banking & Payment
-        "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1600&q=85", # Phnom Penh Urban Skyline
+        "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1600&q=85", # City skyline (location unverified)
         "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1600&q=85", # Infrastructure / High Speed Transit
-        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=85", # Modern Asian Architecture & Cities
-        "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1600&q=85", # Phnom Penh Riverside at Dusk
-        "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=1600&q=85", # Cambodia Angkor Sunrise
+        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=85", # Modern architecture (location unverified)
+        "https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1600&q=85", # Riverside at dusk (location unverified)
         "https://images.unsplash.com/photo-1508873696983-2df5293cb395?auto=format&fit=crop&w=1600&q=85", # Cultural Heritage & Monuments
-        "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1600&q=85", # Tropical Coastal Horizons
+        "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1600&q=85", # Coastal horizon (location unverified)
     ],
     "world": [
         "https://images.unsplash.com/photo-1541872703-74c5e44368f9?auto=format&fit=crop&w=1600&q=85", # International Diplomacy / Government
@@ -76,7 +82,6 @@ CATEGORY_NEWS_IMAGE_POOLS = {
         "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=1600&q=85", # Environmental Science & Ecosystems
     ],
     "travel": [
-        "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=1600&q=85", # Angkor Wat Ancient Temple
         "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1600&q=85", # Tropical Turquoise Coast
         "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=1600&q=85", # Scenic Highland Mountain Views
         "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1600&q=85", # Transport & Train Journeys
@@ -95,7 +100,6 @@ PLACE_CATEGORY_POOLS = {
     ],
     "TEMPLE": [
         "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Angkor_Wat.jpg/1600px-Angkor_Wat.jpg",
-        "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=1600&q=85",
         "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=85",
         "https://images.unsplash.com/photo-1508873696983-2df5293cb395?auto=format&fit=crop&w=1600&q=85",
     ],
@@ -143,7 +147,6 @@ PLACE_CATEGORY_POOLS = {
     ],
     "ATTRACTION": [
         "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Angkor_Wat.jpg/1600px-Angkor_Wat.jpg",
-        "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=1600&q=85",
         "https://images.unsplash.com/photo-1508873696983-2df5293cb395?auto=format&fit=crop&w=1600&q=85",
     ],
 }
@@ -282,7 +285,13 @@ class ImageSearchService:
 
     @classmethod
     def get_diverse_place_gallery(cls, place_type: str, place_name: str, count: int = 12) -> List[str]:
-        """Generates diverse high-res imagery for places with zero duplicate repeats."""
+        """DEPRECATED for place galleries.
+
+        Tourism galleries now store only images whose source context matches the place name
+        (see app.services.ai_tourism_engine.verify_place_image), because this generic per-type
+        pool produced irrelevant photos on real place cards. Kept only so nothing that still
+        imports it breaks; do not wire it back into the place pipeline.
+        """
         ptype = (place_type or "ATTRACTION").upper()
         pool = PLACE_CATEGORY_POOLS.get(ptype) or PLACE_CATEGORY_POOLS["ATTRACTION"]
         h = int(hashlib.sha256(place_name.encode("utf-8")).hexdigest(), 16)

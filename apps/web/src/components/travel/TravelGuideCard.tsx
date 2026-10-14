@@ -18,7 +18,7 @@ export function TravelGuideCard({ guide }: TravelGuideCardProps) {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
           <span className="absolute top-3 left-3 text-[11px] font-semibold bg-background/90 backdrop-blur-md px-2.5 py-1 rounded-full border shadow-sm inline-flex items-center gap-1">
-            <BookOpen className="w-3 h-3 text-primary" /> Curated Field Guide
+            <BookOpen className="w-3 h-3 text-primary" /> Travel Field Guide
           </span>
         </div>
       )}
@@ -30,7 +30,7 @@ export function TravelGuideCard({ guide }: TravelGuideCardProps) {
               <Clock className="w-3 h-3" /> {guide.read_time_minutes} read
             </span>
             <span>•</span>
-            <span>Authoritative Advice</span>
+            <span>Practical guide</span>
           </div>
 
           <h3 className="font-bold text-base leading-snug mb-2 hover:text-primary transition-colors">

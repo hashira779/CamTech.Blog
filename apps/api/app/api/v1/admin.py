@@ -428,6 +428,7 @@ async def enhance_place_images(
 
     updated_count = 0
     updated_items = []
+    skipped = []
 
     for p in places_to_fix:
         dest_name = p.destination.name if p.destination else "Cambodia"
@@ -438,15 +439,28 @@ async def enhance_place_images(
             local_name=p.local_name,
             target_count=12
         )
-        p.hero_image_url = hero
+        # Only verified, loadable images are written back - nothing is padded with stock photos.
+        if not hero and not gallery:
+            p.hero_image_url = None
+            p.gallery_json = "[]"
+            skipped.append({"id": p.id, "name": p.name, "reason": "no verified image found for this place"})
+            updated_count += 1
+            continue
+        p.hero_image_url = hero or (gallery[0] if gallery else None)
         p.gallery_json = json.dumps(gallery)
         updated_count += 1
-        updated_items.append({"id": p.id, "name": p.name, "hero_image_url": hero})
+        updated_items.append({
+            "id": p.id,
+            "name": p.name,
+            "hero_image_url": p.hero_image_url,
+            "verified_images": len(gallery),
+        })
 
     db.commit()
     return {
         "status": "success",
         "updated_count": updated_count,
+        "no_verified_image": skipped,
         "places": updated_items
     }
 
@@ -584,12 +598,36 @@ async def run_tourism_full_scan(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(require_admin)
 ):
-    """Run AI Tourism Engine across ALL 25 provinces of Cambodia with dynamic database auto-persistence."""
+    """Run AI Tourism Engine across ALL 25 provinces of Cambodia with dynamic database auto-persistence.
+
+    The scan keeps running after this response; progress and the real counts come from
+    GET /admin/ai/tourism-scan/status.
+    """
     try:
+        if ai_tourism_engine.is_scan_running():
+            raise HTTPException(
+                status_code=409,
+                detail="A discovery scan is already running. Watch its progress instead of starting another."
+            )
+        source = ai_tourism_engine.discovery_source()
         background_tasks.add_task(ai_tourism_engine.run_full_scan)
-        return {"status": "started", "message": "Full tourism scan started in background. Discovered places will be auto-saved to database."}
+        return {
+            "status": "started",
+            "discovery_source": source,
+            "message": (
+                "Discovery scan started in the background. Follow GET /admin/ai/tourism-scan/status "
+                "for progress; discovered places are auto-saved to the database."
+            ),
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/ai/tourism-scan/status")
+async def tourism_scan_status(current_user: User = Depends(require_admin)):
+    """Live progress of the background discovery scan, plus the result of the last completed run."""
+    return ai_tourism_engine.get_scan_status()
 
 @router.post("/ai/tourism-scan/{province_slug}")
 async def run_tourism_province_scan(

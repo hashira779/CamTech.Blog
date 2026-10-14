@@ -7,10 +7,12 @@ import json
 import uuid
 import re
 import os
+import difflib
 import logging
 import asyncio
 import httpx
 import urllib.parse
+from typing import Optional
 from datetime import datetime, timezone
 try:
     from google import genai
@@ -25,7 +27,6 @@ from app.models.place import Place
 from app.models.audit import SiteSetting
 from app.services.google_drive_service import storage_service
 from app.services.s3_service import s3_service
-from app.services.image_search_service import image_search_service
 from app.services import ai_gateway
 
 logger = logging.getLogger(__name__)
@@ -138,8 +139,13 @@ def _score_wiki_page(title: str, place_name: str, clean_name: str) -> float:
     matches = sum(1 for w in words if w in t_low)
     return (matches / len(words)) * 75.0 if matches > 0 else 0.0
 
-async def fetch_wiki_images(place_name: str, province_name: str, local_name: str = None, max_images: int = 15) -> list[str]:
-    """Uses Wikipedia API with pageimages and embedded article media to find real high-resolution photos."""
+async def fetch_wiki_image_items(place_name: str, province_name: str, local_name: str = None, max_images: int = 15) -> list[dict]:
+    """Uses Wikipedia API with pageimages and embedded article media to find real high-resolution photos.
+
+    Returns [{"url", "context"}] where context is the Wikipedia article title the image came from —
+    that article title is the source evidence used later to decide whether the photo really shows
+    the place, so images from an unrelated article can be rejected instead of padded in.
+    """
     ua = "CamTechBlogDiscovery/2.0 (https://blog.camtech.cam; contact@camtech.cam) python-httpx/0.28.1"
     headers = {"User-Agent": ua}
     
@@ -179,7 +185,7 @@ async def fetch_wiki_images(place_name: str, province_name: str, local_name: str
                             if not any(bad in src_clean.lower() for bad in BAD_IMAGE_KEYWORDS):
                                 if src_clean not in seen:
                                     seen.add(src_clean)
-                                    found_images.append(src)
+                                    found_images.append({"url": src, "context": title})
 
                         # 2. Extract photos embedded within the relevant Wikipedia article
                         if title and len(found_images) < max_images:
@@ -197,7 +203,7 @@ async def fetch_wiki_images(place_name: str, province_name: str, local_name: str
                                                 if any(u_clean.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".webp"]):
                                                     if u_clean not in seen:
                                                         seen.add(u_clean)
-                                                        found_images.append(u)
+                                                        found_images.append({"url": u, "context": title})
                             except Exception:
                                 pass
             except Exception as e:
@@ -208,8 +214,13 @@ async def fetch_wiki_images(place_name: str, province_name: str, local_name: str
 
     return found_images
 
-async def fetch_commons_images(place_name: str, province_name: str, max_images: int = 15) -> list[str]:
-    """Queries Wikimedia Commons open media library for verified cultural and travel photos (1600px Full-HD)."""
+async def fetch_commons_image_items(place_name: str, province_name: str, max_images: int = 15) -> list[dict]:
+    """Queries Wikimedia Commons open media library for real photos (1600px Full-HD).
+
+    Returns [{"url", "context"}] where context is the Commons File title — i.e. the filename the
+    community actually assigned to the photo, which is the evidence used to confirm it depicts
+    this place.
+    """
     ua = "CamTechBlogDiscovery/2.0 (https://blog.camtech.cam; contact@camtech.cam) python-httpx/0.28.1"
     headers = {"User-Agent": ua}
     clean_name = re.sub(r'\(.*?\)', '', place_name).strip()
@@ -239,7 +250,7 @@ async def fetch_commons_images(place_name: str, province_name: str, max_images: 
                                 if any(u_clean.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".webp"]):
                                     if u_clean not in seen:
                                         seen.add(u_clean)
-                                        found.append(u)
+                                        found.append({"url": u, "context": p.get("title", "")})
             except Exception:
                 pass
             if len(found) >= max_images:
@@ -247,29 +258,37 @@ async def fetch_commons_images(place_name: str, province_name: str, max_images: 
 
     return found
 
-async def fetch_you_images(place_name: str, province_name: str, you_api_key: str, max_images: int = 12) -> list[str]:
-    """Queries You.com Web Search index to extract real travel thumbnails and images."""
+async def fetch_you_image_items(place_name: str, province_name: str, you_api_key: str, max_images: int = 12) -> list[dict]:
+    """Queries You.com Web Search index to extract real travel thumbnails and images.
+
+    Returns [{"url", "context"}] where context is the title of the page the thumbnail came from.
+    """
     if not you_api_key:
         return []
     found = []
     seen = set()
+
+    def _push(url: str, context: str):
+        if not url or not url.startswith("http"):
+            return
+        key = url.split("?")[0]
+        if key in seen:
+            return
+        seen.add(key)
+        found.append({"url": url, "context": context or ""})
+
     try:
         search_data = await asyncio.wait_for(_you_web_search(f"{place_name} {province_name} Cambodia travel tourism", you_api_key), timeout=4.0)
         if search_data and "results" in search_data:
             # 1. Image results if present
             for img_item in search_data["results"].get("images", []):
                 u = img_item.get("url") or img_item.get("thumbnail_url")
-                if u and u.startswith("http") and u not in seen:
-                    seen.add(u)
-                    found.append(u)
+                _push(u, img_item.get("title") or img_item.get("description") or "")
             # 2. Web search thumbnails (TripAdvisor, Booking, blogs)
             for r in search_data["results"].get("web", []):
                 thumb = r.get("thumbnail_url")
-                if thumb and thumb.startswith("http") and not any(bad in thumb.lower() for bad in BAD_IMAGE_KEYWORDS):
-                    if not any(bad in thumb.lower() for bad in ["logo", "icon", "favicon", "trip.com", "tripadvisor", "booking", "agoda"]):
-                        if thumb not in seen:
-                            seen.add(thumb)
-                            found.append(thumb)
+                if thumb and not any(bad in thumb.lower() for bad in BAD_IMAGE_KEYWORDS):
+                    _push(thumb, r.get("title") or r.get("page_title") or "")
     except Exception:
         pass
     return found[:max_images]
@@ -295,13 +314,255 @@ CATEGORY_FALLBACK_IMAGE = {
 }
 
 def get_category_fallback_photo(place_type: str, name: str) -> str:
-    """Return a single fallback photo for a place type. Only used when real image sources fail."""
+    """Return a single generic photo for a place type.
+
+    Deprecated for galleries: place galleries now store only images verified against the
+    place name, so this is kept purely for callers that need a last-resort placeholder.
+    """
     ptype = (place_type or "ATTRACTION").upper()
     return CATEGORY_FALLBACK_IMAGE.get(ptype, CATEGORY_FALLBACK_IMAGE["ATTRACTION"])
 
-def get_category_fallback_gallery(place_type: str, name: str, count: int = 12) -> list[str]:
-    """Return a rich, diverse fallback gallery. Real images should come from Wikipedia/Commons/web search."""
-    return image_search_service.get_diverse_place_gallery(place_type, name, count)
+
+# --------------------------------------------------------------------------- image verification
+# A place gallery must contain only photographs that really depict that place and that still
+# load. Generic per-category stock padding produced irrelevant tiles (a butterfly or a beach on
+# a biodiversity-centre card) and unverified external URLs produced broken tiles, so:
+#   1. every candidate is checked against the place name using its SOURCE CONTEXT
+#      (Wikipedia article title / Commons file title / web page title + filename);
+#   2. anything coming from a static generic pool is rejected outright;
+#   3. survivors get an HTTP liveness check before being stored.
+# The result may legitimately contain fewer images than requested.
+
+IMAGE_RELEVANCE_THRESHOLD = 0.6
+
+PLACE_NAME_STOPWORDS = {
+    "the", "of", "and", "in", "at", "de", "a", "an", "for", "with", "near",
+    "cambodia", "cambodian", "kingdom", "province", "khan", "district", "commune", "village",
+    "national", "park", "protected", "landscape", "centre", "center", "cultural", "complex",
+    "heritage", "tourism", "site", "temple", "wat", "pagoda", "hotel", "resort", "restaurant",
+    "cafe", "coffee", "market", "beach", "waterfall", "mountain", "lake", "river", "museum",
+    "sanctuary", "attraction", "guesthouse", "guest", "house", "villa", "lodge", "cave",
+}
+
+# Words that carry no identity of their own but still form part of an official abbreviation.
+NAME_CONNECTIVES = {"the", "of", "and", "in", "at", "de", "a", "an", "for", "with", "near"}
+
+
+def _norm_text(value) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", str(value or "").lower()).strip()
+
+
+def _url_key(url: str) -> str:
+    return str(url or "").split("?")[0].strip().rstrip("/").lower()
+
+
+def place_name_tokens(place_name: str, local_name: str = None) -> list[str]:
+    """Distinctive words of a place name (generic travel/administrative words removed)."""
+    tokens: list[str] = []
+    for part in (place_name, local_name):
+        for word in _norm_text(part).split():
+            if len(word) >= 3 and word not in PLACE_NAME_STOPWORDS and word not in tokens:
+                tokens.append(word)
+    return tokens
+
+
+_PARENTHETICAL_ALIAS_RE = re.compile(r"[(\[]([^\])]{2,80})[\])]")
+
+
+def place_name_variants(place_name: str, local_name: str = None) -> list[str]:
+    """Every way this place is spelled, so an alias cannot dilute the real name.
+
+    "Ta Prohm (Tomb Raider Temple)" is photographed and titled as "Ta Prohm"; scoring the
+    whole string as one name demands "tomb" and "raider" too, so genuine temple photos were
+    dropped. Each variant is scored on its own and the strongest match wins.
+    """
+    raw = str(place_name or "").strip()
+    variants: list[str] = [raw]
+    variants.extend(_PARENTHETICAL_ALIAS_RE.findall(raw))
+    stripped = _PARENTHETICAL_ALIAS_RE.sub(" ", raw).strip()
+    if stripped:
+        variants.append(stripped)
+    if local_name:
+        variants.append(str(local_name))
+
+    seen: set[str] = set()
+    unique: list[str] = []
+    for variant in variants:
+        key = _norm_text(variant)
+        if key and key not in seen:
+            seen.add(key)
+            unique.append(variant)
+    return unique
+
+
+def _score_name_variant(
+    name: str, words: set[str], compact: str, haystack: str
+) -> float:
+    full_name = _norm_text(name)
+    if not full_name:
+        return 0.0
+    if full_name in haystack:
+        return 1.0
+
+    tokens = place_name_tokens(name)
+    if not tokens:
+        return 0.0
+
+    acronym_words = [w for w in full_name.split() if w not in NAME_CONNECTIVES]
+    if len(acronym_words) >= 3:
+        if "".join(w[0] for w in acronym_words) in compact:
+            return 0.9
+
+    matched = sum(1 for token in tokens if token in words or (len(token) >= 4 and token in compact))
+    return matched / len(tokens)
+
+
+def image_relevance(url: str, context: str = "", place_name: str = None, local_name: str = None) -> float:
+    """0.0-1.0 confidence that an image depicts the place, judged from its source context + filename."""
+    if not place_name:
+        return 0.0
+    haystack = _norm_text(f"{context} {urllib.parse.unquote(_url_key(url))}")
+    if not haystack:
+        return 0.0
+    words = set(haystack.split())
+    compact = haystack.replace(" ", "")
+
+    variants = place_name_variants(place_name, local_name)
+    if not variants:
+        return 0.0
+    return max(_score_name_variant(v, words, compact, haystack) for v in variants)
+
+
+_GENERIC_POOL_KEYS: set[str] | None = None
+
+
+def generic_pool_image_keys() -> set[str]:
+    """Normalized URLs of every image in the static generic pools — never valid for a real place."""
+    global _GENERIC_POOL_KEYS
+    if _GENERIC_POOL_KEYS is not None:
+        return _GENERIC_POOL_KEYS
+
+    keys: set[str] = {_url_key(url) for url in CATEGORY_FALLBACK_IMAGE.values()}
+    # The pools are module-level constants (the imported name in this file is the service instance).
+    from app.services import image_search_service as _image_search_module
+
+    for pool_name in ("PLACE_CATEGORY_POOLS", "CATEGORY_NEWS_IMAGE_POOLS"):
+        for pool in getattr(_image_search_module, pool_name, {}).values():
+            for url in pool:
+                keys.add(_url_key(url))
+    _GENERIC_POOL_KEYS = {k for k in keys if k}
+    return _GENERIC_POOL_KEYS
+
+
+def verify_place_image(url: str, context: str = "", place_name: str = None, local_name: str = None) -> tuple[bool, float]:
+    """True only for real, place-matched, non-generic images that plausibly depict the place."""
+    key = _url_key(url)
+    if not key or key.startswith("/") or not str(url).startswith("http"):
+        return False, 0.0
+    if key in generic_pool_image_keys():
+        return False, 0.0
+    if any(bad in key.lower() for bad in BAD_IMAGE_KEYWORDS):
+        return False, 0.0
+    score = image_relevance(url, context, place_name, local_name)
+    return score >= IMAGE_RELEVANCE_THRESHOLD, score
+
+
+def is_generic_place_image(url: str) -> bool:
+    """True when the URL is one of the hardcoded generic stock/fallback photos."""
+    return _url_key(url) in generic_pool_image_keys()
+
+
+def subject_context_matches(haystack: str, subject: str = "", destination: str = "") -> bool:
+    """Does this text (an image filename, page title, or file name) name the subject or its province?"""
+    normalized = _norm_text(haystack)
+    if not normalized:
+        return False
+    words = set(normalized.split())
+    compact = normalized.replace(" ", "")
+
+    for word in _norm_text(destination).split():
+        if len(word) >= 4 and (word in words or word in compact):
+            return True
+
+    distinctive = [token for token in place_name_tokens(subject) if len(token) >= 5]
+    return any(token in words or token in compact for token in distinctive)
+
+
+def content_image_matches(url: str, context: str = "", subject: str = "", destination: str = "") -> bool:
+    """Does this photo actually depict an article's subject or its province?
+
+    Guides and events are not places, so the strict place-token rule does not fit: a photo
+    titled "Angkor Wat at dawn" belongs on a Siem Reap sunrise guide even though the guide
+    title holds five more words. Accept when the source context names the destination or a
+    distinctive word of the subject; generic stock pools are always rejected.
+    """
+    key = _url_key(url)
+    if not key or not str(url).startswith("http"):
+        return False
+    if key in generic_pool_image_keys():
+        return False
+
+    haystack = f"{context} {urllib.parse.unquote(key)}"
+    return subject_context_matches(haystack, subject=subject, destination=destination)
+
+
+async def filter_live_images(urls: list[str], timeout: float = 6.0, concurrency: int = 6, overall_budget: float = 20.0) -> list[str]:
+    """Keep only URLs that actually return a loadable image (200 + image/* content type).
+
+    Fails open: if the whole batch cannot be checked (network trouble / budget exceeded) the
+    input is returned untouched so a transient outage never wipes a good gallery.
+    """
+    urls = [u for u in urls if isinstance(u, str) and u.startswith("http")]
+    if not urls:
+        return []
+
+    sem = asyncio.Semaphore(max(1, concurrency))
+    headers = {
+        "User-Agent": "CamTechBlogDiscovery/2.0 (https://blog.camtech.cam; contact@camtech.cam) python-httpx/0.28.1",
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+    }
+
+    async def _check(client: httpx.AsyncClient, url: str) -> Optional[bool]:
+        """True = loads, False = provably gone, None = inconclusive (keep the image)."""
+        async with sem:
+            try:
+                async with client.stream("GET", url, headers=headers, timeout=timeout) as res:
+                    if res.status_code in (404, 410):
+                        return False
+                    if res.status_code != 200:
+                        # 429 from a CDN that rate-limits bulk checks, 5xx, hotlink 403:
+                        # the photo may be perfectly fine, so never delete on a guess.
+                        logger.debug(f"[PlaceImages] liveness inconclusive ({res.status_code}) {url}")
+                        return None
+                    content_type = (res.headers.get("content-type") or "").lower()
+                    if content_type and not content_type.startswith("image"):
+                        return False
+                    return True
+            except Exception:
+                return None
+
+    outcome: list[Optional[bool]] = [None] * len(urls)
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            results = await asyncio.wait_for(
+                asyncio.gather(*[_check(client, u) for u in urls], return_exceptions=True),
+                timeout=overall_budget,
+            )
+        for idx, res in enumerate(results):
+            outcome[idx] = res if isinstance(res, bool) else None
+    except Exception as e:
+        logger.warning(f"[PlaceImages] liveness check unavailable, keeping candidates: {e}")
+        return urls
+
+    # Fail open per URL: only a proven 404/410 or a non-image content type removes an image.
+    kept = [u for u, ok in zip(urls, outcome) if ok is not False]
+    dropped = len(urls) - len(kept)
+    inconclusive = sum(1 for ok in outcome if ok is None)
+    if dropped:
+        logger.info(f"[PlaceImages] dropped {dropped} dead/non-image URL(s)")
+    if inconclusive:
+        logger.info(f"[PlaceImages] kept {inconclusive} URL(s) that could not be confirmed")
+    return kept
 
 
 # All 25 provinces/cities of Cambodia
@@ -334,15 +595,161 @@ CAMBODIA_PROVINCES = [
 ]
 
 
+# ----------------------------------------------------------------------------------
+# Discovery quality gates: a candidate is only worth inserting when it names a real,
+# specific place that is not already in the directory under another spelling.
+# ----------------------------------------------------------------------------------
+
+# The built-in heritage list carries one entry per provincial capital for each of these
+# families ("Pursat Historic Pagoda", "Kandal Riverside Park & Promenade"). They are
+# placeholders rather than researched places: no proper name, no coordinates, and a
+# description that would fit any town. They are reported to the admin, never auto-saved.
+GENERIC_CURATED_LANDMARKS = (
+    "riverside park & promenade",
+    "historic pagoda",
+    "central market",
+)
+
+_NEAR_DUPLICATE_TOKEN_GAP = 2
+_NEAR_DUPLICATE_RATIO = 0.86
+
+
+def is_generic_curated_candidate(name: str, province_name: str) -> bool:
+    """True for templated fallback entries that describe no specific place."""
+    core = _PARENTHETICAL_ALIAS_RE.sub(" ", str(name or "")).strip()
+    norm_core = _norm_text(core)
+    if not norm_core:
+        return True
+    norm_province = _norm_text(province_name)
+    if norm_province and norm_core.startswith(norm_province):
+        remainder = norm_core[len(norm_province):].strip()
+        for family in GENERIC_CURATED_LANDMARKS:
+            if remainder == _norm_text(family) or remainder.startswith(_norm_text(family)):
+                return True
+    return False
+
+
+def _name_token_sets(name: str) -> list[frozenset]:
+    """Distinctive word sets for a place, one per spelling variant (alias included)."""
+    sets: list[frozenset] = []
+    for variant in place_name_variants(name):
+        tokens = frozenset(place_name_tokens(variant))
+        if tokens and tokens not in sets:
+            sets.append(tokens)
+    return sets
+
+
+# Words that say what kind of place this is. They are dropped when comparing names
+# ("Ta Prohm Temple" and "Ta Prohm" are one place) but kept as a tie-breaker, because a
+# museum and a temple that share the only distinctive word are not the same entry.
+PLACE_TYPE_WORDS = {
+    "temple", "wat", "pagoda", "stupa", "museum", "gallery", "beach", "waterfall",
+    "market", "bazaar", "park", "garden", "mountain", "hill", "lake", "river", "cave",
+    "island", "sanctuary", "shrine", "hotel", "resort", "restaurant", "cafe", "farm",
+    "bridge", "village", "promenade", "square", "theatre", "zoo", "complex",
+}
+
+
+def _type_words(name: str) -> set[str]:
+    return {w for w in _norm_text(name).split() if w in PLACE_TYPE_WORDS}
+
+
+def _types_compatible(name: str, other: str) -> bool:
+    """Two names may only be merged when they do not claim to be different kinds of place."""
+    a, b = _type_words(name), _type_words(other)
+    return not a or not b or bool(a & b)
+
+
+def find_near_duplicate_place(name: str, existing_names) -> Optional[str]:
+    """Return the already-stored place this candidate actually repeats, else None.
+
+    Directory rows are keyed on free-text names, so "Ta Prohm Temple" and
+    "Ta Prohm (Tomb Raider Temple)" are one place that exact matching lets through as a
+    "new discovery" - the duplicate cards the province pages are judged on. Comparing the
+    distinctive words of every spelling variant catches the alias, punctuation and
+    "Bou Sra / Bousra" re-orders.
+
+    Evidence required, in order of confidence: identical distinctive words (two or more),
+    a strong word overlap, or a near-identical spelling. A single shared word is only
+    enough when neither name claims a different kind of place, which is what keeps
+    "Angkor National Museum" from being swallowed by "Angkor Wat" and "Banteay Kdei" from
+    being swallowed by "Banteay Srei".
+    """
+    candidate_sets = _name_token_sets(name)
+    candidate_tokens = set().union(*candidate_sets) if candidate_sets else set()
+    if not candidate_tokens:
+        return None
+    candidate_compact = {_norm_text(v).replace(" ", "") for v in place_name_variants(name)}
+
+    for existing in existing_names or []:
+        if not existing:
+            continue
+        existing_str = str(existing)
+        if _norm_text(existing_str) == _norm_text(name):
+            return existing_str
+        existing_sets = _name_token_sets(existing_str)
+        if not existing_sets:
+            continue
+
+        for a in candidate_sets:
+            for b in existing_sets:
+                shared = a & b
+                if len(shared) >= 2:
+                    if a == b or len(shared) / len(a | b) >= 0.6:
+                        return existing_str
+                    if abs(len(a) - len(b)) <= _NEAR_DUPLICATE_TOKEN_GAP and shared == (
+                        a if len(a) < len(b) else b
+                    ):
+                        return existing_str
+                elif len(shared) == 1 and a == b and _types_compatible(name, existing_str):
+                    return existing_str
+
+        if candidate_tokens & set().union(*existing_sets) and _types_compatible(name, existing_str):
+            existing_compact = {
+                _norm_text(v).replace(" ", "") for v in place_name_variants(existing_str)
+            }
+            best = max(
+                (difflib.SequenceMatcher(None, ca, cb).ratio()
+                 for ca in candidate_compact for cb in existing_compact if ca and cb),
+                default=0.0,
+            )
+            if best >= _NEAR_DUPLICATE_RATIO:
+                return existing_str
+    return None
+
+
+# Live progress of the background discovery job, so the admin can see what a scan is
+# actually doing instead of guessing from a toast that fires before it starts.
+SCAN_STATE: dict = {
+    "running": False,
+    "started_at": None,
+    "finished_at": None,
+    "discovery_source": None,
+    "provinces_total": 0,
+    "provinces_done": 0,
+    "current_province": None,
+    "new_places": 0,
+    "candidates": 0,
+    "duplicates_skipped": 0,
+    "generic_withheld": 0,
+    "errors": [],
+    "results": [],
+    "last_summary": None,
+}
+
+
 class AITourismEngine:
     """
     Super engine that uses the pluggable AI gateway to discover and populate tourist
     places for all 25 provinces of Cambodia automatically.
     """
 
-    def _get_curated_fallback_places(self, province_slug: str, dest_name: str, dest_id: str, default_hero: str, existing_names_set: set) -> list[dict]:
+    def _candidates_json_path(self) -> str:
+        return os.path.join(os.path.dirname(__file__), "..", "data_province_candidates.json")
+
+    def _get_curated_fallback_places(self, province_slug: str, dest_name: str, dest_id: str, default_hero: str, existing_names_set: set, existing_names: list = None) -> list[dict]:
         """Load verified heritage candidate places for this province."""
-        json_path = os.path.join(os.path.dirname(__file__), "..", "data_province_candidates.json")
+        json_path = self._candidates_json_path()
         candidates = []
         if os.path.exists(json_path):
             try:
@@ -358,9 +765,12 @@ class AITourismEngine:
             if not name:
                 continue
             p_type = p.get("place_type", "ATTRACTION")
-            is_dup = name.lower() in existing_names_set
-            hero_photo = get_category_fallback_photo(p_type, name)
-            gallery_photos = get_category_fallback_gallery(p_type, name, 12)
+            duplicate_of = find_near_duplicate_place(name, existing_names) or (
+                name if name.lower() in existing_names_set else None
+            )
+            # No generic hero/gallery is fabricated here any more: real images are resolved
+            # (and verified) by save_approved_place, which leaves them empty when nothing
+            # genuinely depicting this place can be found.
             processed.append({
                 "name": name,
                 "local_name": p.get("local_name"),
@@ -376,12 +786,43 @@ class AITourismEngine:
                 "website": p.get("website"),
                 "tags": p.get("tags", ["Heritage", "Culture"]),
                 "rating": p.get("rating", 4.7),
-                "is_duplicate": is_dup,
+                "is_duplicate": bool(duplicate_of),
+                "duplicate_of": duplicate_of,
+                "generic_placeholder": is_generic_curated_candidate(name, dest_name),
                 "destination_id": dest_id,
-                "hero_image_url": hero_photo,
-                "gallery_json": json.dumps(gallery_photos)
+                "hero_image_url": "",
+                "gallery_json": "[]"
             })
         return processed
+
+    async def _auto_save_candidates(self, places: list[dict], auto_save: bool) -> dict:
+        """Insert only candidates that name a new, specific place.
+
+        A near-duplicate spelling and a templated placeholder are both reported instead of
+        being written, because either one would land as a second card for a place the
+        province page already shows.
+        """
+        saved = duplicates = withheld = 0
+        for p in places:
+            if p.get("is_duplicate"):
+                duplicates += 1
+                continue
+            if p.get("generic_placeholder"):
+                withheld += 1
+                logger.info(f"[Discovery] withheld templated placeholder candidate: {p.get('name')}")
+                continue
+            if not auto_save:
+                continue
+            try:
+                save_res = await self.save_approved_place(p)
+                if save_res.get("status") == "success":
+                    saved += 1
+                    p["saved_to_db"] = True
+                elif save_res.get("status") == "skipped":
+                    duplicates += 1
+            except Exception as s_err:
+                logger.warning(f"Auto-save failed for {p.get('name')}: {s_err}")
+        return {"saved_to_db": saved, "duplicates_skipped": duplicates, "generic_withheld": withheld}
 
     async def _resolve_place_images(
         self,
@@ -390,52 +831,68 @@ class AITourismEngine:
         place_type: str,
         local_name: str = None,
         you_api_key: str = None,
-        target_count: int = 12
+        target_count: int = 12,
+        verify_live: bool = True
     ) -> tuple[str, list[str]]:
         """
-        Multi-source intelligent image discovery:
-        Finds at least 10-12+ authentic images for a place across:
-        1. Wikipedia article pageimages & section photos
-        2. Wikimedia Commons high-resolution photography
-        3. You.com web search thumbnails
-        4. Curated category travel photo library padding (ensuring 10+ photos)
+        Multi-source image discovery that keeps ONLY verified results.
+
+        Candidates come from Wikipedia (article pageimage + article media), Wikimedia Commons
+        and You.com web search. Each candidate is judged on its source context (article title,
+        Commons file title, page title + filename) against the place name; generic stock pools
+        are never used, so a gallery may legitimately contain fewer than `target_count` images
+        — or none, which is reported honestly instead of being padded with wrong photos.
         """
-        all_images = []
+        candidates: list[dict] = []
         seen = set()
 
-        def _add(u: str):
-            if not u or not u.startswith("http"):
+        def _add(url: str, context: str = ""):
+            if not url or not url.startswith("http"):
                 return
-            clean = u.split("?")[0].strip()
-            if clean not in seen and not any(bad in clean.lower() for bad in BAD_IMAGE_KEYWORDS):
-                seen.add(clean)
-                all_images.append(u)
+            key = url.split("?")[0].strip()
+            if key in seen:
+                return
+            seen.add(key)
+            candidates.append({"url": url, "context": context or ""})
 
-        # 1. Concurrently query Wikipedia & Wikimedia Commons
+        # 1. Concurrently query Wikipedia, Wikimedia Commons and (optionally) You.com
         try:
             tasks = [
-                fetch_wiki_images(name, dest_name, local_name, max_images=10),
-                fetch_commons_images(name, dest_name, max_images=12)
+                fetch_wiki_image_items(name, dest_name, local_name, max_images=10),
+                fetch_commons_image_items(name, dest_name, max_images=12),
             ]
             if you_api_key:
-                tasks.append(fetch_you_images(name, dest_name, you_api_key, max_images=8))
+                tasks.append(fetch_you_image_items(name, dest_name, you_api_key, max_images=8))
 
-            results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=9.0)
+            results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=12.0)
             for res in results:
                 if isinstance(res, list):
-                    for img in res:
-                        _add(img)
+                    for item in res:
+                        if isinstance(item, dict):
+                            _add(item.get("url", ""), item.get("context", ""))
+                        elif isinstance(item, str):
+                            _add(item, "")
         except Exception as e:
             logger.debug(f"Image discovery notice for {name}: {e}")
 
-        # Ensure high-resolution, diverse photography padding
-        if len(all_images) < target_count:
-            diverse_photos = image_search_service.get_diverse_place_gallery(place_type, name, count=target_count)
-            for p in diverse_photos:
-                _add(p)
+        # 2. Keep only images whose source context really matches this place
+        verified: list[str] = []
+        rejected = 0
+        for item in candidates:
+            ok, _score = verify_place_image(item["url"], item.get("context", ""), name, local_name)
+            if ok:
+                verified.append(item["url"])
+            else:
+                rejected += 1
+        if rejected:
+            logger.info(f"[PlaceImages] {name}: rejected {rejected} unverified image candidate(s)")
 
-        hero = all_images[0]
-        gallery = all_images[:target_count]
+        # 3. Drop dead / non-image URLs so no broken tiles reach the UI
+        if verify_live and verified:
+            verified = await filter_live_images(verified)
+
+        hero = verified[0] if verified else ""
+        gallery = verified[:target_count]
         return hero, gallery
 
     async def _resolve_candidate_image(
@@ -510,7 +967,9 @@ class AITourismEngine:
 
             # Check how many places already exist for this destination
             existing_count = db.query(Place).filter(Place.destination_id == dest_id).count()
-            existing_names = [p.name for p in db.query(Place.name).filter(Place.destination_id == dest_id).all()]
+            existing_names = [p.name for p in db.query(Place.name).filter(
+                Place.destination_id == dest_id, Place.status == "ACTIVE"
+            ).all()]
             existing_names_set = set(n.strip().lower() for n in existing_names)
 
             you_api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'YOU_API_KEY').first()
@@ -569,25 +1028,18 @@ Return a JSON array of objects. Each object must have these keys:
             # If all external AI failed or no API key, use verified curated heritage candidates!
             if not response_text:
                 logger.info(f"External AI unavailable or unconfigured, using curated heritage database for {dest_name}...")
-                curated_places = self._get_curated_fallback_places(dest_slug, dest_name, dest_id, default_hero, existing_names_set)
-                
-                saved_to_db = 0
-                if auto_save:
-                    for p in curated_places:
-                        if not p.get("is_duplicate"):
-                            try:
-                                save_res = await self.save_approved_place(p)
-                                if save_res.get("status") == "success":
-                                    saved_to_db += 1
-                                    p["saved_to_db"] = True
-                            except Exception as s_err:
-                                logger.warning(f"Auto-save failed for curated {p.get('name')}: {s_err}")
+                curated_places = self._get_curated_fallback_places(
+                    dest_slug, dest_name, dest_id, default_hero, existing_names_set, existing_names
+                )
+                stats = await self._auto_save_candidates(curated_places, auto_save)
 
                 return {
                     "province": dest_name,
                     "province_slug": dest_slug,
                     "discovered": len(curated_places),
-                    "saved_to_db": saved_to_db,
+                    "saved_to_db": stats["saved_to_db"],
+                    "duplicates_skipped": stats["duplicates_skipped"],
+                    "generic_withheld": stats["generic_withheld"],
                     "places_data": curated_places,
                     "source": "curated_heritage"
                 }
@@ -616,24 +1068,18 @@ Return a JSON array of objects. Each object must have these keys:
 
                 if not places_data:
                     logger.warning(f"Failed to parse JSON from AI response, using curated fallback: {response_text[:100]}...")
-                    curated_places = self._get_curated_fallback_places(dest_slug, dest_name, dest_id, default_hero, existing_names_set)
-                    saved_to_db = 0
-                    if auto_save:
-                        for p in curated_places:
-                            if not p.get("is_duplicate"):
-                                try:
-                                    save_res = await self.save_approved_place(p)
-                                    if save_res.get("status") == "success":
-                                        saved_to_db += 1
-                                        p["saved_to_db"] = True
-                                except Exception as s_err:
-                                    logger.warning(f"Auto-save failed for curated {p.get('name')}: {s_err}")
+                    curated_places = self._get_curated_fallback_places(
+                        dest_slug, dest_name, dest_id, default_hero, existing_names_set, existing_names
+                    )
+                    stats = await self._auto_save_candidates(curated_places, auto_save)
 
                     return {
                         "province": dest_name,
                         "province_slug": dest_slug,
                         "discovered": len(curated_places),
-                        "saved_to_db": saved_to_db,
+                        "saved_to_db": stats["saved_to_db"],
+                        "duplicates_skipped": stats["duplicates_skipped"],
+                        "generic_withheld": stats["generic_withheld"],
                         "places_data": curated_places,
                         "source": "curated_heritage"
                     }
@@ -648,33 +1094,38 @@ Return a JSON array of objects. Each object must have these keys:
                 p_type = p.get("place_type", "ATTRACTION")
                 local_name = p.get("local_name")
                 hero, gallery = await self._resolve_place_images(name, dest_name, p_type, local_name, you_api_key, target_count=12)
-                p["is_duplicate"] = name.lower() in existing_names_set
-                p["destination_id"] = dest_id
                 p["hero_image_url"] = hero
                 p["gallery_json"] = json.dumps(gallery)
                 return p
 
             valid_places = [p for p in places_data if p.get("name", "").strip()]
-            processed_places = await asyncio.gather(*[_enrich_candidate(p) for p in valid_places])
+            for p in valid_places:
+                name = str(p.get("name", "")).strip()
+                duplicate_of = find_near_duplicate_place(name, existing_names) or (
+                    name if name.lower() in existing_names_set else None
+                )
+                p["is_duplicate"] = bool(duplicate_of)
+                p["duplicate_of"] = duplicate_of
+                p["generic_placeholder"] = is_generic_curated_candidate(name, dest_name)
+                p["destination_id"] = dest_id
 
-            saved_to_db = 0
-            if auto_save:
-                for p in processed_places:
-                    if not p.get("is_duplicate"):
-                        try:
-                            save_res = await self.save_approved_place(p)
-                            if save_res.get("status") == "success":
-                                saved_to_db += 1
-                                p["saved_to_db"] = True
-                        except Exception as s_err:
-                            logger.warning(f"Auto-save failed for {p.get('name')}: {s_err}")
+            # Images are only searched for places that can actually be saved: a duplicate
+            # costs the same dozen network calls and still cannot be used.
+            await asyncio.gather(*[
+                _enrich_candidate(p) for p in valid_places
+                if not p["is_duplicate"] and not p["generic_placeholder"]
+            ])
+            stats = await self._auto_save_candidates(valid_places, auto_save)
 
             return {
                 "province": dest_name,
                 "province_slug": dest_slug,
-                "discovered": len(processed_places),
-                "saved_to_db": saved_to_db,
-                "places_data": processed_places
+                "discovered": len(valid_places),
+                "saved_to_db": stats["saved_to_db"],
+                "duplicates_skipped": stats["duplicates_skipped"],
+                "generic_withheld": stats["generic_withheld"],
+                "places_data": valid_places,
+                "source": "ai_gateway"
             }
 
         except Exception as e:
@@ -696,12 +1147,39 @@ Return a JSON array of objects. Each object must have these keys:
                 "message": user_message
             }
 
+    def get_scan_status(self) -> dict:
+        """Progress of the discovery job, for the admin UI to poll while it runs."""
+        return json.loads(json.dumps({**SCAN_STATE, "results": SCAN_STATE.get("results", [])}, default=str))
+
+    def is_scan_running(self) -> bool:
+        return bool(SCAN_STATE.get("running"))
+
+    def discovery_source(self) -> str:
+        """Which engine a scan would use, so the UI can say whether results are researched or curated."""
+        if ai_gateway.has_any_configured_provider():
+            return "ai_research"
+        db = SessionLocal()
+        try:
+            row = db.query(SiteSetting).filter(SiteSetting.key == 'YOU_API_KEY').first()
+            if (row and row.value_json) or os.environ.get("YOU_API_KEY"):
+                return "ai_research"
+        finally:
+            db.close()
+        return "curated_heritage_list"
+
     async def run_full_scan(self) -> dict:
         """
         Run a full scan across ALL 25 provinces.
         This is the main entry point for the weekly cron job and admin trigger.
         Discovers AND automatically saves places directly to the database dynamically.
+
+        Progress is mirrored into SCAN_STATE because this runs as a background task: the
+        HTTP response returns long before the work does, and the result would otherwise be
+        invisible to whoever pressed the button.
         """
+        if SCAN_STATE.get("running"):
+            return {"status": "already_running", "message": "A discovery scan is already in progress."}
+
         db = SessionLocal()
         try:
             self._ensure_cambodia_destinations(db)
@@ -709,27 +1187,79 @@ Return a JSON array of objects. Each object must have these keys:
             if db.is_active:
                 db.close()
 
+        SCAN_STATE.update({
+            "running": True,
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "finished_at": None,
+            "discovery_source": self.discovery_source(),
+            "provinces_total": len(CAMBODIA_PROVINCES),
+            "provinces_done": 0,
+            "current_province": None,
+            "new_places": 0,
+            "candidates": 0,
+            "duplicates_skipped": 0,
+            "generic_withheld": 0,
+            "errors": [],
+            "results": [],
+        })
+
         results = []
         total_inserted = 0
         errors = []
 
-        for prov in CAMBODIA_PROVINCES:
-            try:
-                logger.info(f"🔍 Scanning {prov['name']} with auto-save...")
-                result = await self.discover_places_for_province(prov["slug"], auto_save=True)
-                results.append(result)
-                saved_count = result.get("saved_to_db", 0)
-                total_inserted += saved_count
-                logger.info(f"✅ {prov['name']}: {saved_count} new places saved to database.")
-            except Exception as e:
-                error_msg = f"❌ {prov['name']}: {str(e)}"
-                errors.append(error_msg)
-                logger.error(error_msg)
+        try:
+            for prov in CAMBODIA_PROVINCES:
+                SCAN_STATE["current_province"] = prov["name"]
+                try:
+                    logger.info(f"🔍 Scanning {prov['name']} with auto-save...")
+                    result = await self.discover_places_for_province(prov["slug"], auto_save=True)
+                    if result.get("status") == "failed":
+                        errors.append(f"❌ {prov['name']}: {result.get('message')}")
+                        SCAN_STATE["errors"] = errors
+                    saved_count = result.get("saved_to_db", 0)
+                    total_inserted += saved_count
+                    SCAN_STATE["new_places"] = total_inserted
+                    SCAN_STATE["candidates"] += result.get("discovered", 0)
+                    SCAN_STATE["duplicates_skipped"] += result.get("duplicates_skipped", 0)
+                    SCAN_STATE["generic_withheld"] += result.get("generic_withheld", 0)
+                    summary = {k: result.get(k) for k in
+                               ("province", "province_slug", "discovered", "saved_to_db",
+                                "duplicates_skipped", "generic_withheld", "source", "status")}
+                    results.append(summary)
+                    SCAN_STATE["results"] = results
+                    SCAN_STATE["provinces_done"] += 1
+                    logger.info(f"✅ {prov['name']}: {saved_count} new places saved to database.")
+                except Exception as e:
+                    error_msg = f"❌ {prov['name']}: {str(e)}"
+                    errors.append(error_msg)
+                    SCAN_STATE["errors"] = errors
+                    SCAN_STATE["provinces_done"] += 1
+                    logger.error(error_msg)
+        finally:
+            SCAN_STATE.update({
+                "running": False,
+                "current_province": None,
+                "finished_at": datetime.now(timezone.utc).isoformat(),
+                "last_summary": {
+                    "status": "completed",
+                    "provinces_scanned": SCAN_STATE["provinces_done"],
+                    "new_places": total_inserted,
+                    "candidates": SCAN_STATE["candidates"],
+                    "duplicates_skipped": SCAN_STATE["duplicates_skipped"],
+                    "generic_withheld": SCAN_STATE["generic_withheld"],
+                    "discovery_source": SCAN_STATE["discovery_source"],
+                    "error_count": len(errors),
+                },
+            })
 
         return {
             "status": "completed",
             "total_provinces_scanned": len(CAMBODIA_PROVINCES),
             "total_new_places": total_inserted,
+            "total_candidates": SCAN_STATE["candidates"],
+            "duplicates_skipped": SCAN_STATE["duplicates_skipped"],
+            "generic_withheld": SCAN_STATE["generic_withheld"],
+            "discovery_source": SCAN_STATE["discovery_source"],
             "results": results,
             "errors": errors
         }
@@ -760,7 +1290,7 @@ Return a JSON array of objects. Each object must have these keys:
         try:
             # 1. Fetch real-world data from You.com Web Search to augment AI prompt
             search_context = ""
-            extracted_images = []
+            extracted_images: list[tuple[str, str]] = []   # (thumbnail_url, page_title) pairs
             
             if you_api_key:
                 logger.info(f"Using You.com Web Search for '{place_name}' context...")
@@ -776,10 +1306,10 @@ Return a JSON array of objects. Each object must have these keys:
                         highlights = "\n".join(snippets) if isinstance(snippets, list) else str(snippets)
                         search_context += f"Source {idx+1}: {title}\n{highlights}\n\n"
                         
-                        # Grab real thumbnails!
+                        # Grab real thumbnails (kept with their page title as verification context)
                         thumb = result.get("thumbnail_url")
-                        if thumb and thumb not in extracted_images:
-                            extracted_images.append(thumb)
+                        if thumb and all(thumb != u for u, _c in extracted_images):
+                            extracted_images.append((thumb, title))
             
             prompt = f"""You are an expert Cambodia travel blogger and researcher.
 I have a place in my database named "{place_name}" located in {dest_name} Province, Cambodia.
@@ -834,7 +1364,7 @@ Return a JSON object with these keys ONLY:
                 else:
                     raise ValueError(f"Failed to parse AI response.")
 
-            # Multi-source photo discovery: discover at least 10-12+ authentic images per place
+            # Multi-source photo discovery: only real, place-verified, loadable images
             hero_url, gallery_raw = await self._resolve_place_images(
                 ai_data.get("name", place_name),
                 dest_name,
@@ -844,30 +1374,32 @@ Return a JSON object with these keys ONLY:
                 target_count=12
             )
 
-            # Prepend any extracted You.com web thumbnails
-            if extracted_images:
-                for ext_u in reversed(extracted_images):
-                    if ext_u and ext_u not in gallery_raw:
-                        gallery_raw.insert(0, ext_u)
-                hero_url = gallery_raw[0]
+            # You.com page thumbnails may join the gallery — but only verified ones
+            for ext_u, ext_ctx in extracted_images:
+                _name = ai_data.get("name", place_name)
+                ok, _score = verify_place_image(ext_u, ext_ctx, _name, ai_data.get("local_name", place_local_name))
+                if ok and _url_key(ext_u) not in {_url_key(g) for g in gallery_raw}:
+                    gallery_raw.insert(0, ext_u)
+
+            # Drop anything that does not actually load, then re-host survivors
+            gallery_raw = await filter_live_images(gallery_raw[:12])
+            hero_url = gallery_raw[0] if gallery_raw else ""
 
             if hero_url:
                 try:
-                    hero_url = await self._sync_single_image(hero_url, dest_name, ai_data.get("name", place_name))
+                    hero_url = await self._sync_single_image(hero_url, dest_name, ai_data.get("name", place_name)) or ""
                 except Exception as hero_err:
                     logger.warning(f"Hero sync notice: {hero_err}")
 
             synced_gallery_json = None
             if gallery_raw:
                 try:
-                    gallery_tasks = [self._sync_single_image(url, dest_name, ai_data.get("name", place_name)) for url in gallery_raw[:12] if url and url.startswith("http")]
-                    if gallery_tasks:
-                        synced_gallery = await asyncio.gather(*gallery_tasks, return_exceptions=True)
-                        synced_items = [
-                            synced if isinstance(synced, str) else orig
-                            for synced, orig in zip(synced_gallery, gallery_raw[:12])
-                            if isinstance(synced, str) or isinstance(orig, str)
-                        ]
+                    synced_gallery = await asyncio.gather(
+                        *[self._sync_single_image(url, dest_name, ai_data.get("name", place_name)) for url in gallery_raw],
+                        return_exceptions=True,
+                    )
+                    synced_items = list(dict.fromkeys([r for r in synced_gallery if isinstance(r, str) and r.startswith("http")]))
+                    if synced_items:
                         synced_gallery_json = json.dumps(synced_items)
                 except Exception as g_err:
                     logger.warning(f"Gallery sync error: {g_err}")
@@ -923,19 +1455,21 @@ Return a JSON object with these keys ONLY:
                 
             return {"status": "failed", "message": user_message}
 
-    async def _sync_single_image(self, img_url: str, dest_name: str, place_name: str = None) -> str:
+    async def _sync_single_image(self, img_url: str, dest_name: str, place_name: str = None) -> Optional[str]:
         """
         Downloads image bytes ONCE and uploads to both Google Drive (backup) and Cloudflare R2 (fast CDN) in parallel.
-        Returns the Cloudflare R2 public CDN URL if available, otherwise falls back to img_url.
+        Returns the Cloudflare R2 public CDN URL if available, otherwise the original URL.
+        Returns None only when the URL is provably gone (404/410) or is not an image, so broken
+        tiles can never be stored; a rate-limited or failing upload keeps the verified original.
         """
         if not img_url or not img_url.startswith("http"):
-            return img_url
+            return None
 
         has_gdrive = storage_service.is_configured()
         has_r2 = s3_service.is_configured()
         if not has_gdrive and not has_r2:
             return img_url
-            
+
         # If already on Cloudflare R2, no need to re-upload
         r2_client, r2_cfg = s3_service._get_client_and_config()
         if r2_cfg and r2_cfg.get("public_domain") and r2_cfg["public_domain"] in img_url:
@@ -948,12 +1482,21 @@ Return a JSON object with these keys ONLY:
             }
             async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
                 res = await client.get(img_url, headers=headers)
-                if res.status_code != 200 or not res.content:
+                if res.status_code in (404, 410) or (res.status_code == 200 and not res.content):
+                    logger.info(f"[PlaceImages] dropped dead URL ({res.status_code}): {img_url}")
+                    return None
+                if res.status_code != 200:
+                    # Rate limit or transient upstream failure. The URL already passed the
+                    # relevance + liveness gate, so keep it rather than lose a good photo.
+                    logger.info(f"[PlaceImages] re-host skipped ({res.status_code}), keeping original URL: {img_url}")
                     return img_url
+                content_type = (res.headers.get("Content-Type") or "image/jpeg").lower()
+                if not content_type.startswith("image"):
+                    logger.info(f"[PlaceImages] dropped non-image URL ({content_type}): {img_url}")
+                    return None
                 content = res.content
-                content_type = res.headers.get("Content-Type", "image/jpeg")
         except Exception as dl_err:
-            logger.warning(f"Download failed for {img_url}: {dl_err}")
+            logger.warning(f"Download failed for {img_url}: {dl_err} - keeping the verified URL")
             return img_url
 
         import urllib.parse
@@ -1031,6 +1574,14 @@ Return a JSON object with these keys ONLY:
             if existing:
                 return {"status": "skipped", "message": "Already exists"}
 
+            stored_names = [n for (n,) in db.query(Place.name).filter(
+                Place.destination_id == dest_id, Place.status != "ARCHIVED"
+            ).all()]
+            duplicate_of = find_near_duplicate_place(name, stored_names)
+            if duplicate_of:
+                logger.info(f"[Discovery] refused duplicate: '{name}' repeats stored '{duplicate_of}'")
+                return {"status": "skipped", "reason": "near_duplicate", "message": f"Already exists as '{duplicate_of}'"}
+
             destination = db.query(Destination).filter(Destination.id == dest_id).first()
             dest_name = destination.name if destination else "Cambodia"
             dest_hero = destination.hero_image_url if destination else None
@@ -1049,9 +1600,17 @@ Return a JSON object with these keys ONLY:
         finally:
             db.close()
 
-        # Check gallery completeness: ensure at least 10+ photos
+        # Keep only verified, loadable images. A gallery with 3 real photos is stored as 3 —
+        # the old "pad up to 10-12 with category stock" behaviour produced irrelevant tiles.
         gallery_list = json.loads(gallery_json) if isinstance(gallery_json, str) else (gallery_json or [])
-        if not hero_url or "/images/destinations/" in hero_url or len(gallery_list) < 10:
+        gallery_list = [
+            g for g in gallery_list
+            if isinstance(g, str) and g.startswith("http")
+            and not is_generic_place_image(g) and "/images/destinations/" not in g
+        ]
+        hero_is_placeholder = (not hero_url) or "/images/destinations/" in str(hero_url) or is_generic_place_image(hero_url)
+
+        if hero_is_placeholder or not gallery_list:
             discovered_hero, discovered_gallery = await self._resolve_place_images(
                 name,
                 dest_name,
@@ -1060,33 +1619,37 @@ Return a JSON object with these keys ONLY:
                 you_api_key,
                 target_count=12
             )
-            if not hero_url or "/images/destinations/" in hero_url:
-                hero_url = discovered_hero
-            if len(gallery_list) < 10:
-                gallery_list = discovered_gallery
+            if not gallery_list and discovered_gallery:
+                gallery_list = list(dict.fromkeys(gallery_list + discovered_gallery))
+            if hero_is_placeholder or not hero_url:
+                hero_url = discovered_hero or (gallery_list[0] if gallery_list else "")
             gallery_json = json.dumps(gallery_list)
+
+        # Liveness pass: URLs that no longer resolve are removed, never stored as broken tiles
+        gallery_list = await filter_live_images(gallery_list[:12])
+        if hero_url and hero_url.startswith("http") and not await filter_live_images([hero_url]):
+            hero_url = gallery_list[0] if gallery_list else ""
 
         # Dual storage synchronization:
         # 1. Google Drive for persistent backup
         # 2. Cloudflare R2 for fast public display
         if hero_url and hero_url.startswith("http"):
             try:
-                hero_url = await self._sync_single_image(hero_url, dest_name, name)
+                hero_url = await self._sync_single_image(hero_url, dest_name, name) or ""
             except Exception as hero_err:
-                logger.warning(f"Hero image sync failed for {name}, keeping original URL: {hero_err}")
+                logger.warning(f"Hero image sync failed for {name}: {hero_err}")
 
-        # Process gallery items concurrently (up to 12 photos)
+        # Process gallery items concurrently (verified photos only, no fixed quota)
         try:
-            if gallery_list and isinstance(gallery_list, list):
-                gallery_tasks = [self._sync_single_image(g, dest_name, name) for g in gallery_list[:12] if g and g.startswith("http")]
-                if gallery_tasks:
-                    synced_items = await asyncio.gather(*gallery_tasks, return_exceptions=True)
-                    final_gallery = [
-                        synced if isinstance(synced, str) else orig
-                        for synced, orig in zip(synced_items, gallery_list[:12])
-                        if isinstance(synced, str) or isinstance(orig, str)
-                    ]
-                    gallery_json = json.dumps(final_gallery)
+            if gallery_list:
+                synced_results = await asyncio.gather(
+                    *[self._sync_single_image(g, dest_name, name) for g in gallery_list],
+                    return_exceptions=True,
+                )
+                final_gallery = list(dict.fromkeys(
+                    [r for r in synced_results if isinstance(r, str) and r.startswith("http")]
+                ))
+                gallery_json = json.dumps(final_gallery)
         except Exception as gal_err:
             logger.warning(f"Gallery sync error: {gal_err}")
 
