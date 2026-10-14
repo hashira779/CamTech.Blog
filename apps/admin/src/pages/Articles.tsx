@@ -15,7 +15,8 @@ import {
   Clock,
   Globe,
   ChevronDown,
-  Zap
+  Zap,
+  Rss
 } from 'lucide-react';
 import { api } from '../lib/api';
 import type { ApiArticle } from '../lib/api';
@@ -59,6 +60,7 @@ export default function Articles() {
   const [searchQuery, setSearchQuery] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
   const [enhancingImages, setEnhancingImages] = useState(false);
+  const [syncingFeeds, setSyncingFeeds] = useState(false);
   const { success: toastSuccess, error: toastError, info: toastInfo } = useToast();
   
   // Create Article Modal state
@@ -160,6 +162,22 @@ export default function Articles() {
       toastError(err.response?.data?.detail || 'Failed to enhance images');
     } finally {
       setEnhancingImages(false);
+    }
+  };
+
+  const handleSyncFeeds = async () => {
+    setSyncingFeeds(true);
+    toastInfo('Polling all verified RSS wire feeds (Khmer Times, Kiripost, Fresh News, Phnom Penh Post, Al Jazeera, CNA, ThmeyThmey)...', 'Wire Feed Ingestion');
+    try {
+      const res = await api.post<{ status: string; total_sources_polled: number; results: any[] }>('/sources/fetch-all');
+      const totalIngested = res.data?.results?.reduce((acc: number, r: any) => acc + (r.items_ingested || 0), 0) || 0;
+      await fetchArticles();
+      toastSuccess(`Polled ${res.data?.total_sources_polled || 0} wire feeds. Ingested ${totalIngested} fresh stories!`, 'Feeds Synchronized');
+    } catch (err: any) {
+      console.error('Failed to sync feeds:', err);
+      toastError(err.response?.data?.detail || 'Failed to sync RSS feeds');
+    } finally {
+      setSyncingFeeds(false);
     }
   };
 
@@ -285,6 +303,15 @@ export default function Articles() {
           >
             {enhancingImages ? <RefreshCw size={13} className="animate-spin" /> : <Camera size={13} />}
             <span>Enhance HD Images</span>
+          </button>
+          <button 
+            onClick={handleSyncFeeds}
+            disabled={syncingFeeds}
+            className="flex items-center gap-1.5 bg-amber-600/15 hover:bg-amber-600/25 text-amber-400 border border-amber-500/25 font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+            title="Poll all verified RSS wire feeds (Khmer Times, Kiripost, Fresh News, Phnom Penh Post, Al Jazeera, CNA, ThmeyThmey)"
+          >
+            {syncingFeeds ? <RefreshCw size={13} className="animate-spin" /> : <Rss size={13} />}
+            <span>{syncingFeeds ? 'Syncing Feeds...' : 'Sync Wire Feeds'}</span>
           </button>
           {/* Scan News Dropdown Menu */}
           <div className="relative">
@@ -520,18 +547,31 @@ export default function Articles() {
                         </div>
                       )}
                     </td>
-                    <td className="py-3.5 px-4 text-zinc-400 font-mono text-[11px] truncate max-w-[150px]">
+                    <td className="py-3.5 px-4 text-zinc-400 font-mono text-[11px] truncate max-w-[160px]">
                       {article.primary_source_url ? (
                         <a 
                           href={article.primary_source_url} 
                           target="_blank" 
                           rel="noreferrer"
                           className="hover:text-zinc-200 hover:underline flex items-center gap-1"
+                          title={article.source_attribution_text || article.primary_source_url}
                         >
-                          <span className="truncate">{new URL(article.primary_source_url).hostname.replace('www.', '')}</span>
+                          <span className="truncate">
+                            {(() => {
+                              try {
+                                const host = new URL(article.primary_source_url).hostname.replace('www.', '');
+                                if (host === 'news.google.com' && article.source_attribution_text) {
+                                  return article.source_attribution_text.replace(/^Source:\s*/i, '');
+                                }
+                                return host;
+                              } catch {
+                                return article.source_attribution_text?.replace(/^Source:\s*/i, '') || 'Source';
+                              }
+                            })()}
+                          </span>
                           <ExternalLink size={10} className="shrink-0" />
                         </a>
-                      ) : 'Direct'}
+                      ) : (article.source_attribution_text || 'Direct')}
                     </td>
                     <td className="py-3.5 px-4 text-right font-mono text-zinc-400">
                       {(article.views_count || 0).toLocaleString()}

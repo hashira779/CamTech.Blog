@@ -216,6 +216,28 @@ def seed_database():
                 "category": "Science & Discoveries",
                 "trust_level": "VERIFIED_PUBLISHER",
                 "license_notes": "Peer-reviewed scientific summaries cited with DOI."
+            },
+            {
+                "name": "ThmeyThmey",
+                "slug": "thmey-thmey",
+                "country": "KH",
+                "language": "en",
+                "website_url": "https://thmeythmey.com",
+                "feed_url": "https://news.google.com/rss/search?q=site:thmeythmey.com&hl=en-US&gl=US&ceid=US:en",
+                "category": "Cambodia News",
+                "trust_level": "VERIFIED_PUBLISHER",
+                "license_notes": "Leading Cambodian digital news and cultural reports."
+            },
+            {
+                "name": "BBC News Asia",
+                "slug": "bbc-asia",
+                "country": "UK",
+                "language": "en",
+                "website_url": "https://www.bbc.com/news/world/asia",
+                "feed_url": "https://feeds.bbci.co.uk/news/world/asia/rss.xml",
+                "category": "Asia Regional",
+                "trust_level": "WIRE_SERVICE",
+                "license_notes": "International broadcasting and Asia-Pacific regional reports."
             }
         ]
 
@@ -225,6 +247,16 @@ def seed_database():
             if not source:
                 source = Source(**s_data)
                 db.add(source)
+                db.flush()
+            else:
+                source.feed_url = s_data.get("feed_url")
+                source.website_url = s_data.get("website_url")
+                source.name = s_data.get("name")
+                source.category = s_data.get("category")
+                source.country = s_data.get("country", source.country)
+                source.language = s_data.get("language", source.language)
+                source.trust_level = s_data.get("trust_level", source.trust_level)
+                source.is_active = True
                 db.flush()
             source_map[s_data["slug"]] = source
         print(f"✓ Ensured {len(source_map)} sources in registry")

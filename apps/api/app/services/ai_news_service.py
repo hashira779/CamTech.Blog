@@ -216,6 +216,8 @@ CRITICAL RULES:
 2. Content must be factual and based on real, verifiable events from today or this week.
 3. Write in professional journalistic style with proper attribution.
 4. Each article should be 400-600 words with clear structure.
+5. SOURCE DIVERSITY MANDATE: You MUST vary your sources. Do NOT attribute all articles to the same outlet. Each article in the returned array MUST come from a DIFFERENT credible publication (e.g. Article 1 from Khmer Times, Article 2 from Phnom Penh Post or Al Jazeera, Article 3 from Kiripost, Fresh News, CNA, or AKP).
+6. REAL SOURCE METADATA: 'source_url' must be an authentic article URL or domain URL on that outlet's domain (e.g. https://www.khmertimeskh.com, https://kiripost.com, https://www.aljazeera.com, https://en.freshnewsasia.com, https://phnompenhpost.com) and 'source_name' must be the exact publication name.
 
 Return a JSON array of {articles_count} article objects. Each object must have:
 - title: Compelling headline (50-100 chars)
@@ -338,12 +340,22 @@ Return a JSON array of {articles_count} article objects. Each object must have:
                     tags=data.get("tags", [])
                 )
 
+                # Try to link to a registered publisher source
+                matched_source_id = None
+                source_name_val = data.get("source_name", "")
+                if source_name_val:
+                    from app.models.source import Source
+                    m_src = db.query(Source).filter(Source.name.ilike(f"%{source_name_val}%")).first()
+                    if m_src:
+                        matched_source_id = m_src.id
+
                 new_article = Article(
                     title=title,
                     slug=slug,
                     summary=data.get("summary", title),
                     content=data.get("content", ""),
                     country=country,
+                    primary_source_id=matched_source_id,
                     primary_source_url=source_url,
                     source_attribution_text=data.get("source_name", "AI Research via Google Search"),
                     hero_image_url=hero_img_url,

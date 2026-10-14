@@ -81,10 +81,26 @@ async def fetch_rss_feed(feed_url: str, timeout_seconds: int = 12) -> List[Dict[
         author = entry.get("author", "")
         pub_date = entry.get("published", "") or entry.get("updated", "")
 
+        # Extract publisher metadata from syndicated feeds (e.g. Google News RSS source tag)
+        source_obj = entry.get("source")
+        source_href = None
+        source_name = None
+        if isinstance(source_obj, dict):
+            source_href = source_obj.get("href")
+            source_name = source_obj.get("title")
+
         if title and link:
+            # If link is a syndicated redirect (e.g. news.google.com), prefer source_href as primary url
+            article_url = link
+            if source_href and "news.google.com" in link:
+                article_url = source_href
+
             items.append({
                 "title": title,
-                "url": link,
+                "url": article_url,
+                "feed_item_link": link,
+                "source_href": source_href,
+                "source_name": source_name,
                 "raw_summary": summary,
                 "author": author,
                 "published_raw": pub_date,
