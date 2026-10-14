@@ -1,8 +1,9 @@
+import re
 import time
 import feedparser
 import httpx
 from datetime import datetime, timezone
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.common.ssrf import validate_url_safe
 from app.common.circuit_breaker import get_circuit_breaker, CircuitBreakerOpenException
 
@@ -86,7 +87,43 @@ async def fetch_rss_feed(feed_url: str, timeout_seconds: int = 12) -> List[Dict[
                 "url": link,
                 "raw_summary": summary,
                 "author": author,
-                "published_raw": pub_date
+                "published_raw": pub_date,
+                "image_url": extract_entry_image(entry, summary),
             })
 
     return items
+
+
+_IMG_SRC_RE = re.compile(r"<img[^>]+src=[\"']([^\"']+)[\"']", re.IGNORECASE)
+
+
+def _https_image(url: Optional[str]) -> Optional[str]:
+    if not url or not isinstance(url, str):
+        return None
+    url = url.strip()
+    if url.startswith("//"):
+        url = "https:" + url
+    if not url.startswith("https://") or len(url) > 500:
+        return None
+    return url
+
+
+def extract_entry_image(entry: Any, summary_html: str = "") -> Optional[str]:
+    """Best-effort hero image from an RSS/Atom entry (media:content, media:thumbnail,
+    image enclosures, then the first <img> in the summary). HTTPS only."""
+    for key in ("media_content", "media_thumbnail"):
+        for media in entry.get(key, []) or []:
+            medium = (media.get("medium") or media.get("type") or "image").lower()
+            if "image" in medium:
+                found = _https_image(media.get("url"))
+                if found:
+                    return found
+    for link in entry.get("links", []) or []:
+        if link.get("rel") == "enclosure" and str(link.get("type", "")).startswith("image"):
+            found = _https_image(link.get("href"))
+            if found:
+                return found
+    match = _IMG_SRC_RE.search(summary_html or "")
+    if match:
+        return _https_image(match.group(1))
+    return None

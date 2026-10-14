@@ -24,7 +24,7 @@ router = APIRouter(prefix="/admin", tags=["Admin CMS"])
 
 class ReviewActionRequest(BaseModel):
     article_id: str
-    action: str  # APPROVE, REJECT, REQUEST_REVISION, PUBLISH
+    action: str  # APPROVE, REJECT, REQUEST_REVISION, PUBLISH, RESTORE
     notes: Optional[str] = None
 
 @router.get("/dashboard-stats")
@@ -118,6 +118,11 @@ def process_review_action(
         article.status = "REJECTED"
     elif req.action == "REQUEST_REVISION":
         article.status = "NEEDS_REVISION"
+    elif req.action == "RESTORE":
+        # Archived -> back into manual review (never re-enters the auto-publish pipeline).
+        article.status = "IN_REVIEW"
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown action: {req.action}")
 
     article.updated_at = datetime.now(timezone.utc)
 
@@ -245,6 +250,135 @@ async def generate_ai_news(
             return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ai/enhance-news-images")
+async def enhance_news_images(
+    limit: int = Query(50, description="Max number of articles to process"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Scans articles that are missing a hero image or using generic fallbacks,
+    searches for high-resolution relevant imagery, and updates them in the database.
+    """
+    from app.services.image_search_service import image_search_service
+    from app.models.category import Category
+
+    # Find articles with missing or generic fallback hero images
+    articles_to_fix = db.query(Article).filter(
+        (Article.hero_image_url.is_(None)) |
+        (Article.hero_image_url == "") |
+        (Article.hero_image_url.contains("photo-1518770660439-4636190af475"))
+    ).order_by(Article.created_at.desc()).limit(limit).all()
+
+    updated_count = 0
+    updated_items = []
+
+    for art in articles_to_fix:
+        cat_slug = "technology"
+        if art.category_id:
+            cat = db.query(Category).filter(Category.id == art.category_id).first()
+            if cat:
+                cat_slug = cat.slug
+
+        img_url, credit, alt = await image_search_service.search_news_image(
+            title=art.title,
+            category=cat_slug,
+            country=art.country or "WORLD"
+        )
+        art.hero_image_url = img_url
+        art.hero_image_credit = credit
+        art.hero_image_alt = alt
+        updated_count += 1
+        updated_items.append({"id": art.id, "title": art.title, "image_url": img_url})
+
+    db.commit()
+    return {
+        "status": "success",
+        "updated_count": updated_count,
+        "articles": updated_items
+    }
+
+@router.post("/ai/enhance-place-images")
+async def enhance_place_images(
+    limit: int = Query(50, description="Max number of places to process"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Scans places that are missing a hero image or using destination placeholders,
+    searches for high-resolution relevant imagery, and updates them in the database.
+    """
+    import json
+    from app.models.place import Place
+
+    places_to_fix = db.query(Place).filter(
+        (Place.hero_image_url.is_(None)) |
+        (Place.hero_image_url == "") |
+        (Place.hero_image_url.like("/images/destinations/%"))
+    ).order_by(Place.created_at.desc()).limit(limit).all()
+
+    updated_count = 0
+    updated_items = []
+
+    for p in places_to_fix:
+        dest_name = p.destination.name if p.destination else "Cambodia"
+        hero, gallery = await ai_tourism_engine._resolve_place_images(
+            name=p.name,
+            dest_name=dest_name,
+            place_type=p.place_type,
+            local_name=p.local_name,
+            target_count=12
+        )
+        p.hero_image_url = hero
+        p.gallery_json = json.dumps(gallery)
+        updated_count += 1
+        updated_items.append({"id": p.id, "name": p.name, "hero_image_url": hero})
+
+    db.commit()
+    return {
+        "status": "success",
+        "updated_count": updated_count,
+        "places": updated_items
+    }
+
+# ----------------------------------------------------------------- News Autopilot
+@router.get("/autopilot")
+def get_news_autopilot_status(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    """Autopilot config + per-draft verdicts (when each AI draft will go live, or why it's held)."""
+    from app.services import news_autopilot
+
+    drafts = db.query(Article).filter(Article.status == "AI_DRAFT").order_by(Article.created_at.asc()).limit(200).all()
+    pending = []
+    for a in drafts:
+        verdict = news_autopilot.evaluate_draft(db, a)
+        pending.append({
+            "id": a.id,
+            "title": a.title,
+            "eligible": verdict.eligible,
+            "reason": verdict.reason,
+            "auto_publish_at": (verdict.auto_publish_at.isoformat() + "Z") if verdict.auto_publish_at else None,
+        })
+    db.rollback()  # quality gate may fill SEO defaults; keep this endpoint read-only
+
+    recent = db.query(AuditLog).filter(AuditLog.action.like("AI_%")).order_by(desc(AuditLog.created_at)).limit(20).all()
+    return {
+        "config": news_autopilot.get_config(db),
+        "pending": pending,
+        "recent_actions": [
+            {"action": l.action, "entity_id": l.entity_id, "from": l.old_value_json,
+             "to": l.new_value_json, "at": l.created_at.isoformat()}
+            for l in recent
+        ],
+    }
+
+
+@router.post("/autopilot/run")
+def run_news_autopilot_now(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    """Run publish/archive/purge immediately instead of waiting for the next worker cycle."""
+    from app.services import news_autopilot
+    return news_autopilot.run_lifecycle(db)
+
 
 class SettingUpdate(BaseModel):
     key: str

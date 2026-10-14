@@ -85,4 +85,7 @@ export interface ApiArticle {
   published_at?: string;
   primary_source_url?: string;
   source_attribution_text?: string;
+  hero_image_url?: string;
+  hero_image_credit?: string;
+  hero_image_alt?: string;
 }

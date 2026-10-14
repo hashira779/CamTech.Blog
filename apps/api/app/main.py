@@ -56,23 +56,10 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error(f"Weekly tourism scan failed: {e}")
 
-        async def daily_news_generation():
-            """Run AI News Generation across all categories every day at 07:00 AM."""
-            try:
-                from app.services.ai_news_service import ai_news_service
-                logger.info("Daily multi-category AI News generation started...")
-                result = await ai_news_service.generate_all_categories()
-                logger.info(
-                    f"Daily news completed: {result.get('total_saved', 0)} articles saved to AI_DRAFT, "
-                    f"{result.get('total_skipped', 0)} duplicates skipped across {result.get('categories_processed', 0)} categories."
-                )
-            except Exception as e:
-                logger.error(f"Daily news generation failed: {e}")
-
         # Weekly tourism scan: Every Sunday at 03:00 AM (server time)
         scheduler.add_job(weekly_tourism_scan, CronTrigger(day_of_week='sun', hour=3, minute=0), id='weekly_tourism_scan')
-        # Daily news: Every day at 07:00 AM (server time)  
-        scheduler.add_job(daily_news_generation, CronTrigger(hour=7, minute=0), id='daily_news_generation')
+        # Daily AI news generation + News Autopilot now run in the worker container
+        # (app/workers/runner.py) so they fire exactly once, independent of API restarts/replicas.
 
         scheduler.start()
         logger.info("Background schedulers active.")

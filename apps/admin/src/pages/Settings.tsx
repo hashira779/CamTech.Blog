@@ -3,7 +3,8 @@ import {
   Save,
   Key,
   Bot,
-  RefreshCw
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useToast } from '../components/ui/Toast';
@@ -13,6 +14,35 @@ interface SystemSetting {
   value_json: string;
   description: string | null;
 }
+
+// Must match DEFAULTS in apps/api/app/services/news_autopilot.py
+const AUTOPILOT_DEFAULTS: Record<string, string> = {
+  AUTOPILOT_NEWS_ENABLED: 'true',
+  AUTOPILOT_DAILY_NEWS_ENABLED: 'true',
+  AUTOPILOT_DAILY_NEWS_HOUR: '7',
+  AUTOPILOT_AUTO_PUBLISH_ENABLED: 'true',
+  AUTOPILOT_PUBLISH_DELAY_HOURS: '2',
+  AUTOPILOT_MAX_PUBLISH_PER_RUN: '10',
+  AUTOPILOT_MIN_CONTENT_CHARS: '300',
+  AUTOPILOT_ARCHIVE_AFTER_DAYS: '7',
+  AUTOPILOT_PURGE_AFTER_DAYS: '30',
+};
+
+type AutopilotField =
+  | { key: string; label: string; help: string; type: 'toggle' }
+  | { key: string; label: string; help: string; type: 'number'; min: number; max: number; suffix: string };
+
+const AUTOPILOT_FIELDS: AutopilotField[] = [
+  { key: 'AUTOPILOT_NEWS_ENABLED', type: 'toggle', label: 'Autopilot master switch', help: 'Turn off to stop all automatic publishing, archiving and daily AI news.' },
+  { key: 'AUTOPILOT_DAILY_NEWS_ENABLED', type: 'toggle', label: 'Daily AI news generation', help: 'Gemini writes fresh stories for every category once a day.' },
+  { key: 'AUTOPILOT_DAILY_NEWS_HOUR', type: 'number', min: 0, max: 23, suffix: 'h (Cambodia time)', label: 'Daily news hour', help: 'Hour of the day the daily AI news run starts.' },
+  { key: 'AUTOPILOT_AUTO_PUBLISH_ENABLED', type: 'toggle', label: 'Hybrid auto-publish', help: 'Gemini drafts that pass the quality gate go live after the review window unless you reject them.' },
+  { key: 'AUTOPILOT_PUBLISH_DELAY_HOURS', type: 'number', min: 0, max: 168, suffix: 'hours', label: 'Review window', help: 'Time you have to reject a draft before it auto-publishes.' },
+  { key: 'AUTOPILOT_MAX_PUBLISH_PER_RUN', type: 'number', min: 0, max: 100, suffix: 'per 5 min', label: 'Publish limit', help: 'Safety cap on how many stories go live per worker cycle.' },
+  { key: 'AUTOPILOT_MIN_CONTENT_CHARS', type: 'number', min: 0, max: 5000, suffix: 'characters', label: 'Minimum length', help: 'Shorter drafts are held for manual review.' },
+  { key: 'AUTOPILOT_ARCHIVE_AFTER_DAYS', type: 'number', min: 1, max: 365, suffix: 'days', label: 'Archive stale drafts after', help: 'Unpublished AI drafts and rejected stories are hidden (restorable).' },
+  { key: 'AUTOPILOT_PURGE_AFTER_DAYS', type: 'number', min: 7, max: 3650, suffix: 'days', label: 'Delete archived after', help: 'Archived AI stories that were never public are permanently removed.' },
+];
 
 export default function Settings() {
   const [, setSettings] = useState<SystemSetting[]>([]);
@@ -27,6 +57,11 @@ export default function Settings() {
   const [telegramToken, setTelegramToken] = useState('');
   const [telegramChannel, setTelegramChannel] = useState('');
 
+  // News Autopilot
+  const [autopilot, setAutopilot] = useState<Record<string, string>>({ ...AUTOPILOT_DEFAULTS });
+  const [lastDailyRun, setLastDailyRun] = useState<string | null>(null);
+  const setAp = (key: string, value: string) => setAutopilot(prev => ({ ...prev, [key]: value }));
+
   const fetchSettings = async () => {
     setLoading(true);
     try {
@@ -34,13 +69,17 @@ export default function Settings() {
       setSettings(res.data || []);
       
       // Parse values
+      const ap: Record<string, string> = { ...AUTOPILOT_DEFAULTS };
       res.data?.forEach(s => {
         if (s.key === 'GEMINI_API_KEY') setGeminiKey(s.value_json);
         if (s.key === 'YOU_API_KEY') setYouKey(s.value_json);
         if (s.key === 'NEWS_API_KEY') setNewsApiKey(s.value_json);
         if (s.key === 'TELEGRAM_BOT_TOKEN') setTelegramToken(s.value_json);
         if (s.key === 'TELEGRAM_CHANNEL_ID') setTelegramChannel(s.value_json);
+        if (s.key in AUTOPILOT_DEFAULTS && s.value_json !== '') ap[s.key] = s.value_json;
+        if (s.key === 'AUTOPILOT_DAILY_NEWS_LAST_RUN') setLastDailyRun(s.value_json);
       });
+      setAutopilot(ap);
     } catch (err) {
       console.error('Failed to fetch settings:', err);
       showToast('error', 'Unable to retrieve system configurations.');
@@ -62,6 +101,11 @@ export default function Settings() {
         { key: 'NEWS_API_KEY', value_json: newsApiKey, description: 'News API Key for fetching external articles' },
         { key: 'TELEGRAM_BOT_TOKEN', value_json: telegramToken, description: 'Telegram Bot Token for Auto-Posting' },
         { key: 'TELEGRAM_CHANNEL_ID', value_json: telegramChannel, description: 'Telegram Channel ID (e.g., @camtechblog)' },
+        ...Object.entries(autopilot).map(([key, value_json]) => ({
+          key,
+          value_json,
+          description: AUTOPILOT_FIELDS.find(f => f.key === key)?.label ?? 'News Autopilot setting',
+        })),
       ];
       await api.put('/admin/settings', updates);
       showToast('success', 'System configurations saved successfully.');
@@ -134,6 +178,61 @@ export default function Settings() {
         </div>
       ) : (
         <div className="space-y-6">
+          {/* News Autopilot Section */}
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg overflow-hidden">
+            <div className="p-4 border-b border-zinc-800 bg-zinc-950/40 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="text-zinc-400" />
+                <h2 className="text-sm font-medium text-zinc-200">AI News Autopilot</h2>
+              </div>
+              <span className="text-[10px] text-zinc-500 font-mono">
+                Last daily run: {lastDailyRun || 'never'}
+              </span>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-zinc-400">
+                The worker checks every 5 minutes. Every automatic action is recorded in the audit log, and archived stories can be restored from Articles.
+              </p>
+              {AUTOPILOT_FIELDS.map((field) => (
+                <div key={field.key} className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <label htmlFor={field.key} className="block text-xs font-medium text-zinc-300">{field.label}</label>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">{field.help}</p>
+                  </div>
+                  {field.type === 'toggle' ? (
+                    <button
+                      id={field.key}
+                      type="button"
+                      role="switch"
+                      aria-checked={autopilot[field.key] === 'true'}
+                      onClick={() => setAp(field.key, autopilot[field.key] === 'true' ? 'false' : 'true')}
+                      className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${
+                        autopilot[field.key] === 'true' ? 'bg-emerald-500' : 'bg-zinc-700'
+                      }`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                        autopilot[field.key] === 'true' ? 'translate-x-4' : ''
+                      }`} />
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <input
+                        id={field.key}
+                        type="number"
+                        min={field.min}
+                        max={field.max}
+                        value={autopilot[field.key]}
+                        onChange={(e) => setAp(field.key, e.target.value)}
+                        className="w-20 bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-sm text-zinc-100 text-right focus:outline-none focus:border-blue-500 font-mono"
+                      />
+                      <span className="text-[10px] text-zinc-500 w-28">{field.suffix}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* AI Configuration Section */}
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg overflow-hidden">
             <div className="p-4 border-b border-zinc-800 bg-zinc-950/40 flex items-center gap-2">

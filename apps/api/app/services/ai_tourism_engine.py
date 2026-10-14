@@ -25,6 +25,7 @@ from app.models.place import Place
 from app.models.audit import SiteSetting
 from app.services.google_drive_service import storage_service
 from app.services.s3_service import s3_service
+from app.services.image_search_service import image_search_service
 
 logger = logging.getLogger(__name__)
 
@@ -107,44 +108,62 @@ BAD_IMAGE_KEYWORDS = [
     "blank", "placeholder", "commons-logo", "wikivoyage", "wikidata"
 ]
 
+GENERIC_WIKI_PAGES = {
+    'cambodia', 'kingdom of cambodia', 'tourism in cambodia', 'geography of cambodia', 
+    'history of cambodia', 'culture of cambodia', 'politics of cambodia', 'economy of cambodia',
+    'provinces of cambodia', 'transport in cambodia', 'demographics of cambodia'
+}
+
+def _score_wiki_page(title: str, place_name: str, clean_name: str) -> float:
+    t_low = title.lower().strip()
+    p_low = place_name.lower().strip()
+    c_low = clean_name.lower().strip()
+    if t_low in GENERIC_WIKI_PAGES or t_low.startswith('list of'):
+        return -1.0
+    if t_low == p_low or t_low == c_low:
+        return 100.0
+    if c_low in t_low or t_low in c_low:
+        return 85.0
+    words = [w for w in re.split(r'\W+', c_low) if len(w) > 2 and w not in ('the', 'and', 'cambodia', 'province', 'park', 'ancient', 'city', 'sanctuary', 'resort')]
+    if not words:
+        return 50.0 if any(w in t_low for w in re.split(r'\W+', c_low) if len(w) > 2) else 0.0
+    matches = sum(1 for w in words if w in t_low)
+    return (matches / len(words)) * 75.0 if matches > 0 else 0.0
+
 async def fetch_wiki_images(place_name: str, province_name: str, local_name: str = None, max_images: int = 15) -> list[str]:
-    """Uses Wikipedia API with pageimages and embedded article media to find real photos."""
+    """Uses Wikipedia API with pageimages and embedded article media to find real high-resolution photos."""
     ua = "CamTechBlogDiscovery/2.0 (https://blog.camtech.cam; contact@camtech.cam) python-httpx/0.28.1"
     headers = {"User-Agent": ua}
     
     clean_name = re.sub(r'\(.*?\)', '', place_name).strip()
     queries = [
-        f"{place_name} Cambodia",
-        f"{place_name} {province_name}",
+        clean_name,
+        f"{clean_name} Cambodia",
+        f"{clean_name} {province_name}",
     ]
-    if clean_name and clean_name != place_name:
-        queries.append(f"{clean_name} Cambodia")
     if local_name and local_name.strip():
         queries.append(local_name.strip())
 
     found_images = []
     seen = set()
 
-    async with httpx.AsyncClient(timeout=6.0, headers=headers) as client:
+    async with httpx.AsyncClient(timeout=7.0, headers=headers) as client:
         for q in dict.fromkeys(queries):
-            url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(q)}&gsrlimit=3&prop=pageimages|extracts&exintro=1&explaintext=1&piprop=original&format=json"
+            url = f"https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(q)}&gsrlimit=5&prop=pageimages|extracts&exintro=1&explaintext=1&piprop=original&format=json"
             try:
                 res = await client.get(url)
                 if res.status_code == 200:
-                    pages = res.json().get("query", {}).get("pages", {})
-                    for p in pages.values():
-                        title = p.get("title", "")
-                        extract = p.get("extract", "").lower()
-                        # Strict relevance check: must relate to Cambodia, Khmer, or target province
-                        is_relevant = (
-                            "cambodia" in extract or "khmer" in extract or
-                            (province_name and province_name.lower() in extract) or
-                            "cambodia" in title.lower() or
-                            (clean_name and clean_name.lower() in title.lower())
-                        )
-                        if not is_relevant:
-                            continue
+                    pages = list(res.json().get("query", {}).get("pages", {}).values())
+                    # Sort candidates by title relevance to the place
+                    scored_pages = []
+                    for p in pages:
+                        score = _score_wiki_page(p.get("title", ""), place_name, clean_name)
+                        if score > 20:
+                            scored_pages.append((score, p))
+                    scored_pages.sort(key=lambda x: x[0], reverse=True)
 
+                    for score, p in scored_pages:
+                        title = p.get("title", "")
                         # 1. Primary Pageimage
                         if "original" in p:
                             src = p["original"]["source"]
@@ -154,7 +173,7 @@ async def fetch_wiki_images(place_name: str, province_name: str, local_name: str
                                     seen.add(src_clean)
                                     found_images.append(src)
 
-                        # 2. Extract photos embedded within the Wikipedia article
+                        # 2. Extract photos embedded within the relevant Wikipedia article
                         if title and len(found_images) < max_images:
                             art_url = f"https://en.wikipedia.org/w/api.php?action=query&titles={urllib.parse.quote(title)}&generator=images&gimlimit=25&prop=imageinfo&iiprop=url|mime&format=json"
                             try:
@@ -182,7 +201,7 @@ async def fetch_wiki_images(place_name: str, province_name: str, local_name: str
     return found_images
 
 async def fetch_commons_images(place_name: str, province_name: str, max_images: int = 15) -> list[str]:
-    """Queries Wikimedia Commons open media library for verified cultural and travel photos."""
+    """Queries Wikimedia Commons open media library for verified cultural and travel photos (1600px Full-HD)."""
     ua = "CamTechBlogDiscovery/2.0 (https://blog.camtech.cam; contact@camtech.cam) python-httpx/0.28.1"
     headers = {"User-Agent": ua}
     clean_name = re.sub(r'\(.*?\)', '', place_name).strip()
@@ -196,16 +215,16 @@ async def fetch_commons_images(place_name: str, province_name: str, max_images: 
     found = []
     seen = set()
 
-    async with httpx.AsyncClient(timeout=6.0, headers=headers) as client:
+    async with httpx.AsyncClient(timeout=7.0, headers=headers) as client:
         for q in queries:
-            url = f"https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(q)}&gsrnamespace=6&prop=imageinfo&iiprop=url|mime&format=json&gsrlimit={max_images}"
+            url = f"https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch={urllib.parse.quote(q)}&gsrnamespace=6&prop=imageinfo&iiprop=url|mime|size&iiurlwidth=1600&format=json&gsrlimit={max_images}"
             try:
                 res = await client.get(url)
                 if res.status_code == 200:
                     pages = res.json().get("query", {}).get("pages", {})
                     for p in pages.values():
                         for info in p.get("imageinfo", []):
-                            u = info.get("url", "")
+                            u = info.get("thumburl") or info.get("url", "")
                             u_clean = u.split("?")[0]
                             mime = info.get("mime", "")
                             if "image/" in mime and not any(bad in u_clean.lower() for bad in BAD_IMAGE_KEYWORDS):
@@ -272,8 +291,8 @@ def get_category_fallback_photo(place_type: str, name: str) -> str:
     return CATEGORY_FALLBACK_IMAGE.get(ptype, CATEGORY_FALLBACK_IMAGE["ATTRACTION"])
 
 def get_category_fallback_gallery(place_type: str, name: str, count: int = 12) -> list[str]:
-    """Return a minimal fallback gallery. Real images should come from Wikipedia/Commons/web search."""
-    return [get_category_fallback_photo(place_type, name)]
+    """Return a rich, diverse fallback gallery. Real images should come from Wikipedia/Commons/web search."""
+    return image_search_service.get_diverse_place_gallery(place_type, name, count)
 
 
 # All 25 provinces/cities of Cambodia
@@ -402,7 +421,7 @@ class AITourismEngine:
             if you_api_key:
                 tasks.append(fetch_you_images(name, dest_name, you_api_key, max_images=8))
 
-            results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=4.5)
+            results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=9.0)
             for res in results:
                 if isinstance(res, list):
                     for img in res:
@@ -410,9 +429,11 @@ class AITourismEngine:
         except Exception as e:
             logger.debug(f"Image discovery notice for {name}: {e}")
 
-        # If no images discovered from Wikipedia/Commons/web search, use category fallback
-        if not all_images:
-            _add(get_category_fallback_photo(place_type, name))
+        # Ensure high-resolution, diverse photography padding
+        if len(all_images) < target_count:
+            diverse_photos = image_search_service.get_diverse_place_gallery(place_type, name, count=target_count)
+            for p in diverse_photos:
+                _add(p)
 
         hero = all_images[0]
         gallery = all_images[:target_count]

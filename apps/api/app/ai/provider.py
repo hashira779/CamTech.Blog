@@ -74,7 +74,8 @@ class LocalAIProvider(BaseAIProvider):
             "suggested_tags": [source_name, "Verified Reporting", "Current Affairs"],
             "seo_title": f"{title} | Daily Discovery News Analysis"[:60],
             "seo_description": summary[:155],
-            "ai_draft_status": "AI_DRAFT_PENDING_EDITOR_REVIEW"
+            "ai_draft_status": "AI_DRAFT_PENDING_EDITOR_REVIEW",
+            "engine": "local",
         }
 
     async def classify_category(self, title: str, content: str) -> str:
@@ -175,7 +176,10 @@ Return valid JSON with keys: summary, key_points, why_it_matters, suggested_tags
                     )
                 res = await asyncio.wait_for(asyncio.to_thread(_call), timeout=15.0)
                 data = json.loads(res.text)
+                if not isinstance(data, dict):
+                    raise ValueError("Gemini returned non-object JSON")
                 data["ai_draft_status"] = "AI_DRAFT_PENDING_EDITOR_REVIEW"
+                data["engine"] = "gemini"
                 return data
             except Exception as e:
                 logger.warning(f"Gemini model {m} editorial draft error: {e}")

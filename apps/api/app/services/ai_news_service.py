@@ -24,6 +24,7 @@ from app.models.category import Category
 from app.models.author import Author
 from app.models.audit import SiteSetting
 from app.deduplication.detector import detect_duplicates
+from app.services.image_search_service import image_search_service
 
 logger = logging.getLogger(__name__)
 
@@ -238,17 +239,20 @@ Return a JSON array of {articles_count} article objects. Each object must have:
                         tools_config = None
 
                 def _generate(m=model_to_try, tc=tools_config):
+                    # Gemini 2.x rejects response_mime_type=application/json combined with the
+                    # google_search tool, so only request JSON mode when no tool is attached.
+                    # The JSON is extracted from plain text below either way.
                     return client.models.generate_content(
                         model=m,
                         contents=prompt,
                         config=types.GenerateContentConfig(
                             temperature=0.5,
-                            response_mime_type="application/json",
+                            response_mime_type=None if tc else "application/json",
                             tools=tc,
                         )
                     )
 
-                response = await asyncio.wait_for(asyncio.to_thread(_generate), timeout=20.0)
+                response = await asyncio.wait_for(asyncio.to_thread(_generate), timeout=90.0)
                 response_text = response.text
                 logger.info(f"[AINews:{category_slug}] Success with model: {model_to_try}")
                 break
@@ -272,6 +276,7 @@ Return a JSON array of {articles_count} article objects. Each object must have:
             return {"status": "failed", "error": user_message}
 
         # Parse response
+        articles_data = None
         try:
             articles_data = json.loads(response_text)
         except json.JSONDecodeError:
@@ -282,15 +287,18 @@ Return a JSON array of {articles_count} article objects. Each object must have:
                 except Exception:
                     pass
             if not isinstance(articles_data, list):
-                match = re.search(r'(\[\s*\{.*?\}\s*\])', response_text, re.DOTALL)
-                if match:
+                start, end = response_text.find("["), response_text.rfind("]")
+                if start != -1 and end > start:
                     try:
-                        articles_data = json.loads(match.group(1))
+                        articles_data = json.loads(response_text[start:end + 1])
                     except Exception:
                         return {"status": "failed", "error": "Failed to parse AI response JSON"}
 
-        if not isinstance(articles_data, list):
+        if isinstance(articles_data, dict):
             articles_data = [articles_data]
+        if not isinstance(articles_data, list):
+            return {"status": "failed", "error": "Failed to parse AI response JSON"}
+        articles_data = [a for a in articles_data if isinstance(a, dict)]
 
         # Save articles with deduplication
         saved = []
@@ -315,6 +323,14 @@ Return a JSON array of {articles_count} article objects. Each object must have:
                 base_slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')[:80]
                 slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
 
+                # Discover high-resolution, relevant imagery for this news story
+                hero_img_url, hero_img_credit, hero_img_alt = await image_search_service.search_news_image(
+                    title=title,
+                    category=category_slug,
+                    country=country,
+                    tags=data.get("tags", [])
+                )
+
                 new_article = Article(
                     title=title,
                     slug=slug,
@@ -323,6 +339,10 @@ Return a JSON array of {articles_count} article objects. Each object must have:
                     country=country,
                     primary_source_url=source_url,
                     source_attribution_text=data.get("source_name", "AI Research via Google Search"),
+                    hero_image_url=hero_img_url,
+                    hero_image_credit=hero_img_credit,
+                    hero_image_alt=hero_img_alt,
+                    hero_image_license="EDITORIAL_USE",
                     category_id=category_id,
                     author_id=author_id,
                     status="AI_DRAFT",  # Goes to editorial review, NOT directly published

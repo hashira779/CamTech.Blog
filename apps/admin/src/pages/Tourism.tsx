@@ -7,7 +7,8 @@ import {
   Sparkles,
   ChevronRight,
   Star,
-  MapPin
+  MapPin,
+  Image as ImageIcon
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useToast } from '../components/ui/Toast';
@@ -141,6 +142,27 @@ export default function Tourism() {
     }
   };
 
+  const [enhancingImages, setEnhancingImages] = useState(false);
+
+  const handleEnhancePlaceImages = async () => {
+    setEnhancingImages(true);
+    toastInfo('Scanning places and fetching high-resolution 1600px HD photos...', 'AI HD Image Search');
+    try {
+      const res = await api.post<{ status: string; updated_count: number }>('/admin/ai/enhance-place-images');
+      if (res.data?.status === 'success') {
+        toastSuccess(`Enhanced ${res.data.updated_count} places with authentic HD images!`, 'HD Images Ready');
+        fetchDestinations();
+      } else {
+        toastInfo('All places already have verified high-resolution images.', 'Up to date');
+      }
+    } catch (err: any) {
+      console.error(err);
+      toastError(err.response?.data?.detail || 'Failed to enhance place images.');
+    } finally {
+      setEnhancingImages(false);
+    }
+  };
+
   const filteredProvinces = useMemo(() => {
     if (!searchQuery.trim()) return destinations;
     const q = searchQuery.toLowerCase();
@@ -175,6 +197,15 @@ export default function Tourism() {
           >
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
             <span>Sync</span>
+          </button>
+          <button 
+            onClick={handleEnhancePlaceImages}
+            disabled={enhancingImages}
+            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-3.5 py-2 rounded-lg text-xs transition-all shadow-md hover:shadow-blue-950/40 disabled:opacity-50 cursor-pointer"
+            title="Search and assign 1600px HD cultural photos and galleries for places"
+          >
+            {enhancingImages ? <RefreshCw size={13} className="animate-spin" /> : <ImageIcon size={13} />}
+            <span>{enhancingImages ? 'Enhancing Places...' : 'Enhance Places HD'}</span>
           </button>
           <button 
             onClick={handleFullScan}

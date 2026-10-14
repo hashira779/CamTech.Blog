@@ -8,20 +8,54 @@ import {
   X,
   Sparkles,
   FileText,
-  Check
+  Check,
+  Camera,
+  Ban,
+  RotateCcw,
+  Clock
 } from 'lucide-react';
 import { api } from '../lib/api';
 import type { ApiArticle } from '../lib/api';
 import { useToast } from '../components/ui/Toast';
 
+type FilterTab = 'All' | 'PUBLISHED' | 'DRAFT' | 'ARCHIVED';
+
+const DRAFT_STATUSES = ['DRAFT', 'AI_DRAFT', 'IN_REVIEW', 'NEEDS_REVISION', 'APPROVED'];
+const ARCHIVE_STATUSES = ['ARCHIVED', 'REJECTED'];
+
+interface AutopilotVerdict {
+  id: string;
+  eligible: boolean;
+  reason: string;
+  auto_publish_at: string | null;
+}
+
+function matchesTab(status: string, tab: FilterTab) {
+  if (tab === 'PUBLISHED') return status === 'PUBLISHED';
+  if (tab === 'DRAFT') return DRAFT_STATUSES.includes(status);
+  if (tab === 'ARCHIVED') return ARCHIVE_STATUSES.includes(status);
+  return true;
+}
+
+function formatCountdown(iso: string) {
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return 'Auto-publishing on next cycle';
+  const mins = Math.round(ms / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `Auto-publish in ${h > 0 ? `${h}h ` : ''}${m}m`;
+}
+
 export default function Articles() {
   const [articles, setArticles] = useState<ApiArticle[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [filterTab, setFilterTab] = useState<'All' | 'PUBLISHED' | 'DRAFT'>('All');
+  const [filterTab, setFilterTab] = useState<FilterTab>('All');
+  const [verdicts, setVerdicts] = useState<Record<string, AutopilotVerdict>>({});
   const [countryFilter, setCountryFilter] = useState<'ALL' | 'KH' | 'WORLD'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [enhancingImages, setEnhancingImages] = useState(false);
   const { success: toastSuccess, error: toastError, info: toastInfo } = useToast();
   
   // Create Article Modal state
@@ -47,6 +81,14 @@ export default function Articles() {
         setArticles(res.data.items);
         setTotalCount(res.data.total || res.data.items.length);
       }
+      try {
+        const ap = await api.get<{ pending: AutopilotVerdict[] }>('/admin/autopilot');
+        const map: Record<string, AutopilotVerdict> = {};
+        ap.data?.pending?.forEach(v => { map[v.id] = v; });
+        setVerdicts(map);
+      } catch {
+        setVerdicts({});
+      }
       if (showToast) {
         toastSuccess('Articles list refreshed');
       }
@@ -63,18 +105,33 @@ export default function Articles() {
   }, [countryFilter]);
 
   const handleAIGenerate = async () => {
-    if (!confirm('Generate a new international technology news article draft?')) return;
+    if (!confirm('Generate new international technology news article drafts?')) return;
     setAiGenerating(true);
-    toastInfo('Generating article draft in the background...', 'Editorial Assistant');
+    toastInfo('Generating article drafts in the background...', 'Editorial Assistant');
     try {
       await api.post('/admin/ai/generate-news');
       await fetchArticles();
-      toastSuccess('New article draft published successfully!', 'Editorial Workflow');
+      toastSuccess('New AI drafts created. They will auto-publish after the review window unless you reject them.', 'Editorial Workflow');
     } catch (err) {
       console.error('AI Generation Failed:', err);
       toastError('Failed to generate news article. Please check service logs.');
     } finally {
       setAiGenerating(false);
+    }
+  };
+
+  const handleEnhanceImages = async () => {
+    setEnhancingImages(true);
+    toastInfo('Scanning and discovering high-resolution HD images for stories...', 'AI Image Engine');
+    try {
+      const res = await api.post<{ status: string; updated_count: number }>('/admin/ai/enhance-news-images');
+      await fetchArticles();
+      toastSuccess(`Enhanced ${res.data.updated_count || 0} stories with high-resolution images!`, 'HD Images Updated');
+    } catch (err: any) {
+      console.error('Failed to enhance images:', err);
+      toastError(err.response?.data?.detail || 'Failed to enhance images');
+    } finally {
+      setEnhancingImages(false);
     }
   };
 
@@ -123,12 +180,36 @@ export default function Articles() {
     }
   };
 
-  const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
+  const handleReviewAction = async (id: string, title: string, action: 'REJECT' | 'RESTORE') => {
     try {
-      await api.delete(`/articles/${id}`);
-      setArticles(prev => prev.filter(a => a.id !== id));
-      toastSuccess(`Deleted "${title}"`, 'Article Removed');
+      const res = await api.post<{ new_status: string }>('/admin/review-action', { article_id: id, action });
+      const newStatus = res.data?.new_status;
+      setArticles(prev => prev.map(a => (a.id === id && newStatus ? { ...a, status: newStatus } : a)));
+      toastSuccess(
+        action === 'REJECT' ? `Rejected "${title}" — it will not auto-publish` : `Restored "${title}" to review`,
+        action === 'REJECT' ? 'Draft Rejected' : 'Story Restored'
+      );
+    } catch (err: any) {
+      console.error(`Failed to ${action} article:`, err);
+      toastError(err.response?.data?.detail || `Failed to ${action.toLowerCase()} article.`);
+    }
+  };
+
+  const handleDelete = async (id: string, title: string, status: string) => {
+    const permanent = status === 'ARCHIVED';
+    const msg = permanent
+      ? `Permanently delete "${title}"? This cannot be undone.`
+      : `Archive "${title}"? It will be hidden from the website and can be restored from the Archived tab.`;
+    if (!confirm(msg)) return;
+    try {
+      const res = await api.delete<{ deleted: boolean }>(`/articles/${id}`);
+      if (res.data?.deleted) {
+        setArticles(prev => prev.filter(a => a.id !== id));
+        toastSuccess(`Deleted "${title}"`, 'Article Removed');
+      } else {
+        setArticles(prev => prev.map(a => (a.id === id ? { ...a, status: 'ARCHIVED' } : a)));
+        toastSuccess(`Archived "${title}"`, 'Article Archived');
+      }
     } catch (err) {
       console.error('Failed to delete article:', err);
       toastError('Failed to delete article.');
@@ -136,8 +217,7 @@ export default function Articles() {
   };
 
   const filtered = articles.filter((art) => {
-    if (filterTab === 'PUBLISHED' && art.status !== 'PUBLISHED') return false;
-    if (filterTab === 'DRAFT' && art.status !== 'DRAFT' && art.status !== 'AI_DRAFT') return false;
+    if (!matchesTab(art.status, filterTab)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const matchTitle = art.title.toLowerCase().includes(q);
@@ -170,6 +250,15 @@ export default function Articles() {
             <span>Refresh</span>
           </button>
           <button 
+            onClick={handleEnhanceImages}
+            disabled={enhancingImages}
+            className="flex items-center gap-1.5 bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border border-emerald-500/25 font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50"
+            title="Scan stories with missing or low-res images and find high-resolution HD imagery"
+          >
+            {enhancingImages ? <RefreshCw size={13} className="animate-spin" /> : <Camera size={13} />}
+            <span>Enhance HD Images</span>
+          </button>
+          <button 
             onClick={handleAIGenerate}
             disabled={aiGenerating}
             className="flex items-center gap-1.5 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-500/25 font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50"
@@ -191,12 +280,9 @@ export default function Articles() {
       <div className="flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
         {/* Status Filter Tabs */}
         <div className="flex items-center p-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] shrink-0 overflow-x-auto">
-          {(['All', 'PUBLISHED', 'DRAFT'] as const).map((tab) => {
-            const count = tab === 'All'
-              ? articles.length
-              : tab === 'PUBLISHED'
-                ? articles.filter(a => a.status === 'PUBLISHED').length
-                : articles.filter(a => a.status === 'DRAFT' || a.status === 'AI_DRAFT').length;
+          {(['All', 'PUBLISHED', 'DRAFT', 'ARCHIVED'] as const).map((tab) => {
+            const count = articles.filter(a => matchesTab(a.status, tab)).length;
+            const label = tab === 'All' ? 'All' : tab === 'PUBLISHED' ? 'Published' : tab === 'DRAFT' ? 'Drafts' : 'Archived';
             return (
               <button
                 key={tab}
@@ -207,7 +293,7 @@ export default function Articles() {
                     : 'text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                {tab === 'All' ? `All (${count})` : tab === 'PUBLISHED' ? `Published (${count})` : `Drafts (${count})`}
+                {`${label} (${count})`}
               </button>
             );
           })}
@@ -286,18 +372,33 @@ export default function Articles() {
                 filtered.map((article) => (
                   <tr key={article.id} className="hover:bg-zinc-800/30 transition-colors group">
                     <td className="py-3.5 px-5">
-                      <div className="font-medium text-zinc-200 group-hover:text-white transition-colors line-clamp-1 max-w-lg">
-                        {article.title}
+                      <div className="flex items-center gap-3">
+                        {article.hero_image_url ? (
+                          <img 
+                            src={article.hero_image_url} 
+                            alt={article.title} 
+                            className="w-10 h-8 rounded-md object-cover border border-zinc-800 shrink-0 shadow-2xs" 
+                          />
+                        ) : (
+                          <div className="w-10 h-8 rounded-md bg-zinc-800/80 border border-zinc-700/50 flex items-center justify-center shrink-0 text-zinc-500 text-[9px] font-mono">
+                            No img
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-zinc-200 group-hover:text-white transition-colors line-clamp-1 max-w-lg">
+                            {article.title}
+                          </div>
+                          {article.title_km ? (
+                            <div className="text-[11px] text-zinc-500 line-clamp-1 mt-0.5 font-sans">
+                              {article.title_km}
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-zinc-500 font-mono mt-0.5 truncate max-w-md">
+                              /{article.slug}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      {article.title_km ? (
-                        <div className="text-[11px] text-zinc-500 line-clamp-1 mt-0.5 font-sans">
-                          {article.title_km}
-                        </div>
-                      ) : (
-                        <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
-                          /{article.slug}
-                        </div>
-                      )}
                     </td>
                     <td className="py-3.5 px-4">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-medium border ${
@@ -314,11 +415,34 @@ export default function Articles() {
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                           <span>PUBLISHED</span>
                         </span>
+                      ) : ARCHIVE_STATUSES.includes(article.status) ? (
+                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                          article.status === 'REJECTED'
+                            ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                            : 'bg-zinc-800 text-zinc-400 border-zinc-700/60'
+                        }`}>
+                          <span>{article.status}</span>
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                           <span>{article.status}</span>
                         </span>
+                      )}
+                      {article.status === 'AI_DRAFT' && verdicts[article.id] && (
+                        <div
+                          className={`flex items-center gap-1 mt-1 text-[10px] max-w-[180px] ${
+                            verdicts[article.id].eligible ? 'text-sky-400' : 'text-zinc-500'
+                          }`}
+                          title={verdicts[article.id].reason}
+                        >
+                          <Clock size={10} className="shrink-0" />
+                          <span className="truncate">
+                            {verdicts[article.id].eligible && verdicts[article.id].auto_publish_at
+                              ? formatCountdown(verdicts[article.id].auto_publish_at as string)
+                              : `Held: ${verdicts[article.id].reason}`}
+                          </span>
+                        </div>
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-zinc-400 font-mono text-[11px] truncate max-w-[150px]">
@@ -339,13 +463,31 @@ export default function Articles() {
                     </td>
                     <td className="py-3.5 px-5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        {article.status !== 'PUBLISHED' && (
+                        {DRAFT_STATUSES.includes(article.status) && (
                           <button
                             onClick={() => handlePublish(article.id, article.title)}
                             className="p-1.5 text-emerald-400 hover:text-emerald-300 rounded-md hover:bg-emerald-500/15 transition-colors border border-emerald-500/20"
                             title="Approve & Publish live to website"
                           >
                             <Check size={13} />
+                          </button>
+                        )}
+                        {DRAFT_STATUSES.includes(article.status) && (
+                          <button
+                            onClick={() => handleReviewAction(article.id, article.title, 'REJECT')}
+                            className="p-1.5 text-amber-400 hover:text-amber-300 rounded-md hover:bg-amber-500/10 transition-colors"
+                            title="Reject (stops auto-publish)"
+                          >
+                            <Ban size={13} />
+                          </button>
+                        )}
+                        {ARCHIVE_STATUSES.includes(article.status) && (
+                          <button
+                            onClick={() => handleReviewAction(article.id, article.title, 'RESTORE')}
+                            className="p-1.5 text-sky-400 hover:text-sky-300 rounded-md hover:bg-sky-500/10 transition-colors"
+                            title="Restore to review"
+                          >
+                            <RotateCcw size={13} />
                           </button>
                         )}
                         <a
@@ -358,9 +500,9 @@ export default function Articles() {
                           <ExternalLink size={13} />
                         </a>
                         <button
-                          onClick={() => handleDelete(article.id, article.title)}
+                          onClick={() => handleDelete(article.id, article.title, article.status)}
                           className="p-1.5 text-rose-400 hover:text-rose-300 rounded-md hover:bg-rose-500/10 transition-colors"
-                          title="Delete article"
+                          title={article.status === 'ARCHIVED' ? 'Delete permanently' : 'Archive (restorable)'}
                         >
                           <Trash2 size={13} />
                         </button>
