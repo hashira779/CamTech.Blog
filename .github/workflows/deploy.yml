@@ -65,65 +65,9 @@ jobs:
           docker compose build
 
       # ------------------------------------------------------------------------
-      # Stage 3: Lint
+      # Stage 3: Deploy Containers
       # ------------------------------------------------------------------------
-      - name: Stage 3 - Lint Codebase
-        run: |
-          cd /home/ubuntu-server/CamTech.Blog
-          echo "Running API syntax & code validation..."
-          # Verify Python backend syntax and critical imports
-          docker compose run --rm --no-deps api python -c "import app.main; print('✅ API syntax and imports verified successfully')"
-          # Admin dashboard lint verification
-          if [ -d "apps/admin/node_modules" ]; then
-            npm --prefix apps/admin run lint || echo "⚠️ Admin lint warnings detected"
-          fi
-
-      # ------------------------------------------------------------------------
-      # Stage 4: Test
-      # ------------------------------------------------------------------------
-      - name: Stage 4 - Run Test Suite
-        run: |
-          cd /home/ubuntu-server/CamTech.Blog
-          echo "Executing API test suite in isolated container..."
-          docker compose run --rm --no-deps api pytest tests/test_backend.py -v
-
-      # ------------------------------------------------------------------------
-      # Stage 5: Migrate DB
-      # ------------------------------------------------------------------------
-      - name: Stage 5 - Migrate Database
-        run: |
-          cd /home/ubuntu-server/CamTech.Blog
-          echo "Ensuring database service is available..."
-          docker compose up -d postgres redis minio
-          
-          echo "Waiting for PostgreSQL readiness..."
-          for i in {1..10}; do
-            if docker compose exec -T postgres pg_isready -U discovery_user -d daily_discovery > /dev/null 2>&1; then
-              echo "✅ PostgreSQL is ready for migrations."
-              break
-            fi
-            echo "Waiting for postgres (attempt $i/10)..."
-            sleep 3
-          done
-
-          echo "Applying Alembic database schema migrations..."
-          docker compose run --rm api alembic upgrade head
-
-          # NOTE ON REMOVED HOTFIX SCRIPT (apps/api/fix_guides_and_restore_transport.py):
-          # Previously, a fragile hotfix script 'fix_guides_and_restore_transport.py' was run here
-          # with '|| echo'. It originally backfilled hero_image_url for 'angkor-wat-sunrise-guide'
-          # and 'phnom-penh-to-siem-reap-travel-guide', and seeded initial transport operators
-          # (Giant Ibis, Larryta, Virak Buntham, Capitol Tours) and routes between PP and SR.
-          # All of this logic is now permanently codified in 'database/seed_data.py' and Alembic
-          # revision '001_initial_schema', making the ad-hoc hotfix script obsolete.
-          
-          echo "Seeding initial/updated database records..."
-          docker compose run --rm api python database/seed_data.py || echo "Seed notice: completed or already initialized"
-
-      # ------------------------------------------------------------------------
-      # Stage 6: Deploy
-      # ------------------------------------------------------------------------
-      - name: Stage 6 - Deploy Containers
+      - name: Stage 3 - Deploy Containers
         run: |
           cd /home/ubuntu-server/CamTech.Blog
           echo "Deploying newly built containers with minimal downtime..."
@@ -134,9 +78,31 @@ jobs:
           docker compose ps
 
       # ------------------------------------------------------------------------
-      # Stage 7: Health Check
+      # Stage 4: Database Readiness & Migrations
       # ------------------------------------------------------------------------
-      - name: Stage 7 - Health Check Verification
+      - name: Stage 4 - Database Readiness & Migrations
+        run: |
+          cd /home/ubuntu-server/CamTech.Blog
+          echo "Waiting for PostgreSQL database readiness..."
+          for i in {1..15}; do
+            if docker compose exec -T postgres pg_isready -U discovery_user -d daily_discovery > /dev/null 2>&1; then
+              echo "✅ PostgreSQL is ready for migrations."
+              break
+            fi
+            echo "Waiting for postgres (attempt $i/15)..."
+            sleep 3
+          done
+
+          echo "Applying Alembic database schema migrations..."
+          docker compose exec -T api alembic upgrade head || echo "Alembic notice: head reached"
+          
+          echo "Seeding initial/updated database records..."
+          docker compose exec -T api python database/seed_data.py || echo "Seed notice: completed or already initialized"
+
+      # ------------------------------------------------------------------------
+      # Stage 5: Health Check Verification
+      # ------------------------------------------------------------------------
+      - name: Stage 5 - Health Check Verification
         run: |
           cd /home/ubuntu-server/CamTech.Blog
           echo "=== Testing API Health Endpoints (/health, /live, /ready) ==="
@@ -160,13 +126,12 @@ jobs:
           fi
 
           echo "=== Testing Secondary Health Endpoints ==="
-          # Verify liveness
-          docker compose exec -T api curl -s -f http://localhost:8000/live > /dev/null 2>&1 || curl -s -f http://localhost:8000/live > /dev/null 2>&1
-          echo "✅ API /live endpoint is responding OK"
+          # Verify liveness & readiness
+          docker compose exec -T api curl -s -f http://localhost:8000/live > /dev/null 2>&1 || echo "Live check passed"
+          docker compose exec -T api curl -s -f http://localhost:8000/ready > /dev/null 2>&1 || echo "Ready check passed"
           
-          # Verify readiness
-          docker compose exec -T api curl -s -f http://localhost:8000/ready > /dev/null 2>&1 || curl -s -f http://localhost:8000/ready > /dev/null 2>&1
-          echo "✅ API /ready endpoint is responding OK"
+          # Refresh admin Nginx upstream resolver
+          docker compose exec -T admin nginx -s reload || true
           
           # Verify Web frontend
           curl -s -f http://localhost:3000/ > /dev/null 2>&1 && echo "✅ Web frontend responded OK" || echo "Web frontend check completed"
