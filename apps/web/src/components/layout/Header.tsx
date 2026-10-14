@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, Menu, X, ExternalLink, Sun, Moon, Laptop } from "lucide-react";
@@ -13,6 +13,11 @@ export function Header() {
   const { lang, setLang } = useI18n();
   const { theme, setTheme, isDark } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const navLinks = [
     { href: "/", label: lang === "km" ? "ទំព័រដើម" : "Home" },
@@ -47,13 +52,13 @@ export function Header() {
 
           <div className="flex items-center gap-4">
             {/* Theme Switcher */}
-            <div className="flex items-center bg-gray-200/80 dark:bg-slate-800 rounded-md p-0.5 text-xs font-medium">
+            <div className="flex items-center bg-gray-200/80 dark:bg-slate-800 rounded-md p-0.5 text-xs font-medium border border-gray-300/50 dark:border-slate-700/60 shadow-xs">
               <button
                 type="button"
                 onClick={() => setTheme("light")}
                 title="Light mode"
                 className={`px-2 py-0.5 rounded-sm transition-all flex items-center gap-1 ${
-                  theme === "light" 
+                  mounted && theme === "light" 
                     ? "bg-white text-amber-600 shadow-xs font-semibold" 
                     : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
                 }`}
@@ -65,12 +70,24 @@ export function Header() {
                 onClick={() => setTheme("dark")}
                 title="Dark mode"
                 className={`px-2 py-0.5 rounded-sm transition-all flex items-center gap-1 ${
-                  theme === "dark" 
+                  mounted && theme === "dark" 
                     ? "bg-slate-700 text-teal-300 shadow-xs font-semibold" 
                     : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
                 }`}
               >
                 <Moon size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme("system")}
+                title="System mode"
+                className={`px-2 py-0.5 rounded-sm transition-all flex items-center gap-1 ${
+                  mounted && theme === "system" 
+                    ? "bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 shadow-xs font-semibold" 
+                    : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
+                }`}
+              >
+                <Laptop size={12} />
               </button>
             </div>
 
@@ -223,8 +240,9 @@ export function Header() {
               <button
                 type="button"
                 onClick={() => setTheme("light")}
+                title="Light mode"
                 className={`px-2.5 py-1.5 rounded-sm transition-colors ${
-                  theme === "light" ? "bg-gray-100 text-amber-500" : "text-gray-500"
+                  mounted && theme === "light" ? "bg-gray-100 dark:bg-slate-700 text-amber-500 font-semibold" : "text-gray-500 dark:text-slate-400"
                 }`}
               >
                 <Sun size={15} />
@@ -232,11 +250,22 @@ export function Header() {
               <button
                 type="button"
                 onClick={() => setTheme("dark")}
+                title="Dark mode"
                 className={`px-2.5 py-1.5 rounded-sm transition-colors ${
-                  theme === "dark" ? "bg-slate-700 text-teal-300" : "text-gray-500"
+                  mounted && theme === "dark" ? "bg-slate-700 text-teal-300 font-semibold" : "text-gray-500 dark:text-slate-400"
                 }`}
               >
                 <Moon size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme("system")}
+                title="System mode"
+                className={`px-2.5 py-1.5 rounded-sm transition-colors ${
+                  mounted && theme === "system" ? "bg-gray-100 dark:bg-slate-700 text-teal-600 dark:text-teal-300 font-semibold" : "text-gray-500 dark:text-slate-400"
+                }`}
+              >
+                <Laptop size={15} />
               </button>
             </div>
           </div>

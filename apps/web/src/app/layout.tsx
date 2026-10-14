@@ -53,6 +53,11 @@ export default function RootLayout({
             })
           }}
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('dd_theme');var d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;if(d){r.classList.add('dark');r.classList.remove('light');r.setAttribute('data-theme','dark');r.style.colorScheme='dark';}else{r.classList.remove('dark');r.classList.add('light');r.setAttribute('data-theme','light');r.style.colorScheme='light';}}catch(e){}})();`
+          }}
+        />
         {process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID && process.env.NEXT_PUBLIC_ADSENSE_ENABLED === "true" && (
           <Script
             async
@@ -62,7 +67,7 @@ export default function RootLayout({
           />
         )}
       </head>
-      <body className={`${inter.className} min-h-screen flex flex-col bg-[#FAF9F6] text-neutral-900 antialiased selection:bg-neutral-900 selection:text-white transition-colors duration-200`}>
+      <body className={`${inter.className} min-h-screen flex flex-col bg-[#FAF9F6] dark:bg-[#090d16] text-neutral-900 dark:text-slate-100 antialiased selection:bg-teal-600 selection:text-white transition-colors duration-200`}>
         <NextTopLoader
           color="#0ea5e9"
           initialPosition={0.08}

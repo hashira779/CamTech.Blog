@@ -17,17 +17,17 @@ export default async function WorldNewsPage() {
     : items.slice(10, 14);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-[#FAF9F6]">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 transition-colors duration-200">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* LEFT COLUMN: Main Content (70%) */}
         <div className="lg:col-span-8 space-y-12">
           
-          <div className="border-b-[1px] border-neutral-300 pb-4">
-            <h1 className="text-4xl md:text-5xl font-normal font-serif text-neutral-900 tracking-tight">
+          <div className="border-b-[1px] border-neutral-300 dark:border-slate-800 pb-4">
+            <h1 className="text-4xl md:text-5xl font-normal font-serif text-neutral-900 dark:text-white tracking-tight">
               World News
             </h1>
-            <p className="mt-4 text-neutral-500 font-sans text-sm max-w-2xl leading-relaxed">
+            <p className="mt-4 text-neutral-500 dark:text-slate-400 font-sans text-sm max-w-2xl leading-relaxed">
               Global perspectives on geopolitics, international markets, and major breaking events reshaping our world.
             </p>
           </div>
@@ -39,11 +39,11 @@ export default async function WorldNewsPage() {
             ))}
           </div>
 
-          <div className="border-t-[1px] border-neutral-200 pt-8 space-y-8">
-            <h2 className="text-xl font-medium font-serif text-neutral-900">Latest Updates</h2>
+          <div className="border-t-[1px] border-neutral-200 dark:border-slate-800 pt-8 space-y-8">
+            <h2 className="text-xl font-medium font-serif text-neutral-900 dark:text-white">Latest Updates</h2>
             {latestArticles.map((article) => (
               <div key={article.id} className="group grid grid-cols-1 md:grid-cols-3 gap-6">
-                 <Link href={`/world/news/${article.slug}`} className="md:col-span-1 block overflow-hidden bg-neutral-100 aspect-[4/3]">
+                 <Link href={`/world/news/${article.slug}`} className="md:col-span-1 block overflow-hidden rounded-xl bg-neutral-100 dark:bg-slate-800 aspect-[4/3] border border-gray-100 dark:border-slate-800">
                     <img 
                       src={article.hero_image_url || "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80"}
                       alt={article.title}
@@ -51,18 +51,18 @@ export default async function WorldNewsPage() {
                     />
                  </Link>
                  <div className="md:col-span-2 flex flex-col justify-center">
-                    <span className="text-[10px] uppercase tracking-widest text-neutral-400 font-semibold mb-2 block">
+                    <span className="text-[10px] uppercase tracking-widest text-teal-600 dark:text-teal-400 font-semibold mb-2 block">
                       {article.category?.name || "Global"}
                     </span>
                     <Link href={`/world/news/${article.slug}`}>
-                      <h3 className="text-xl md:text-2xl font-serif text-neutral-900 leading-snug group-hover:text-neutral-600 transition-colors">
+                      <h3 className="text-xl md:text-2xl font-serif text-neutral-900 dark:text-white leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
                         {article.title}
                       </h3>
                     </Link>
-                    <p className="mt-3 text-sm text-neutral-500 line-clamp-2 leading-relaxed">
+                    <p className="mt-3 text-sm text-neutral-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
                       {article.summary}
                     </p>
-                    <div className="mt-4 text-xs text-neutral-400 font-serif italic">
+                    <div className="mt-4 text-xs text-neutral-400 dark:text-slate-500 font-serif italic">
                       By {article.author?.name || article.primary_source?.name || "Editor"} • {article.published_at ? new Date(article.published_at).toLocaleDateString() : "Today"}
                     </div>
                  </div>
@@ -76,25 +76,25 @@ export default async function WorldNewsPage() {
         <aside className="lg:col-span-4">
           <div className="sticky top-8 space-y-10">
             {/* Sidebar Top Ad */}
-            <div className="bg-white p-4 text-center border-[1px] border-neutral-200">
-              <span className="text-[9px] uppercase text-neutral-400 mb-2 block tracking-widest">Advertisement</span>
+            <div className="bg-white dark:bg-slate-900 p-4 text-center border-[1px] border-neutral-200 dark:border-slate-800 rounded-2xl shadow-xs">
+              <span className="text-[9px] uppercase text-neutral-400 dark:text-slate-500 mb-2 block tracking-widest">Advertisement</span>
               <AdSlot slot="HOME_TOP" />
             </div>
 
             {/* Neo-Minimalist Widget */}
-            <div className="bg-white p-6 border-[1px] border-neutral-200">
-              <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-900 mb-6 flex items-center gap-2">
-                <span className="w-2 h-2 bg-neutral-900 rounded-full"></span>
+            <div className="bg-white dark:bg-slate-900 p-6 border-[1px] border-neutral-200 dark:border-slate-800 rounded-2xl shadow-xs">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white mb-6 flex items-center gap-2">
+                <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
                 Global Insights
               </h3>
               
-              <div className="space-y-6 divide-y-[1px] divide-neutral-100">
+              <div className="space-y-6 divide-y-[1px] divide-neutral-100 dark:divide-slate-800">
                 {topInsights.map((art) => (
                   <Link key={art.id} href={`/world/news/${art.slug}`} className="block pt-6 first:pt-0 group">
-                    <span className="text-[10px] text-neutral-400 uppercase tracking-widest font-semibold block mb-1">
+                    <span className="text-[10px] text-teal-600 dark:text-teal-400 uppercase tracking-widest font-semibold block mb-1">
                       {typeof art.category === "object" ? (art.category as any)?.name : (art.category || "Geopolitics")}
                     </span>
-                    <h4 className="text-base font-serif text-neutral-900 leading-snug group-hover:text-neutral-500 transition-colors">
+                    <h4 className="text-base font-serif text-neutral-900 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
                       {art.title}
                     </h4>
                   </Link>
@@ -103,8 +103,8 @@ export default async function WorldNewsPage() {
             </div>
             
             {/* Sidebar Bottom Ad */}
-            <div className="bg-white p-4 text-center border-[1px] border-neutral-200">
-              <span className="text-[9px] uppercase text-neutral-400 mb-2 block tracking-widest">Advertisement</span>
+            <div className="bg-white dark:bg-slate-900 p-4 text-center border-[1px] border-neutral-200 dark:border-slate-800 rounded-2xl shadow-xs">
+              <span className="text-[9px] uppercase text-neutral-400 dark:text-slate-500 mb-2 block tracking-widest">Advertisement</span>
               <AdSlot slot="SIDEBAR" />
             </div>
           </div>

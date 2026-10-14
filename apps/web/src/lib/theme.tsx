@@ -16,14 +16,20 @@ const ThemeContext = createContext<ThemeContextType>({
   isDark: false
 });
 
+const THEME_STORAGE_KEY = "dd_theme";
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("system");
   const [isDark, setIsDark] = useState<boolean>(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("dd_theme") as Theme;
-    if (saved) {
-      setThemeState(saved);
+    try {
+      const saved = localStorage.getItem(THEME_STORAGE_KEY) as Theme;
+      if (saved === "light" || saved === "dark" || saved === "system") {
+        setThemeState(saved);
+      }
+    } catch {
+      // ignore storage access errors
     }
   }, []);
 
@@ -42,21 +48,39 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       }
 
       setIsDark(activeDark);
+
       if (activeDark) {
         root.classList.add("dark");
+        root.classList.remove("light");
+        root.setAttribute("data-theme", "dark");
+        root.style.colorScheme = "dark";
       } else {
         root.classList.remove("dark");
+        root.classList.add("light");
+        root.setAttribute("data-theme", "light");
+        root.style.colorScheme = "light";
       }
     };
 
     applyTheme();
-    mediaQuery.addEventListener("change", applyTheme);
-    return () => mediaQuery.removeEventListener("change", applyTheme);
+
+    const handleMediaChange = () => {
+      if (theme === "system") {
+        applyTheme();
+      }
+    };
+
+    mediaQuery.addEventListener("change", handleMediaChange);
+    return () => mediaQuery.removeEventListener("change", handleMediaChange);
   }, [theme]);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
-    localStorage.setItem("dd_theme", newTheme);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+    } catch {
+      // ignore storage access errors
+    }
   };
 
   return (
