@@ -105,7 +105,14 @@ async def _you_web_search(query: str, api_key: str) -> dict:
 BAD_IMAGE_KEYWORDS = [
     "flag", "symbol", "coat_of_arms", "icon", "map", "logo", "stub", 
     "diagram", "locator", ".svg", "emblem", "seal_of", "district_in",
-    "blank", "placeholder", "commons-logo", "wikivoyage", "wikidata"
+    "blank", "placeholder", "commons-logo", "wikivoyage", "wikidata",
+    # Reject business / ceremony / signing / politician photos for landmarks
+    "signing", "mou", "agreement", "deliveree", "conference", "summit", 
+    "handshake", "accord", "press_release", "official_portrait", "minister", 
+    "diplomat", "meeting", "bilateral", "contract", "stadium", "football",
+    # Reject third-party travel aggregator logos & badges
+    "tripadvisor", "trip.com", "booking.com", "agoda", "expedia", 
+    "banner", "badge", "watermark", "advertisement"
 ]
 
 GENERIC_WIKI_PAGES = {
@@ -257,10 +264,11 @@ async def fetch_you_images(place_name: str, province_name: str, you_api_key: str
             # 2. Web search thumbnails (TripAdvisor, Booking, blogs)
             for r in search_data["results"].get("web", []):
                 thumb = r.get("thumbnail_url")
-                if thumb and thumb.startswith("http") and not any(bad in thumb.lower() for bad in ["logo", "icon", "favicon"]):
-                    if thumb not in seen:
-                        seen.add(thumb)
-                        found.append(thumb)
+                if thumb and thumb.startswith("http") and not any(bad in thumb.lower() for bad in BAD_IMAGE_KEYWORDS):
+                    if not any(bad in thumb.lower() for bad in ["logo", "icon", "favicon", "trip.com", "tripadvisor", "booking", "agoda"]):
+                        if thumb not in seen:
+                            seen.add(thumb)
+                            found.append(thumb)
     except Exception:
         pass
     return found[:max_images]

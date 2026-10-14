@@ -12,7 +12,10 @@ import {
   Camera,
   Ban,
   RotateCcw,
-  Clock
+  Clock,
+  Globe,
+  ChevronDown,
+  Zap
 } from 'lucide-react';
 import { api } from '../lib/api';
 import type { ApiArticle } from '../lib/api';
@@ -104,17 +107,26 @@ export default function Articles() {
     fetchArticles();
   }, [countryFilter]);
 
-  const handleAIGenerate = async () => {
-    if (!confirm('Generate new international technology news article drafts?')) return;
+  const [scanMenuOpen, setScanMenuOpen] = useState(false);
+
+  const handleScanNews = async (target: 'cambodia' | 'world' | 'all') => {
     setAiGenerating(true);
-    toastInfo('Generating article drafts in the background...', 'Editorial Assistant');
+    setScanMenuOpen(false);
+    const label = target === 'cambodia' ? 'Cambodia News' : target === 'world' ? 'World News' : 'All Sections (News + Discoveries)';
+    toastInfo(`AI scanning and generating fresh ${label} with 1600px HD images...`, 'AI News Scanner');
     try {
-      await api.post('/admin/ai/generate-news');
+      if (target === 'cambodia') {
+        await api.post('/admin/ai/scan/cambodia-news?count=3');
+      } else if (target === 'world') {
+        await api.post('/admin/ai/scan/world-news?count=3');
+      } else {
+        await api.post('/admin/ai/scan/all');
+      }
       await fetchArticles();
-      toastSuccess('New AI drafts created. They will auto-publish after the review window unless you reject them.', 'Editorial Workflow');
-    } catch (err) {
-      console.error('AI Generation Failed:', err);
-      toastError('Failed to generate news article. Please check service logs.');
+      toastSuccess(`Successfully scanned and ingested fresh ${label}!`, 'Scan Complete');
+    } catch (err: any) {
+      console.error('Scan Failed:', err);
+      toastError(err.response?.data?.detail || `Failed to scan ${label}.`);
     } finally {
       setAiGenerating(false);
     }
@@ -258,14 +270,60 @@ export default function Articles() {
             {enhancingImages ? <RefreshCw size={13} className="animate-spin" /> : <Camera size={13} />}
             <span>Enhance HD Images</span>
           </button>
-          <button 
-            onClick={handleAIGenerate}
-            disabled={aiGenerating}
-            className="flex items-center gap-1.5 bg-blue-600/15 hover:bg-blue-600/25 text-blue-400 border border-blue-500/25 font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50"
-          >
-            {aiGenerating ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
-            <span>Auto-Draft Story</span>
-          </button>
+          {/* Scan News Dropdown Menu */}
+          <div className="relative">
+            <button 
+              onClick={() => setScanMenuOpen(!scanMenuOpen)}
+              disabled={aiGenerating}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+            >
+              {aiGenerating ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
+              <span>{aiGenerating ? 'AI Scanning...' : 'Scan News (AI)'}</span>
+              <ChevronDown size={12} className={scanMenuOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
+            </button>
+
+            {scanMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setScanMenuOpen(false)} />
+                <div className="absolute right-0 mt-1.5 w-64 rounded-xl bg-zinc-900 border border-zinc-800 shadow-2xl py-1.5 z-50">
+                  <div className="px-3 py-1.5 border-b border-zinc-800/80 text-[10px] font-mono uppercase text-zinc-500 font-semibold">
+                    Select AI Scan Target
+                  </div>
+                  <button
+                    onClick={() => handleScanNews('cambodia')}
+                    className="w-full text-left px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors"
+                  >
+                    <span className="text-base leading-none">🇰🇭</span>
+                    <div>
+                      <div className="font-medium text-zinc-100">Scan Cambodia News</div>
+                      <div className="text-[10px] text-zinc-400">Local tech, Bakong fintech, telecom & startups</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleScanNews('world')}
+                    className="w-full text-left px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors"
+                  >
+                    <Globe size={15} className="text-blue-400 shrink-0" />
+                    <div>
+                      <div className="font-medium text-zinc-100">Scan World News</div>
+                      <div className="text-[10px] text-zinc-400">Global AI, robotics, cyber & big tech</div>
+                    </div>
+                  </button>
+                  <div className="my-1 border-t border-zinc-800/80" />
+                  <button
+                    onClick={() => handleScanNews('all')}
+                    className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors"
+                  >
+                    <Zap size={15} className="text-amber-400 shrink-0" />
+                    <div>
+                      <div className="font-semibold text-emerald-300">Master Scan (All Sections)</div>
+                      <div className="text-[10px] text-zinc-400">Full sweep across News + Discoveries</div>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
           <button 
             onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-1.5 bg-zinc-100 hover:bg-white text-zinc-950 font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm"

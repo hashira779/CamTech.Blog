@@ -10,7 +10,8 @@ import {
   Layers, 
   HardDrive, 
   MapPin, 
-  Database 
+  Database,
+  Sparkles
 } from 'lucide-react';
 import { getUser, logout } from '../../lib/auth';
 
@@ -27,6 +28,7 @@ export default function Sidebar() {
   const mainNav: Array<{ name: string; path: string; icon: any; badge?: string }> = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Articles', path: '/articles', icon: FileText },
+    { name: 'Discoveries', path: '/discoveries', icon: Sparkles },
     { name: 'Destinations', path: '/tourism', icon: MapPin },
     { name: 'Place Approvals', path: '/suggestions', icon: ShieldCheck },
     { name: 'Media Storage', path: '/storage', icon: HardDrive },

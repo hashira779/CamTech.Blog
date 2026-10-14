@@ -8,6 +8,7 @@ import { ToastProvider } from './components/ui/Toast';
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Articles = lazy(() => import('./pages/Articles'));
 const Storage = lazy(() => import('./pages/Storage'));
+const Discoveries = lazy(() => import('./pages/Discoveries'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Tourism = lazy(() => import('./pages/Tourism'));
 const ProvinceDetails = lazy(() => import('./pages/ProvinceDetails'));
@@ -51,6 +52,7 @@ function App() {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="articles" element={<Articles />} />
+              <Route path="discoveries" element={<Discoveries />} />
               <Route path="storage" element={<Storage />} />
               <Route path="settings" element={<Settings />} />
               <Route path="database" element={<DatabaseMigration />} />

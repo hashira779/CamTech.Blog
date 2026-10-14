@@ -251,6 +251,114 @@ async def generate_ai_news(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/ai/scan/cambodia-news")
+async def scan_cambodia_news(
+    count: int = Query(3, ge=1, le=10),
+    current_user: User = Depends(require_admin)
+):
+    """Scan and generate fresh Cambodia local tech, telecom, and national news."""
+    try:
+        res = await ai_news_service.generate_news_for_category(
+            category_slug="cambodia",
+            count=count,
+            override_author_id=current_user.id
+        )
+        return {
+            "status": "success",
+            "section": "Cambodia News",
+            "country": "KH",
+            "result": res
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ai/scan/world-news")
+async def scan_world_news(
+    count: int = Query(3, ge=1, le=10),
+    current_user: User = Depends(require_admin)
+):
+    """Scan and generate international technology and world news."""
+    try:
+        res = await ai_news_service.generate_news_for_category(
+            category_slug="technology",
+            count=count,
+            override_author_id=current_user.id
+        )
+        return {
+            "status": "success",
+            "section": "World News",
+            "country": "WORLD",
+            "result": res
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ai/scan/discoveries")
+async def scan_discoveries(
+    count: int = Query(2, ge=1, le=5),
+    current_user: User = Depends(require_admin)
+):
+    """Scan and generate in-depth visual science & technology explainers."""
+    from app.services.discovery_service import discovery_service
+    try:
+        res = await discovery_service.scan_and_generate_discoveries(count=count)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ai/scan/quizzes")
+async def scan_quizzes(
+    current_user: User = Depends(require_admin)
+):
+    """Scan and generate new interactive daily challenge quiz."""
+    from app.services.quiz_service import QuizService
+    try:
+        res = await QuizService.scan_and_generate_quizzes(count=1)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ai/scan/all")
+async def scan_all_content_sections(
+    current_user: User = Depends(require_admin)
+):
+    """
+    Master Scanner: scans Cambodia News, World News, Visual Discoveries, and Quizzes in one operation.
+    """
+    from app.services.discovery_service import discovery_service
+    from app.services.quiz_service import QuizService
+
+    results = {}
+    # 1. Cambodia News
+    try:
+        results["cambodia_news"] = await ai_news_service.generate_news_for_category("cambodia", count=2, override_author_id=current_user.id)
+    except Exception as e:
+        results["cambodia_news"] = {"error": str(e)}
+
+    # 2. World News
+    try:
+        results["world_news"] = await ai_news_service.generate_news_for_category("technology", count=2, override_author_id=current_user.id)
+    except Exception as e:
+        results["world_news"] = {"error": str(e)}
+
+    # 3. Discoveries
+    try:
+        results["discoveries"] = await discovery_service.scan_and_generate_discoveries(count=2)
+    except Exception as e:
+        results["discoveries"] = {"error": str(e)}
+
+    # 4. Quizzes
+    try:
+        results["quizzes"] = await QuizService.scan_and_generate_quizzes(count=1)
+    except Exception as e:
+        results["quizzes"] = {"error": str(e)}
+
+    return {
+        "status": "success",
+        "message": "Full multi-section scan completed across News (Cambodia & World), Discoveries, and Quizzes.",
+        "results": results
+    }
+
 @router.post("/ai/enhance-news-images")
 async def enhance_news_images(
     limit: int = Query(50, description="Max number of articles to process"),
