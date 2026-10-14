@@ -1,7 +1,18 @@
 import Link from "next/link";
+import { Metadata } from "next";
+import { MapPin, Clock, Newspaper } from "lucide-react";
+import { PublicPageShell } from "@/components/layout/public-shell";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/shared/empty-state";
 import { getArticles, getTrending } from "@/lib/api";
 import { NewsCard } from "@/components/news/NewsCard";
 import { AdSlot } from "@/components/ads/AdSlot";
+
+export const metadata: Metadata = {
+  title: "Cambodia & Regional News | Daily Discovery",
+  description:
+    "In-depth reporting, verified government updates, economy, infrastructure and technology across Phnom Penh and every province.",
+};
 
 export const revalidate = 60;
 
@@ -12,105 +23,163 @@ export default async function CambodiaNewsPage() {
   ]);
   const featuredArticles = items.slice(0, 2);
   const latestArticles = items.slice(2, 10);
-  const topInsights = trending.editor_picks?.length > 0 
-    ? trending.editor_picks.slice(0, 4) 
-    : items.slice(10, 14);
+  const topInsights =
+    trending.editor_picks?.length > 0
+      ? trending.editor_picks.slice(0, 4)
+      : items.slice(10, 14);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 transition-colors duration-200">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* LEFT COLUMN: Main Content (70%) */}
-        <div className="lg:col-span-8 space-y-12">
-          
-          <div className="border-b-[1px] border-neutral-300 dark:border-slate-800 pb-4">
-            <h1 className="text-4xl md:text-5xl font-normal font-serif text-neutral-900 dark:text-white tracking-tight">
-              Cambodia & Regional
-            </h1>
-            <p className="mt-4 text-neutral-500 dark:text-slate-400 font-sans text-sm max-w-2xl leading-relaxed">
-              In-depth reporting, verified government updates, economy, infrastructure, and technology across Phnom Penh and all provinces.
-            </p>
-          </div>
+    <PublicPageShell
+      breadcrumbs={[{ label: "Cambodia & Regional", href: "/cambodia" }]}
+      badge={
+        <Badge variant="success" size="sm" className="gap-1">
+          <MapPin size={12} />
+          Cambodia
+        </Badge>
+      }
+      title="Cambodia & Regional"
+      description="In-depth reporting, verified government updates, economy, infrastructure, and technology across Phnom Penh and all provinces."
+    >
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+        {/* Main column */}
+        <div className="space-y-10 lg:col-span-8">
+          {items.length === 0 ? (
+            <EmptyState
+              icon={Newspaper}
+              title="No Cambodia stories published yet"
+              description="Regional reporting is drafted by the newsroom and appears here as soon as it clears review."
+              actionLabel="Search the archive"
+              actionHref="/search?q=Cambodia"
+            />
+          ) : (
+            <>
+              {featuredArticles.length > 0 && (
+                <section className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  {featuredArticles.map((article) => (
+                    <NewsCard key={article.id} article={article} />
+                  ))}
+                </section>
+              )}
 
-          {/* Featured Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {featuredArticles.map((article) => (
-              <NewsCard key={article.id} article={article} />
-            ))}
-          </div>
+              <section className="space-y-6">
+                <div className="flex items-center gap-2 border-b border-slate-200 pb-3 dark:border-slate-800">
+                  <Clock className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    Latest Updates
+                  </h2>
+                </div>
 
-          <div className="border-t-[1px] border-neutral-200 dark:border-slate-800 pt-8 space-y-8">
-            <h2 className="text-xl font-medium font-serif text-neutral-900 dark:text-white">Latest Updates</h2>
-            {latestArticles.map((article) => (
-              <div key={article.id} className="group grid grid-cols-1 md:grid-cols-3 gap-6">
-                 <Link href={`/cambodia/news/${article.slug}`} className="md:col-span-1 block overflow-hidden rounded-xl bg-neutral-100 dark:bg-slate-800 aspect-[4/3] border border-gray-100 dark:border-slate-800">
-                    <img 
-                      src={article.hero_image_url || "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80"}
-                      alt={article.title}
-                      className="w-full h-full object-cover grayscale-[30%] group-hover:grayscale-0 transition-all duration-700"
-                    />
-                 </Link>
-                 <div className="md:col-span-2 flex flex-col justify-center">
-                    <span className="text-[10px] uppercase tracking-widest text-teal-600 dark:text-teal-400 font-semibold mb-2 block">
-                      {article.category?.name || "News"}
-                    </span>
-                    <Link href={`/cambodia/news/${article.slug}`}>
-                      <h3 className="text-xl md:text-2xl font-serif text-neutral-900 dark:text-white leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                        {article.title}
-                      </h3>
-                    </Link>
-                    <p className="mt-3 text-sm text-neutral-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
-                      {article.summary}
-                    </p>
-                    <div className="mt-4 text-xs text-neutral-400 dark:text-slate-500 font-serif italic">
-                      By {article.author?.name || article.primary_source?.name || "Editor"} • {article.published_at ? new Date(article.published_at).toLocaleDateString() : "Today"}
-                    </div>
-                 </div>
-              </div>
-            ))}
-          </div>
-
+                {latestArticles.length === 0 ? (
+                  <p className="py-6 text-sm text-slate-500 dark:text-slate-400">
+                    More stories are scheduled to publish soon.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {latestArticles.map((article) => {
+                      const href = `/cambodia/news/${article.slug}`;
+                      return (
+                        <article
+                          key={article.id}
+                          className="group grid grid-cols-1 gap-5 py-6 first:pt-0 sm:grid-cols-3"
+                        >
+                          <Link
+                            href={href}
+                            className="block overflow-hidden rounded-lg border border-slate-200 bg-slate-100 aspect-[4/3] sm:col-span-1 dark:border-slate-800 dark:bg-slate-800"
+                          >
+                            <img
+                              src={
+                                article.hero_image_url ||
+                                "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80"
+                              }
+                              alt={article.title}
+                              loading="lazy"
+                              className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                            />
+                          </Link>
+                          <div className="flex flex-col justify-center sm:col-span-2">
+                            <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">
+                              {article.category?.name || "News"}
+                            </span>
+                            <Link href={href}>
+                              <h3 className="line-clamp-2 text-lg font-semibold leading-snug text-slate-900 transition-colors group-hover:text-teal-600 dark:text-slate-100 dark:group-hover:text-teal-400">
+                                {article.title}
+                              </h3>
+                            </Link>
+                            <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                              {article.summary}
+                            </p>
+                            <div className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+                              By{" "}
+                              {article.author?.name ||
+                                article.primary_source?.name ||
+                                "Editor"}{" "}
+                              •{" "}
+                              {article.published_at
+                                ? new Date(article.published_at).toLocaleDateString()
+                                : "Today"}
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            </>
+          )}
         </div>
 
-        {/* RIGHT COLUMN: Sidebar (30%) */}
+        {/* Sidebar */}
         <aside className="lg:col-span-4">
-          <div className="sticky top-8 space-y-10">
-            {/* Sidebar Top Ad */}
-            <div className="bg-white dark:bg-slate-900 p-4 text-center border-[1px] border-neutral-200 dark:border-slate-800 rounded-2xl shadow-xs">
-              <span className="text-[9px] uppercase text-neutral-400 dark:text-slate-500 mb-2 block tracking-widest">Advertisement</span>
+          <div className="space-y-6 lg:sticky lg:top-8">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 text-center dark:border-slate-800 dark:bg-slate-900">
+              <span className="mb-2 block text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                Advertisement
+              </span>
               <AdSlot slot="HOME_TOP" />
             </div>
 
-            {/* Neo-Minimalist Widget */}
-            <div className="bg-white dark:bg-slate-900 p-6 border-[1px] border-neutral-200 dark:border-slate-800 rounded-2xl shadow-xs">
-              <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-900 dark:text-white mb-6 flex items-center gap-2">
-                <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
-                Top Insights
-              </h3>
-              
-              <div className="space-y-6 divide-y-[1px] divide-neutral-100 dark:divide-slate-800">
-                {topInsights.map((art) => (
-                  <Link key={art.id} href={`/cambodia/news/${art.slug}`} className="block pt-6 first:pt-0 group">
-                    <span className="text-[10px] text-teal-600 dark:text-teal-400 uppercase tracking-widest font-semibold block mb-1">
-                      {typeof art.category === "object" ? (art.category as any)?.name : (art.category || "Insight")}
-                    </span>
-                    <h4 className="text-base font-serif text-neutral-900 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                      {art.title}
-                    </h4>
-                  </Link>
-                ))}
+            {topInsights.length > 0 && (
+              <div className="rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+                <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  <span className="h-2 w-2 rounded-full bg-teal-500" />
+                  Top Insights
+                </h3>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {topInsights.map((art: any) => {
+                    const insightHref = art.url || `/cambodia/news/${art.slug}`;
+                    const catName =
+                      typeof art.category === "object"
+                        ? art.category?.name
+                        : art.category || "Insight";
+                    return (
+                      <Link
+                        key={art.id}
+                        href={insightHref}
+                        className="group block py-4 first:pt-0 last:pb-0"
+                      >
+                        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">
+                          {catName}
+                        </span>
+                        <h4 className="line-clamp-2 text-sm font-medium leading-snug text-slate-800 transition-colors group-hover:text-teal-600 dark:text-slate-200 dark:group-hover:text-teal-400">
+                          {art.title}
+                        </h4>
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-            
-            {/* Sidebar Bottom Ad */}
-            <div className="bg-white dark:bg-slate-900 p-4 text-center border-[1px] border-neutral-200 dark:border-slate-800 rounded-2xl shadow-xs">
-              <span className="text-[9px] uppercase text-neutral-400 dark:text-slate-500 mb-2 block tracking-widest">Advertisement</span>
+            )}
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 text-center dark:border-slate-800 dark:bg-slate-900">
+              <span className="mb-2 block text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                Advertisement
+              </span>
               <AdSlot slot="SIDEBAR" />
             </div>
           </div>
         </aside>
-
       </div>
-    </div>
+    </PublicPageShell>
   );
 }

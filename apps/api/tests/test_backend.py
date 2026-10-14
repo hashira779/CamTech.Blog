@@ -289,20 +289,26 @@ def test_public_place_suggestion_submission():
     assert suggestion["place_name"] == "Banteay Kdei Sacred Cloister"
 
 def test_non_destructive_place_status_management():
-    # 1. Fetch place
-    p_res = client.get("/api/v1/travel/places/phnom-bakheng")
-    assert p_res.status_code == 200
-    place_id = p_res.json()["id"]
+    from app.services.auth_service import require_admin
+    from app.models.user import User
+    app.dependency_overrides[require_admin] = lambda: User(id="admin-id", email="admin@example.com", role="ADMIN", is_superuser=True)
+    try:
+        # 1. Fetch place
+        p_res = client.get("/api/v1/travel/places/phnom-bakheng")
+        assert p_res.status_code == 200
+        place_id = p_res.json()["id"]
 
-    # 2. Transition status non-destructively
-    patch_res = client.patch(f"/api/v1/travel/places/{place_id}/status?status=TEMPORARILY_CLOSED&reason=Monsoon+Restoration")
-    assert patch_res.status_code == 200
-    assert patch_res.json()["status"] == "TEMPORARILY_CLOSED"
+        # 2. Transition status non-destructively
+        patch_res = client.patch(f"/api/v1/travel/places/{place_id}/status?status=TEMPORARILY_CLOSED&reason=Monsoon+Restoration")
+        assert patch_res.status_code == 200
+        assert patch_res.json()["status"] == "TEMPORARILY_CLOSED"
 
-    # 3. Restore to ACTIVE
-    restore_res = client.patch(f"/api/v1/travel/places/{place_id}/status?status=ACTIVE&reason=Reopened")
-    assert restore_res.status_code == 200
-    assert restore_res.json()["status"] == "ACTIVE"
+        # 3. Restore to ACTIVE
+        restore_res = client.patch(f"/api/v1/travel/places/{place_id}/status?status=ACTIVE&reason=Reopened")
+        assert restore_res.status_code == 200
+        assert restore_res.json()["status"] == "ACTIVE"
+    finally:
+        app.dependency_overrides.pop(require_admin, None)
 
 def test_dynamic_navigation_config():
     response = client.get("/api/v1/config/navigation")

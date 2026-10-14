@@ -1,55 +1,125 @@
 import Link from "next/link";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { Metadata } from "next";
+import { ArrowRight, Compass } from "lucide-react";
+import { PublicPageShell } from "@/components/layout/public-shell";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/shared/empty-state";
 import { getDiscoveries } from "@/lib/api";
+
+export const metadata: Metadata = {
+  title: "Visual Discoveries | Daily Discovery",
+  description:
+    "How the world actually works: from the quantum relativity behind your smartphone GPS to the underwater fiber optics that carry the internet.",
+};
 
 export const revalidate = 60;
 
-export default async function DiscoverHubPage() {
-  const { items } = await getDiscoveries();
+const CHIP_BASE =
+  "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors";
+const CHIP_ACTIVE =
+  "border-teal-600 bg-teal-600 text-white dark:border-teal-500 dark:bg-teal-500 dark:text-slate-950";
+const CHIP_IDLE =
+  "border-slate-300 text-slate-600 hover:border-teal-500 hover:text-teal-600 dark:border-slate-700 dark:text-slate-300 dark:hover:border-teal-500 dark:hover:text-teal-400";
+
+export default async function DiscoverHubPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>;
+}) {
+  const resolved = await searchParams;
+  const activeCategory = resolved.category || "";
+  const { items } = await getDiscoveries(activeCategory || undefined);
+  const { items: allItems } = activeCategory ? await getDiscoveries() : { items };
+
+  const categories = Array.from(
+    new Set(allItems.map((d) => d.category).filter(Boolean))
+  ).slice(0, 12);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-[#FAF9F6]">
-      <div className="max-w-3xl mx-auto text-center border-b-[1px] border-neutral-300 pb-12 mb-12">
-        <h1 className="text-4xl md:text-5xl font-normal font-serif text-neutral-900 tracking-tight">
-          Visual Discoveries
-        </h1>
-        <p className="mt-4 text-neutral-500 font-sans text-sm leading-relaxed">
-          How the world actually works: from the quantum relativity in your smartphone GPS to underwater internet fiber optics.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-        {items.map((disc) => (
+    <PublicPageShell
+      breadcrumbs={[{ label: "Visual Discoveries", href: "/discover" }]}
+      badge={
+        <Badge variant="info" size="sm" className="gap-1">
+          <Compass size={12} />
+          How things work
+        </Badge>
+      }
+      title="Visual Discoveries"
+      description="How the world actually works — from the quantum relativity behind your smartphone GPS to the undersea fiber that carries the internet. Explainers are drafted by the AI newsroom and published after editorial review."
+    >
+      {categories.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
           <Link
-            key={disc.id}
-            href={`/discover/${disc.slug}`}
-            className="group block"
+            href="/discover"
+            className={`${CHIP_BASE} ${!activeCategory ? CHIP_ACTIVE : CHIP_IDLE}`}
           >
-            <div className="relative aspect-[16/9] overflow-hidden bg-neutral-100 mb-6">
-              <img
-                src={disc.hero_image_url}
-                alt={disc.title}
-                className="w-full h-full object-cover grayscale-[30%] group-hover:grayscale-0 transition-all duration-700 ease-out"
-              />
-            </div>
-            <div className="space-y-3 pr-8">
-              <span className="text-[10px] uppercase tracking-widest text-neutral-400 font-semibold block">
-                {disc.category}
-              </span>
-              <h3 className="text-2xl font-normal font-serif text-neutral-900 leading-snug group-hover:text-neutral-500 transition-colors">
-                {disc.title}
-              </h3>
-              <p className="text-sm text-neutral-500 line-clamp-3 leading-relaxed">
-                {disc.intro}
-              </p>
-              <div className="pt-4 flex items-center text-xs font-serif italic text-neutral-900 group-hover:text-neutral-500">
-                <span>View Full Interactive Diagram</span>
-                <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
+            All
           </Link>
-        ))}
-      </div>
-    </div>
+          {categories.map((cat) => (
+            <Link
+              key={cat}
+              href={`/discover?category=${encodeURIComponent(cat)}`}
+              className={`${CHIP_BASE} ${activeCategory === cat ? CHIP_ACTIVE : CHIP_IDLE}`}
+            >
+              {cat}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {items.length === 0 ? (
+        <EmptyState
+          icon={Compass}
+          title={
+            activeCategory
+              ? `No discoveries in “${activeCategory}” yet`
+              : "No discoveries published yet"
+          }
+          description="Visual explanations are drafted by the AI newsroom and published automatically after review. New topics appear here as soon as they go live."
+          actionLabel="Search explanations"
+          actionHref="/search?q=how+does"
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((disc) => (
+            <Link key={disc.id} href={`/discover/${disc.slug}`} className="group block">
+              <article className="hover-lift flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white transition-all duration-300 hover:border-teal-500/50 dark:border-slate-800 dark:bg-slate-900">
+                <div className="relative aspect-video overflow-hidden bg-slate-100 dark:bg-slate-800">
+                  {disc.hero_image_url ? (
+                    <img
+                      src={disc.hero_image_url}
+                      alt={disc.hero_image_alt || disc.title}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Compass className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-1 flex-col gap-2 p-5">
+                  {disc.category && (
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">
+                      {disc.category}
+                    </span>
+                  )}
+                  <h3 className="text-base font-semibold leading-snug text-slate-900 transition-colors group-hover:text-teal-600 dark:text-slate-100 dark:group-hover:text-teal-400">
+                    {disc.title}
+                  </h3>
+                  <p className="line-clamp-3 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                    {disc.intro}
+                  </p>
+                  <div className="mt-auto flex items-center pt-3 text-xs font-medium text-slate-700 transition-colors group-hover:text-teal-600 dark:text-slate-300 dark:group-hover:text-teal-400">
+                    View interactive diagram
+                    <ArrowRight className="ml-1 h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </div>
+                </div>
+              </article>
+            </Link>
+          ))}
+        </div>
+      )}
+    </PublicPageShell>
   );
 }

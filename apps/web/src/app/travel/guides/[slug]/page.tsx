@@ -1,11 +1,41 @@
 import React from "react";
 import Link from "next/link";
+import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTravelGuide } from "@/lib/api";
 import { BookOpen, Clock, Calendar, ArrowLeft, ShieldCheck, Share2 } from "lucide-react";
+import { generateTravelGuideJsonLd, generateBreadcrumbJsonLd, generateOgMeta, SITE_URL } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
 
 interface GuidePageProps {
   params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: GuidePageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const guide = await getTravelGuide(slug);
+
+  if (!guide) {
+    return { title: "Guide Not Found" };
+  }
+
+  const ogMeta = generateOgMeta({
+    title: guide.title,
+    description: guide.summary,
+    image: guide.hero_image_url,
+    type: "article",
+    url: `${SITE_URL}/travel/guides/${guide.slug}`,
+    publishedTime: guide.published_at,
+  });
+
+  return {
+    title: guide.title,
+    description: guide.summary,
+    alternates: {
+      canonical: `${SITE_URL}/travel/guides/${guide.slug}`,
+    },
+    ...ogMeta,
+  };
 }
 
 export default async function TravelGuideDetailPage({ params }: GuidePageProps) {
@@ -16,8 +46,21 @@ export default async function TravelGuideDetailPage({ params }: GuidePageProps) 
     notFound();
   }
 
+  const guideJsonLd = generateTravelGuideJsonLd(guide, SITE_URL);
+  const breadcrumbJsonLd = generateBreadcrumbJsonLd(
+    [
+      { name: "Home", url: "/" },
+      { name: "Travel", url: "/travel" },
+      { name: guide.title, url: `/travel/guides/${guide.slug}` },
+    ],
+    SITE_URL
+  );
+
   return (
-    <article className="container mx-auto px-4 py-8 max-w-4xl">
+    <>
+      <JsonLd data={guideJsonLd} />
+      <JsonLd data={breadcrumbJsonLd} />
+      <article className="container mx-auto px-4 py-8 max-w-4xl">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-xs text-muted-foreground mb-6">
         <Link href="/" className="hover:text-primary transition-colors">Home</Link>
@@ -116,6 +159,7 @@ export default async function TravelGuideDetailPage({ params }: GuidePageProps) 
           Daily Discovery guides are created through verified ground experience, consultation with local tourism authorities, and independent research. We do not accept sponsored placements or paid endorsements for our ranking recommendations.
         </p>
       </div>
-    </article>
+      </article>
+    </>
   );
 }

@@ -118,8 +118,11 @@ export async function getTrending(): Promise<TrendingResponse> {
   });
 }
 
-export async function getDiscoveries(): Promise<{ items: Discovery[]; total: number }> {
-  const url = `${API_BASE}/discoveries`;
+export async function getDiscoveries(category?: string): Promise<{ items: Discovery[]; total: number }> {
+  const query = new URLSearchParams();
+  if (category) query.set("category", category);
+  query.set("limit", "50");
+  const url = `${API_BASE}/discoveries?${query.toString()}`;
   return fetchWithFallback(url, { items: [], total: 0 });
 }
 
@@ -158,13 +161,32 @@ export async function getToolBySlug(slug: string): Promise<Tool | null> {
   }
 }
 
-export async function searchGlobal(q: string): Promise<{ query: string; total: number; results: SearchResultItem[] }> {
+export async function searchGlobal(q: string, type?: string): Promise<{ query: string; total: number; results: SearchResultItem[] }> {
   try {
-    const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`, { signal: getTimeoutSignal(4000) });
+    const params = new URLSearchParams({ q, limit: "50" });
+    if (type) params.set("type", type);
+    const res = await fetch(`${API_BASE}/search?${params.toString()}`, { signal: getTimeoutSignal(4000) });
     if (!res.ok) return { query: q, total: 0, results: [] };
     return await res.json();
   } catch (err) {
     return { query: q, total: 0, results: [] };
+  }
+}
+
+export interface SearchAnswer {
+  query: string;
+  answer: string | null;
+  engine: string | null;
+  citations: { title: string; url: string; type: string }[];
+}
+
+export async function getSearchAnswer(q: string): Promise<SearchAnswer | null> {
+  try {
+    const res = await fetch(`${API_BASE}/search/answer?q=${encodeURIComponent(q)}`, { signal: getTimeoutSignal(12000) });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    return null;
   }
 }
 

@@ -114,14 +114,22 @@ export default async function DiscoveryDetailPage({
             {visualSections.map((sec, idx) => (
               <div
                 key={idx}
-                className="p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/40 space-y-2"
+                className="p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/40 space-y-2 overflow-hidden"
               >
+                {sec.image_url && (
+                  <div className="-mx-5 -mt-5 mb-3 aspect-[16/9] bg-neutral-100 dark:bg-neutral-800">
+                    <img src={sec.image_url} alt={sec.title} loading="lazy" className="w-full h-full object-cover" />
+                  </div>
+                )}
                 <h3 className="font-bold text-sm text-neutral-900 dark:text-white">
                   {sec.title}
                 </h3>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
                   {sec.description}
                 </p>
+                {sec.caption && (
+                  <p className="text-[10px] text-neutral-400 dark:text-neutral-500 italic">{sec.caption}</p>
+                )}
               </div>
             ))}
           </div>
@@ -154,18 +162,35 @@ export default async function DiscoveryDetailPage({
             Verified Scientific Sources & Literature
           </h4>
           <div className="flex flex-wrap gap-3">
-            {sourcesList.map((src, idx) => (
-              <a
-                key={idx}
-                href={src.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-700 dark:text-neutral-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
-              >
-                <span>{src.name}</span>
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            ))}
+            {sourcesList.map((src, idx) => {
+              const href = typeof src === "string" ? src : src?.url;
+              const label = typeof src === "string" ? src : src?.name;
+              if (!href && !label) return null;
+              const inner = (
+                <>
+                  <span className="break-all">{label || href}</span>
+                  <ExternalLink className="h-3 w-3 shrink-0" />
+                </>
+              );
+              return href ? (
+                <a
+                  key={idx}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-700 dark:text-neutral-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+                >
+                  {inner}
+                </a>
+              ) : (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-700 dark:text-neutral-300"
+                >
+                  {inner}
+                </span>
+              );
+            })}
           </div>
         </div>
       )}

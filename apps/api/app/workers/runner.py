@@ -378,10 +378,85 @@ async def news_autopilot_job():
         db.close()
 
 
+async def content_autopilot_job():
+    """Draft new AI content for Discover, Daily Quiz and Travel (guides & events).
+
+    Each section runs on its own interval from Admin Settings; the run is marked
+    BEFORE generation so a failing AI call cannot retry every cycle and burn quota.
+    Generated rows start unpublished — the News Autopilot lifecycle publishes them.
+    """
+    from app.services import news_autopilot
+    from app.services.ai_content_service import ai_content_service
+
+    db = SessionLocal()
+    try:
+        discovery_due = news_autopilot.section_is_due(
+            db, "AUTOPILOT_DISCOVERY_ENABLED", news_autopilot.LAST_DISCOVERY_RUN_KEY,
+            news_autopilot.get_int(db, "AUTOPILOT_DISCOVERY_INTERVAL_HOURS"),
+        )
+        travel_due = news_autopilot.section_is_due(
+            db, "AUTOPILOT_TRAVEL_ENABLED", news_autopilot.LAST_TRAVEL_RUN_KEY,
+            news_autopilot.get_int(db, "AUTOPILOT_TRAVEL_INTERVAL_HOURS"),
+        )
+        today_km = datetime.now(timezone(timedelta(hours=7))).date().isoformat()
+        quiz_due = (
+            news_autopilot.get_bool(db, "AUTOPILOT_NEWS_ENABLED")
+            and news_autopilot.get_bool(db, "AUTOPILOT_QUIZ_ENABLED")
+            and news_autopilot.get_setting(db, news_autopilot.LAST_QUIZ_RUN_KEY) != today_km
+        )
+        if discovery_due:
+            news_autopilot.mark_section_ran(db, news_autopilot.LAST_DISCOVERY_RUN_KEY,
+                                            "UTC timestamp of last AI discovery generation")
+        if travel_due:
+            news_autopilot.mark_section_ran(db, news_autopilot.LAST_TRAVEL_RUN_KEY,
+                                            "UTC timestamp of last AI travel guide/event generation")
+        if quiz_due:
+            news_autopilot.set_setting(db, news_autopilot.LAST_QUIZ_RUN_KEY, today_km,
+                                       "Date (Cambodia time) the daily AI quiz last ran")
+    except Exception as e:
+        logger.error(f"Content autopilot scheduling check failed: {e}")
+        return
+    finally:
+        db.close()
+
+    if discovery_due:
+        try:
+            logger.info("🔭 AI discovery generation started...")
+            res = await ai_content_service.generate_discoveries()
+            logger.info(f"🔭 Discoveries: {res}")
+        except Exception as e:
+            logger.error(f"Discovery generation failed: {e}")
+
+    if quiz_due:
+        try:
+            logger.info("🧠 Daily AI quiz generation started...")
+            res = await ai_content_service.generate_daily_quiz()
+            logger.info(f"🧠 Daily quiz: {res}")
+        except Exception as e:
+            logger.error(f"Daily quiz generation failed: {e}")
+
+    if travel_due:
+        try:
+            logger.info("🗺️ AI travel guide/event generation started...")
+            res = await ai_content_service.generate_travel_content()
+            logger.info(f"🗺️ Travel content: {res}")
+        except Exception as e:
+            logger.error(f"Travel content generation failed: {e}")
+
+
 async def worker_main():
+    # Ensure schema (tables + AI metadata columns) exists before any job touches them.
+    try:
+        from app.common.database import Base, engine
+        Base.metadata.create_all(bind=engine)
+        from app.common.schema_migration import ensure_database_schema
+        ensure_database_schema()
+    except Exception as e:
+        logger.warning(f"Worker schema init notice: {e}")
+
     logger.info("==================================================")
     logger.info("🚀 Daily Discovery Asynchronous Worker Started")
-    logger.info("Handles: RSS Ingestion, Daily AI News, News Autopilot, Trending Scores, Source Monitoring")
+    logger.info("Handles: RSS Ingestion, Daily AI News, Content Autopilot, News Autopilot, Trending, Sources")
     logger.info("==================================================")
 
     # Register OS signals for graceful termination
@@ -402,13 +477,16 @@ async def worker_main():
         # 2. Daily AI news (once per day at the configured Cambodia-time hour)
         await daily_ai_news_job()
 
-        # 3. News Autopilot: auto-publish reviewed-window drafts, archive & purge stale ones
+        # 3. Content Autopilot: draft discoveries, daily quiz, travel guides & events
+        await content_autopilot_job()
+
+        # 4. News Autopilot: auto-publish reviewed-window drafts, archive & purge stale ones
         await news_autopilot_job()
 
-        # 4. Recalculate trending popularity
+        # 5. Recalculate trending popularity
         await recalculate_trending_job()
 
-        # 5. Check source feeds periodically (every 3 cycles for health monitoring)
+        # 6. Check source feeds periodically (every 3 cycles for health monitoring)
         if iteration % 3 == 0:
             await check_source_feeds_job()
 

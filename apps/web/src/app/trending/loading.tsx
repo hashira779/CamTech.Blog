@@ -1,4 +1,5 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { ArticleCardSkeleton } from "@/components/ui/ArticleCardSkeleton";
 
 export default function TrendingLoading() {
   return (
@@ -9,24 +10,7 @@ export default function TrendingLoading() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
-          <div
-            key={i}
-            className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-gray-100 dark:border-slate-800 space-y-4"
-          >
-            <Skeleton className="w-full h-44 rounded-xl" />
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-4 w-16 rounded" />
-              <Skeleton className="h-4 w-24 rounded" />
-            </div>
-            <Skeleton className="h-6 w-11/12 rounded" />
-            <Skeleton className="h-4 w-full rounded" />
-            <div className="flex items-center justify-between pt-2">
-              <Skeleton className="h-3 w-24 rounded" />
-              <Skeleton className="h-4 w-12 rounded" />
-            </div>
-          </div>
-        ))}
+        <ArticleCardSkeleton count={6} />
       </div>
     </div>
   );

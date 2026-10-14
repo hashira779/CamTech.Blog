@@ -26,6 +26,7 @@ class Discovery(Base):
     diagram_data = Column(Text, nullable=True)  # JSON data for visual interactive diagram
     interactive_type = Column(String(100), default="step_breakdown")  # step_breakdown, comparison, simulator, interactive_diagram
     sources = Column(Text, nullable=True)  # JSON array of scientific/authoritative references
+    ai_metadata = Column(Text, nullable=True)  # JSON: {"engine": ..., "generated_at": ...} for AI-generated rows
 
     views_count = Column(Integer, default=0)
     shares_count = Column(Integer, default=0)

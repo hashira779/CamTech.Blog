@@ -1,8 +1,12 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from './layout/Sidebar';
 import Topbar from './layout/Topbar';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 
 export default function Layout() {
+  // Mount global keyboard shortcuts (Ctrl+K, Ctrl+N, Escape)
+  useKeyboardShortcuts();
+
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100 font-sans antialiased overflow-hidden selection:bg-zinc-700 selection:text-white">
       <Sidebar />

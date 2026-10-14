@@ -3,8 +3,23 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.common.config import settings
 from app.common.database import Base, engine
-from app.common.security_middleware import SecurityHeadersAndCorrelationMiddleware
+from app.middleware import (
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+    RequestLoggerMiddleware,
+    get_cors_origins,
+)
 import app.models  # Ensure all models are registered
+
+# Eager schema init at import time: keeps SQLite columns in sync for every entrypoint
+# (API, worker, tests) even when the ASGI lifespan never runs (e.g. TestClient).
+try:
+    Base.metadata.create_all(bind=engine)
+    # TODO: Remove schema_migration after Alembic is verified working
+    from app.common.schema_migration import ensure_database_schema
+    ensure_database_schema()
+except Exception:  # non-fatal: lifespan retries at real startup
+    pass
 
 # Import routers
 from app.api.v1.articles import router as articles_router
@@ -32,6 +47,7 @@ async def lifespan(app: FastAPI):
     # 1. Initialize database tables & migrations safely
     try:
         Base.metadata.create_all(bind=engine)
+        # TODO: Remove schema_migration after Alembic is verified working
         from app.common.schema_migration import ensure_database_schema
         ensure_database_schema()
         logger.info("Database schema verified.")
@@ -81,28 +97,29 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# 1. Security Headers, Correlation ID & Rate Limiting Middleware
-app.add_middleware(SecurityHeadersAndCorrelationMiddleware)
+# 1. Rate Limiting Middleware (innermost security middleware)
+app.add_middleware(RateLimitMiddleware)
 
-# 2. CORS configuration (Section 35)
+# 2. Security Headers & Correlation ID Middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# 3. Structured JSON Request Logger Middleware
+app.add_middleware(RequestLoggerMiddleware)
+
+# 4. CORS configuration (outermost so preflight OPTIONS requests are handled cleanly)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-        "https://blog.camtech.cam",
-        "https://cms.camtech.cam",
-        settings.FRONTEND_URL
-    ],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=[
         "Authorization", "Content-Type", "Accept", "Origin", "User-Agent",
         "X-Requested-With", "X-Request-ID", "X-Correlation-ID"
     ],
-    expose_headers=["X-Request-ID", "X-Correlation-ID", "X-Response-Time", "X-RateLimit-Limit", "X-RateLimit-Remaining"]
+    expose_headers=[
+        "X-Request-ID", "X-Correlation-ID", "X-Response-Time",
+        "X-RateLimit-Limit", "X-RateLimit-Remaining", "Retry-After"
+    ]
 )
 
 # 3. Mount Observability & Health Probes (/health, /ready, /live)

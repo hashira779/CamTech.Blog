@@ -488,6 +488,24 @@ def run_news_autopilot_now(db: Session = Depends(get_db), current_user: User = D
     return news_autopilot.run_lifecycle(db)
 
 
+@router.post("/autopilot/generate")
+async def generate_content_now(
+    section: str = Query(..., description="discoveries | quiz | travel"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Trigger an AI generation run for one content section on demand."""
+    from app.services.ai_content_service import ai_content_service
+    section = (section or "").lower()
+    if section == "discoveries":
+        return await ai_content_service.generate_discoveries()
+    if section == "quiz":
+        return await ai_content_service.generate_daily_quiz()
+    if section == "travel":
+        return await ai_content_service.generate_travel_content()
+    raise HTTPException(status_code=400, detail="section must be one of: discoveries, quiz, travel")
+
+
 class SettingUpdate(BaseModel):
     key: str
     value_json: str

@@ -18,6 +18,7 @@ class TravelGuide(Base):
     hero_image_url = Column(String(500), nullable=True)
     read_time_minutes = Column(String(20), default="6 min")
     status = Column(String(30), default="PUBLISHED", index=True)
+    ai_metadata = Column(Text, nullable=True)  # JSON: {"engine": ...} for AI-generated guides
     published_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -39,6 +40,7 @@ class Event(Base):
     end_date = Column(String(50), nullable=True)
     hero_image_url = Column(String(500), nullable=True)
     status = Column(String(30), default="ACTIVE")
+    ai_metadata = Column(Text, nullable=True)  # JSON: {"engine": ...} for AI-generated events
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     destination = relationship("Destination")

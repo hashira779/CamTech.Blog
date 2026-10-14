@@ -3,9 +3,40 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from app.common.database import get_db
 from app.services.search_service import SearchService
-from app.schemas.search import SearchResponse
+from app.schemas.search import SearchResponse, SearchAnswerResponse
 
 router = APIRouter(prefix="/search", tags=["Search"])
+
+@router.get("/answer", response_model=SearchAnswerResponse)
+async def search_answer(
+    q: str = Query(..., min_length=3, max_length=300),
+    db: Session = Depends(get_db)
+):
+    """AI answer grounded in the site's own verified content (news, travel, quizzes, tools...)."""
+    from app.services.ai_content_service import ai_content_service
+
+    hits = SearchService.search(db=db, query_text=q, limit=8)
+    citations = [
+        {"title": h["title"], "url": h["url"], "type": h["type"]}
+        for h in hits[:5]
+    ]
+    if not hits:
+        return SearchAnswerResponse(query=q, answer=None, citations=[])
+
+    client = ai_content_service._get_gemini_client(db)
+    if not client:
+        return SearchAnswerResponse(query=q, answer=None, citations=citations)
+
+    context = "\n".join(f"- [{h['type']}] {h['title']}: {h['summary']}" for h in hits)
+    prompt = (
+        "Using ONLY the following verified site content, answer the question in 2-4 clear sentences. "
+        "If the content does not contain the answer, say that the site has no matching information yet.\n"
+        f"Question: {q}\nContent:\n{context}\n"
+        'Return JSON: {"answer": string}'
+    )
+    data, model = await ai_content_service._generate_json(client, prompt, use_search=False, timeout=25.0)
+    answer = data.get("answer") if isinstance(data, dict) else None
+    return SearchAnswerResponse(query=q, answer=answer, engine=model, citations=citations)
 
 @router.get("", response_model=SearchResponse)
 def search_global(

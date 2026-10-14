@@ -15,6 +15,7 @@ class AuditLog(Base):
     old_value_json = Column(Text, nullable=True)
     new_value_json = Column(Text, nullable=True)
     ip_address = Column(String(50), nullable=True)
+    user_agent = Column(String(300), nullable=True)
     request_id = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 

@@ -5,9 +5,9 @@
   "description": "Daily Discovery: Production-Ready Daily Discovery + News Platform",
   "scripts": {
     "dev:web": "npm --prefix apps/web run dev",
-    "dev:api": "powershell -Command \"& apps/api/venv/Scripts/uvicorn app.main:app --app-dir apps/api --reload --port 8000\"",
+    "dev:api": "node scripts/run.js uvicorn app.main:app --app-dir apps/api --reload --port 8000",
     "build:web": "npm --prefix apps/web run build",
-    "test:api": "powershell -Command \"& apps/api/venv/Scripts/pytest apps/api/tests -v\"",
-    "seed": "powershell -Command \"& apps/api/venv/Scripts/python database/seed_data.py\""
+    "test:api": "node scripts/run.js pytest apps/api/tests -v",
+    "seed": "node scripts/run.js python database/seed_data.py"
   }
 }

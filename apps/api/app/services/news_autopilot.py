@@ -43,12 +43,25 @@ DEFAULTS = {
     "AUTOPILOT_MIN_CONTENT_CHARS": "300",        # thin drafts never auto-publish
     "AUTOPILOT_ARCHIVE_AFTER_DAYS": "7",         # stale AI drafts / rejected -> ARCHIVED
     "AUTOPILOT_PURGE_AFTER_DAYS": "30",          # ARCHIVED (never public) -> deleted
+    "AUTOPILOT_DISCOVERY_ENABLED": "true",       # AI visual discoveries (Discover section)
+    "AUTOPILOT_DISCOVERY_INTERVAL_HOURS": "24",  # how often new discoveries are drafted
+    "AUTOPILOT_QUIZ_ENABLED": "true",            # daily AI quiz (Cambodia time)
+    "AUTOPILOT_TRAVEL_ENABLED": "true",          # AI travel guides & events
+    "AUTOPILOT_TRAVEL_INTERVAL_HOURS": "168",    # weekly guide/event refresh
 }
 
 LAST_DAILY_RUN_KEY = "AUTOPILOT_DAILY_NEWS_LAST_RUN"
+LAST_DISCOVERY_RUN_KEY = "AUTOPILOT_DISCOVERY_LAST_RUN"
+LAST_TRAVEL_RUN_KEY = "AUTOPILOT_TRAVEL_LAST_RUN"
+LAST_QUIZ_RUN_KEY = "AUTOPILOT_QUIZ_LAST_RUN"
 
 # Engines whose output is trusted enough for hybrid auto-publish.
 TRUSTED_ENGINES = {"gemini", "gemini_search_grounded"}
+
+
+def is_trusted_engine(engine: str) -> bool:
+    """Gemini model names (gemini-2.5-flash, ...) and legacy tags are trusted."""
+    return engine in TRUSTED_ENGINES or str(engine).startswith("gemini")
 
 
 def _utcnow_naive() -> datetime:
@@ -94,7 +107,10 @@ def set_setting(db: Session, key: str, value: str, description: Optional[str] = 
 
 def get_config(db: Session) -> dict:
     return {key: get_setting(db, key) for key in DEFAULTS} | {
-        LAST_DAILY_RUN_KEY: get_setting(db, LAST_DAILY_RUN_KEY) or None
+        LAST_DAILY_RUN_KEY: get_setting(db, LAST_DAILY_RUN_KEY) or None,
+        LAST_DISCOVERY_RUN_KEY: get_setting(db, LAST_DISCOVERY_RUN_KEY) or None,
+        LAST_TRAVEL_RUN_KEY: get_setting(db, LAST_TRAVEL_RUN_KEY) or None,
+        LAST_QUIZ_RUN_KEY: get_setting(db, LAST_QUIZ_RUN_KEY) or None,
     }
 
 
@@ -156,7 +172,7 @@ def evaluate_draft(db: Session, article: Article, run_quality_gate: bool = True)
         return PublishVerdict(False, "Not AI-generated; needs manual publish", None)
 
     engine = _engine(meta)
-    if engine not in TRUSTED_ENGINES:
+    if not is_trusted_engine(engine):
         return PublishVerdict(False, f"Drafted by '{engine}' fallback, not Gemini; needs manual review", None)
 
     min_chars = get_int(db, "AUTOPILOT_MIN_CONTENT_CHARS")
@@ -287,6 +303,199 @@ def purge_old_archived(db: Session) -> dict:
     return {"purged": purged}
 
 
+# --------------------------------------------------------------------------- content lifecycle
+def _content_meta(row) -> dict:
+    if not getattr(row, "ai_metadata", None):
+        return {}
+    try:
+        data = json.loads(row.ai_metadata)
+        return data if isinstance(data, dict) else {}
+    except (TypeError, ValueError):
+        return {}
+
+
+def _content_audit(db: Session, action: str, entity: str, entity_id: str, old: str, new: str) -> None:
+    db.add(AuditLog(
+        user_id=None,
+        action=action,
+        entity=entity,
+        entity_id=entity_id,
+        old_value_json=old,
+        new_value_json=new,
+        request_id="news-autopilot",
+    ))
+
+
+def section_is_due(db: Session, enabled_key: str, last_key: str, interval_hours: int) -> bool:
+    """Generic interval scheduler for autopilot sections (discoveries, travel, quiz)."""
+    if not (get_bool(db, "AUTOPILOT_NEWS_ENABLED") and get_bool(db, enabled_key)):
+        return False
+    last = get_setting(db, last_key)
+    if not last:
+        return True
+    try:
+        last_dt = datetime.fromisoformat(last)
+    except ValueError:
+        return True
+    if last_dt.tzinfo is not None:
+        last_dt = last_dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return _utcnow_naive() - last_dt >= timedelta(hours=interval_hours)
+
+
+def mark_section_ran(db: Session, last_key: str, description: str) -> None:
+    set_setting(db, last_key, _utcnow_naive().isoformat(), description)
+
+
+def publish_ready_content(db: Session) -> dict:
+    """Hybrid auto-publish for AI discoveries, guides and events past the review window."""
+    from app.models.discovery import Discovery
+    from app.models.guide_event import Event, TravelGuide
+
+    if not (get_bool(db, "AUTOPILOT_NEWS_ENABLED") and get_bool(db, "AUTOPILOT_AUTO_PUBLISH_ENABLED")):
+        return {"published": 0, "disabled": True}
+
+    delay_hours = get_int(db, "AUTOPILOT_PUBLISH_DELAY_HOURS")
+    min_chars = get_int(db, "AUTOPILOT_MIN_CONTENT_CHARS")
+    cap = max(0, get_int(db, "AUTOPILOT_MAX_PUBLISH_PER_RUN"))
+    cutoff = _utcnow_naive() - timedelta(hours=delay_hours)
+    today_km = datetime.now(CAMBODIA_TZ).strftime("%Y-%m-%d")
+    now = _utcnow_naive()
+    published = {"discovery": 0, "guide": 0, "event": 0}
+    held = 0
+
+    def ready(row, created_at, body_text) -> bool:
+        nonlocal held
+        meta = _content_meta(row)
+        if not meta or not is_trusted_engine(_engine(meta)):
+            held += 1
+            return False
+        if _as_naive_utc(created_at) is None or _as_naive_utc(created_at) > cutoff:
+            return False
+        if len((body_text or "").strip()) < min_chars:
+            held += 1
+            return False
+        return True
+
+    if published_total(published) < cap:
+        for disc in db.query(Discovery).filter(
+            Discovery.is_published == 0, Discovery.ai_metadata.isnot(None), Discovery.created_at <= cutoff
+        ).order_by(Discovery.created_at.asc()).limit(cap).all():
+            if published_total(published) >= cap:
+                break
+            if not ready(disc, disc.created_at, disc.main_explanation):
+                continue
+            disc.is_published = 1
+            disc.published_at = now
+            _content_audit(db, "AI_AUTOPUBLISH", "DISCOVERY", disc.id, "0", "1")
+            published["discovery"] += 1
+
+    for guide in db.query(TravelGuide).filter(
+        TravelGuide.status == "AI_DRAFT", TravelGuide.ai_metadata.isnot(None), TravelGuide.updated_at <= cutoff
+    ).order_by(TravelGuide.updated_at.asc()).limit(cap).all():
+        if published_total(published) >= cap:
+            break
+        if not ready(guide, guide.updated_at, guide.content):
+            continue
+        guide.status = "PUBLISHED"
+        guide.published_at = now
+        _content_audit(db, "AI_AUTOPUBLISH", "GUIDE", guide.id, "AI_DRAFT", "PUBLISHED")
+        published["guide"] += 1
+
+    for event in db.query(Event).filter(
+        Event.status == "AI_DRAFT", Event.ai_metadata.isnot(None), Event.created_at <= cutoff
+    ).order_by(Event.created_at.asc()).limit(cap).all():
+        if published_total(published) >= cap:
+            break
+        # Never activate an event whose start date already passed while it waited in review.
+        if (event.start_date or "9999") < today_km:
+            event.status = "EXPIRED"
+            _content_audit(db, "AI_ARCHIVE", "EVENT", event.id, "AI_DRAFT", "EXPIRED")
+            held += 1
+            continue
+        event_meta = _content_meta(event)
+        if not event_meta or not is_trusted_engine(_engine(event_meta)):
+            held += 1
+            continue
+        if _as_naive_utc(event.created_at) is None or _as_naive_utc(event.created_at) > cutoff:
+            continue
+        if len((event.description or "").strip()) < 40:  # events are short by nature
+            held += 1
+            continue
+        event.status = "ACTIVE"
+        _content_audit(db, "AI_AUTOPUBLISH", "EVENT", event.id, "AI_DRAFT", "ACTIVE")
+        published["event"] += 1
+
+    db.commit()
+    total = published_total(published)
+    if total:
+        logger.info(f"Auto-published content: {published}")
+    return {"published": total, "by_type": published, "held": held}
+
+
+def published_total(published: dict) -> int:
+    return sum(published.values())
+
+
+def expire_ended_events(db: Session) -> dict:
+    """Non-destructive expiry: ended events stop showing but stay restorable."""
+    from app.models.guide_event import Event
+
+    if not get_bool(db, "AUTOPILOT_NEWS_ENABLED"):
+        return {"expired": 0, "disabled": True}
+
+    today_km = datetime.now(CAMBODIA_TZ).strftime("%Y-%m-%d")
+    expired = 0
+    for event in db.query(Event).filter(Event.status == "ACTIVE", Event.ai_metadata.isnot(None)).limit(500).all():
+        end = event.end_date or event.start_date or ""
+        if end and end < today_km:  # ISO dates compare correctly as strings
+            event.status = "ENDED"
+            _content_audit(db, "AI_ARCHIVE", "EVENT", event.id, "ACTIVE", "ENDED")
+            expired += 1
+    if expired:
+        db.commit()
+        logger.info(f"Expired {expired} ended AI events.")
+    return {"expired": expired}
+
+
+def purge_old_content(db: Session) -> dict:
+    """Hard-delete AI content drafts that were never public after the purge window."""
+    from app.models.discovery import Discovery
+    from app.models.guide_event import Event, TravelGuide
+
+    if not get_bool(db, "AUTOPILOT_NEWS_ENABLED"):
+        return {"purged": 0, "disabled": True}
+
+    days = get_int(db, "AUTOPILOT_PURGE_AFTER_DAYS")
+    cutoff = _utcnow_naive() - timedelta(days=days)
+    purged = 0
+
+    for disc in db.query(Discovery).filter(
+        Discovery.is_published == 0, Discovery.ai_metadata.isnot(None), Discovery.created_at <= cutoff
+    ).limit(200).all():
+        _content_audit(db, "AI_PURGE", "DISCOVERY", disc.id, json.dumps({"title": disc.title}), "DELETED")
+        db.delete(disc)
+        purged += 1
+
+    for guide in db.query(TravelGuide).filter(
+        TravelGuide.status == "AI_DRAFT", TravelGuide.ai_metadata.isnot(None), TravelGuide.updated_at <= cutoff
+    ).limit(200).all():
+        _content_audit(db, "AI_PURGE", "GUIDE", guide.id, json.dumps({"title": guide.title}), "DELETED")
+        db.delete(guide)
+        purged += 1
+
+    for event in db.query(Event).filter(
+        Event.status.in_(["AI_DRAFT", "EXPIRED"]), Event.ai_metadata.isnot(None), Event.created_at <= cutoff
+    ).limit(200).all():
+        _content_audit(db, "AI_PURGE", "EVENT", event.id, json.dumps({"name": event.name}), "DELETED")
+        db.delete(event)
+        purged += 1
+
+    if purged:
+        db.commit()
+        logger.info(f"Purged {purged} unpublished AI content items older than {days} days.")
+    return {"purged": purged}
+
+
 def daily_news_is_due(db: Session, now_local: Optional[datetime] = None) -> bool:
     if not (get_bool(db, "AUTOPILOT_NEWS_ENABLED") and get_bool(db, "AUTOPILOT_DAILY_NEWS_ENABLED")):
         return False
@@ -303,9 +512,12 @@ def mark_daily_news_ran(db: Session, now_local: Optional[datetime] = None) -> No
 
 
 def run_lifecycle(db: Session) -> dict:
-    """Publish -> archive -> purge. Safe to call every worker cycle."""
+    """Publish -> archive -> purge, for news and all AI content sections."""
     return {
         "publish": auto_publish_ready_drafts(db),
         "archive": archive_stale_articles(db),
         "purge": purge_old_archived(db),
+        "content_publish": publish_ready_content(db),
+        "events_expire": expire_ended_events(db),
+        "content_purge": purge_old_content(db),
     }

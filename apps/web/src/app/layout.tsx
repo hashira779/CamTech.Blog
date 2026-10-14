@@ -15,17 +15,59 @@ const inter = Inter({ subsets: ["latin"] });
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://blog.camtech.cam";
 
 export const metadata: Metadata = {
-  title: "Daily Discovery | Cambodia & World News, Visual Explanations & Tools",
-  description: "A modern discovery, news, and utility platform providing verified Cambodia and international news, visual explanations, quizzes, and everyday tools.",
   metadataBase: new URL(siteUrl),
+  title: {
+    default: "Daily Discovery | Cambodia & World News, Visual Explanations & Tools",
+    template: "%s | Daily Discovery",
+  },
+  description: "A modern discovery, news, and utility platform providing verified Cambodia and international news, visual explanations, quizzes, and everyday tools.",
+  keywords: [
+    "Cambodia News",
+    "World News",
+    "CamTech",
+    "Daily Discovery",
+    "Science Visualizations",
+    "Online Tools",
+    "Daily Quiz",
+    "Cambodia Travel Guides",
+  ],
+  authors: [{ name: "Daily Discovery Editorial Desk" }],
+  creator: "Daily Discovery",
+  publisher: "Daily Discovery",
   openGraph: {
-    title: "Daily Discovery",
-    description: "Verified news, visual science discoveries, daily quizzes, and functional tools.",
+    title: "Daily Discovery | Cambodia & World News, Visual Explanations & Tools",
+    description: "A modern discovery, news, and utility platform providing verified Cambodia and international news, visual explanations, quizzes, and everyday tools.",
     siteName: "Daily Discovery",
     locale: "en_US",
     type: "website",
     url: siteUrl,
-  }
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Daily Discovery - Verified News, Science Discoveries & Tools",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Daily Discovery | Cambodia & World News, Visual Explanations & Tools",
+    description: "A modern discovery, news, and utility platform providing verified Cambodia and international news, visual explanations, quizzes, and everyday tools.",
+    creator: "@camtechblog",
+    images: ["/og-image.jpg"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export default function RootLayout({

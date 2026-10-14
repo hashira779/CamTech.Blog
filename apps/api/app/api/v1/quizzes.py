@@ -43,7 +43,23 @@ def list_quizzes(is_daily_only: bool = False, db: Session = Depends(get_db)):
 
 @router.get("/daily", response_model=QuizOut)
 def get_daily_quiz(db: Session = Depends(get_db)):
-    quiz = db.query(Quiz).filter(Quiz.is_daily == True).first()
+    # Rotate by Cambodia date: today's featured quiz first, then the most recent past daily.
+    from datetime import datetime, timezone, timedelta
+    today = datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d")
+    quiz = (
+        db.query(Quiz)
+        .filter(Quiz.is_daily == True, Quiz.featured_date == today)
+        .first()
+    )
+    if not quiz:
+        quiz = (
+            db.query(Quiz)
+            .filter(Quiz.is_daily == True, Quiz.featured_date <= today)
+            .order_by(Quiz.featured_date.desc())
+            .first()
+        )
+    if not quiz:
+        quiz = db.query(Quiz).filter(Quiz.is_daily == True).first()
     if not quiz:
         quiz = db.query(Quiz).first()
     if not quiz:

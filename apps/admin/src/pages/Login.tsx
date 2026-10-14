@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Lock, Mail, ArrowRight, ShieldCheck, AlertCircle, Info } from 'lucide-react';
 import { api } from '../lib/api';
-import { setAuth, isAuthenticated } from '../lib/auth';
+import { useAuthStore } from '../stores/authStore';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -14,12 +14,13 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { login, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
-    if (isAuthenticated()) {
+    if (isAuthenticated) {
       navigate(redirectPath, { replace: true });
     }
-  }, [navigate, redirectPath]);
+  }, [navigate, redirectPath, isAuthenticated]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +30,7 @@ export default function Login() {
     try {
       const res = await api.post('/auth/login', { email, password });
       if (res.data?.access_token) {
-        setAuth(res.data.access_token, res.data.user || {});
+        login(res.data.access_token, res.data.user || {});
         navigate(redirectPath, { replace: true });
       } else {
         setError('No access token received from server.');

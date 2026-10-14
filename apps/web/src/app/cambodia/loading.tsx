@@ -1,4 +1,5 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { ArticleCardSkeleton } from "@/components/ui/ArticleCardSkeleton";
 
 export default function CategoryFeedLoading() {
   return (
@@ -14,18 +15,7 @@ export default function CategoryFeedLoading() {
 
           {/* Featured Grid (2 cards) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {[1, 2].map((i) => (
-              <div
-                key={i}
-                className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-neutral-100 dark:border-neutral-800 space-y-3"
-              >
-                <Skeleton className="w-full h-48 rounded-lg" />
-                <Skeleton className="h-4 w-20 rounded" />
-                <Skeleton className="h-6 w-11/12 rounded" />
-                <Skeleton className="h-4 w-full rounded" />
-                <Skeleton className="h-3 w-32 rounded pt-1" />
-              </div>
-            ))}
+            <ArticleCardSkeleton count={2} />
           </div>
 
           {/* Latest Updates List */}

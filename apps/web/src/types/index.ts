@@ -92,6 +92,7 @@ export interface Discovery {
   title_km?: string;
   hero_image_url: string;
   hero_image_credit?: string;
+  hero_image_alt?: string;
   category: string;
   intro: string;
   intro_km?: string;
@@ -191,7 +192,7 @@ export interface TrendingResponse {
 
 export interface SearchResultItem {
   id: string;
-  type: "ARTICLE" | "DISCOVERY" | "QUIZ" | "TOOL" | "PLACE" | "DESTINATION";
+  type: "ARTICLE" | "DISCOVERY" | "QUIZ" | "TOOL" | "PLACE" | "DESTINATION" | "GUIDE" | "EVENT" | "AUTHOR";
   title: string;
   title_km?: string;
   summary: string;

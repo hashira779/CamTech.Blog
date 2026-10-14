@@ -62,6 +62,7 @@ export default function Articles() {
   const { success: toastSuccess, error: toastError, info: toastInfo } = useToast();
   
   // Create Article Modal state
+  const [scanMenuOpen, setScanMenuOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -107,7 +108,22 @@ export default function Articles() {
     fetchArticles();
   }, [countryFilter]);
 
-  const [scanMenuOpen, setScanMenuOpen] = useState(false);
+  useEffect(() => {
+    const handleClose = () => {
+      setIsModalOpen(false);
+      setScanMenuOpen(false);
+    };
+    window.addEventListener('admin:close-modals', handleClose);
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('new') === 'true') {
+      setIsModalOpen(true);
+    }
+
+    return () => {
+      window.removeEventListener('admin:close-modals', handleClose);
+    };
+  }, []);
 
   const handleScanNews = async (target: 'cambodia' | 'world' | 'all') => {
     setAiGenerating(true);
@@ -325,6 +341,7 @@ export default function Articles() {
             )}
           </div>
           <button 
+            data-shortcut="new-article"
             onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-1.5 bg-zinc-100 hover:bg-white text-zinc-950 font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm"
           >

@@ -18,3 +18,14 @@ class SearchResponse(BaseModel):
     query: str
     total: int
     results: List[SearchResultItem]
+
+class SearchCitation(BaseModel):
+    title: str
+    url: str
+    type: str
+
+class SearchAnswerResponse(BaseModel):
+    query: str
+    answer: Optional[str] = None
+    engine: Optional[str] = None
+    citations: List[SearchCitation] = []

@@ -1,0 +1,72 @@
+# ==============================================================================
+# Docker Compose Development Override Configuration
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# ==============================================================================
+services:
+  web:
+    command: npm run dev
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+      - INTERNAL_API_URL=http://api:8000/api/v1
+      - WATCHPACK_POLLING=true
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"
+      - "9229:9229"
+
+  admin:
+    command: npx vite --host 0.0.0.0 --port 3001
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:8000/api/v1
+    volumes:
+      - ./apps/admin:/app
+      - /app/node_modules
+    ports:
+      - "3001:3001"
+      - "9230:9229"
+
+  api:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "app"]
+    environment:
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - LOG_LEVEL=debug
+      - RELOAD=true
+      - PORT=8000
+      - FRONTEND_URL=http://localhost:3000
+      - DATABASE_URL=postgresql+psycopg2://discovery_user:discovery_secret@postgres:5432/daily_discovery
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_PROVIDER=minio
+      - S3_ENDPOINT_URL=http://minio:9000
+      - S3_ACCESS_KEY=minio_admin
+      - S3_SECRET_KEY=minio_secret_key
+      - S3_BUCKET=dailydiscovery-media
+      - S3_PUBLIC_URL=http://localhost:9000/dailydiscovery-media
+    volumes:
+      - ./apps/api:/app
+      - ./database:/app/database
+    ports:
+      - "8000:8000"
+      - "5678:5678"
+
+  worker:
+    environment:
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - LOG_LEVEL=debug
+      - DATABASE_URL=postgresql+psycopg2://discovery_user:discovery_secret@postgres:5432/daily_discovery
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_PROVIDER=minio
+      - S3_ENDPOINT_URL=http://minio:9000
+      - S3_ACCESS_KEY=minio_admin
+      - S3_SECRET_KEY=minio_secret_key
+      - S3_BUCKET=dailydiscovery-media
+      - S3_PUBLIC_URL=http://localhost:9000/dailydiscovery-media
+    volumes:
+      - ./apps/api:/app

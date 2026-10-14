@@ -17,6 +17,7 @@ class Quiz(Base):
     is_daily = Column(Boolean, default=False)
     featured_date = Column(String(10), nullable=True, index=True)  # YYYY-MM-DD
     estimated_minutes = Column(Integer, default=3)
+    ai_metadata = Column(Text, nullable=True)  # JSON: {"engine": ...} for AI-generated quizzes
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     questions = relationship("QuizQuestion", back_populates="quiz", cascade="all, delete-orphan", order_by="QuizQuestion.order_num")

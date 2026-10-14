@@ -7,6 +7,8 @@ from app.models.quiz import Quiz
 from app.models.tool import Tool
 from app.models.location import Destination
 from app.models.place import Place
+from app.models.guide_event import Event, TravelGuide
+from app.models.author import Author
 
 class SearchService:
     @staticmethod
@@ -177,6 +179,81 @@ class SearchService:
                     "category": p.place_type,
                     "country": "KH",
                     "image_url": p.hero_image_url,
+                    "published_at": None
+                })
+
+        # 7. Search Travel Guides
+        if not entity_type or entity_type.upper() in ["GUIDE", "TRAVEL"]:
+            guides = db.query(TravelGuide).filter(
+                TravelGuide.status == "PUBLISHED",
+                or_(
+                    TravelGuide.title.ilike(search_pattern),
+                    TravelGuide.summary.ilike(search_pattern),
+                    TravelGuide.content.ilike(search_pattern)
+                )
+            ).limit(limit).all()
+            for g in guides:
+                results.append({
+                    "id": g.id,
+                    "type": "GUIDE",
+                    "title": g.title,
+                    "title_km": g.title_km,
+                    "summary": g.summary[:180] + "..." if len(g.summary or "") > 180 else (g.summary or ""),
+                    "slug": g.slug,
+                    "url": f"/travel/guides/{g.slug}",
+                    "category": g.destination.name if g.destination else "Travel Guide",
+                    "country": "KH",
+                    "image_url": g.hero_image_url,
+                    "published_at": g.published_at.isoformat() if g.published_at else None
+                })
+
+        # 8. Search Events
+        if not entity_type or entity_type.upper() in ["EVENT", "TRAVEL", "FESTIVAL"]:
+            events = db.query(Event).filter(
+                Event.status == "ACTIVE",
+                or_(
+                    Event.name.ilike(search_pattern),
+                    Event.description.ilike(search_pattern),
+                    Event.venue.ilike(search_pattern)
+                )
+            ).limit(limit).all()
+            for e in events:
+                results.append({
+                    "id": e.id,
+                    "type": "EVENT",
+                    "title": e.name,
+                    "title_km": e.name_km,
+                    "summary": e.description[:180] + "..." if len(e.description or "") > 180 else (e.description or ""),
+                    "slug": e.slug,
+                    "url": f"/travel/{e.destination.slug}" if e.destination else "/travel",
+                    "category": e.event_type,
+                    "country": "KH",
+                    "image_url": e.hero_image_url,
+                    "published_at": None
+                })
+
+        # 9. Search Authors
+        if not entity_type or entity_type.upper() == "AUTHOR":
+            authors = db.query(Author).filter(
+                Author.is_active == True,
+                or_(
+                    Author.name.ilike(search_pattern),
+                    Author.bio.ilike(search_pattern),
+                    Author.expertise.ilike(search_pattern)
+                )
+            ).limit(limit).all()
+            for a in authors:
+                results.append({
+                    "id": a.id,
+                    "type": "AUTHOR",
+                    "title": a.name,
+                    "title_km": None,
+                    "summary": (a.bio or "")[:180] + "..." if len(a.bio or "") > 180 else (a.bio or ""),
+                    "slug": a.slug,
+                    "url": f"/author/{a.slug}",
+                    "category": a.role or "Author",
+                    "country": "GLOBAL",
+                    "image_url": getattr(a, "avatar_url", None),
                     "published_at": None
                 })
 

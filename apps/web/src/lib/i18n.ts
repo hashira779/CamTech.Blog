@@ -1,17 +1,80 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, ReactNode } from "react";
 
-type Language = "en" | "km";
+export type Language = "en" | "km";
 
-interface I18nContextType {
-  lang: Language;
-  setLang: (lang: Language) => void;
-  t: (key: string) => string;
-}
+export const DEFAULT_LANGUAGE: Language = "en";
+export const SUPPORTED_LANGUAGES: readonly Language[] = ["en", "km"] as const;
 
-const translations: Record<Language, Record<string, string>> = {
+export const LANGUAGE_COOKIE = "dd_lang";
+export const LANGUAGE_STORAGE_KEY = "dd_lang";
+
+/**
+ * Common bilingual UI translations required across application
+ */
+export const commonTranslations = {
+  home: {
+    en: "Home",
+    km: "ទំព័រដើម",
+  },
+  search: {
+    en: "Search",
+    km: "ស្វែងរក",
+  },
+  read_more: {
+    en: "Read More",
+    km: "អានបន្ថែម",
+  },
+  share: {
+    en: "Share",
+    km: "ចែករំលែក",
+  },
+  about: {
+    en: "About",
+    km: "អំពីយើង",
+  },
+  contact: {
+    en: "Contact",
+    km: "ទំនាក់ទំនង",
+  },
+  latest_news: {
+    en: "Latest News",
+    km: "ព័ត៌មានចុងក្រោយ",
+  },
+  trending: {
+    en: "Trending",
+    km: "កំពុងពេញនិយម",
+  },
+} as const;
+
+export type CommonTranslationKey = keyof typeof commonTranslations;
+
+/**
+ * Full application translation dictionary
+ */
+export const translations = {
   en: {
+    // Common terms
+    home: "Home",
+    search: "Search",
+    read_more: "Read More",
+    share: "Share",
+    about: "About",
+    contact: "Contact",
+    latest_news: "Latest News",
+    trending: "Trending",
+
+    // Scoped common keys
+    "common.home": "Home",
+    "common.search": "Search",
+    "common.read_more": "Read More",
+    "common.share": "Share",
+    "common.about": "About",
+    "common.contact": "Contact",
+    "common.latest_news": "Latest News",
+    "common.trending": "Trending",
+
     // Navigation
     "nav.home": "Home",
     "nav.cambodia": "Cambodia",
@@ -81,9 +144,29 @@ const translations: Record<Language, Record<string, string>> = {
     "footer.cookies": "Cookie Policy",
     "footer.advertising": "Advertising & Transparency",
     "footer.contact": "Contact Newsroom",
-    "footer.copyright": "Daily Discovery. All verified citations and original editorial analyses reserved."
+    "footer.copyright": "Daily Discovery. All verified citations and original editorial analyses reserved.",
   },
   km: {
+    // Common terms
+    home: "ទំព័រដើម",
+    search: "ស្វែងរក",
+    read_more: "អានបន្ថែម",
+    share: "ចែករំលែក",
+    about: "អំពីយើង",
+    contact: "ទំនាក់ទំនង",
+    latest_news: "ព័ត៌មានចុងក្រោយ",
+    trending: "កំពុងពេញនិយម",
+
+    // Scoped common keys
+    "common.home": "ទំព័រដើម",
+    "common.search": "ស្វែងរក",
+    "common.read_more": "អានបន្ថែម",
+    "common.share": "ចែករំលែក",
+    "common.about": "អំពីយើង",
+    "common.contact": "ទំនាក់ទំនង",
+    "common.latest_news": "ព័ត៌មានចុងក្រោយ",
+    "common.trending": "កំពុងពេញនិយម",
+
     // Navigation
     "nav.home": "ទំព័រដើម",
     "nav.cambodia": "កម្ពុជា",
@@ -153,42 +236,186 @@ const translations: Record<Language, Record<string, string>> = {
     "footer.cookies": "គោលការណ៍ខូគី",
     "footer.advertising": "ការផ្សាយពាណិជ្ជកម្ម និងតម្លាភាព",
     "footer.contact": "ទំនាក់ទំនងការិយាល័យនិពន្ធ",
-    "footer.copyright": "Daily Discovery រក្សាសិទ្ធិគ្រប់យ៉ាង។"
-  }
+    "footer.copyright": "Daily Discovery រក្សាសិទ្ធិគ្រប់យ៉ាង។",
+  },
 };
 
-const I18nContext = createContext<I18nContextType>({
-  lang: "en",
-  setLang: () => {},
-  t: (k) => k
-});
+export type TranslationKey = keyof typeof translations.en;
 
-export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Language>("en");
+/**
+ * Parse language from cookie string
+ */
+export function getLanguageFromCookie(cookieHeaderOrString?: string): Language | null {
+  const cookieSource =
+    cookieHeaderOrString ??
+    (typeof document !== "undefined" ? document.cookie : "");
 
-  useEffect(() => {
-    const saved = localStorage.getItem("dd_lang") as Language;
-    if (saved === "en" || saved === "km") {
-      setLangState(saved);
+  if (!cookieSource) return null;
+
+  const match = cookieSource.match(new RegExp(`(?:^|; )${LANGUAGE_COOKIE}=([^;]*)`));
+  if (match && (match[1] === "en" || match[1] === "km")) {
+    return match[1] as Language;
+  }
+  return null;
+}
+
+/**
+ * Save language to cookie
+ */
+export function setLanguageCookie(lang: Language): void {
+  if (typeof document === "undefined") return;
+  document.cookie = `${LANGUAGE_COOKIE}=${lang}; path=/; max-age=31536000; SameSite=Lax`;
+}
+
+/**
+ * Get language from localStorage
+ */
+export function getLanguageFromStorage(): Language | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const val = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (val === "en" || val === "km") {
+      return val as Language;
     }
-  }, []);
+  } catch {
+    // localStorage might be unavailable
+  }
+  return null;
+}
 
-  const setLang = (newLang: Language) => {
-    setLangState(newLang);
-    localStorage.setItem("dd_lang", newLang);
-  };
+/**
+ * Save language to localStorage
+ */
+export function setLanguageStorage(lang: Language): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+  } catch {
+    // localStorage might be unavailable
+  }
+}
 
-  const t = (key: string): string => {
-    return translations[lang]?.[key] || translations["en"]?.[key] || key;
-  };
+/**
+ * Detect language from cookie, storage, or browser
+ */
+export function detectLanguage(cookieHeaderOrString?: string): Language {
+  // 1. Check cookie
+  const cookieLang = getLanguageFromCookie(cookieHeaderOrString);
+  if (cookieLang) return cookieLang;
 
+  // 2. Check localStorage
+  const storageLang = getLanguageFromStorage();
+  if (storageLang) return storageLang;
+
+  // 3. Browser language
+  if (typeof navigator !== "undefined" && navigator.languages) {
+    const isKhmer = navigator.languages.some(
+      (l) => l.toLowerCase().startsWith("km") || l.toLowerCase().includes("khmer")
+    );
+    if (isKhmer) return "km";
+  }
+
+  return DEFAULT_LANGUAGE;
+}
+
+/**
+ * Toggle language between en and km
+ */
+export function toggleLanguage(currentLang: Language): Language {
+  return currentLang === "en" ? "km" : "en";
+}
+
+/**
+ * Translate a translation key into a string
+ */
+export function translate(
+  key: TranslationKey | string,
+  lang: Language = DEFAULT_LANGUAGE
+): string {
+  const dictionary = translations[lang] || translations[DEFAULT_LANGUAGE];
   return (
-    <I18nContext.Provider value={{ lang, setLang, t }}>
-      {children}
-    </I18nContext.Provider>
+    (dictionary as Record<string, string>)[key] ||
+    translations[DEFAULT_LANGUAGE][key as TranslationKey] ||
+    key
   );
 }
 
-export function useI18n() {
+export interface I18nContextType {
+  lang: Language;
+  setLang: (lang: Language) => void;
+  toggleLang: () => void;
+  t: (key: TranslationKey | string) => string;
+}
+
+const I18nContext = createContext<I18nContextType>({
+  lang: DEFAULT_LANGUAGE,
+  setLang: () => {},
+  toggleLang: () => {},
+  t: (k) => String(k),
+});
+
+const listeners = new Set<() => void>();
+
+function emitLanguageChange() {
+  for (const listener of listeners) {
+    listener();
+  }
+}
+
+function subscribe(callback: () => void) {
+  listeners.add(callback);
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key === LANGUAGE_STORAGE_KEY) {
+      callback();
+    }
+  };
+  if (typeof window !== "undefined") {
+    window.addEventListener("storage", handleStorage);
+  }
+  return () => {
+    listeners.delete(callback);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("storage", handleStorage);
+    }
+  };
+}
+
+function getSnapshot(): Language {
+  return detectLanguage();
+}
+
+function getServerSnapshot(): Language {
+  return DEFAULT_LANGUAGE;
+}
+
+export function I18nProvider({ children }: { children: ReactNode }) {
+  const lang = React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+  const setLang = React.useCallback((newLang: Language) => {
+    setLanguageStorage(newLang);
+    setLanguageCookie(newLang);
+    emitLanguageChange();
+  }, []);
+
+  const toggleLang = React.useCallback(() => {
+    const current = getSnapshot();
+    setLang(toggleLanguage(current));
+  }, [setLang]);
+
+  const t = React.useCallback(
+    (key: TranslationKey | string): string => {
+      return translate(key, lang);
+    },
+    [lang]
+  );
+
+  return React.createElement(
+    I18nContext.Provider,
+    { value: { lang, setLang, toggleLang, t } },
+    children
+  );
+}
+
+export function useI18n(): I18nContextType {
   return useContext(I18nContext);
 }

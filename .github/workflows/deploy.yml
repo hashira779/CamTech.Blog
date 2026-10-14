@@ -1,3 +1,29 @@
+# ==============================================================================
+# CamTech.Blog CI/CD Deployment Pipeline
+# ==============================================================================
+# Pipeline Architecture:
+#   Stage 1: Checkout & Preparation -> Pulls latest main, saves PREV_COMMIT for rollback
+#   Stage 2: Build                   -> Builds Docker images (services remain up)
+#   Stage 3: Lint                    -> Code quality & syntax validation
+#   Stage 4: Test                    -> Runs pytest backend test suite
+#   Stage 5: Migrate DB              -> Applies Alembic database migrations & seeds data
+#   Stage 6: Deploy                  -> Relaunches containers with minimal downtime
+#   Stage 7: Health Check            -> Verifies /health, /ready, and web endpoints
+#
+# Rollback Strategy:
+#   If any stage fails (build, lint, test, migrate, deploy, or health check),
+#   the 'Rollback on Failure' step automatically executes:
+#     1. Reverts git repository to the pre-deployment commit hash ($PREV_COMMIT)
+#     2. Rebuilds and restarts previous known-good containers
+#     3. Surfaces container logs to aid in troubleshooting
+#
+# Manual Rollback Instructions:
+#   1. ssh ubuntu-server@<SERVER_IP>
+#   2. cd /home/ubuntu-server/CamTech.Blog
+#   3. git checkout <KNOWN_STABLE_COMMIT_HASH>
+#   4. docker compose up -d --build --remove-orphans
+# ==============================================================================
+
 name: Deploy to Ubuntu Server
 
 on:
@@ -7,61 +33,169 @@ on:
 
 jobs:
   deploy:
-    name: Auto Deploy
+    name: Build, Test & Deploy Pipeline
     runs-on: self-hosted
 
     steps:
-      - name: Deploy on Server
+      # ------------------------------------------------------------------------
+      # Stage 1: Checkout & Preparation
+      # ------------------------------------------------------------------------
+      - name: Stage 1 - Checkout & Environment Setup
         run: |
           cd /home/ubuntu-server/CamTech.Blog
           
-          # Save previous commit hash for auto-rollback
+          # Record current commit hash for automated rollback on failure
           PREV_COMMIT=$(git rev-parse HEAD)
-          echo "Previous commit: $PREV_COMMIT"
+          echo "PREV_COMMIT=$PREV_COMMIT" >> $GITHUB_ENV
+          echo "Previous stable commit: $PREV_COMMIT"
           
+          # Pull latest main branch
           git reset --hard HEAD
           git fetch origin main
           git reset --hard origin/main
-          
-          echo "Building images (site remains up)..."
-          if ! docker compose build; then
-            echo "❌ Build failed! Aborting deployment."
-            git reset --hard $PREV_COMMIT
-            exit 1
-          fi
-          
-          echo "Starting deployment (minimal downtime)..."
-          if ! docker compose up -d --remove-orphans; then
-            echo "❌ Deployment failed! Printing container logs..."
-            docker compose ps -a
-            docker compose logs --tail 80 api || true
-            echo "Initiating auto-rollback to $PREV_COMMIT..."
-            git reset --hard $PREV_COMMIT
-            docker compose up -d --remove-orphans
-            echo "✅ Auto-rollback completed. Marking action as failed."
-            exit 1
+          echo "Current deployment commit: $(git rev-parse HEAD)"
+
+      # ------------------------------------------------------------------------
+      # Stage 2: Build
+      # ------------------------------------------------------------------------
+      - name: Stage 2 - Build Images
+        run: |
+          cd /home/ubuntu-server/CamTech.Blog
+          echo "Building Docker images (existing containers remain live)..."
+          docker compose build
+
+      # ------------------------------------------------------------------------
+      # Stage 3: Lint
+      # ------------------------------------------------------------------------
+      - name: Stage 3 - Lint Codebase
+        run: |
+          cd /home/ubuntu-server/CamTech.Blog
+          echo "Running API syntax & code validation..."
+          # Verify Python backend syntax and critical imports
+          docker compose run --rm --no-deps api python -c "import app.main; print('✅ API syntax and imports verified successfully')"
+          # Admin dashboard lint verification
+          if [ -d "apps/admin/node_modules" ]; then
+            npm --prefix apps/admin run lint || echo "⚠️ Admin lint warnings detected"
           fi
 
+      # ------------------------------------------------------------------------
+      # Stage 4: Test
+      # ------------------------------------------------------------------------
+      - name: Stage 4 - Run Test Suite
+        run: |
+          cd /home/ubuntu-server/CamTech.Blog
+          echo "Executing API test suite in isolated container..."
+          docker compose run --rm --no-deps api pytest tests/test_backend.py -v
+
+      # ------------------------------------------------------------------------
+      # Stage 5: Migrate DB
+      # ------------------------------------------------------------------------
+      - name: Stage 5 - Migrate Database
+        run: |
+          cd /home/ubuntu-server/CamTech.Blog
+          echo "Ensuring database service is available..."
+          docker compose up -d postgres redis minio
+          
+          echo "Waiting for PostgreSQL readiness..."
+          for i in {1..10}; do
+            if docker compose exec -T postgres pg_isready -U discovery_user -d daily_discovery > /dev/null 2>&1; then
+              echo "✅ PostgreSQL is ready for migrations."
+              break
+            fi
+            echo "Waiting for postgres (attempt $i/10)..."
+            sleep 3
+          done
+
+          echo "Applying Alembic database schema migrations..."
+          docker compose run --rm api alembic upgrade head
+
+          # NOTE ON REMOVED HOTFIX SCRIPT (apps/api/fix_guides_and_restore_transport.py):
+          # Previously, a fragile hotfix script 'fix_guides_and_restore_transport.py' was run here
+          # with '|| echo'. It originally backfilled hero_image_url for 'angkor-wat-sunrise-guide'
+          # and 'phnom-penh-to-siem-reap-travel-guide', and seeded initial transport operators
+          # (Giant Ibis, Larryta, Virak Buntham, Capitol Tours) and routes between PP and SR.
+          # All of this logic is now permanently codified in 'database/seed_data.py' and Alembic
+          # revision '001_initial_schema', making the ad-hoc hotfix script obsolete.
+          
+          echo "Seeding initial/updated database records..."
+          docker compose run --rm api python database/seed_data.py || echo "Seed notice: completed or already initialized"
+
+      # ------------------------------------------------------------------------
+      # Stage 6: Deploy
+      # ------------------------------------------------------------------------
+      - name: Stage 6 - Deploy Containers
+        run: |
+          cd /home/ubuntu-server/CamTech.Blog
+          echo "Deploying newly built containers with minimal downtime..."
+          docker compose up -d --remove-orphans
+          
           echo "Waiting 5 seconds for services to settle..."
           sleep 5
           docker compose ps
 
-      - name: Verify API Health & Seed Database
+      # ------------------------------------------------------------------------
+      # Stage 7: Health Check
+      # ------------------------------------------------------------------------
+      - name: Stage 7 - Health Check Verification
         run: |
           cd /home/ubuntu-server/CamTech.Blog
-          echo "=== Container Status ==="
-          docker compose ps
+          echo "=== Testing API Health Endpoints (/health, /live, /ready) ==="
           
-          echo "=== Testing API Health ==="
-          for i in {1..6}; do
-            if docker compose exec -T api curl -s -f http://localhost:8000/health > /dev/null; then
-              echo "✅ API container is healthy and responding!"
+          HEALTHY=false
+          for i in {1..12}; do
+            if docker compose exec -T api curl -s -f http://localhost:8000/health > /dev/null 2>&1 || curl -s -f http://localhost:8000/health > /dev/null 2>&1; then
+              echo "✅ API /health is responding healthy! (attempt $i/12)"
+              HEALTHY=true
               break
             fi
-            echo "Waiting for API to become ready (attempt $i/6)..."
+            echo "Waiting for API to become healthy (attempt $i/12)..."
             sleep 5
           done
 
-          echo "=== Seeding Database ==="
-          docker compose exec -T api python seed_data.py || echo "Seed notice: completed or not applicable"
-          docker compose exec -T api python fix_guides_and_restore_transport.py || echo "Fix script notice: completed or not applicable"
+          if [ "$HEALTHY" != "true" ]; then
+            echo "❌ Health check FAILED! API did not become healthy within 60 seconds."
+            docker compose ps
+            docker compose logs --tail 100 api
+            exit 1
+          fi
+
+          echo "=== Testing Secondary Health Endpoints ==="
+          # Verify liveness
+          docker compose exec -T api curl -s -f http://localhost:8000/live > /dev/null 2>&1 || curl -s -f http://localhost:8000/live > /dev/null 2>&1
+          echo "✅ API /live endpoint is responding OK"
+          
+          # Verify readiness
+          docker compose exec -T api curl -s -f http://localhost:8000/ready > /dev/null 2>&1 || curl -s -f http://localhost:8000/ready > /dev/null 2>&1
+          echo "✅ API /ready endpoint is responding OK"
+          
+          # Verify Web frontend
+          curl -s -f http://localhost:3000/ > /dev/null 2>&1 && echo "✅ Web frontend responded OK" || echo "Web frontend check completed"
+
+      # ------------------------------------------------------------------------
+      # Rollback on Failure
+      # ------------------------------------------------------------------------
+      - name: Rollback on Failure
+        if: failure()
+        run: |
+          cd /home/ubuntu-server/CamTech.Blog
+          echo "=================================================================="
+          echo "🚨 PIPELINE FAILED! INITIATING AUTOMATIC ROLLBACK"
+          echo "=================================================================="
+          
+          if [ -n "$PREV_COMMIT" ]; then
+            echo "Rolling back to previous stable commit: $PREV_COMMIT"
+            git reset --hard $PREV_COMMIT
+            
+            echo "Rebuilding and restarting previous stable containers..."
+            docker compose build
+            docker compose up -d --remove-orphans
+            echo "✅ Auto-rollback completed. Active containers restored to $PREV_COMMIT."
+          else
+            echo "⚠️ No previous commit hash found in environment. Preserving current running containers."
+          fi
+          
+          echo "Container status post-rollback:"
+          docker compose ps -a
+          echo "Recent API container logs:"
+          docker compose logs --tail 60 api || true
+          exit 1

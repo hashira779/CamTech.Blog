@@ -71,7 +71,7 @@ def deploy():
         execute_remote_cmd(ssh, f"cd {REMOTE_REPO_DIR} && docker compose ps", "Container Status Triad")
         
         # 5. Seed initial data in PostgreSQL
-        seed_cmd = f"cd {REMOTE_REPO_DIR} && docker compose exec -T api python seed_data.py"
+        seed_cmd = f"cd {REMOTE_REPO_DIR} && docker compose exec -T api python database/seed_data.py"
         execute_remote_cmd(ssh, seed_cmd, "Seeding Production PostgreSQL Database with Verified Content")
         
         # 6. Verify Health and Endpoints

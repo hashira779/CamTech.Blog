@@ -60,6 +60,8 @@ services:
       - S3_SECRET_KEY=minio_secret_key
       - S3_BUCKET=dailydiscovery-media
       - S3_PUBLIC_URL=https://cms.camtech.cam:9000/dailydiscovery-media
+    volumes:
+      - ./database:/app/database
     depends_on:
       postgres:
         condition: service_healthy

@@ -9,6 +9,8 @@ export default function Topbar() {
         <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={14} />
           <input 
+            id="global-search-input"
+            data-shortcut="search"
             type="text" 
             placeholder="Search articles, authors, commands..." 
             className="w-full bg-zinc-900/60 border border-zinc-800 rounded-md py-1.5 pl-9 pr-12 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-700 focus:bg-zinc-900 transition-colors"
@@ -38,11 +40,15 @@ export default function Topbar() {
 
         {/* New Article Action */}
         <Link
-          to="/articles"
+          to="/articles?new=true"
+          data-shortcut="new-article"
           className="flex items-center gap-1.5 bg-zinc-100 hover:bg-white text-zinc-950 font-medium px-3 py-1.5 rounded-md text-xs transition-colors shadow-sm"
         >
           <Plus size={14} />
           <span>New Article</span>
+          <kbd className="hidden md:inline text-[9px] font-mono text-zinc-400 bg-zinc-200 px-1 py-0.5 rounded font-semibold ml-0.5">
+            Ctrl+N
+          </kbd>
         </Link>
       </div>
     </header>

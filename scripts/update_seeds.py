@@ -6,7 +6,7 @@ import re
 sys.path.insert(0, ".")
 from scripts.seed_all_provinces import AUTHENTIC_PLACES
 
-for seed_path in ['apps/api/seed_data.py', 'database/seed_data.py']:
+for seed_path in ['database/seed_data.py']:
     with open(seed_path, 'r', encoding='utf-8') as sf:
         s_content = sf.read()
     

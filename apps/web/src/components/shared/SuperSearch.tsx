@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Search, X, Loader2, FileText, Compass, HelpCircle, Wrench, ArrowRight, Sparkles } from "lucide-react";
+import { Search, X, Loader2, FileText, Compass, HelpCircle, Wrench, ArrowRight, Sparkles, CalendarDays, BookOpen, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { searchGlobal } from "@/lib/api";
 import { SearchResultItem } from "@/types";
@@ -69,6 +69,14 @@ export function SuperSearch() {
         return <HelpCircle className="w-4 h-4 text-green-500" />;
       case "tool":
         return <Wrench className="w-4 h-4 text-purple-500" />;
+      case "discovery":
+        return <Sparkles className="w-4 h-4 text-blue-500" />;
+      case "guide":
+        return <BookOpen className="w-4 h-4 text-teal-500" />;
+      case "event":
+        return <CalendarDays className="w-4 h-4 text-rose-500" />;
+      case "author":
+        return <User className="w-4 h-4 text-indigo-500" />;
       default:
         return <Search className="w-4 h-4 text-gray-500" />;
     }
@@ -78,18 +86,18 @@ export function SuperSearch() {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg transition-colors w-48 lg:w-64"
+        className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white bg-neutral-100 dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg transition-colors w-48 lg:w-64"
       >
         <Search className="w-4 h-4" />
         <span className="flex-1 text-left">Search everything...</span>
-        <kbd className="hidden sm:inline-flex items-center gap-1 px-1.5 font-mono text-[10px] font-medium text-gray-500 bg-white border border-gray-300 rounded opacity-100">
+        <kbd className="hidden sm:inline-flex items-center gap-1 px-1.5 font-mono text-[10px] font-medium text-neutral-500 dark:text-neutral-400 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded opacity-100">
           <span className="text-xs">⌘</span>K
         </kbd>
       </button>
 
       <button
         onClick={() => setIsOpen(true)}
-        className="md:hidden p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+        className="md:hidden p-2 text-neutral-600 dark:text-neutral-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-neutral-800 rounded-full transition-colors"
       >
         <Search size={20} />
       </button>

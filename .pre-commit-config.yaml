@@ -1,0 +1,48 @@
+# ==============================================================================
+# Pre-commit Hook Configuration
+# https://pre-commit.com
+# ==============================================================================
+default_language_version:
+  python: python3
+
+repos:
+  # General file hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+
+  # Python (apps/api) linting and code formatting with Ruff
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        name: ruff-lint (apps/api)
+        files: ^apps/api/
+        args: [--fix, --select=E,F,I,UP]
+      - id: ruff-format
+        name: ruff-format (apps/api)
+        files: ^apps/api/
+
+  # TypeScript/JavaScript formatting with Prettier
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        name: prettier (apps/web, apps/admin)
+        files: ^apps/(web|admin)/.*\.(ts|tsx|js|jsx|json|css)$
+        additional_dependencies:
+          - prettier@3.3.3
+
+  # Fast linting for admin and frontend apps with Oxlint
+  - repo: https://github.com/oxc-project/oxlint-pre-commit
+    rev: v0.15.3
+    hooks:
+      - id: oxlint
+        name: oxlint (apps/admin)
+        files: ^apps/admin/

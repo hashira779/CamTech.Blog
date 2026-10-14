@@ -26,6 +26,11 @@ const AUTOPILOT_DEFAULTS: Record<string, string> = {
   AUTOPILOT_MIN_CONTENT_CHARS: '300',
   AUTOPILOT_ARCHIVE_AFTER_DAYS: '7',
   AUTOPILOT_PURGE_AFTER_DAYS: '30',
+  AUTOPILOT_DISCOVERY_ENABLED: 'true',
+  AUTOPILOT_DISCOVERY_INTERVAL_HOURS: '24',
+  AUTOPILOT_QUIZ_ENABLED: 'true',
+  AUTOPILOT_TRAVEL_ENABLED: 'true',
+  AUTOPILOT_TRAVEL_INTERVAL_HOURS: '168',
 };
 
 type AutopilotField =
@@ -42,6 +47,11 @@ const AUTOPILOT_FIELDS: AutopilotField[] = [
   { key: 'AUTOPILOT_MIN_CONTENT_CHARS', type: 'number', min: 0, max: 5000, suffix: 'characters', label: 'Minimum length', help: 'Shorter drafts are held for manual review.' },
   { key: 'AUTOPILOT_ARCHIVE_AFTER_DAYS', type: 'number', min: 1, max: 365, suffix: 'days', label: 'Archive stale drafts after', help: 'Unpublished AI drafts and rejected stories are hidden (restorable).' },
   { key: 'AUTOPILOT_PURGE_AFTER_DAYS', type: 'number', min: 7, max: 3650, suffix: 'days', label: 'Delete archived after', help: 'Archived AI stories that were never public are permanently removed.' },
+  { key: 'AUTOPILOT_DISCOVERY_ENABLED', type: 'toggle', label: 'AI Visual Discoveries', help: 'Gemini drafts evergreen "how things work" explainers for the Discover section.' },
+  { key: 'AUTOPILOT_DISCOVERY_INTERVAL_HOURS', type: 'number', min: 1, max: 720, suffix: 'hours', label: 'Discovery interval', help: 'How often new discoveries are drafted.' },
+  { key: 'AUTOPILOT_QUIZ_ENABLED', type: 'toggle', label: 'AI Daily Quiz', help: 'A fresh quiz is generated every day (Cambodia time) with a rotating topic.' },
+  { key: 'AUTOPILOT_TRAVEL_ENABLED', type: 'toggle', label: 'AI Travel Guides & Events', help: 'Gemini drafts destination guides and upcoming festivals with real dates.' },
+  { key: 'AUTOPILOT_TRAVEL_INTERVAL_HOURS', type: 'number', min: 1, max: 2160, suffix: 'hours', label: 'Travel interval', help: 'How often guides and events are refreshed.' },
 ];
 
 export default function Settings() {
@@ -60,6 +70,7 @@ export default function Settings() {
   // News Autopilot
   const [autopilot, setAutopilot] = useState<Record<string, string>>({ ...AUTOPILOT_DEFAULTS });
   const [lastDailyRun, setLastDailyRun] = useState<string | null>(null);
+  const [running, setRunning] = useState<string | null>(null);
   const setAp = (key: string, value: string) => setAutopilot(prev => ({ ...prev, [key]: value }));
 
   const fetchSettings = async () => {
@@ -114,6 +125,22 @@ export default function Settings() {
       showToast('error', 'Failed to update system configurations.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const runAutopilotAction = async (action: 'lifecycle' | 'discoveries' | 'quiz' | 'travel') => {
+    setRunning(action);
+    try {
+      const res = action === 'lifecycle'
+        ? await api.post('/admin/autopilot/run')
+        : await api.post(`/admin/autopilot/generate?section=${action}`);
+      const detail = JSON.stringify(res.data ?? {});
+      showToast('success', `${action} finished: ${detail.slice(0, 120)}`);
+    } catch (err) {
+      console.error('Autopilot action failed:', err);
+      showToast('error', `Action "${action}" failed. Check that the Gemini key is set.`);
+    } finally {
+      setRunning(null);
     }
   };
 
@@ -230,6 +257,33 @@ export default function Settings() {
                   )}
                 </div>
               ))}
+
+              <div className="pt-4 border-t border-zinc-800 space-y-2.5">
+                <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">
+                  Run now (without waiting for the worker)
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    ['lifecycle', 'Publish / archive cycle'],
+                    ['discoveries', 'Generate discoveries'],
+                    ['quiz', "Generate today's quiz"],
+                    ['travel', 'Generate guides & events'],
+                  ] as const).map(([action, label]) => (
+                    <button
+                      key={action}
+                      type="button"
+                      disabled={running !== null}
+                      onClick={() => runAutopilotAction(action)}
+                      className="px-3 py-1.5 text-[11px] font-medium rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 disabled:opacity-50 transition-colors"
+                    >
+                      {running === action ? 'Running…' : label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-zinc-500">
+                  Generated items start unpublished and go live after the review window above, exactly like news drafts.
+                </p>
+              </div>
             </div>
           </div>
 

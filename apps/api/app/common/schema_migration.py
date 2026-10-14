@@ -7,9 +7,37 @@ from app.models.location import Destination
 
 logger = logging.getLogger("migration")
 
+def _ensure_columns(table_name: str, columns: list) -> None:
+    """Add any missing columns to an existing table (SQLite + Postgres safe)."""
+    inspector = inspect(engine)
+    if not inspector.has_table(table_name):
+        logger.info(f"Table '{table_name}' does not exist yet; create_all will create it.")
+        return
+    existing = {col["name"] for col in inspector.get_columns(table_name)}
+    is_postgres = not engine.url.drivername.startswith("sqlite")
+    for col_name, col_type in columns:
+        if col_name in existing:
+            continue
+        try:
+            with engine.begin() as conn:
+                logger.info(f"Adding missing column '{col_name}' to '{table_name}' table...")
+                if is_postgres:
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+                else:
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}"))
+        except Exception as col_err:
+            logger.warning(f"Column '{col_name}' migration notice: {col_err}")
+
 def ensure_database_schema():
     """Ensure database schema is up-to-date with dynamic destination symbol columns."""
     try:
+        # AI provenance metadata for autopilot-generated content (Discover, Quiz, Guides, Events)
+        _ensure_columns("discoveries", [("ai_metadata", "TEXT")])
+        _ensure_columns("quizzes", [("ai_metadata", "TEXT")])
+        _ensure_columns("travel_guides", [("ai_metadata", "TEXT")])
+        _ensure_columns("travel_events", [("ai_metadata", "TEXT")])
+        _ensure_columns("audit_logs", [("user_agent", "VARCHAR(300)")])
+
         inspector = inspect(engine)
         if not inspector.has_table("destinations"):
             logger.info("Table 'destinations' does not exist yet; create_all will create it.")
