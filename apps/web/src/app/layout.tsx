@@ -12,16 +12,19 @@ import { PageTransition } from "@/components/layout/PageTransition";
 
 const inter = Inter({ subsets: ["latin"] });
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://blog.camtech.cam";
+
 export const metadata: Metadata = {
   title: "Daily Discovery | Cambodia & World News, Visual Explanations & Tools",
   description: "A modern discovery, news, and utility platform providing verified Cambodia and international news, visual explanations, quizzes, and everyday tools.",
-  metadataBase: new URL("http://localhost:3000"),
+  metadataBase: new URL(siteUrl),
   openGraph: {
     title: "Daily Discovery",
     description: "Verified news, visual science discoveries, daily quizzes, and functional tools.",
     siteName: "Daily Discovery",
     locale: "en_US",
     type: "website",
+    url: siteUrl,
   }
 };
 
@@ -33,6 +36,23 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "name": "Daily Discovery",
+              "alternateName": "CamTech Blog",
+              "url": siteUrl,
+              "potentialAction": {
+                "@type": "SearchAction",
+                "target": `${siteUrl}/search?q={search_term_string}`,
+                "query-input": "required name=search_term_string"
+              }
+            })
+          }}
+        />
         {process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID && process.env.NEXT_PUBLIC_ADSENSE_ENABLED === "true" && (
           <Script
             async

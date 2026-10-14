@@ -5,6 +5,8 @@ from app.models.article import Article
 from app.models.discovery import Discovery
 from app.models.quiz import Quiz
 from app.models.tool import Tool
+from app.models.location import Destination
+from app.models.place import Place
 
 class SearchService:
     @staticmethod
@@ -123,6 +125,58 @@ class SearchService:
                     "category": t.category,
                     "country": "GLOBAL",
                     "image_url": None,
+                    "published_at": None
+                })
+
+        # 5. Search Travel Destinations (25 Provinces & Hubs)
+        if not entity_type or entity_type.upper() in ["DESTINATION", "TRAVEL", "PROVINCE"]:
+            destinations = db.query(Destination).filter(
+                Destination.status == "ACTIVE",
+                or_(
+                    Destination.name.ilike(search_pattern),
+                    Destination.name_km.ilike(search_pattern),
+                    Destination.overview.ilike(search_pattern),
+                    Destination.symbol_name.ilike(search_pattern)
+                )
+            ).limit(limit).all()
+            for dest in destinations:
+                results.append({
+                    "id": dest.id,
+                    "type": "DESTINATION",
+                    "title": dest.name,
+                    "title_km": dest.name_km,
+                    "summary": dest.overview[:180] + "..." if len(dest.overview or "") > 180 else (dest.overview or ""),
+                    "slug": dest.slug,
+                    "url": f"/travel/{dest.slug}",
+                    "category": "Province Hub",
+                    "country": "KH",
+                    "image_url": dest.hero_image_url,
+                    "published_at": None
+                })
+
+        # 6. Search Travel Places (Attractions, Temples, Waterfalls, Food, Hotels)
+        if not entity_type or entity_type.upper() in ["PLACE", "ATTRACTION", "TRAVEL", "TEMPLE"]:
+            places = db.query(Place).filter(
+                Place.status == "ACTIVE",
+                or_(
+                    Place.name.ilike(search_pattern),
+                    Place.local_name.ilike(search_pattern),
+                    Place.description.ilike(search_pattern),
+                    Place.address.ilike(search_pattern)
+                )
+            ).limit(limit).all()
+            for p in places:
+                results.append({
+                    "id": p.id,
+                    "type": "PLACE",
+                    "title": p.name,
+                    "title_km": p.local_name,
+                    "summary": p.description[:180] + "..." if len(p.description or "") > 180 else (p.description or ""),
+                    "slug": p.slug,
+                    "url": f"/travel/place/{p.slug}",
+                    "category": p.place_type,
+                    "country": "KH",
+                    "image_url": p.hero_image_url,
                     "published_at": None
                 })
 

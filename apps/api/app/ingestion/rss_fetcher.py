@@ -24,8 +24,8 @@ async def fetch_rss_feed(feed_url: str, timeout_seconds: int = 12) -> List[Dict[
         raise CircuitBreakerOpenException(f"Circuit breaker 'rss_fetcher' is OPEN. External feed requests paused.")
 
     headers = {
-        "User-Agent": "DailyDiscoveryBot/1.0 (+https://dailydiscovery.com; news-verification)",
-        "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 (Compatible; CamTechBot/2.0; +https://blog.camtech.cam)",
+        "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.9, */*;q=0.8"
     }
 
     try:

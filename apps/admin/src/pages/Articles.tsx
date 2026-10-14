@@ -7,7 +7,8 @@ import {
   RefreshCw,
   X,
   Sparkles,
-  FileText
+  FileText,
+  Check
 } from 'lucide-react';
 import { api } from '../lib/api';
 import type { ApiArticle } from '../lib/api';
@@ -36,7 +37,8 @@ export default function Articles() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      params.set('limit', '50');
+      params.set('limit', '100');
+      params.set('status', 'ALL');
       if (countryFilter !== 'ALL') {
         params.set('country', countryFilter);
       }
@@ -110,6 +112,17 @@ export default function Articles() {
     }
   };
 
+  const handlePublish = async (id: string, title: string) => {
+    try {
+      await api.post(`/articles/${id}/publish`);
+      toastSuccess(`Published "${title}"`, 'Live on Website');
+      await fetchArticles();
+    } catch (err: any) {
+      console.error('Failed to publish article:', err);
+      toastError(err.response?.data?.detail || 'Failed to publish article.');
+    }
+  };
+
   const handleDelete = async (id: string, title: string) => {
     if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
     try {
@@ -123,7 +136,8 @@ export default function Articles() {
   };
 
   const filtered = articles.filter((art) => {
-    if (filterTab !== 'All' && art.status !== filterTab) return false;
+    if (filterTab === 'PUBLISHED' && art.status !== 'PUBLISHED') return false;
+    if (filterTab === 'DRAFT' && art.status !== 'DRAFT' && art.status !== 'AI_DRAFT') return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const matchTitle = art.title.toLowerCase().includes(q);
@@ -140,7 +154,7 @@ export default function Articles() {
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">Articles</h1>
-            <span className="badge-pill badge-zinc font-mono">{totalCount} stories</span>
+            <span className="badge-pill badge-zinc font-mono">{articles.length} stories</span>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
             Manage editorial coverage, regional reporting, and publication workflows.
@@ -177,19 +191,26 @@ export default function Articles() {
       <div className="flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center p-3 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
         {/* Status Filter Tabs */}
         <div className="flex items-center p-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] shrink-0 overflow-x-auto">
-          {(['All', 'PUBLISHED', 'DRAFT'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setFilterTab(tab)}
-              className={`px-3 py-1.5 rounded-md transition-all whitespace-nowrap font-medium ${
-                filterTab === tab
-                  ? 'bg-zinc-800 text-zinc-100 shadow-sm'
-                  : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              {tab === 'All' ? `All (${totalCount})` : tab === 'PUBLISHED' ? 'Published' : 'Drafts'}
-            </button>
-          ))}
+          {(['All', 'PUBLISHED', 'DRAFT'] as const).map((tab) => {
+            const count = tab === 'All'
+              ? articles.length
+              : tab === 'PUBLISHED'
+                ? articles.filter(a => a.status === 'PUBLISHED').length
+                : articles.filter(a => a.status === 'DRAFT' || a.status === 'AI_DRAFT').length;
+            return (
+              <button
+                key={tab}
+                onClick={() => setFilterTab(tab)}
+                className={`px-3 py-1.5 rounded-md transition-all whitespace-nowrap font-medium ${
+                  filterTab === tab
+                    ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                {tab === 'All' ? `All (${count})` : tab === 'PUBLISHED' ? `Published (${count})` : `Drafts (${count})`}
+              </button>
+            );
+          })}
         </div>
 
         {/* Search Bar & Country Filter */}
@@ -288,10 +309,17 @@ export default function Articles() {
                       </span>
                     </td>
                     <td className="py-3.5 px-4">
-                      <span className="badge-pill badge-emerald">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        <span>{article.status}</span>
-                      </span>
+                      {article.status === 'PUBLISHED' ? (
+                        <span className="badge-pill badge-emerald">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          <span>PUBLISHED</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                          <span>{article.status}</span>
+                        </span>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 text-zinc-400 font-mono text-[11px] truncate max-w-[150px]">
                       {article.primary_source_url ? (
@@ -310,7 +338,16 @@ export default function Articles() {
                       {(article.views_count || 0).toLocaleString()}
                     </td>
                     <td className="py-3.5 px-5 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {article.status !== 'PUBLISHED' && (
+                          <button
+                            onClick={() => handlePublish(article.id, article.title)}
+                            className="p-1.5 text-emerald-400 hover:text-emerald-300 rounded-md hover:bg-emerald-500/15 transition-colors border border-emerald-500/20"
+                            title="Approve & Publish live to website"
+                          >
+                            <Check size={13} />
+                          </button>
+                        )}
                         <a
                           href={`https://blog.camtech.cam/${article.country === 'KH' ? 'cambodia' : 'world'}/news/${article.slug}`}
                           target="_blank"

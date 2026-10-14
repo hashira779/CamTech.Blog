@@ -486,7 +486,7 @@ class AITourismEngine:
         ])
         return list(dict.fromkeys(preferred))
 
-    async def discover_places_for_province(self, province_slug: str) -> dict:
+    async def discover_places_for_province(self, province_slug: str, auto_save: bool = False) -> dict:
         """Use Gemini AI to discover tourist places for a single province."""
         db = SessionLocal()
         try:
@@ -587,10 +587,24 @@ Return a JSON array of objects. Each object must have these keys:
             if not response_text:
                 logger.info(f"External AI unavailable or unconfigured, using curated heritage database for {dest_name}...")
                 curated_places = self._get_curated_fallback_places(dest_slug, dest_name, dest_id, default_hero, existing_names_set)
+                
+                saved_to_db = 0
+                if auto_save:
+                    for p in curated_places:
+                        if not p.get("is_duplicate"):
+                            try:
+                                save_res = await self.save_approved_place(p)
+                                if save_res.get("status") == "success":
+                                    saved_to_db += 1
+                                    p["saved_to_db"] = True
+                            except Exception as s_err:
+                                logger.warning(f"Auto-save failed for curated {p.get('name')}: {s_err}")
+
                 return {
                     "province": dest_name,
                     "province_slug": dest_slug,
                     "discovered": len(curated_places),
+                    "saved_to_db": saved_to_db,
                     "places_data": curated_places,
                     "source": "curated_heritage"
                 }
@@ -620,10 +634,23 @@ Return a JSON array of objects. Each object must have these keys:
                 if not places_data:
                     logger.warning(f"Failed to parse JSON from AI response, using curated fallback: {response_text[:100]}...")
                     curated_places = self._get_curated_fallback_places(dest_slug, dest_name, dest_id, default_hero, existing_names_set)
+                    saved_to_db = 0
+                    if auto_save:
+                        for p in curated_places:
+                            if not p.get("is_duplicate"):
+                                try:
+                                    save_res = await self.save_approved_place(p)
+                                    if save_res.get("status") == "success":
+                                        saved_to_db += 1
+                                        p["saved_to_db"] = True
+                                except Exception as s_err:
+                                    logger.warning(f"Auto-save failed for curated {p.get('name')}: {s_err}")
+
                     return {
                         "province": dest_name,
                         "province_slug": dest_slug,
                         "discovered": len(curated_places),
+                        "saved_to_db": saved_to_db,
                         "places_data": curated_places,
                         "source": "curated_heritage"
                     }
@@ -647,11 +674,23 @@ Return a JSON array of objects. Each object must have these keys:
             valid_places = [p for p in places_data if p.get("name", "").strip()]
             processed_places = await asyncio.gather(*[_enrich_candidate(p) for p in valid_places])
 
-            # Return raw data for approval immediately (typically under 3-5 seconds)
+            saved_to_db = 0
+            if auto_save:
+                for p in processed_places:
+                    if not p.get("is_duplicate"):
+                        try:
+                            save_res = await self.save_approved_place(p)
+                            if save_res.get("status") == "success":
+                                saved_to_db += 1
+                                p["saved_to_db"] = True
+                        except Exception as s_err:
+                            logger.warning(f"Auto-save failed for {p.get('name')}: {s_err}")
+
             return {
                 "province": dest_name,
                 "province_slug": dest_slug,
                 "discovered": len(processed_places),
+                "saved_to_db": saved_to_db,
                 "places_data": processed_places
             }
 
@@ -677,22 +716,14 @@ Return a JSON array of objects. Each object must have these keys:
     async def run_full_scan(self) -> dict:
         """
         Run a full scan across ALL 25 provinces.
-        This is the main entry point for the weekly cron job.
+        This is the main entry point for the weekly cron job and admin trigger.
+        Discovers AND automatically saves places directly to the database dynamically.
         """
         db = SessionLocal()
         try:
-            # Fast-fail validation: ensure API key exists before scanning 25 provinces
-            self._get_gemini_client(db)
             self._ensure_cambodia_destinations(db)
-        except ValueError as e:
-            db.close()
-            return {
-                "status": "failed",
-                "error": str(e),
-                "message": "Please configure the Google Gemini API Key in Settings first."
-            }
         finally:
-            if db.is_active: # Only close if we didn't already
+            if db.is_active:
                 db.close()
 
         results = []
@@ -701,12 +732,12 @@ Return a JSON array of objects. Each object must have these keys:
 
         for prov in CAMBODIA_PROVINCES:
             try:
-                logger.info(f"🔍 Scanning {prov['name']}...")
-                result = await self.discover_places_for_province(prov["slug"])
+                logger.info(f"🔍 Scanning {prov['name']} with auto-save...")
+                result = await self.discover_places_for_province(prov["slug"], auto_save=True)
                 results.append(result)
-                discovered_count = result.get("discovered", 0)
-                total_inserted += discovered_count
-                logger.info(f"✅ {prov['name']}: {discovered_count} new places discovered.")
+                saved_count = result.get("saved_to_db", 0)
+                total_inserted += saved_count
+                logger.info(f"✅ {prov['name']}: {saved_count} new places saved to database.")
             except Exception as e:
                 error_msg = f"❌ {prov['name']}: {str(e)}"
                 errors.append(error_msg)
@@ -1018,6 +1049,24 @@ Return a JSON object with these keys ONLY:
     async def save_approved_place(self, place_dict: dict) -> dict:
         name = place_dict.get("name", "").strip()
         dest_id = place_dict.get("destination_id")
+
+        # If destination_id is not directly provided, dynamically resolve from slug or province name
+        if not dest_id:
+            slug_candidate = place_dict.get("destination_slug") or place_dict.get("province_slug")
+            province_name = place_dict.get("province")
+            db_res = SessionLocal()
+            try:
+                if slug_candidate:
+                    dest = db_res.query(Destination).filter(Destination.slug == slug_candidate).first()
+                    if dest:
+                        dest_id = dest.id
+                if not dest_id and province_name:
+                    dest = db_res.query(Destination).filter(Destination.name.ilike(f"%{province_name.strip()}%")).first()
+                    if dest:
+                        dest_id = dest.id
+            finally:
+                db_res.close()
+
         if not name or not dest_id:
             raise ValueError("Missing name or destination_id")
 
@@ -1095,6 +1144,33 @@ Return a JSON object with these keys ONLY:
             while db.query(Place).filter(Place.slug == slug).first():
                 slug = f"{base_slug}-{uuid.uuid4().hex[:6]}"
 
+            # Clean & sanitize coordinate and numeric data
+            raw_lat = place_dict.get("latitude")
+            raw_lng = place_dict.get("longitude")
+            try:
+                lat = float(raw_lat) if raw_lat is not None and str(raw_lat).strip() != "" else None
+            except (ValueError, TypeError):
+                lat = None
+
+            try:
+                lng = float(raw_lng) if raw_lng is not None and str(raw_lng).strip() != "" else None
+            except (ValueError, TypeError):
+                lng = None
+
+            raw_rating = place_dict.get("rating", 4.5)
+            try:
+                rating = float(raw_rating) if raw_rating is not None and str(raw_rating).strip() != "" else 4.5
+            except (ValueError, TypeError):
+                rating = 4.5
+
+            raw_tags = place_dict.get("tags", [])
+            if isinstance(raw_tags, str):
+                try:
+                    raw_tags = json.loads(raw_tags)
+                except Exception:
+                    raw_tags = [t.strip() for t in raw_tags.split(",") if t.strip()]
+            tags_json = json.dumps(raw_tags if isinstance(raw_tags, list) else [])
+
             new_place = Place(
                 id=uuid.uuid4().hex,
                 destination_id=dest_id,
@@ -1105,16 +1181,16 @@ Return a JSON object with these keys ONLY:
                 description=place_dict.get("description", ""),
                 description_km=place_dict.get("description_km"),
                 address=place_dict.get("address"),
-                latitude=place_dict.get("latitude"),
-                longitude=place_dict.get("longitude"),
+                latitude=lat,
+                longitude=lng,
                 opening_hours=place_dict.get("opening_hours"),
                 price_level=place_dict.get("price_level", "$$"),
                 phone=place_dict.get("phone"),
                 website=place_dict.get("website"),
                 hero_image_url=hero_url,
                 gallery_json=gallery_json,
-                tags_json=json.dumps(place_dict.get("tags", [])),
-                rating=place_dict.get("rating", 4.5),
+                tags_json=tags_json,
+                rating=rating,
                 verification_status="AI_GENERATED",
                 status="ACTIVE",
                 is_featured=False

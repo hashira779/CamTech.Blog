@@ -49,7 +49,7 @@ def get_article(slug_or_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Article not found")
     
     # Increment view counter on retrieval
-    article.views_count += 1
+    article.views_count = (article.views_count or 0) + 1
     db.commit()
     return article
 

@@ -26,6 +26,18 @@ class SecurityHeadersAndCorrelationMiddleware(BaseHTTPMiddleware):
 
         path = request.url.path
 
+        # 1.5 Payload Size Protection (Reject giant payloads to prevent memory exhaustion)
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                if int(content_length) > 10 * 1024 * 1024:  # 10MB limit
+                    return JSONResponse(
+                        status_code=413,
+                        content={"error": "Payload Too Large", "message": "Request body exceeds maximum allowed size (10MB)."}
+                    )
+            except (ValueError, TypeError):
+                pass
+
         # 2. Skip rate-limiting for health checks
         if path in ("/health", "/ready", "/live"):
             response = await call_next(request)
@@ -44,6 +56,8 @@ class SecurityHeadersAndCorrelationMiddleware(BaseHTTPMiddleware):
         tier = "DEFAULT"
         if "/api/v1/auth/login" in path:
             tier = "LOGIN"
+        elif "/api/v1/travel/suggestions" in path:
+            tier = "SUGGESTION"
         elif "/api/v1/search" in path:
             tier = "SEARCH"
         elif "/api/v1/tools/execute" in path:
@@ -56,8 +70,8 @@ class SecurityHeadersAndCorrelationMiddleware(BaseHTTPMiddleware):
         allowed, remaining, retry_after = rate_limiter.is_allowed(bucket_key, max_req, window_sec)
 
         if not allowed:
-            # Record security incident
-            self._log_security_event(
+            # Record security incident with rate-limited DB write (prevents DoS amplification)
+            self._log_security_event_throttled(
                 event_type="RATE_LIMIT_EXCEEDED",
                 severity="WARNING",
                 source_ip=client_ip,
@@ -128,6 +142,21 @@ class SecurityHeadersAndCorrelationMiddleware(BaseHTTPMiddleware):
         response.headers["X-RateLimit-Remaining"] = str(remaining)
 
         return response
+
+    _ip_log_throttle: dict = {}
+
+    def _log_security_event_throttled(self, **kwargs):
+        """Prevents DoS attack amplification by throttling database write transactions during floods."""
+        source_ip = kwargs.get("source_ip", "unknown")
+        now = time.time()
+        last_logged = self._ip_log_throttle.get(source_ip, 0)
+        if now - last_logged < 60.0:  # Only write to DB once every 60s per attacking IP
+            return
+        self._ip_log_throttle[source_ip] = now
+        # Housekeeping: prune old throttle keys
+        if len(self._ip_log_throttle) > 5000:
+            self._ip_log_throttle = {k: v for k, v in self._ip_log_throttle.items() if now - v < 120.0}
+        self._log_security_event(**kwargs)
 
     def _log_security_event(self, **kwargs):
         try:

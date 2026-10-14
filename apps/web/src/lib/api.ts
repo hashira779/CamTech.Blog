@@ -24,12 +24,24 @@ import {
 } from "@/types";
 
 export const API_BASE = typeof window === "undefined"
-  ? (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://api:8000/api/v1")
+  ? (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1")
   : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1");
 
-async function fetchWithFallback<T>(url: string, fallbackData: T, revalidate = 60): Promise<T> {
+function getTimeoutSignal(ms = 4000): AbortSignal {
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    return AbortSignal.timeout(ms);
+  }
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+}
+
+async function fetchWithFallback<T>(url: string, fallbackData: T, revalidate = 60, timeoutMs = 4000): Promise<T> {
   try {
-    const res = await fetch(url, { next: { revalidate } });
+    const res = await fetch(url, {
+      next: { revalidate },
+      signal: getTimeoutSignal(timeoutMs),
+    });
     if (!res.ok) {
       console.warn(`API request to ${url} returned status ${res.status}, using fallback.`);
       return fallbackData;
@@ -63,7 +75,7 @@ export async function getArticles(params: {
 
 export async function getAuthorBySlug(slug: string): Promise<Author | null> {
   try {
-    const res = await fetch(`${API_BASE}/authors/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/authors/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -78,7 +90,7 @@ export async function getSources(): Promise<Source[]> {
 
 export async function getSourceBySlug(slug: string): Promise<Source | null> {
   try {
-    const res = await fetch(`${API_BASE}/sources/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/sources/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -88,7 +100,7 @@ export async function getSourceBySlug(slug: string): Promise<Source | null> {
 
 export async function getArticleBySlug(slug: string): Promise<Article | null> {
   try {
-    const res = await fetch(`${API_BASE}/articles/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/articles/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -113,7 +125,7 @@ export async function getDiscoveries(): Promise<{ items: Discovery[]; total: num
 
 export async function getDiscoveryBySlug(slug: string): Promise<Discovery | null> {
   try {
-    const res = await fetch(`${API_BASE}/discoveries/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/discoveries/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -123,7 +135,7 @@ export async function getDiscoveryBySlug(slug: string): Promise<Discovery | null
 
 export async function getDailyQuiz(): Promise<Quiz | null> {
   try {
-    const res = await fetch(`${API_BASE}/quizzes/daily`, { next: { revalidate: 300 } });
+    const res = await fetch(`${API_BASE}/quizzes/daily`, { next: { revalidate: 300 }, signal: getTimeoutSignal(4000) });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -138,7 +150,7 @@ export async function getTools(): Promise<Tool[]> {
 
 export async function getToolBySlug(slug: string): Promise<Tool | null> {
   try {
-    const res = await fetch(`${API_BASE}/tools/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/tools/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -148,7 +160,7 @@ export async function getToolBySlug(slug: string): Promise<Tool | null> {
 
 export async function searchGlobal(q: string): Promise<{ query: string; total: number; results: SearchResultItem[] }> {
   try {
-    const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`);
+    const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`, { signal: getTimeoutSignal(4000) });
     if (!res.ok) return { query: q, total: 0, results: [] };
     return await res.json();
   } catch (err) {
@@ -165,7 +177,7 @@ export async function getDestinations(featuredOnly = false): Promise<Destination
 
 export async function getDestinationBySlug(slug: string): Promise<Destination | null> {
   try {
-    const res = await fetch(`${API_BASE}/travel/destinations/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/travel/destinations/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -195,7 +207,7 @@ export async function getPlaces(params: {
 
 export async function getPlaceBySlug(slug: string): Promise<Place | null> {
   try {
-    const res = await fetch(`${API_BASE}/travel/places/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/travel/places/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -217,7 +229,7 @@ export async function getTrips(params: {
 
 export async function getTripBySlug(slug: string): Promise<Trip | null> {
   try {
-    const res = await fetch(`${API_BASE}/travel/trips/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/travel/trips/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -237,6 +249,7 @@ export async function generateTripPlan(payload: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      signal: getTimeoutSignal(8000),
     });
     if (!res.ok) return null;
     return await res.json();
@@ -252,6 +265,7 @@ export async function submitPlaceSuggestion(data: PlaceSuggestionCreate): Promis
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
+      signal: getTimeoutSignal(6000),
     });
     if (!res.ok) return { success: false, message: "Submission rejected" };
     return { success: true };
@@ -295,7 +309,7 @@ export async function getTransportOperators(type?: string): Promise<TransportOpe
 
 export async function getTransportOperator(slug: string): Promise<TransportOperator | null> {
   try {
-    const res = await fetch(`${API_BASE}/transport/operators/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/transport/operators/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -328,7 +342,7 @@ export async function searchNearby(params: {
     if (params.type) query.set("type", params.type);
     if (params.limit) query.set("limit", params.limit.toString());
 
-    const res = await fetch(`${API_BASE}/nearby?${query.toString()}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/nearby?${query.toString()}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
@@ -345,7 +359,7 @@ export async function getTravelGuides(destination?: string): Promise<TravelGuide
 
 export async function getTravelGuide(slug: string): Promise<TravelGuide | null> {
   try {
-    const res = await fetch(`${API_BASE}/travel-guides/${slug}`, { next: { revalidate: 60 } });
+    const res = await fetch(`${API_BASE}/travel-guides/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {

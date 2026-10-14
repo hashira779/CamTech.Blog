@@ -24,7 +24,7 @@ class ToolService:
     def record_tool_usage(db: Session, slug: str):
         tool = db.query(Tool).filter(Tool.slug == slug).first()
         if tool:
-            tool.usage_count += 1
+            tool.usage_count = (tool.usage_count or 0) + 1
             db.commit()
 
     @staticmethod

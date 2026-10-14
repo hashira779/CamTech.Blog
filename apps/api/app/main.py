@@ -57,15 +57,15 @@ async def lifespan(app: FastAPI):
                 logger.error(f"Weekly tourism scan failed: {e}")
 
         async def daily_news_generation():
-            """Run AI News Generation every day at 07:00 AM."""
+            """Run AI News Generation across all categories every day at 07:00 AM."""
             try:
                 from app.services.ai_news_service import ai_news_service
-                logger.info("Daily AI News generation started...")
-                result = await ai_news_service.generate_and_publish_news(
-                    category_id='ca82761b-c4b3-43a0-82fd-75188f694e2e',
-                    author_id='system'
+                logger.info("Daily multi-category AI News generation started...")
+                result = await ai_news_service.generate_all_categories()
+                logger.info(
+                    f"Daily news completed: {result.get('total_saved', 0)} articles saved to AI_DRAFT, "
+                    f"{result.get('total_skipped', 0)} duplicates skipped across {result.get('categories_processed', 0)} categories."
                 )
-                logger.info(f"Daily news generated: {result.get('title', 'Unknown')}")
             except Exception as e:
                 logger.error(f"Daily news generation failed: {e}")
 
@@ -111,7 +111,10 @@ app.add_middleware(
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=[
+        "Authorization", "Content-Type", "Accept", "Origin", "User-Agent",
+        "X-Requested-With", "X-Request-ID", "X-Correlation-ID"
+    ],
     expose_headers=["X-Request-ID", "X-Correlation-ID", "X-Response-Time", "X-RateLimit-Limit", "X-RateLimit-Remaining"]
 )
 

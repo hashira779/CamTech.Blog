@@ -1,98 +1,416 @@
+"""
+AI News Service — Multi-category automated news generation with Google Search grounding.
+Generates 2-3 articles per category per run, uses deduplication, and sends to AI_DRAFT
+status for editorial review before publishing.
+"""
 import json
 import uuid
 import re
+import logging
+from datetime import datetime, timezone
+from typing import Optional, List
+
 try:
     from google import genai
     from google.genai import types
 except ImportError:
     genai = None
     types = None
+
 from app.common.config import settings
 from app.common.database import SessionLocal
 from app.models.article import Article
+from app.models.category import Category
+from app.models.author import Author
 from app.models.audit import SiteSetting
+from app.deduplication.detector import detect_duplicates
+
+logger = logging.getLogger(__name__)
+
+# Category definitions with tailored prompts for high-quality, diverse content
+CATEGORY_PROMPTS = {
+    "technology": {
+        "scope": "WORLD",
+        "country": "WORLD",
+        "prompt": (
+            "You are a senior technology journalist. Search for today's most important global "
+            "technology news — AI breakthroughs, semiconductor developments, cybersecurity events, "
+            "major product launches, or regulatory changes affecting tech companies. "
+            "Write {count} distinct, professional news articles about DIFFERENT topics."
+        ),
+        "articles_per_run": 3,
+    },
+    "cambodia": {
+        "scope": "CAMBODIA",
+        "country": "KH",
+        "prompt": (
+            "You are an expert Cambodia affairs journalist. Search for today's most important news "
+            "from Cambodia — government policy, economic development, infrastructure projects, "
+            "education, tourism, cultural events, or social developments. "
+            "Write {count} distinct, professional news articles about DIFFERENT topics happening in Cambodia."
+        ),
+        "articles_per_run": 3,
+    },
+    "world": {
+        "scope": "WORLD",
+        "country": "WORLD",
+        "prompt": (
+            "You are a world news correspondent. Search for today's most significant international "
+            "news — geopolitics, diplomacy, conflicts, humanitarian developments, climate events, "
+            "or major global economic shifts. Exclude technology topics. "
+            "Write {count} distinct, professional news articles about DIFFERENT world events."
+        ),
+        "articles_per_run": 2,
+    },
+    "business": {
+        "scope": "BOTH",
+        "country": "WORLD",
+        "prompt": (
+            "You are a financial journalist. Search for today's most important business and economic "
+            "news — stock markets, corporate earnings, trade deals, startup funding, economic indicators, "
+            "central bank decisions, or major mergers and acquisitions. "
+            "Write {count} distinct, professional business news articles about DIFFERENT topics."
+        ),
+        "articles_per_run": 2,
+    },
+    "science": {
+        "scope": "WORLD",
+        "country": "WORLD",
+        "prompt": (
+            "You are a science correspondent. Search for today's most fascinating scientific developments — "
+            "space exploration, medical breakthroughs, climate research, physics discoveries, biology, "
+            "or environmental science. "
+            "Write {count} distinct, professional science news articles about DIFFERENT discoveries."
+        ),
+        "articles_per_run": 2,
+    },
+    "travel": {
+        "scope": "BOTH",
+        "country": "WORLD",
+        "prompt": (
+            "You are a travel and tourism journalist focused on Southeast Asia and Cambodia. "
+            "Search for today's travel industry news — new flight routes, hotel openings, tourism statistics, "
+            "travel advisories, festival announcements, or destination developments in Cambodia and the region. "
+            "Write {count} distinct, professional travel news articles about DIFFERENT topics."
+        ),
+        "articles_per_run": 2,
+    },
+}
+
 
 class AINewsService:
     def __init__(self):
         pass
 
-    async def generate_and_publish_news(self, category_id: str, author_id: str) -> dict:
-        db = SessionLocal()
-        # 1. Fetch API Key from DB or fallback to env
+    def _get_gemini_client(self, db):
+        """Get Gemini client using API key from DB settings or env fallback."""
+        if genai is None:
+            return None
         api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'GEMINI_API_KEY').first()
         api_key = api_key_setting.value_json if api_key_setting else settings.AI_API_KEY
-        
         if not api_key:
-            raise ValueError("Google AI API Key is not configured in Settings or Env. Cannot generate news.")
-        
-        client = genai.Client(api_key=api_key)
-        model_name = settings.AI_MODEL_NAME or 'gemini-1.5-flash'
-        
-        prompt = """
-        You are an expert technology journalist for 'CamTech Blog'. 
-        Search for today's top global technology news or breakthrough.
-        Write a professional, engaging news article about it.
-        Return the result strictly as a JSON object with the following keys:
-        - title: The headline of the article
-        - summary: A short 1-2 sentence summary
-        - content: The full article body in Markdown format
-        - source_url: A relevant source URL if available, or 'https://news.google.com'
-        """
-        
-        # We use Google Search grounding if supported, but here we just ask the model.
-        # Since it's Gemini 1.5, it can generate great tech news.
-        response = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.7,
-                response_mime_type="application/json"
-            )
+            return None
+        return genai.Client(api_key=api_key)
+
+    def _get_fallback_models(self) -> list[str]:
+        """Prioritized list of real Google Gemini models."""
+        preferred = []
+        if settings.AI_MODEL_NAME and not any(fake in settings.AI_MODEL_NAME for fake in ["3.8", "3.5", "3.0", "3.1"]):
+            preferred.append(settings.AI_MODEL_NAME)
+        preferred.extend([
+            'gemini-2.5-flash',
+            'gemini-2.0-flash',
+            'gemini-1.5-flash',
+            'gemini-1.5-pro'
+        ])
+        return list(dict.fromkeys(preferred))
+
+    def _resolve_category_id(self, db, category_slug: str) -> Optional[str]:
+        """Find or create a category by slug."""
+        cat = db.query(Category).filter(Category.slug == category_slug).first()
+        if cat:
+            return cat.id
+        # Auto-create category if missing
+        cat_info = CATEGORY_PROMPTS.get(category_slug, {})
+        new_cat = Category(
+            name=category_slug.title(),
+            slug=category_slug,
+            scope=cat_info.get("scope", "BOTH"),
+            description=f"Auto-created category for {category_slug} news."
         )
-        
-        try:
-            data = json.loads(response.text)
-        except json.JSONDecodeError:
-            # Fallback regex extraction if model wraps in ```json
-            match = re.search(r'```(?:json)?\n(.*?)\n```', response.text, re.DOTALL)
-            if match:
-                data = json.loads(match.group(1))
-            else:
-                raise ValueError("Failed to parse JSON from AI response")
+        db.add(new_cat)
+        db.commit()
+        db.refresh(new_cat)
+        return new_cat.id
 
-        # Generate unique slug
-        base_slug = re.sub(r'[^a-z0-9]+', '-', data['title'].lower()).strip('-')
-        slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
+    def _resolve_system_author(self, db) -> str:
+        """Find or create the AI system author."""
+        author = db.query(Author).filter(Author.slug == "ai-editorial-desk").first()
+        if author:
+            return author.id
+        new_author = Author(
+            name="AI Editorial Desk",
+            slug="ai-editorial-desk",
+            bio="Automated news generation powered by Google Gemini AI with Google Search grounding for factual accuracy.",
+            role="AI Correspondent",
+            expertise="Multi-domain automated journalism",
+            is_active=True
+        )
+        db.add(new_author)
+        db.commit()
+        db.refresh(new_author)
+        return new_author.id
 
-        # Save to database
+    def _get_existing_titles(self, db, hours_back: int = 48) -> list[dict]:
+        """Get recent article titles for deduplication."""
+        from datetime import timedelta
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+        recent = db.query(Article.id, Article.title, Article.primary_source_url).filter(
+            Article.created_at >= cutoff
+        ).all()
+        return [{"id": r.id, "title": r.title, "url": r.primary_source_url or ""} for r in recent]
+
+    async def generate_news_for_category(
+        self,
+        category_slug: str,
+        override_author_id: Optional[str] = None,
+        override_category_id: Optional[str] = None,
+    ) -> dict:
+        """
+        Generate multiple news articles for a specific category using Gemini AI
+        with Google Search grounding for real-time factual accuracy.
+        """
+        cat_config = CATEGORY_PROMPTS.get(category_slug)
+        if not cat_config:
+            return {"status": "failed", "error": f"Unknown category: {category_slug}"}
+
+        db = SessionLocal()
         try:
-            new_article = Article(
-                title=data['title'],
-                slug=slug,
-                summary=data['summary'],
-                content=data['content'],
-                country='WORLD',
-                primary_source_url=data.get('source_url', 'https://camtech.cam'),
-                category_id=category_id,
-                author_id=author_id,
-                status='PUBLISHED',
-                language='en',
-                source_attribution_text='Generated by Google AI'
-            )
-            db.add(new_article)
-            db.commit()
-            db.refresh(new_article)
-            
-            return {
-                "id": new_article.id,
-                "title": new_article.title,
-                "slug": new_article.slug,
-                "status": "success"
-            }
-        except Exception as e:
-            db.rollback()
-            raise e
+            client = self._get_gemini_client(db)
+            if not client:
+                return {"status": "failed", "error": "Google AI API Key is not configured. Cannot generate news."}
+
+            category_id = override_category_id or self._resolve_category_id(db, category_slug)
+            author_id = override_author_id or self._resolve_system_author(db)
+            existing_titles = self._get_existing_titles(db)
+
         finally:
             db.close()
+
+        articles_count = cat_config["articles_per_run"]
+        country = cat_config["country"]
+        base_prompt = cat_config["prompt"].format(count=articles_count)
+
+        prompt = f"""{base_prompt}
+
+CRITICAL RULES:
+1. Each article MUST be about a DIFFERENT topic — no duplicates.
+2. Content must be factual and based on real, verifiable events from today or this week.
+3. Write in professional journalistic style with proper attribution.
+4. Each article should be 400-600 words with clear structure.
+
+Return a JSON array of {articles_count} article objects. Each object must have:
+- title: Compelling headline (50-100 chars)
+- summary: 1-2 sentence summary (100-200 chars)
+- content: Full article body in Markdown (400-600 words, with ## subheadings)
+- source_url: A relevant source URL for attribution
+- source_name: Name of the source publication
+- tags: Array of 3-5 relevant tags
+- seo_title: SEO-optimized title (max 60 chars)
+- seo_description: SEO meta description (max 155 chars)
+"""
+        import asyncio
+
+        response_text = None
+        last_error = None
+        fallback_models = self._get_fallback_models()
+
+        for model_to_try in fallback_models:
+            try:
+                logger.info(f"[AINews:{category_slug}] Trying model: {model_to_try}")
+
+                # Enable Google Search grounding for Gemini 2.x models
+                tools_config = None
+                if "gemini-2.5" in model_to_try or "gemini-2.0" in model_to_try:
+                    try:
+                        tools_config = [types.Tool(google_search=types.GoogleSearch())]
+                    except Exception:
+                        tools_config = None
+
+                def _generate(m=model_to_try, tc=tools_config):
+                    return client.models.generate_content(
+                        model=m,
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            temperature=0.5,
+                            response_mime_type="application/json",
+                            tools=tc,
+                        )
+                    )
+
+                response = await asyncio.wait_for(asyncio.to_thread(_generate), timeout=20.0)
+                response_text = response.text
+                logger.info(f"[AINews:{category_slug}] Success with model: {model_to_try}")
+                break
+
+            except asyncio.TimeoutError:
+                logger.warning(f"[AINews:{category_slug}] Model {model_to_try} timed out")
+                last_error = TimeoutError(f"Model {model_to_try} timed out")
+                continue
+            except Exception as model_err:
+                last_error = model_err
+                logger.warning(f"[AINews:{category_slug}] Model {model_to_try} failed: {model_err}")
+                continue
+
+        if not response_text:
+            error_str = str(last_error) if last_error else "No AI response"
+            user_message = f"Error: {error_str}"
+            if "API key not valid" in error_str or "API_KEY_INVALID" in error_str:
+                user_message = "Your Google Gemini API Key is invalid. Please check Settings."
+            elif "RESOURCE_EXHAUSTED" in error_str or "quota" in error_str.lower():
+                user_message = "Gemini API Quota Exceeded. Please try again later."
+            return {"status": "failed", "error": user_message}
+
+        # Parse response
+        try:
+            articles_data = json.loads(response_text)
+        except json.JSONDecodeError:
+            match = re.search(r'```(?:json)?\s*(\[.*?\])\s*```', response_text, re.DOTALL)
+            if match:
+                try:
+                    articles_data = json.loads(match.group(1))
+                except Exception:
+                    pass
+            if not isinstance(articles_data, list):
+                match = re.search(r'(\[\s*\{.*?\}\s*\])', response_text, re.DOTALL)
+                if match:
+                    try:
+                        articles_data = json.loads(match.group(1))
+                    except Exception:
+                        return {"status": "failed", "error": "Failed to parse AI response JSON"}
+
+        if not isinstance(articles_data, list):
+            articles_data = [articles_data]
+
+        # Save articles with deduplication
+        saved = []
+        skipped = []
+
+        db = SessionLocal()
+        try:
+            for data in articles_data:
+                title = data.get("title", "").strip()
+                if not title:
+                    continue
+
+                # Deduplication check
+                source_url = data.get("source_url", "https://news.google.com")
+                dupes = detect_duplicates(title, source_url, existing_titles, similarity_threshold=0.55)
+                if dupes:
+                    skipped.append({"title": title, "reason": f"Duplicate of: {dupes[0]['title']}"})
+                    logger.info(f"[AINews:{category_slug}] Skipped duplicate: {title}")
+                    continue
+
+                # Generate unique slug
+                base_slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')[:80]
+                slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
+
+                new_article = Article(
+                    title=title,
+                    slug=slug,
+                    summary=data.get("summary", title),
+                    content=data.get("content", ""),
+                    country=country,
+                    primary_source_url=source_url,
+                    source_attribution_text=data.get("source_name", "AI Research via Google Search"),
+                    category_id=category_id,
+                    author_id=author_id,
+                    status="AI_DRAFT",  # Goes to editorial review, NOT directly published
+                    language="en",
+                    seo_title=data.get("seo_title"),
+                    seo_description=data.get("seo_description"),
+                    ai_draft_metadata=json.dumps({
+                        "generator": "gemini_search_grounded",
+                        "category": category_slug,
+                        "generated_at": datetime.now(timezone.utc).isoformat(),
+                        "tags": data.get("tags", []),
+                    }),
+                )
+                db.add(new_article)
+                saved.append({"title": title, "slug": slug})
+
+                # Add to existing titles for intra-batch dedup
+                existing_titles.append({"id": new_article.id, "title": title, "url": source_url})
+
+            db.commit()
+
+            return {
+                "status": "success",
+                "category": category_slug,
+                "saved": len(saved),
+                "skipped": len(skipped),
+                "articles": saved,
+                "skipped_details": skipped,
+            }
+
+        except Exception as e:
+            db.rollback()
+            logger.error(f"[AINews:{category_slug}] DB error: {e}")
+            return {"status": "failed", "error": str(e)}
+        finally:
+            db.close()
+
+    async def generate_and_publish_news(self, category_id: str, author_id: str) -> dict:
+        """
+        Legacy compatibility method. Now generates AI_DRAFT articles (not published).
+        Called by the admin UI for single-category generation.
+        """
+        db = SessionLocal()
+        try:
+            # Resolve category slug from id
+            cat = db.query(Category).filter(Category.id == category_id).first()
+            category_slug = cat.slug if cat else "technology"
+        finally:
+            db.close()
+
+        return await self.generate_news_for_category(
+            category_slug=category_slug,
+            override_author_id=author_id,
+            override_category_id=category_id,
+        )
+
+    async def generate_all_categories(self) -> dict:
+        """
+        Generate news for ALL categories. This is the main entry point for the
+        daily cron job — produces 15-20 articles across all categories.
+        """
+        results = {}
+        total_saved = 0
+        total_skipped = 0
+        errors = []
+
+        for category_slug in CATEGORY_PROMPTS:
+            try:
+                logger.info(f"📰 Generating news for category: {category_slug}")
+                result = await self.generate_news_for_category(category_slug)
+                results[category_slug] = result
+                if result.get("status") == "success":
+                    total_saved += result.get("saved", 0)
+                    total_skipped += result.get("skipped", 0)
+                else:
+                    errors.append(f"{category_slug}: {result.get('error', 'Unknown error')}")
+            except Exception as e:
+                errors.append(f"{category_slug}: {str(e)}")
+                logger.error(f"[AINews] Category {category_slug} failed: {e}")
+
+        return {
+            "status": "completed",
+            "total_saved": total_saved,
+            "total_skipped": total_skipped,
+            "categories_processed": len(results),
+            "results": results,
+            "errors": errors,
+        }
+
 
 ai_news_service = AINewsService()

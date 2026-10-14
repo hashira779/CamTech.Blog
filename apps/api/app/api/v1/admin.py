@@ -218,18 +218,31 @@ async def delete_storage_file(
 
 from app.services.ai_news_service import ai_news_service
 
+class GenerateNewsRequest(BaseModel):
+    category_slug: Optional[str] = None
+    all_categories: bool = False
+
 @router.post("/ai/generate-news")
 async def generate_ai_news(
+    req: Optional[GenerateNewsRequest] = None,
     current_user: User = Depends(require_admin)
 ):
     try:
-        # Fetch technology category id
-        # In a real app we might pass this, for now we can use a known category id or fetch it
-        result = await ai_news_service.generate_and_publish_news(
-            category_id='ca82761b-c4b3-43a0-82fd-75188f694e2e', 
-            author_id=current_user.id
-        )
-        return result
+        if req and req.all_categories:
+            result = await ai_news_service.generate_all_categories()
+            return result
+        elif req and req.category_slug:
+            result = await ai_news_service.generate_news_for_category(
+                category_slug=req.category_slug,
+                override_author_id=current_user.id
+            )
+            return result
+        else:
+            result = await ai_news_service.generate_news_for_category(
+                category_slug='technology', 
+                override_author_id=current_user.id
+            )
+            return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -269,22 +282,22 @@ async def run_tourism_full_scan(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(require_admin)
 ):
-    """Run AI Tourism Engine across ALL 25 provinces of Cambodia."""
+    """Run AI Tourism Engine across ALL 25 provinces of Cambodia with dynamic database auto-persistence."""
     try:
         background_tasks.add_task(ai_tourism_engine.run_full_scan)
-        return {"status": "started", "message": "Full tourism scan started in the background. It may take several minutes."}
+        return {"status": "started", "message": "Full tourism scan started in background. Discovered places will be auto-saved to database."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/ai/tourism-scan/{province_slug}")
 async def run_tourism_province_scan(
     province_slug: str,
+    auto_save: bool = Query(False, description="Automatically save discovered places to database"),
     current_user: User = Depends(require_admin)
 ):
     """Run AI Tourism Engine for a single province."""
     try:
-        # Now it is fast enough to run synchronously because image fetching is moved to the save endpoint
-        result = await ai_tourism_engine.discover_places_for_province(province_slug)
+        result = await ai_tourism_engine.discover_places_for_province(province_slug, auto_save=auto_save)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -457,7 +470,6 @@ def admin_migrate_database(
         return {"success": True, "message": message}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Database migration failed: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Database migration failed: {str(e)}")
 
 @router.get("/place-suggestions", response_model=List[PlaceSuggestionOut])
 def get_place_suggestions(
@@ -497,11 +509,18 @@ def approve_place_suggestion(
         
     if suggestion.suggestion_type == "NEW_PLACE":
         from app.services.travel_service import slugify
+        base_slug = slugify(suggestion.place_name) or "place"
+        slug = base_slug
+        counter = 1
+        while db.query(Place).filter(Place.slug == slug).first():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+
         new_place = Place(
             destination_id=dest.id,
             name=suggestion.place_name,
-            slug=slugify(suggestion.place_name),
-            place_type=suggestion.place_type,
+            slug=slug,
+            place_type=suggestion.place_type or "ATTRACTION",
             description=suggestion.details,
             status="ACTIVE",
             verification_status="USER_SUBMITTED"

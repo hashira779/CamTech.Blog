@@ -35,6 +35,8 @@ def get_destination(slug: str, db: Session = Depends(get_db)):
     dest = TravelService.get_destination_by_slug(db, slug)
     if not dest:
         raise HTTPException(status_code=404, detail="Destination not found")
+    dest.views_count = (dest.views_count or 0) + 1
+    db.commit()
     return dest
 
 @router.get("/places", response_model=PlaceListResponse)
@@ -63,6 +65,8 @@ def get_place(slug: str, db: Session = Depends(get_db)):
     place = TravelService.get_place_by_slug(db, slug)
     if not place:
         raise HTTPException(status_code=404, detail="Place not found")
+    place.views_count = (place.views_count or 0) + 1
+    db.commit()
     return place
 
 @router.post("/suggestions", response_model=PlaceSuggestionOut)
@@ -97,6 +101,9 @@ def generate_trip_plan(
 ):
     return TravelService.generate_trip_plan(db, req)
 
+from app.services.auth_service import require_admin
+from app.models.user import User
+
 @router.patch("/places/{place_id}/status", response_model=PlaceOut)
 def update_place_status(
     place_id: str,
@@ -104,14 +111,15 @@ def update_place_status(
     reason: Optional[str] = Query(None),
     merged_into_id: Optional[str] = Query(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
-    """Admin non-destructive status update (no direct deletes)"""
+    """Admin non-destructive status update (requires admin authentication)"""
     try:
         updated = TravelService.update_place_status(
             db,
             place_id=place_id,
             new_status=status,
-            actor="Admin",
+            actor=current_user.email if hasattr(current_user, 'email') else "Admin",
             reason=reason,
             merged_into_id=merged_into_id
         )

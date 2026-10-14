@@ -30,10 +30,21 @@ class NearbyService:
         Find places within radius_km of coordinates (lat, lng), sorted by distance.
         Calculates estimated walking time (~4.5 km/h) and driving time (~30 km/h).
         """
+        # Geospatial Bounding Box pre-filter in SQL (prevents loading entire database into memory)
+        delta_lat = radius_km / 111.0
+        cos_lat = max(0.1, math.cos(math.radians(lat)))
+        delta_lng = radius_km / (111.0 * cos_lat)
+
         query = self.db.query(Place).options(
             joinedload(Place.destination),
             joinedload(Place.accommodation)
-        ).filter(Place.status == "ACTIVE")
+        ).filter(
+            Place.status == "ACTIVE",
+            Place.latitude.isnot(None),
+            Place.longitude.isnot(None),
+            Place.latitude.between(lat - delta_lat, lat + delta_lat),
+            Place.longitude.between(lng - delta_lng, lng + delta_lng)
+        )
 
         if place_type:
             query = query.filter(Place.place_type == place_type.upper())
