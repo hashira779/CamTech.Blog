@@ -155,3 +155,32 @@ async def fetch_source_now(source_id: str, db: Session = Depends(get_db), user: 
             duration_ms=duration_ms,
             error_message=str(e)
         )
+
+@router.post("/fetch-all")
+async def fetch_all_active_sources(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_admin)
+):
+    """Trigger on-demand dynamic live RSS feed ingestion across all active news sources."""
+    sources = db.query(Source).filter(Source.is_active == True, Source.feed_url.isnot(None)).all()
+    results = []
+    for s in sources:
+        try:
+            res = await fetch_source_now(s.id, db, user)
+            results.append(res.dict() if hasattr(res, "dict") else res)
+        except Exception as e:
+            results.append({
+                "source_id": s.id,
+                "source_name": s.name,
+                "status": "FAILED",
+                "items_found": 0,
+                "items_ingested": 0,
+                "duplicates_dropped": 0,
+                "duration_ms": 0,
+                "error_message": str(e)
+            })
+    return {
+        "status": "success",
+        "total_sources_polled": len(sources),
+        "results": results
+    }

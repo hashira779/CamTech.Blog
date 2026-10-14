@@ -102,7 +102,7 @@ def seed_database():
                 "country": "KH",
                 "language": "en",
                 "website_url": "https://phnompenhpost.com",
-                "feed_url": None,
+                "feed_url": "https://news.google.com/rss/search?q=site:phnompenhpost.com&hl=en-US&gl=US&ceid=US:en",
                 "category": "Cambodia News",
                 "trust_level": "VERIFIED_PUBLISHER",
                 "license_notes": "Established national and business journalism in Cambodia."
@@ -113,7 +113,7 @@ def seed_database():
                 "country": "KH",
                 "language": "en",
                 "website_url": "https://www.khmertimeskh.com",
-                "feed_url": "https://www.khmertimeskh.com/feed/",
+                "feed_url": "https://news.google.com/rss/search?q=site:khmertimeskh.com&hl=en-US&gl=US&ceid=US:en",
                 "category": "Cambodia News",
                 "trust_level": "VERIFIED_PUBLISHER",
                 "license_notes": "Daily national news, business, and policy coverage."
@@ -124,7 +124,7 @@ def seed_database():
                 "country": "KH",
                 "language": "en",
                 "website_url": "https://kiripost.com",
-                "feed_url": "https://kiripost.com/feed",
+                "feed_url": "https://news.google.com/rss/search?q=site:kiripost.com&hl=en-US&gl=US&ceid=US:en",
                 "category": "Tech & Economy",
                 "trust_level": "VERIFIED_PUBLISHER",
                 "license_notes": "In-depth Cambodian technology, startups, and economic reporting."
@@ -135,7 +135,7 @@ def seed_database():
                 "country": "KH",
                 "language": "en",
                 "website_url": "https://en.freshnewsasia.com",
-                "feed_url": None,
+                "feed_url": "https://news.google.com/rss/search?q=site:en.freshnewsasia.com+OR+site:freshnewsasia.com&hl=en-US&gl=US&ceid=US:en",
                 "category": "Cambodia Breaking",
                 "trust_level": "VERIFIED_PUBLISHER",
                 "license_notes": "Breaking news, official communiques, and government dispatches."
