@@ -174,8 +174,10 @@ class AINewsService:
     async def generate_news_for_category(
         self,
         category_slug: str,
+        count: Optional[int] = None,
         override_author_id: Optional[str] = None,
         override_category_id: Optional[str] = None,
+        **kwargs
     ) -> dict:
         """
         Generate multiple news articles for a specific category using Gemini AI
@@ -198,7 +200,7 @@ class AINewsService:
         finally:
             db.close()
 
-        articles_count = cat_config["articles_per_run"]
+        articles_count = count if count is not None and count > 0 else cat_config["articles_per_run"]
         country = cat_config["country"]
         base_prompt = cat_config["prompt"].format(count=articles_count)
 
