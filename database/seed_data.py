@@ -97,6 +97,61 @@ def seed_database():
                 "license_notes": "Official public press releases and state announcements."
             },
             {
+                "name": "The Phnom Penh Post",
+                "slug": "phnom-penh-post",
+                "country": "KH",
+                "language": "en",
+                "website_url": "https://phnompenhpost.com",
+                "feed_url": None,
+                "category": "Cambodia News",
+                "trust_level": "VERIFIED_PUBLISHER",
+                "license_notes": "Established national and business journalism in Cambodia."
+            },
+            {
+                "name": "Khmer Times",
+                "slug": "khmer-times",
+                "country": "KH",
+                "language": "en",
+                "website_url": "https://www.khmertimeskh.com",
+                "feed_url": "https://www.khmertimeskh.com/feed/",
+                "category": "Cambodia News",
+                "trust_level": "VERIFIED_PUBLISHER",
+                "license_notes": "Daily national news, business, and policy coverage."
+            },
+            {
+                "name": "Kiripost",
+                "slug": "kiripost",
+                "country": "KH",
+                "language": "en",
+                "website_url": "https://kiripost.com",
+                "feed_url": "https://kiripost.com/feed",
+                "category": "Tech & Economy",
+                "trust_level": "VERIFIED_PUBLISHER",
+                "license_notes": "In-depth Cambodian technology, startups, and economic reporting."
+            },
+            {
+                "name": "Fresh News Asia",
+                "slug": "fresh-news",
+                "country": "KH",
+                "language": "en",
+                "website_url": "https://en.freshnewsasia.com",
+                "feed_url": None,
+                "category": "Cambodia Breaking",
+                "trust_level": "VERIFIED_PUBLISHER",
+                "license_notes": "Breaking news, official communiques, and government dispatches."
+            },
+            {
+                "name": "CamboJA News",
+                "slug": "camboja-news",
+                "country": "KH",
+                "language": "en",
+                "website_url": "https://cambojanews.com",
+                "feed_url": "https://cambojanews.com/feed/",
+                "category": "Investigative & Society",
+                "trust_level": "VERIFIED_PUBLISHER",
+                "license_notes": "Independent journalist association news in Cambodia."
+            },
+            {
                 "name": "National Bank of Cambodia",
                 "slug": "nbc-gov",
                 "country": "KH",
@@ -106,6 +161,39 @@ def seed_database():
                 "category": "Economy & Banking",
                 "trust_level": "OFFICIAL",
                 "license_notes": "Official monetary reports, statistics, and financial bulletins."
+            },
+            {
+                "name": "Al Jazeera English",
+                "slug": "al-jazeera",
+                "country": "QA",
+                "language": "en",
+                "website_url": "https://www.aljazeera.com",
+                "feed_url": "https://www.aljazeera.com/xml/rss/all.xml",
+                "category": "International & Asia",
+                "trust_level": "WIRE_SERVICE",
+                "license_notes": "Global investigative journalism and Asian regional coverage."
+            },
+            {
+                "name": "Channel News Asia (CNA)",
+                "slug": "cna-asia",
+                "country": "SG",
+                "language": "en",
+                "website_url": "https://www.channelnewsasia.com",
+                "feed_url": "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml",
+                "category": "Asia Regional",
+                "trust_level": "WIRE_SERVICE",
+                "license_notes": "Southeast Asian regional affairs, trade, and diplomacy."
+            },
+            {
+                "name": "Nikkei Asia",
+                "slug": "nikkei-asia",
+                "country": "JP",
+                "language": "en",
+                "website_url": "https://asia.nikkei.com",
+                "feed_url": None,
+                "category": "Business & Geopolitics",
+                "trust_level": "VERIFIED_PUBLISHER",
+                "license_notes": "Asian business, trade routes, and infrastructure investment."
             },
             {
                 "name": "Reuters International",

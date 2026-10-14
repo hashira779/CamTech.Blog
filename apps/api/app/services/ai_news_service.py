@@ -45,10 +45,14 @@ CATEGORY_PROMPTS = {
         "scope": "CAMBODIA",
         "country": "KH",
         "prompt": (
-            "You are an expert Cambodia affairs journalist. Search for today's most important news "
-            "from Cambodia — government policy, economic development, infrastructure projects, "
-            "education, tourism, cultural events, or social developments. "
-            "Write {count} distinct, professional news articles about DIFFERENT topics happening in Cambodia."
+            "You are an expert senior Cambodia affairs investigative journalist and news researcher. "
+            "Search for today's most vital, breaking, and verified news covering Cambodia across major international "
+            "and national news organizations: "
+            "1. Major International Outlets covering Cambodia: Al Jazeera (Al Jazeera English / Asia), Reuters, BBC News, CNA (Channel News Asia), Nikkei Asia, AP News, The Diplomat. "
+            "2. Major Cambodia National & Business Outlets: Phnom Penh Post, Khmer Times, Kiripost (Tech & Business), Agence Kampuchea Presse (AKP), Fresh News Asia, CamboJA News, ThmeyThmey, National Bank of Cambodia. "
+            "Search across politics, economy, mega-infrastructure (bridges, canals, airports, expressways), technology, trade agreements, tourism, education, and cultural milestones. "
+            "Thoroughly cross-check facts, dates, names, and statistics. Provide clear attribution with original source publication name and source URL. "
+            "Write {count} distinct, professional, well-researched news articles about DIFFERENT topics happening in or concerning Cambodia."
         ),
         "articles_per_run": 3,
     },
@@ -56,10 +60,11 @@ CATEGORY_PROMPTS = {
         "scope": "WORLD",
         "country": "WORLD",
         "prompt": (
-            "You are a world news correspondent. Search for today's most significant international "
-            "news — geopolitics, diplomacy, conflicts, humanitarian developments, climate events, "
-            "or major global economic shifts. Exclude technology topics. "
-            "Write {count} distinct, professional news articles about DIFFERENT world events."
+            "You are an international world news correspondent. Search for today's most significant global "
+            "news across trusted global wire services and agencies including Al Jazeera, Reuters, BBC News, AP News, "
+            "and AFP — covering geopolitics, diplomacy, international relations, regional developments, climate summits, "
+            "and major global economic shifts. Exclude pure technology topics. "
+            "Write {count} distinct, professional news articles about DIFFERENT world events with verified attribution."
         ),
         "articles_per_run": 2,
     },
