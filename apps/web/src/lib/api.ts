@@ -22,6 +22,8 @@ import {
   TravelGuide,
   TravelEvent
 } from "@/types";
+import { ALL_TOOLS } from "./tools-data";
+
 
 export const API_BASE = typeof window === "undefined"
   ? (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1")
@@ -148,18 +150,20 @@ export async function getDailyQuiz(): Promise<Quiz | null> {
 
 export async function getTools(): Promise<Tool[]> {
   const url = `${API_BASE}/tools`;
-  return fetchWithFallback(url, []);
+  const tools = await fetchWithFallback(url, ALL_TOOLS);
+  return tools && tools.length > 0 ? tools : ALL_TOOLS;
 }
 
 export async function getToolBySlug(slug: string): Promise<Tool | null> {
   try {
     const res = await fetch(`${API_BASE}/tools/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
-    if (!res.ok) return null;
-    return await res.json();
+    if (res.ok) return await res.json();
   } catch (err) {
-    return null;
+    // Fallback to local catalog
   }
+  return ALL_TOOLS.find((t) => t.slug === slug) || null;
 }
+
 
 export async function searchGlobal(q: string, type?: string): Promise<{ query: string; total: number; results: SearchResultItem[] }> {
   try {

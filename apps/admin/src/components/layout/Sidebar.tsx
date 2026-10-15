@@ -54,9 +54,11 @@ export default function Sidebar() {
       {/* Workspace Header */}
       <div className="h-14 px-3.5 flex items-center justify-between border-b border-zinc-800/80">
         <Link to="/dashboard" className="flex items-center gap-2.5 group overflow-hidden">
-          <div className="w-7 h-7 rounded bg-zinc-100 text-zinc-950 font-bold flex items-center justify-center text-xs tracking-tight shadow-sm shrink-0">
-            CT
-          </div>
+          <img
+            src="/logo.png"
+            alt="CamTech Logo"
+            className="w-7 h-7 rounded-lg object-contain bg-zinc-900 border border-zinc-700/60 shadow-xs shrink-0"
+          />
           {!sidebarCollapsed && (
             <div className="flex flex-col min-w-0">
               <span className="text-xs font-semibold text-zinc-100 tracking-tight leading-none group-hover:text-white transition-colors truncate">

@@ -8,6 +8,8 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { ToolCard } from "@/components/shared/tool-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { Reveal } from "@/components/ui/reveal";
+
 
 export const metadata: Metadata = {
   title: "Online Utilities & Productivity Tools | CamTech Blog",
@@ -102,18 +104,20 @@ export default async function ToolsHubPage() {
                     className="mb-5 sm:mb-6"
                   />
                   <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                    {group.items.map((tool) => (
-                      <ToolCard
-                        key={tool.id}
-                        slug={tool.slug}
-                        name={tool.name}
-                        category={group.label}
-                        description={tool.description}
-                        usageCount={tool.usage_count}
-                        popular={tool.is_popular}
-                      />
+                    {group.items.map((tool, idx) => (
+                      <Reveal key={tool.id} index={idx} variant="up">
+                        <ToolCard
+                          slug={tool.slug}
+                          name={tool.name}
+                          category={group.label}
+                          description={tool.description}
+                          usageCount={tool.usage_count}
+                          popular={tool.is_popular}
+                        />
+                      </Reveal>
                     ))}
                   </div>
+
                 </section>
               ))}
             </div>
