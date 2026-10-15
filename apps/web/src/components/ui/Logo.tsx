@@ -1,6 +1,4 @@
-"use client";
-
-import React, { useState } from "react";
+import React from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
@@ -26,10 +24,8 @@ export function Logo({
   variant = "full",
   showTagline = false,
   priority = true,
-  showPopupOnHover = false,
 }: LogoProps) {
   const currentSize = SIZE_MAP[size];
-  const [isHovered, setIsHovered] = useState(false);
 
   // Dual-mode Emblem: Light mode shows /logo-light.svg; Dark mode shows /logo-dark.svg
   const emblem = (
@@ -89,50 +85,11 @@ export function Logo({
 
   return (
     <div
-      className={cn("relative inline-flex items-center", className)}
-      onMouseEnter={() => showPopupOnHover && setIsHovered(true)}
-      onMouseLeave={() => showPopupOnHover && setIsHovered(false)}
+      className={cn("inline-flex items-center gap-2.5 group cursor-pointer", className)}
+      aria-label="CamTech.Blog"
     >
-      <div
-        className="inline-flex items-center gap-2.5 group cursor-pointer"
-        aria-label="CamTech.Blog"
-      >
-        {variant !== "wordmark" && emblem}
-        {variant !== "icon" && wordmark}
-      </div>
-
-      {/* Simple, sleek hover preview with logo only */}
-      {showPopupOnHover && isHovered && (
-        <div
-          role="tooltip"
-          aria-label="CamTech Logo"
-          className="absolute left-1/2 -translate-x-1/2 top-full pt-2.5 z-50 pointer-events-none animate-in fade-in-0 zoom-in-95 duration-150"
-        >
-          <div className="flex flex-col items-center gap-2 rounded-2xl border border-border/80 bg-card/95 p-3.5 shadow-xl backdrop-blur-md">
-            <div className="relative h-20 w-20 overflow-hidden rounded-xl border border-accent/30 bg-gradient-to-br from-surface via-background to-secondary p-1.5 shadow-xs dark:border-accent/40 dark:from-surface-elevated dark:via-surface dark:to-surface-muted">
-              <Image
-                src="/logo-light.svg"
-                alt="CamTech Logo"
-                width={80}
-                height={80}
-                priority
-                className="h-full w-full object-contain dark:hidden"
-              />
-              <Image
-                src="/logo-dark.svg"
-                alt="CamTech Logo"
-                width={80}
-                height={80}
-                priority
-                className="hidden h-full w-full object-contain dark:block"
-              />
-            </div>
-            <span className="font-display text-xs font-bold tracking-tight text-foreground whitespace-nowrap">
-              CamTech<span className="text-accent">.Blog</span>
-            </span>
-          </div>
-        </div>
-      )}
+      {variant !== "wordmark" && emblem}
+      {variant !== "icon" && wordmark}
     </div>
   );
 }

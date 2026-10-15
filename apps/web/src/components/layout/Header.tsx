@@ -170,7 +170,7 @@ export function Header() {
               </button>
 
               <Link href="/" className="group inline-flex items-center" aria-label="CamTech.Blog home">
-                <Logo size="md" showPopupOnHover={true} />
+                <Logo size="md" />
               </Link>
             </div>
 
