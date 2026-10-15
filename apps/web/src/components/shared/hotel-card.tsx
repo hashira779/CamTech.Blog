@@ -1,10 +1,11 @@
 import * as React from "react";
 import Link from "next/link";
-import { MapPin, Check, Wifi, Sparkles } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { MapPin } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Photo } from "@/components/ui/photo";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { DESIGN_TOKENS } from "@/lib/tokens";
+import { cleanText } from "@/lib/format";
 
 export interface HotelCardProps {
   id: string;
@@ -21,107 +22,92 @@ export interface HotelCardProps {
   verificationStatus?: string;
 }
 
+/**
+ * Accommodation card.
+ *
+ * Three honesty problems fixed here: the image slot used to read "Hotel Visual"
+ * over a cool gray box, the price row fell back to the label "Verified Pricing"
+ * when no price existed, and `verificationStatus` defaulted to "verified" so a
+ * caller that passed nothing still got a green Verified badge. All three now
+ * render nothing instead of asserting something the record does not carry.
+ */
 export function HotelCard({
   slug,
   name,
   destinationName,
-  accommodationType = "HOTEL",
+  accommodationType,
   starRating,
   priceRange,
   priceMin,
   currency = "$",
   amenities = [],
   heroImage,
-  verificationStatus = "verified",
+  verificationStatus,
 }: HotelCardProps) {
   return (
-    <Card hoverEffect className="overflow-hidden flex flex-col h-full group">
-      {/* 4:3 Image Container */}
-      <Link href={`/travel/place/${slug}`} className="block relative overflow-hidden">
-        <div className={`${DESIGN_TOKENS.aspectRatio.hotel} bg-slate-100 dark:bg-slate-800 w-full overflow-hidden`}>
-          {heroImage ? (
-            <img
-              src={heroImage}
-              alt={name}
-              loading="lazy"
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-102"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-600 bg-slate-100 dark:bg-slate-800">
-              <span className="text-xs uppercase font-medium">Hotel Visual</span>
-            </div>
-          )}
-        </div>
-        <div className="absolute top-2.5 left-2.5">
-          <Badge variant="secondary" size="sm" className="bg-white/90 backdrop-blur-xs text-slate-900 border-slate-200">
-            {accommodationType}
-          </Badge>
-        </div>
+    <Card hoverEffect className="group h-full overflow-hidden">
+      <Link href={`/travel/place/${slug}`} className="block">
+        <Photo
+          src={heroImage}
+          alt={cleanText(name)}
+          ratio="4/3"
+          radius="none"
+          showCredit={false}
+          placeholderLabel="No verified photograph yet"
+        />
       </Link>
 
-      {/* Content */}
-      <div className="p-4 sm:p-5 flex flex-col flex-1">
-        {/* Destination & Verification */}
-        <div className="flex items-center justify-between gap-2 mb-2 text-xs text-slate-500 dark:text-slate-400">
-          <div className="flex items-center gap-1 truncate">
-            <MapPin size={DESIGN_TOKENS.iconSize.xs} className="text-slate-400 shrink-0" />
-            <span className="truncate">{destinationName}</span>
-          </div>
-          <StatusBadge status={verificationStatus} size="sm" />
+      <div className="flex flex-1 flex-col gap-2 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {accommodationType && (
+            <Badge variant="outline" size="sm">
+              {cleanText(accommodationType)}
+            </Badge>
+          )}
+          {verificationStatus && <StatusBadge status={verificationStatus} size="sm" />}
         </div>
 
-        {/* Name */}
-        <Link href={`/travel/place/${slug}`} className="mb-2">
-          <h3 className="text-base font-semibold leading-snug tracking-tight text-slate-900 group-hover:text-teal-700 dark:text-slate-100 dark:group-hover:text-teal-400 transition-colors">
-            {name}
-          </h3>
-        </Link>
-
-        {/* Verified Amenities Chips */}
-        {amenities.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            {amenities.slice(0, 3).map((amenity, idx) => (
-              <span
-                key={idx}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded"
-              >
-                <Check size={10} className="text-emerald-500" />
-                {amenity}
-              </span>
-            ))}
-            {amenities.length > 3 && (
-              <span className="text-[11px] text-slate-400 dark:text-slate-500 px-1 py-0.5 self-center">
-                +{amenities.length - 3} more
-              </span>
-            )}
-          </div>
+        {destinationName && (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MapPin size={12} aria-hidden="true" className="shrink-0" />
+            <span className="truncate">{cleanText(destinationName)}</span>
+          </p>
         )}
 
-        {/* Pricing / Booking Footer */}
-        <div className="mt-auto pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-          <div>
-            {priceMin ? (
-              <div className="flex items-baseline gap-1">
-                <span className="text-xs text-slate-500 dark:text-slate-400">From</span>
-                <span className="text-base font-bold text-slate-900 dark:text-slate-100">
-                  {currency}{priceMin}
-                </span>
-                <span className="text-[11px] text-slate-400">/night</span>
-              </div>
-            ) : priceRange ? (
-              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                {priceRange}
-              </span>
-            ) : (
-              <span className="text-xs text-slate-400">Verified Pricing</span>
+        <h3 className="font-display text-lg leading-snug tracking-tight text-foreground transition-colors group-hover:text-accent">
+          <Link href={`/travel/place/${slug}`}>
+            {cleanText(name)}
+            {typeof starRating === "number" && starRating > 0 && (
+              <span className="ml-1.5 text-sm font-sans text-muted-foreground">{starRating}-star</span>
             )}
-          </div>
+          </Link>
+        </h3>
+
+        {amenities.length > 0 && (
+          <p className="text-sm leading-relaxed text-muted-foreground">{amenities.slice(0, 4).join(" · ")}</p>
+        )}
+
+        <div className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-3 text-sm">
+          {priceMin && priceMin > 0 ? (
+            <p className="text-muted-foreground">
+              From{" "}
+              <span className="font-medium tabular-nums text-foreground">
+                {currency}
+                {priceMin}
+              </span>{" "}
+              / night
+            </p>
+          ) : priceRange ? (
+            <p className="text-muted-foreground">{priceRange}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">No published rate on record</p>
+          )}
 
           <Link
             href={`/travel/place/${slug}`}
-            className="text-xs font-semibold text-teal-700 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300 transition-colors"
+            className="shrink-0 font-medium text-accent transition-colors hover:text-foreground"
           >
-            Check Rates
+            View
           </Link>
         </div>
       </div>

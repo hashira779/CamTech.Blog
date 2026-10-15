@@ -87,6 +87,7 @@ export const translations = {
     "nav.saved": "Saved",
     "nav.admin": "CMS Admin",
     "nav.search_placeholder": "Search news, discoveries, quizzes, tools...",
+    "brand.tagline": "Technology & Science",
 
     // Homepage sections
     "home.happening_today": "What's Happening Today",
@@ -144,7 +145,7 @@ export const translations = {
     "footer.cookies": "Cookie Policy",
     "footer.advertising": "Advertising & Transparency",
     "footer.contact": "Contact Newsroom",
-    "footer.copyright": "Daily Discovery. All verified citations and original editorial analyses reserved.",
+    "footer.copyright": "CamTech.Blog. All verified citations and original editorial analyses reserved.",
   },
   km: {
     // Common terms
@@ -179,6 +180,7 @@ export const translations = {
     "nav.saved": "បានរក្សាទុក",
     "nav.admin": "គ្រប់គ្រង CMS",
     "nav.search_placeholder": "ស្វែងរកព័ត៌មាន ចំណេះដឹង កម្រងសំណួរ ឧបករណ៍...",
+    "brand.tagline": "បច្ចេកវិទ្យា និងវិទ្យាសាស្ត្រ",
 
     // Homepage sections
     "home.happening_today": "ព្រឹត្តិការណ៍សំខាន់ថ្ងៃនេះ",
@@ -236,7 +238,7 @@ export const translations = {
     "footer.cookies": "គោលការណ៍ខូគី",
     "footer.advertising": "ការផ្សាយពាណិជ្ជកម្ម និងតម្លាភាព",
     "footer.contact": "ទំនាក់ទំនងការិយាល័យនិពន្ធ",
-    "footer.copyright": "Daily Discovery រក្សាសិទ្ធិគ្រប់យ៉ាង។",
+    "footer.copyright": "CamTech.Blog រក្សាសិទ្ធិគ្រប់យ៉ាង។",
   },
 };
 
@@ -307,12 +309,18 @@ export function detectLanguage(cookieHeaderOrString?: string): Language {
   const storageLang = getLanguageFromStorage();
   if (storageLang) return storageLang;
 
-  // 3. Browser language
-  if (typeof navigator !== "undefined" && navigator.languages) {
-    const isKhmer = navigator.languages.some(
-      (l) => l.toLowerCase().startsWith("km") || l.toLowerCase().includes("khmer")
-    );
-    if (isKhmer) return "km";
+  // 3. Browser language. Only the first recognisable preference decides: a reader
+  //    whose browser lists `en-US, km` wants English, not Khmer. Testing the whole
+  //    list for any Khmer entry flipped the entire site to Khmer for exactly that
+  //    reader, which is how an English article ended up with a Khmer headline.
+  const preferred = typeof navigator !== "undefined"
+    ? [...(navigator.languages || []), navigator.language || ""]
+    : [];
+  for (const raw of preferred) {
+    const l = String(raw || "").toLowerCase();
+    if (!l) continue;
+    if (l.startsWith("km") || l.includes("khmer")) return "km";
+    if (l.startsWith("en")) return "en";
   }
 
   return DEFAULT_LANGUAGE;

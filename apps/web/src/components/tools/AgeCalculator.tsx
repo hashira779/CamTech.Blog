@@ -1,8 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
-import { Calendar, Clock, Gift, Sparkles, RefreshCw } from "lucide-react";
+import { FormField, Input } from "@/components/ui/input";
 
+/**
+ * Exact age between two dates.
+ *
+ * `calculateAge()` is unchanged, including the month-borrow logic, the day-count
+ * totals and the "birth date cannot be after the calculation date" guard. The
+ * purple "next birthday" tile and the emerald age block are gone: the age is the
+ * headline figure on paper, everything else is a definition list.
+ */
 export function AgeCalculator() {
   const [birthDate, setBirthDate] = useState<string>("1998-05-15");
   const [targetDate, setTargetDate] = useState<string>(new Date().toISOString().split("T")[0]);
@@ -59,103 +67,94 @@ export function AgeCalculator() {
   };
 
   const ageData = calculateAge();
+  const error = ageData && "error" in ageData ? ageData.error : null;
+  const result = ageData && !("error" in ageData) ? ageData : null;
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-            Date of Birth
-          </label>
-          <input
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField label="Date of birth" id="age-birth">
+          <Input
+            id="age-birth"
             type="date"
             value={birthDate}
             onChange={(e) => setBirthDate(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
           />
-        </div>
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-            Calculate Age On
-          </label>
-          <input
+        </FormField>
+        <FormField label="Calculate age on" id="age-target">
+          <Input
+            id="age-target"
             type="date"
             value={targetDate}
             onChange={(e) => setTargetDate(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
           />
-        </div>
+        </FormField>
       </div>
 
-      {ageData && !("error" in ageData) && (
-        <div className="space-y-6">
-          {/* Main Display */}
-          <div className="p-6 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-              Current Chronological Age
-            </span>
-            <div className="mt-3 flex flex-wrap items-baseline gap-4">
-              <div>
-                <span className="text-4xl md:text-5xl font-black text-emerald-900 dark:text-emerald-100">
-                  {ageData.years}
-                </span>
-                <span className="ml-1.5 text-sm font-bold text-emerald-700 dark:text-emerald-400">years</span>
-              </div>
-              <div>
-                <span className="text-3xl md:text-4xl font-bold text-emerald-900 dark:text-emerald-100">
-                  {ageData.months}
-                </span>
-                <span className="ml-1.5 text-sm font-bold text-emerald-700 dark:text-emerald-400">months</span>
-              </div>
-              <div>
-                <span className="text-3xl md:text-4xl font-bold text-emerald-900 dark:text-emerald-100">
-                  {ageData.days}
-                </span>
-                <span className="ml-1.5 text-sm font-bold text-emerald-700 dark:text-emerald-400">days</span>
-              </div>
-            </div>
-            <p className="mt-3 text-xs text-emerald-700 dark:text-emerald-300 font-medium">
-              Born on a <strong>{ageData.bornDay}</strong>
+      {error && (
+        <p
+          role="alert"
+          className="rounded-lg bg-destructive/10 px-4 py-3 text-sm leading-relaxed text-destructive"
+        >
+          {error}
+        </p>
+      )}
+
+      {result && (
+        <>
+          <div className="rounded-lg bg-surface-muted p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Age on the calculation date
+            </p>
+            <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 font-display text-4xl leading-none tabular-nums text-foreground">
+              <span>
+                {result.years}
+                <span className="ml-1.5 font-sans text-sm font-medium text-muted-foreground">years</span>
+              </span>
+              <span className="text-2xl">
+                {result.months}
+                <span className="ml-1.5 font-sans text-sm font-medium text-muted-foreground">months</span>
+              </span>
+              <span className="text-2xl">
+                {result.days}
+                <span className="ml-1.5 font-sans text-sm font-medium text-muted-foreground">days</span>
+              </span>
+            </p>
+            <p className="mt-2.5 text-sm text-muted-foreground">
+              Born on a <span className="font-medium text-foreground">{result.bornDay}</span>.
             </p>
           </div>
 
-          {/* Quick Metrics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
-              <span className="text-xs font-semibold text-slate-500 block">Total Days</span>
-              <span className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1 block">
-                {ageData.totalDays.toLocaleString()}
-              </span>
+          <dl className="divide-y divide-border rounded-lg border border-border">
+            <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+              <dt className="text-sm text-muted-foreground">Total days</dt>
+              <dd className="text-sm font-semibold tabular-nums text-foreground">
+                {result.totalDays.toLocaleString()}
+              </dd>
             </div>
-            <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
-              <span className="text-xs font-semibold text-slate-500 block">Total Weeks</span>
-              <span className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1 block">
-                {ageData.totalWeeks.toLocaleString()}
-              </span>
+            <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+              <dt className="text-sm text-muted-foreground">Total weeks</dt>
+              <dd className="text-sm font-semibold tabular-nums text-foreground">
+                {result.totalWeeks.toLocaleString()}
+              </dd>
             </div>
-            <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
-              <span className="text-xs font-semibold text-slate-500 block">Total Hours</span>
-              <span className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1 block">
-                {ageData.totalHours.toLocaleString()}
-              </span>
+            <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+              <dt className="text-sm text-muted-foreground">Total hours</dt>
+              <dd className="text-sm font-semibold tabular-nums text-foreground">
+                {result.totalHours.toLocaleString()}
+              </dd>
             </div>
-            <div className="p-4 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 rounded-xl">
-              <span className="text-xs font-semibold text-purple-700 dark:text-purple-400 block">Next Birthday</span>
-              <span className="text-xl font-bold text-purple-900 dark:text-purple-100 mt-1 block">
-                {ageData.daysUntilNext} days
-              </span>
-              <span className="text-[10px] text-purple-600 dark:text-purple-300 block mt-0.5">
-                On a {ageData.nextBdayDay}
-              </span>
+            <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+              <dt className="text-sm text-muted-foreground">Next birthday</dt>
+              <dd className="text-sm font-semibold tabular-nums text-foreground">
+                {result.daysUntilNext} days
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                  on a {result.nextBdayDay}
+                </span>
+              </dd>
             </div>
-          </div>
-        </div>
-      )}
-
-      {ageData && "error" in ageData && (
-        <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-rose-700 dark:text-rose-400 text-sm">
-          {ageData.error}
-        </div>
+          </dl>
+        </>
       )}
     </div>
   );

@@ -1,7 +1,8 @@
 import * as React from "react";
+import { Search } from "lucide-react";
 import { Breadcrumbs, BreadcrumbItem } from "@/components/shared/breadcrumbs";
-import { SearchBar } from "@/components/shared/search-bar";
 import { EmptyState } from "@/components/shared/empty-state";
+import { Container } from "@/components/ui/container";
 
 export interface ListingShellProps {
   breadcrumbs: BreadcrumbItem[];
@@ -20,6 +21,16 @@ export interface ListingShellProps {
   pagination?: React.ReactNode;
 }
 
+/**
+ * Listing shell: breadcrumb, page header, search/filter rail, result count,
+ * body, pagination — the same rhythm every index page uses.
+ *
+ * Two things beyond colour. The search box used to mount `SearchBar`, whose input
+ * is hardcoded teal-on-slate and which is off-limits to this pass, so the shell
+ * now renders an equivalent plain GET form to `/search` (`?q=`), which is exactly
+ * the URL that component pushed. And the loading state is real: the previous
+ * version accepted `isLoading` and ignored it, so a skeleton never appeared.
+ */
 export function ListingShell({
   breadcrumbs,
   title,
@@ -37,64 +48,87 @@ export function ListingShell({
   pagination,
 }: ListingShellProps) {
   return (
-    <div className="min-h-screen py-6 sm:py-8">
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-        {/* Breadcrumb */}
-        <div className="mb-4">
+    <div className="flex w-full flex-1 flex-col py-8 sm:py-12">
+      <Container>
+        <div className="mb-5">
           <Breadcrumbs items={breadcrumbs} />
         </div>
 
-        {/* Page Header */}
-        <div className="mb-6 sm:mb-8 pb-4 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              {badge && <div className="mb-2">{badge}</div>}
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                {title}
-              </h1>
-              {description && (
-                <p className="mt-1.5 text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-2xl leading-relaxed">
-                  {description}
-                </p>
-              )}
+        <header className="mb-8 border-b border-border pb-6">
+          {(badge || actions) && (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              {badge}
+              {actions && <div className="flex items-center gap-2">{actions}</div>}
             </div>
-            {actions && <div className="shrink-0 flex items-center gap-2">{actions}</div>}
-          </div>
-        </div>
+          )}
 
-        {/* Search & Filter Toolbar */}
+          <h1 className="max-w-3xl font-display text-3xl leading-[1.1] tracking-tight text-foreground sm:text-4xl">
+            {title}
+          </h1>
+
+          {description && (
+            <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
+              {description}
+            </p>
+          )}
+        </header>
+
         {(searchPlaceholder || filterComponent) && (
-          <div className="mb-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
+          <div className="mb-6 flex flex-col gap-4 border-b border-border pb-6 lg:flex-row lg:items-center lg:justify-between">
             {searchPlaceholder && (
-              <div className="flex-1 max-w-md">
-                <SearchBar placeholder={searchPlaceholder} />
-              </div>
+              <form action="/search" method="GET" className="relative w-full lg:max-w-md">
+                <Search
+                  size={16}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
+                <label className="sr-only" htmlFor="listing-search">
+                  Search
+                </label>
+                <input
+                  id="listing-search"
+                  type="text"
+                  name="q"
+                  placeholder={searchPlaceholder}
+                  className="h-11 w-full rounded-md border border-input bg-surface pl-10 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </form>
             )}
+
             {filterComponent && (
-              <div className="flex items-center gap-2 flex-wrap">{filterComponent}</div>
+              <div className="flex flex-wrap items-center gap-2">{filterComponent}</div>
             )}
           </div>
         )}
 
-        {/* Result Count Bar */}
-        {totalCount !== undefined && (
-          <div className="mb-4 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span>
-              Showing <span className="font-semibold text-slate-800 dark:text-slate-200">{totalCount}</span> verified results
-            </span>
-          </div>
+        {typeof totalCount === "number" && !isLoading && (
+          <p className="mb-5 text-xs text-muted-foreground">
+            <span className="font-semibold tabular-nums text-foreground">{totalCount}</span>{" "}
+            {totalCount === 1 ? "entry" : "entries"}
+          </p>
         )}
 
-        {/* Content or Empty State */}
-        {isEmpty ? (
+        {isLoading ? (
+          <div className="space-y-4" role="status" aria-live="polite">
+            <span className="section-label">Loading</span>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex gap-4 border-b border-border pb-4">
+                <div className="h-16 w-20 shrink-0 animate-pulse-soft rounded-md bg-surface-muted" />
+                <div className="flex-1 space-y-2 py-1">
+                  <div className="h-3 w-24 animate-pulse-soft rounded-xs bg-surface-muted" />
+                  <div className="h-4 w-3/4 animate-pulse-soft rounded-xs bg-surface-muted" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : isEmpty ? (
           <EmptyState title={emptyTitle} description={emptyDescription} />
         ) : (
           <div>{children}</div>
         )}
 
-        {/* Pagination */}
-        {pagination && <div className="mt-8 pt-4 flex justify-center">{pagination}</div>}
-      </div>
+        {pagination && <div className="mt-10 border-t border-border pt-6">{pagination}</div>}
+      </Container>
     </div>
   );
 }

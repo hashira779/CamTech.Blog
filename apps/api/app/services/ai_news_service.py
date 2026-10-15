@@ -19,6 +19,7 @@ from app.models.author import Author
 from app.deduplication.detector import detect_duplicates
 from app.services.image_search_service import image_search_service
 from app.services import ai_gateway
+from app.services.filing import strip_brand_suffix
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +247,21 @@ Return a JSON array of {articles_count} article objects. Each object must have:
                     tags=data.get("tags", [])
                 )
 
+                # File on the desk the story is actually about. The per-category constant
+                # put every "technology" piece on WORLD even when it was about Bakong, and
+                # every "cambodia" piece on KH even when the model wrote about Ukraine.
+                from app.services.filing import resolve_country
+                story_country = resolve_country(
+                    category_slug if category_slug == "cambodia" else None,
+                    country,
+                    title,
+                    data.get("content", ""),
+                    data.get("summary", ""),
+                )
+                if category_slug == "cambodia" and story_country != "KH":
+                    # Category and desk must agree or the quality gate holds the draft.
+                    story_country = "KH"
+
                 # Try to link to a registered publisher source
                 matched_source_id = None
                 source_name_val = data.get("source_name", "")
@@ -260,7 +276,7 @@ Return a JSON array of {articles_count} article objects. Each object must have:
                     slug=slug,
                     summary=data.get("summary", title),
                     content=data.get("content", ""),
-                    country=country,
+                    country=story_country,
                     primary_source_id=matched_source_id,
                     primary_source_url=source_url,
                     source_attribution_text=data.get("source_name", "AI Research via Google Search"),
@@ -272,7 +288,7 @@ Return a JSON array of {articles_count} article objects. Each object must have:
                     author_id=author_id,
                     status="AI_DRAFT",  # Goes to editorial review, NOT directly published
                     language="en",
-                    seo_title=data.get("seo_title"),
+                    seo_title=strip_brand_suffix(data.get("seo_title")),
                     seo_description=data.get("seo_description"),
                     ai_draft_metadata=json.dumps({
                         "generator": engine,

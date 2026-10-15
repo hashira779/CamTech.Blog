@@ -36,7 +36,7 @@ export function SearchBar({
   return (
     <form onSubmit={handleSearch} className={`w-full ${className}`}>
       <div className="relative flex items-center">
-        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted-foreground">
           <Search size={DESIGN_TOKENS.iconSize.md} />
         </div>
         <input
@@ -44,13 +44,13 @@ export function SearchBar({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={placeholder}
-          className="w-full h-11 pl-10 pr-10 rounded-lg border border-slate-300 bg-white text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-teal-700 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 shadow-xs"
+          className="w-full h-11 pl-10 pr-10 rounded-lg border border-input bg-surface text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring transition-colors shadow-xs"
         />
         {query && (
           <button
             type="button"
             onClick={handleClear}
-            className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground transition-colors hover:text-foreground"
             aria-label="Clear search query"
           >
             <X size={DESIGN_TOKENS.iconSize.sm} />
@@ -76,8 +76,8 @@ export function SearchBar({
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-medium transition-colors cursor-pointer shrink-0 ${
                   isSelected
-                    ? "bg-teal-700 text-white dark:bg-teal-600"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-surface-muted text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {Icon && <Icon size={12} />}

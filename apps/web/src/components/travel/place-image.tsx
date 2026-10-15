@@ -25,11 +25,11 @@ export default function PlaceImage({
       <div
         role="img"
         aria-label={`${alt} — photo not verified yet`}
-        className={`${className} flex flex-col items-center justify-center gap-1 bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-600`}
+        className={`${className} flex flex-col items-center justify-center gap-1 bg-surface-muted text-muted-foreground`}
       >
         <CameraOff className={compact ? "w-4 h-4" : "w-7 h-7"} strokeWidth={1.5} />
         {!compact && (
-          <span className="text-[10px] font-semibold uppercase tracking-wider px-3 text-center">
+          <span className="text-xs font-semibold uppercase tracking-wider px-3 text-center">
             Photo not verified yet
           </span>
         )}

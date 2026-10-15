@@ -10,9 +10,14 @@ import {
   Bus,
   Footprints,
   ArrowRight,
-  BookOpen,
 } from "lucide-react";
-import { getDestinationBySlug, getTrips, searchTransportRoutes, getTravelGuides, getTravelEvents } from "@/lib/api";
+import {
+  getDestinationBySlug,
+  getTrips,
+  searchTransportRoutes,
+  getTravelGuides,
+  getTravelEvents,
+} from "@/lib/api";
 import { getProvinceSymbol } from "@/data/province_symbols";
 import { ProvinceSymbolShowcase } from "@/components/travel/ProvinceSymbolShowcase";
 import ProvinceMap from "@/components/travel/ProvinceMap";
@@ -20,6 +25,10 @@ import { PlaceFilterGrid } from "./PlaceFilterGrid";
 import { TransportRouteCard } from "@/components/travel/TransportRouteCard";
 import { TravelGuideCard } from "@/components/travel/TravelGuideCard";
 import { TravelEventCard } from "@/components/travel/TravelEventCard";
+import { Container, Section } from "@/components/ui/container";
+import { SectionHeader } from "@/components/ui/section-header";
+import { Photo } from "@/components/ui/photo";
+import { cleanText } from "@/lib/format";
 
 interface PageProps {
   params: Promise<{ destination: string }>;
@@ -31,11 +40,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!dest) return { title: "Destination Not Found" };
 
   return {
-    title: `${dest.name} Travel Guide, Places, Hotels & Itineraries | Daily Discovery`,
+    title: `${dest.name}: places, hotels and itineraries`,
     description: dest.overview.slice(0, 160),
   };
 }
 
+/**
+ * A province hub.
+ *
+ * The Leaflet + OpenStreetMap map and every count around it are untouched — "N of M places mapped",
+ * "X places listed" and the route tally are the same real figures. What changed is the register: the
+ * blurred dark banner with a gradient scrim is now a paper cover led by the province photograph, and
+ * an itinerary that had no published schedule no longer claims three days of stops it does not have.
+ */
 export default async function DestinationPage({ params }: PageProps) {
   const { destination: slug } = await params;
   // The transport directory only pairs each province with one reference origin: the capital,
@@ -84,118 +101,152 @@ export default async function DestinationPage({ params }: PageProps) {
   const hasCoordinates =
     typeof destination.latitude === "number" && typeof destination.longitude === "number";
 
+  const facts = [
+    destination.best_time_to_visit && {
+      icon: Calendar,
+      label: "Best time to visit",
+      value: cleanText(destination.best_time_to_visit),
+    },
+    hasCoordinates && {
+      icon: MapPin,
+      label: "Coordinates",
+      value: `${destination.latitude?.toFixed(4)}°N, ${destination.longitude?.toFixed(4)}°E`,
+    },
+    {
+      icon: Info,
+      label: "Places listed",
+      value: `${places.length} in the directory`,
+    },
+    {
+      icon: MapPin,
+      label: "Mapped",
+      value: `${mapPlaces.length} of ${places.length} have coordinates`,
+    },
+  ].filter(Boolean) as { icon: typeof Calendar; label: string; value: string }[];
+
   return (
-    <div className="min-h-screen pb-24">
-      {/* 1. Destination Hero Banner */}
-      <section className="relative overflow-hidden bg-neutral-950 text-white py-16 lg:py-24">
-        {destination.hero_image_url && (
-          <div
-            className="absolute inset-0 bg-cover bg-center opacity-35 filter blur-[1px] scale-105"
-            style={{ backgroundImage: `url('${destination.hero_image_url}')` }}
-          />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/70 to-transparent" />
+    <div className="flex w-full flex-1 flex-col">
+      {/* ── 1. Cover ────────────────────────────────────────────────────────── */}
+      <Section className="border-b border-border pb-10 pt-8 sm:pb-14 sm:pt-10">
+        <Container>
+          <nav aria-label="Breadcrumb" className="mb-6">
+            <ol className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <li>
+                <Link href="/travel" className="transition-colors hover:text-accent">
+                  Travel
+                </Link>
+              </li>
+              <li aria-hidden="true">/</li>
+              <li>
+                <Link href="/travel" className="transition-colors hover:text-accent">
+                  {destination.country?.name || "Cambodia"}
+                </Link>
+              </li>
+              <li aria-hidden="true">/</li>
+              <li className="font-medium text-foreground">{destination.name}</li>
+            </ol>
+          </nav>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 mb-3 uppercase tracking-wider">
-            <Link href="/travel" className="hover:underline">
-              Travel
-            </Link>
-            <span>/</span>
-            <span>{destination.country?.name || "Cambodia"}</span>
-          </div>
-
-          <div className="max-w-4xl">
-            <div className="flex flex-wrap items-baseline gap-3">
-              <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight">
-                {destination.name}
-              </h1>
-              {destination.name_km && (
-                <span className="text-2xl sm:text-3xl font-bold text-neutral-400">
-                  {destination.name_km}
-                </span>
-              )}
+          <div className="grid gap-8 lg:grid-cols-12 lg:gap-10">
+            <div className="lg:col-span-7">
+              <Photo
+                src={destination.hero_image_url}
+                alt={destination.name}
+                ratio="3/2"
+                radius="hero"
+                priority
+                placeholderLabel="Province photo not verified yet"
+              />
             </div>
 
-            <p className="mt-4 text-base sm:text-lg text-neutral-300 leading-relaxed max-w-3xl">
-              {destination.overview}
-            </p>
+            <div className="flex flex-col gap-5 lg:col-span-5">
+              <div>
+                <span className="section-label text-accent">Province guide</span>
+                <h1 className="mt-3 font-display text-4xl leading-[1.05] tracking-tight text-foreground sm:text-5xl">
+                  {destination.name}
+                </h1>
+                {destination.name_km && (
+                  <p className="mt-2 text-lg text-muted-foreground">{destination.name_km}</p>
+                )}
+              </div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-4 text-xs sm:text-sm text-neutral-300">
-              {destination.best_time_to_visit && (
-                <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
-                  <Calendar className="h-4 w-4 text-amber-400" />
-                  <span>Best time: {destination.best_time_to_visit}</span>
-                </div>
+              {destination.overview && (
+                <p className="text-base leading-relaxed text-muted-foreground">
+                  {cleanText(destination.overview)}
+                </p>
               )}
-              {hasCoordinates && (
-                <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
-                  <MapPin className="h-4 w-4 text-zinc-400" />
-                  <span className="tabular-nums">
-                    {destination.latitude?.toFixed(4)}°N, {destination.longitude?.toFixed(4)}°E
-                  </span>
-                </div>
-              )}
-              <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10">
-                <Info className="h-4 w-4 text-zinc-300" />
-                <span>{places.length} places listed</span>
+
+              <dl className="divide-y divide-border border-y border-border">
+                {facts.map((fact) => (
+                  <div key={fact.label} className="flex items-center gap-3 py-3">
+                    <fact.icon
+                      size={15}
+                      aria-hidden="true"
+                      className="shrink-0 text-border-strong"
+                    />
+                    <dt className="text-xs uppercase tracking-[0.08em] text-muted-foreground">
+                      {fact.label}
+                    </dt>
+                    <dd className="ml-auto text-right text-sm tabular-nums text-foreground">
+                      {fact.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href={`/travel/planner?destination=${destination.slug}`}
+                  className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-xs transition-all hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  <Navigation size={15} aria-hidden="true" />
+                  Plan a {destination.name} trip
+                </Link>
+                <Link
+                  href="/travel/transport"
+                  className="inline-flex h-10 items-center gap-2 rounded-md border border-border-strong bg-card px-4 text-sm font-medium text-foreground transition-colors hover:border-foreground/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  <Bus size={15} aria-hidden="true" />
+                  Getting here
+                </Link>
+                <Link
+                  href={`/travel/nearby?place=${destination.slug === "siem-reap" ? "angkor-wat" : ""}`}
+                  className="inline-flex h-10 items-center gap-2 rounded-md border border-border-strong bg-card px-4 text-sm font-medium text-foreground transition-colors hover:border-foreground/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  <Footprints size={15} aria-hidden="true" />
+                  What&rsquo;s near here
+                </Link>
+                <Link
+                  href="/travel/suggest"
+                  className="inline-flex h-10 items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-foreground"
+                >
+                  Suggest a place
+                  <ArrowRight size={14} aria-hidden="true" />
+                </Link>
               </div>
             </div>
-
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                href={`/travel/planner?destination=${destination.slug}`}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white hover:bg-zinc-100 font-bold text-sm text-zinc-950 shadow-xs transition-all"
-              >
-                <Navigation className="h-4 w-4" /> Plan {destination.name} Trip
-              </Link>
-              <Link
-                href="/travel/transport"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white text-sm backdrop-blur-md transition-all"
-              >
-                <Bus className="h-4 w-4 text-zinc-300" /> Getting Here (Buses & Routes)
-              </Link>
-              <Link
-                href={`/travel/nearby?place=${destination.slug === "siem-reap" ? "angkor-wat" : ""}`}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white text-sm backdrop-blur-md transition-all"
-              >
-                <Footprints className="h-4 w-4 text-zinc-300" /> What&apos;s Near Here?
-              </Link>
-              <Link
-                href="/travel/suggest"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-300 hover:text-white text-sm backdrop-blur-md transition-all"
-              >
-                Suggest Place
-              </Link>
-            </div>
           </div>
-        </div>
-      </section>
+        </Container>
+      </Section>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 space-y-12">
-        {/* 2. Iconic Provincial Symbol & Tourism Promotion Showcase */}
-        {provinceSymbol && (
-          <ProvinceSymbolShowcase symbol={provinceSymbol} />
-        )}
+      <Container className="space-y-12 py-10 sm:space-y-14 sm:py-14">
+        {/* ── 2. Provincial symbol ─────────────────────────────────────────── */}
+        {provinceSymbol && <ProvinceSymbolShowcase symbol={provinceSymbol} />}
 
-        {/* 3. Practical Traveler Guidelines Alert */}
+        {/* ── 3. Practical information, only when the record carries it ────── */}
         {destination.practical_info && (
-          <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 p-5 sm:p-6 flex items-start gap-4">
-            <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-400 shrink-0">
-              <Info className="h-5 w-5" />
-            </div>
+          <aside className="flex items-start gap-4 rounded-lg border border-border bg-surface-muted/60 p-5 sm:p-6">
+            <Info size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-accent" />
             <div>
-              <h3 className="text-sm font-bold text-amber-950 dark:text-amber-200 uppercase tracking-wide">
-                Essential Practical Information for {destination.name}
-              </h3>
-              <p className="mt-1 text-sm text-amber-900 dark:text-amber-300/90 leading-relaxed">
-                {destination.practical_info}
+              <h2 className="section-label">Practical information — {destination.name}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-foreground/90">
+                {cleanText(destination.practical_info)}
               </p>
             </div>
-          </div>
+          </aside>
         )}
 
-        {/* 3. Open-source map of every geocoded place in this province */}
+        {/* ── 4. The map — Leaflet + OpenStreetMap, unchanged ──────────────── */}
         <ProvinceMap
           places={mapPlaces}
           totalPlaces={places.length}
@@ -204,82 +255,81 @@ export default async function DestinationPage({ params }: PageProps) {
           centerLng={hasCoordinates ? destination.longitude : undefined}
         />
 
-        {/* 4. Curated Multi-Day Itineraries for this Destination */}
+        {/* ── 5. Itineraries ───────────────────────────────────────────────── */}
         {trips.length > 0 && (
           <section>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
-                  Curated {destination.name} Itineraries
-                </h2>
-                <p className="text-xs text-neutral-500 mt-1">
-                  Day-by-day plans assembled from the places listed for this province.
-                </p>
-              </div>
-            </div>
+            <SectionHeader
+              label="Itineraries"
+              title={`Curated ${destination.name} itineraries`}
+              description="Day-by-day plans assembled from the places listed for this province."
+            />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {trips.map((trip) => (
-                <Link
-                  key={trip.id}
-                  href={`/travel/trips/${trip.slug}`}
-                  className="group rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-6 hover:shadow-lg transition-all flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center gap-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">
-                      <span className="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700">
-                        {trip.duration_days} Days
-                      </span>
-                      <span>{trip.travel_style}</span>
-                      <span>•</span>
-                      <span>Budget {trip.budget_level}</span>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {trips.map((trip) => {
+                const stopCount = trip.days?.length ?? 0;
+                return (
+                  <article
+                    key={trip.id}
+                    className="group flex flex-col justify-between gap-4 rounded-lg border border-border bg-card p-6 shadow-xs hover-lift hover:border-border-strong"
+                  >
+                    <div>
+                      <p className="section-label">
+                        {trip.duration_days} days
+                        {trip.travel_style ? ` · ${cleanText(trip.travel_style)}` : ""}
+                        {trip.budget_level ? ` · ${cleanText(trip.budget_level)} budget` : ""}
+                      </p>
+                      <h3 className="mt-2 font-display text-xl leading-snug tracking-tight text-foreground">
+                        <Link
+                          href={`/travel/trips/${trip.slug}`}
+                          className="transition-colors hover:text-accent"
+                        >
+                          {cleanText(trip.title)}
+                        </Link>
+                      </h3>
+                      {trip.description && (
+                        <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                          {cleanText(trip.description)}
+                        </p>
+                      )}
                     </div>
-                    <h3 className="text-lg font-bold text-neutral-900 dark:text-white group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">
-                      {trip.title}
-                    </h3>
-                    <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400 line-clamp-2 leading-relaxed">
-                      {trip.description}
-                    </p>
-                  </div>
 
-                  <div className="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between text-xs font-semibold text-neutral-500">
-                    <span>{trip.days?.length || 3} Detailed Day Schedules</span>
-                    <span className="text-zinc-900 dark:text-zinc-100 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                      Explore Full Itinerary <ArrowRight className="h-3.5 w-3.5" />
-                    </span>
-                  </div>
-                </Link>
-              ))}
+                    <div className="flex items-center justify-between gap-3 border-t border-border pt-3 text-xs text-muted-foreground">
+                      <span className="tabular-nums">
+                        {stopCount > 0
+                          ? `${stopCount} scheduled day${stopCount === 1 ? "" : "s"}`
+                          : "Day-by-day schedule not published yet"}
+                      </span>
+                      <Link
+                        href={`/travel/trips/${trip.slug}`}
+                        className="group/cta inline-flex items-center gap-1 font-semibold text-accent transition-colors hover:text-foreground"
+                      >
+                        Explore itinerary
+                        <ArrowRight
+                          size={14}
+                          aria-hidden="true"
+                          className="transition-transform duration-300 group-hover/cta:translate-x-0.5"
+                        />
+                      </Link>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </section>
         )}
 
-        {/* 5. Getting to this Destination (Transport & Highway Buses) */}
+        {/* ── 6. Getting here ──────────────────────────────────────────────── */}
         {transportData.routes.length > 0 && (
           <section>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <div className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">
-                  <Bus className="w-3.5 h-3.5" /> Intercity Transport Connections
-                </div>
-                <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
-                  Getting to {destination.name} (Buses & Minivans)
-                </h2>
-                <p className="text-xs text-neutral-500 mt-1 leading-relaxed max-w-2xl">
-                  {transportData.routes.length} route{transportData.routes.length === 1 ? "" : "s"} from{" "}
-                  {transportOriginLabel} recorded in our transport directory. Fares and departure
-                  times change often, so reconfirm with the operator before you travel.
-                </p>
-              </div>
-              <Link
-                href="/travel/transport"
-                className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
-              >
-                All Transport Routes <ArrowRight className="w-3 h-3" />
-              </Link>
-            </div>
+            <SectionHeader
+              label="Getting here"
+              title={`Buses and minivans to ${destination.name}`}
+              description={`${transportData.routes.length} route${transportData.routes.length === 1 ? "" : "s"} from ${transportOriginLabel} recorded in our transport directory. Fares and departure times change often, so reconfirm with the operator before you travel.`}
+              actionHref="/travel/transport"
+              actionLabel="All transport routes"
+            />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
               {transportData.routes.map((route) => (
                 <TransportRouteCard key={route.id} route={route} />
               ))}
@@ -287,22 +337,16 @@ export default async function DestinationPage({ params }: PageProps) {
           </section>
         )}
 
-        {/* 6. Curated Destination Field Guides */}
+        {/* ── 7. Field guides ──────────────────────────────────────────────── */}
         {guides.length > 0 && (
           <section>
-            <div className="mb-6">
-              <div className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-primary mb-1">
-                <BookOpen className="w-3.5 h-3.5" /> Field Guides
-              </div>
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
-                Guides &amp; Etiquette for {destination.name}
-              </h2>
-              <p className="text-xs text-neutral-500 mt-1">
-                Practical timing advice, photography viewpoints, and cultural heritage rules.
-              </p>
-            </div>
+            <SectionHeader
+              label="Field guides"
+              title={`Guides and etiquette for ${destination.name}`}
+              description="Practical timing advice, photography viewpoints and cultural heritage rules."
+            />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {guides.map((guide) => (
                 <TravelGuideCard key={guide.id} guide={guide} />
               ))}
@@ -310,22 +354,16 @@ export default async function DestinationPage({ params }: PageProps) {
           </section>
         )}
 
-        {/* 7. Destination Events & Festivals */}
+        {/* ── 8. Festivals ─────────────────────────────────────────────────── */}
         {events.length > 0 && (
           <section>
-            <div className="mb-6">
-              <div className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-amber-500 mb-1">
-                <Calendar className="w-3.5 h-3.5" /> Cultural Calendar
-              </div>
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
-                Upcoming Festivals & Gatherings in {destination.name}
-              </h2>
-              <p className="text-xs text-neutral-500 mt-1">
-                Annual marathons, sacred Buddhist ceremonies, and river festivals.
-              </p>
-            </div>
+            <SectionHeader
+              label="Cultural calendar"
+              title={`Festivals in ${destination.name}`}
+              description={`${events.length} upcoming events recorded for this province.`}
+            />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
               {events.map((event) => (
                 <TravelEventCard key={event.id} event={event} />
               ))}
@@ -333,20 +371,17 @@ export default async function DestinationPage({ params }: PageProps) {
           </section>
         )}
 
-        {/* 8. Interactive Filterable Places Grid (Client Component) */}
+        {/* ── 9. Every place in the province ───────────────────────────────── */}
         <section>
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
-              Places to Visit & Stay in {destination.name}
-            </h2>
-            <p className="text-xs text-neutral-500 mt-1">
-              Filter temples, luxury accommodations, Khmer dining, local markets, and waterfalls.
-            </p>
-          </div>
+          <SectionHeader
+            label="The directory"
+            title={`Places to visit and stay in ${destination.name}`}
+            description={`${places.length} listed places. The filters search the rows this province carries, so an empty category means nothing of that type is recorded here yet.`}
+          />
 
           <PlaceFilterGrid places={places} destinationSlug={destination.slug} />
         </section>
-      </div>
+      </Container>
     </div>
   );
 }

@@ -2,11 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { Compass } from "lucide-react";
 import { searchNearby, getPlaces } from "@/lib/api";
 import { NearbySearchResponse, Place } from "@/types";
 import { NearbyPlaceCard } from "@/components/travel/NearbyPlaceCard";
+import { Container } from "@/components/ui/container";
+import { SectionHeader } from "@/components/ui/section-header";
+import { FormField } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { MetaDot } from "@/components/ui/byline";
+import { humanize } from "@/lib/format";
 import travelConfig from "@/data/travel_config.json";
-import { Compass, MapPin, Navigation, Filter, Footprints, Car } from "lucide-react";
 
 export default function NearbySearchPage() {
   const [selectedPlace, setSelectedPlace] = useState("angkor-wat");
@@ -44,40 +51,40 @@ export default function NearbySearchPage() {
     loadNearby();
   }, [selectedPlace, radius, placeType]);
 
+  const referenceName = data?.reference_name || humanize(selectedPlace);
+
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      {/* Breadcrumbs */}
-      <nav className="flex items-center gap-2 text-xs text-muted-foreground mb-6">
-        <Link href="/" className="hover:text-primary transition-colors">Home</Link>
-        <span>/</span>
-        <Link href="/travel" className="hover:text-primary transition-colors">Travel</Link>
-        <span>/</span>
-        <span className="text-foreground font-medium">Nearby Places & Attractions</span>
-      </nav>
+    <div className="flex w-full flex-1 flex-col">
+      <Container className="pt-6 sm:pt-8">
+        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <Link href="/" className="transition-colors hover:text-foreground">
+            Home
+          </Link>
+          <MetaDot />
+          <Link href="/travel" className="transition-colors hover:text-foreground">
+            Travel
+          </Link>
+          <MetaDot />
+          <span className="text-foreground">Nearby</span>
+        </nav>
+      </Container>
 
-      {/* Header Banner */}
-      <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-3xl p-6 sm:p-10 mb-8">
-        <div className="max-w-3xl">
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-300 bg-zinc-200/70 dark:bg-zinc-800 px-3 py-1 rounded-full border border-zinc-300/50 dark:border-zinc-700/50 mb-3">
-            <Compass className="w-3.5 h-3.5 text-zinc-500" /> Spherical Haversine Geolocation Engine
-          </span>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3 text-zinc-900 dark:text-white">
-            What is Near Me?
-          </h1>
-          <p className="text-zinc-600 dark:text-zinc-400 text-sm sm:text-base leading-relaxed mb-6 font-normal">
-            Calculate exact spherical distances, walking times, and tuk-tuk driving estimates from any landmark or heritage monument across Cambodia without relying on third-party commercial mapping dependencies.
-          </p>
+      {/* ── Header + controls ────────────────────────────────────────────── */}
+      <Container className="pt-8 pb-10 sm:pt-12">
+        <SectionHeader
+          as="h1"
+          label="Nearby"
+          title="What is around this place"
+          description="Places within a chosen radius of a landmark, ordered by straight-line distance from its coordinates. Walking and road times are estimated from that distance, not measured on the street."
+        />
 
-          {/* Controls Bar */}
-          <div className="bg-card border rounded-xl p-4 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
-                Reference Landmark
-              </label>
-              <select
+        <div className="mt-8 max-w-4xl rounded-lg border border-border bg-card p-5 shadow-xs sm:p-6">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <FormField label="Reference place" id="nearby-place">
+              <Select
+                id="nearby-place"
                 value={selectedPlace}
                 onChange={(e) => setSelectedPlace(e.target.value)}
-                className="w-full bg-background border rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary outline-none"
               >
                 {placesList.length > 0
                   ? placesList.map((lm) => (
@@ -90,89 +97,74 @@ export default function NearbySearchPage() {
                         {lm.name}
                       </option>
                     ))}
-              </select>
-            </div>
+              </Select>
+            </FormField>
 
-            <div>
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
-                Search Radius
-              </label>
-              <select
+            <FormField label="Radius" id="nearby-radius" helperText="Measured as the crow flies.">
+              <Select
+                id="nearby-radius"
                 value={radius}
                 onChange={(e) => setRadius(parseFloat(e.target.value))}
-                className="w-full bg-background border rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary outline-none"
               >
                 {travelConfig.search_radii.map((r) => (
                   <option key={r.value} value={r.value}>
                     {r.label}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </FormField>
 
-            <div>
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
-                Filter Category
-              </label>
-              <select
-                value={placeType}
-                onChange={(e) => setPlaceType(e.target.value)}
-                className="w-full bg-background border rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary outline-none"
-              >
+            <FormField label="Category" id="nearby-type">
+              <Select id="nearby-type" value={placeType} onChange={(e) => setPlaceType(e.target.value)}>
                 {travelConfig.place_categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.label}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </FormField>
           </div>
         </div>
-      </div>
+      </Container>
 
-      {/* Results Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-xl font-bold">
-            Places within {radius} km of <span className="text-primary">{data?.reference_name || selectedPlace}</span>
+      {/* ── Results ──────────────────────────────────────────────────────── */}
+      <Container as="section" className="border-t border-border pb-16">
+        <div className="flex flex-wrap items-baseline justify-between gap-3 py-8">
+          <h2 className="font-display text-2xl leading-tight tracking-tight text-foreground sm:text-3xl">
+            Within {radius} km of <span className="text-accent">{referenceName}</span>
           </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Sorted by nearest straight-line distance with estimated travel duration.
-          </p>
+          {data && (
+            <p className="text-xs tabular-nums text-muted-foreground">
+              {data.total} place{data.total === 1 ? "" : "s"} found
+            </p>
+          )}
         </div>
-        {data && (
-          <span className="text-xs font-semibold bg-muted px-2.5 py-1 rounded-full text-muted-foreground">
-            {data.total} locations found
-          </span>
-        )}
-      </div>
 
-      {/* Results Grid */}
-      {loading ? (
-        <div className="py-16 text-center text-muted-foreground">
-          Calculating spherical distance vectors...
-        </div>
-      ) : data && data.results.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {data.results.map((item) => (
-            <NearbyPlaceCard key={item.place.id} item={item} />
-          ))}
-        </div>
-      ) : (
-        <div className="bg-card border rounded-xl p-8 text-center max-w-md mx-auto my-8">
-          <Compass className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-          <h3 className="font-bold text-base mb-1">No places in this radius</h3>
-          <p className="text-xs text-muted-foreground mb-4">
-            Try expanding the search radius to 10 km or 20 km to discover temples and accommodation in the surrounding circuit.
+        {loading ? (
+          <p className="border-t border-border py-12 text-sm text-muted-foreground">
+            Measuring distances…
           </p>
-          <button
-            onClick={() => setRadius(20.0)}
-            className="text-xs font-semibold bg-primary text-primary-foreground px-4 py-2 rounded-lg"
-          >
-            Expand to 20 km
-          </button>
-        </div>
-      )}
+        ) : data && data.results.length > 0 ? (
+          <div className="border-t border-border">
+            {data.results.map((item) => (
+              <NearbyPlaceCard key={item.place.id} item={item} />
+            ))}
+          </div>
+        ) : (
+          <div className="max-w-xl border-t border-border py-10">
+            <Compass size={20} className="text-muted-foreground" aria-hidden="true" />
+            <h3 className="mt-3 font-display text-lg leading-snug text-foreground">
+              Nothing registered inside this radius
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Only places in the CamTech.Blog registry are listed. Widen the radius to look further out.
+            </p>
+            <Button className="mt-4" variant="outline" size="sm" onClick={() => setRadius(20.0)}>
+              Search within 20 km
+            </Button>
+          </div>
+        )}
+      </Container>
     </div>
   );
 }

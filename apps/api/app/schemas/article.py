@@ -1,6 +1,8 @@
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, HttpUrl, Field
+from pydantic import BaseModel, HttpUrl, Field, field_validator
+
+from app.services.filing import STOCK_IMAGE_HOSTS
 
 class ArticleSourceBase(BaseModel):
     source_name: str
@@ -10,6 +12,65 @@ class ArticleSourceBase(BaseModel):
 
 class ArticleSourceOut(ArticleSourceBase):
     id: str
+    class Config:
+        from_attributes = True
+
+
+# ---------------------------------------------------------------------------
+# Nested references for public read responses.
+#
+# ArticleOut used to expose only category_id / author_id / primary_source_id,
+# so every public page received nulls where a byline, a category label and a
+# publisher name should be, and the frontend fell back to slug-ish placeholders
+# or blank bylines. These refs carry only the fields the reader UI renders —
+# email, twitter_handle, feed_url and license internals stay admin-only.
+# ---------------------------------------------------------------------------
+
+class ArticleAuthorRef(BaseModel):
+    id: str
+    name: str
+    slug: str
+    role: Optional[str] = None
+    expertise: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+    @field_validator("avatar_url", mode="before")
+    @classmethod
+    def _never_ship_a_stock_face(cls, value):
+        """A library portrait cannot stand in for a named person's face.
+
+        Three of the four author rows carry an Unsplash headshot seeded with them. Serving
+        those would put a stranger's photograph next to a byline, which is the same
+        provenance failure as a stock news photograph, so the field reads back empty.
+        """
+        if value and any(host in str(value) for host in STOCK_IMAGE_HOSTS):
+            return None
+        return value
+
+    class Config:
+        from_attributes = True
+
+
+class ArticleCategoryRef(BaseModel):
+    id: str
+    name: str
+    slug: str
+    name_km: Optional[str] = None
+    scope: Optional[str] = None
+    icon: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ArticleSourceRef(BaseModel):
+    id: str
+    name: str
+    slug: str
+    country: Optional[str] = None
+    website_url: Optional[str] = None
+    trust_level: Optional[str] = None
+
     class Config:
         from_attributes = True
 
@@ -90,6 +151,10 @@ class QualityChecklist(BaseModel):
     has_source_attribution: bool
     has_source_url: bool
     has_image_with_credit: bool
+    # Image + desk placement are editorial integrity checks, not nice-to-haves: a story
+    # wearing someone else's photograph or filed on the wrong desk must not ship.
+    hero_provenance_verified: bool = True
+    filing_consistent: bool = True
     no_duplicate_detected: bool
     no_unsupported_claims: bool
     editorial_reviewed: bool
@@ -111,6 +176,9 @@ class ArticleOut(ArticleBase):
     updated_at: Optional[datetime]
     created_at: datetime
     sources: List[ArticleSourceOut] = []
+    author: Optional[ArticleAuthorRef] = None
+    category: Optional[ArticleCategoryRef] = None
+    primary_source: Optional[ArticleSourceRef] = None
 
     class Config:
         from_attributes = True

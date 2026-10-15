@@ -2,19 +2,15 @@ import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
-import {
-  Calendar,
-  Clock,
-  MapPin,
-  Sparkles,
-  ArrowRight,
-  Compass,
-  Navigation,
-  CheckCircle2,
-  Share2,
-  DollarSign
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, MapPin } from "lucide-react";
 import { getTripBySlug } from "@/lib/api";
+import { Container } from "@/components/ui/container";
+import { Photo } from "@/components/ui/photo";
+import { CategoryMark } from "@/components/ui/category-mark";
+import { MetaDot } from "@/components/ui/byline";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cleanText } from "@/lib/format";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -26,9 +22,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!trip) return { title: "Itinerary Not Found" };
 
   return {
-    title: `${trip.title} | Daily Discovery Travel`,
+    title: trip.title,
     description: trip.description.slice(0, 160),
   };
+}
+
+/** "90 min" → "1h 30m"; nothing when the item carries no duration. */
+function duration(minutes?: number): string {
+  if (!minutes || minutes <= 0) return "";
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
 export default async function TripDetailPage({ params }: PageProps) {
@@ -40,167 +45,199 @@ export default async function TripDetailPage({ params }: PageProps) {
   }
 
   const days = trip.days || [];
+  const destinationSlug = trip.destination?.slug;
+  const plannerHref = destinationSlug ? `/travel/planner?destination=${destinationSlug}&duration=${trip.duration_days}` : "/travel/planner";
 
   return (
-    <div className="min-h-screen pb-24">
-      {/* 1. Itinerary Hero Header */}
-      <section className="relative overflow-hidden bg-neutral-950 text-white py-16 lg:py-24">
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-35 filter blur-[1px] scale-105"
-          style={{
-            backgroundImage: `url('${trip.hero_image_url || "/images/places/angkor-wat.jpg"}')`,
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/70 to-transparent" />
+    <div className="flex w-full flex-1 flex-col">
+      {/* ── Headline ─────────────────────────────────────────────────────── */}
+      <Container className="pt-6 sm:pt-8">
+        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <Link href="/travel" className="transition-colors hover:text-foreground">
+            Travel
+          </Link>
+          <MetaDot />
+          {trip.destination?.name && (
+            <>
+              <Link href={`/travel/${trip.destination.slug}`} className="transition-colors hover:text-foreground">
+                {cleanText(trip.destination.name)}
+              </Link>
+              <MetaDot />
+            </>
+          )}
+          <span className="text-foreground">Itinerary</span>
+        </nav>
+      </Container>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2 text-xs font-semibold text-rose-400 mb-4 uppercase tracking-wider">
-            <Link href="/travel" className="hover:underline">
-              Travel
-            </Link>
-            <span>/</span>
-            {trip.destination && (
-              <>
-                <Link href={`/travel/${trip.destination.slug}`} className="hover:underline">
-                  {trip.destination.name}
-                </Link>
-                <span>/</span>
-              </>
-            )}
-            <span>Curated Trips</span>
-          </div>
+      <Container className="pt-8 pb-8 sm:pt-12">
+        <div className="grid gap-8 lg:grid-cols-12 lg:gap-12">
+          <div className="lg:col-span-7">
+            <CategoryMark category="travel" tone="dot">
+              {trip.duration_days}-day itinerary
+            </CategoryMark>
 
-          <div className="max-w-4xl">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="px-3 py-1 rounded-full bg-rose-600 text-white text-xs font-bold uppercase tracking-wider">
-                {trip.duration_days} Days / Complete Guide
-              </span>
-              <span className="text-xs font-semibold text-amber-300 bg-amber-950/60 border border-amber-800/80 px-2.5 py-0.5 rounded-full">
-                Style: {trip.travel_style}
-              </span>
-              <span className="text-xs font-semibold text-neutral-300">
-                Budget: {trip.budget_level}
-              </span>
-            </div>
-
-            <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
-              {trip.title}
+            <h1 className="mt-4 font-display text-4xl leading-[1.08] tracking-tight text-foreground sm:text-5xl">
+              {cleanText(trip.title)}
             </h1>
-            {trip.title_km && (
-              <p className="text-xl sm:text-2xl font-bold text-neutral-400 mt-2">
-                {trip.title_km}
+
+            {trip.title_km && <p className="mt-3 text-lg text-muted-foreground">{trip.title_km}</p>}
+
+            {trip.description && (
+              <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
+                {cleanText(trip.description)}
               </p>
             )}
 
-            <p className="mt-4 text-sm sm:text-base text-neutral-300 leading-relaxed max-w-3xl">
-              {trip.description}
-            </p>
-
-            <div className="mt-8 flex flex-wrap gap-4">
-              <Link
-                href={`/travel/planner?destination=${trip.destination?.slug || "siem-reap"}&duration=${trip.duration_days}`}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 font-bold text-sm text-white shadow-lg shadow-rose-600/30 transition-all hover:scale-105"
-              >
-                <Navigation className="h-4 w-4" /> Customize In Trip Planner
-              </Link>
-            </div>
+            {trip.description_km && (
+              <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">{trip.description_km}</p>
+            )}
           </div>
-        </div>
-      </section>
 
-      {/* 2. Daily Schedule Timeline */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 space-y-12">
-        {days.map((day) => (
-          <section
-            key={day.id}
-            className="bg-white dark:bg-neutral-900 rounded-3xl p-6 sm:p-8 border border-neutral-200 dark:border-neutral-800 shadow-sm"
-          >
-            <div className="border-b border-neutral-100 dark:border-neutral-800 pb-5 mb-8">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-rose-600 text-white font-extrabold text-lg flex items-center justify-center shadow-md shadow-rose-600/20">
-                  {day.day_number}
-                </div>
-                <div>
-                  <h2 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-white">
-                    {day.title}
-                  </h2>
-                  {day.summary && (
-                    <p className="text-xs sm:text-sm text-neutral-500 mt-1">
-                      {day.summary}
-                    </p>
-                  )}
-                </div>
+          {/* What the record carries, nothing more */}
+          <dl className="divide-y divide-border self-start border-y border-border text-sm lg:col-span-5">
+            <div className="flex items-baseline justify-between gap-4 py-3">
+              <dt className="section-label">Style</dt>
+              <dd className="text-foreground">{cleanText(trip.travel_style) || "—"}</dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-4 py-3">
+              <dt className="section-label">Budget level</dt>
+              <dd className="text-foreground">{cleanText(trip.budget_level) || "—"}</dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-4 py-3">
+              <dt className="section-label">Days</dt>
+              <dd className="tabular-nums text-foreground">{trip.duration_days}</dd>
+            </div>
+            {trip.destination?.name && (
+              <div className="flex items-baseline justify-between gap-4 py-3">
+                <dt className="section-label">Destination</dt>
+                <dd className="text-foreground">
+                  <Link href={`/travel/${trip.destination.slug}`} className="transition-colors hover:text-accent">
+                    {cleanText(trip.destination.name)}
+                  </Link>
+                </dd>
               </div>
-            </div>
+            )}
+            {trip.is_curated && (
+              <div className="flex items-baseline justify-between gap-4 py-3">
+                <dt className="section-label">Editorial</dt>
+                <dd>
+                  <Badge variant="secondary" size="sm">
+                    Curated route
+                  </Badge>
+                </dd>
+              </div>
+            )}
+          </dl>
+        </div>
+      </Container>
 
-            {/* Items inside this day */}
-            <div className="space-y-6 relative before:absolute before:inset-0 before:left-4 before:w-0.5 before:bg-neutral-200 dark:before:bg-neutral-800">
-              {day.items.map((item) => (
-                <div key={item.id} className="relative flex items-start gap-4 pl-10">
-                  {/* Timeline dot */}
-                  <div className="absolute left-2.5 top-1.5 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-rose-600 border-2 border-white dark:border-neutral-900 shadow-sm" />
+      {/* ── Photograph ───────────────────────────────────────────────────── */}
+      <Container className="pb-10">
+        <Photo
+          src={trip.hero_image_url}
+          alt={cleanText(trip.title)}
+          ratio="16/9"
+          radius="hero"
+          priority
+          placeholderLabel="No verified photograph for this itinerary yet"
+        />
+      </Container>
 
-                  <div className="flex-1 bg-neutral-50 dark:bg-neutral-800/60 rounded-2xl p-4 sm:p-5 border border-neutral-100 dark:border-neutral-700/60">
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2">
-                        {item.start_time && (
-                          <span className="font-bold text-xs text-rose-600 dark:text-rose-400">
-                            {item.start_time}
-                          </span>
-                        )}
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300">
-                          {item.time_of_day}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-neutral-500 flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        <span>~{item.duration_minutes} mins</span>
-                      </div>
-                    </div>
+      {/* ── Day by day ───────────────────────────────────────────────────── */}
+      <Container width="reading" as="section" className="pb-14">
+        <div className="flex items-baseline gap-4">
+          <span className="section-label shrink-0 text-accent">Day by day</span>
+          <span aria-hidden="true" className="h-px flex-1 bg-border" />
+        </div>
 
-                    <h3 className="text-base font-bold text-neutral-900 dark:text-white">
-                      {item.title}
-                    </h3>
+        {days.length === 0 ? (
+          <p className="py-10 text-sm leading-relaxed text-muted-foreground">
+            The hour-by-hour plan for this itinerary has not been published yet.
+          </p>
+        ) : (
+          <div className="mt-8 space-y-12">
+            {days.map((day) => (
+              <section key={day.id}>
+                <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border pb-3">
+                  <h2 className="font-display text-2xl leading-tight tracking-tight text-foreground">
+                    Day {day.day_number}
+                  </h2>
+                  {day.title && <p className="text-base text-muted-foreground">{cleanText(day.title)}</p>}
+                </header>
 
-                    {item.description && (
-                      <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-300 mt-1.5 leading-relaxed">
-                        {item.description}
-                      </p>
-                    )}
+                {day.summary && (
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{cleanText(day.summary)}</p>
+                )}
 
-                    {item.place && (
-                      <div className="mt-4 pt-3 border-t border-neutral-200/80 dark:border-neutral-700/80 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-3.5 w-3.5 text-rose-500" />
-                          <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                            {item.place.name}
-                          </span>
-                        </div>
-                        <Link
-                          href={`/travel/place/${item.place.slug}`}
-                          className="text-xs font-bold text-rose-600 hover:underline flex items-center gap-1"
-                        >
-                          View Place Details <ArrowRight className="h-3 w-3" />
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ))}
+                {(day.items || []).length === 0 ? (
+                  <p className="py-5 text-sm text-muted-foreground">
+                    No steps published for this day yet.
+                  </p>
+                ) : (
+                  <ol className="divide-y divide-border">
+                    {(day.items || []).map((item) => {
+                      const time = duration(item.duration_minutes);
+                      return (
+                        <li key={item.id} className="grid gap-2 py-5 sm:grid-cols-12 sm:gap-4">
+                          <div className="sm:col-span-3">
+                            {item.start_time ? (
+                              <p className="text-sm font-medium tabular-nums text-foreground">{item.start_time}</p>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">Time not set</p>
+                            )}
+                            <p className="section-label mt-1">
+                              {item.time_of_day?.toLowerCase().replace(/_/g, " ") || "part of day"}
+                            </p>
+                            {time && <p className="mt-1 text-xs tabular-nums text-muted-foreground">about {time}</p>}
+                          </div>
 
-        {/* CTA to customize */}
-        <div className="text-center py-8">
+                          <div className="sm:col-span-9">
+                            <h3 className="text-base font-semibold leading-snug text-foreground">
+                              {cleanText(item.title)}
+                            </h3>
+                            {item.description && (
+                              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                                {cleanText(item.description)}
+                              </p>
+                            )}
+                            {item.place && (
+                              <Link
+                                href={`/travel/place/${item.place.slug}`}
+                                className="group mt-2.5 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-foreground"
+                              >
+                                <MapPin size={14} aria-hidden="true" />
+                                {cleanText(item.place.name)}
+                                <ArrowRight
+                                  size={14}
+                                  className="transition-transform duration-300 group-hover:translate-x-0.5"
+                                  aria-hidden="true"
+                                />
+                              </Link>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+              </section>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-12 flex flex-wrap items-center gap-4 border-t border-border pt-6">
+          <Button variant="accent" asChild>
+            <Link href={plannerHref}>Plan your own version</Link>
+          </Button>
           <Link
-            href={`/travel/planner?destination=${trip.destination?.slug || "siem-reap"}`}
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-950 font-bold text-sm shadow-xs hover:shadow transition-all"
+            href="/travel"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            <Sparkles className="h-4 w-4 text-amber-400" /> Generate Your Custom Itinerary
+            <ArrowLeft size={15} aria-hidden="true" />
+            More itineraries
           </Link>
         </div>
-      </div>
+      </Container>
     </div>
   );
 }

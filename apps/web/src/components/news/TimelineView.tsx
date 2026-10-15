@@ -1,37 +1,73 @@
 "use client";
 
-import React from "react";
-import { Clock } from "lucide-react";
+import * as React from "react";
 import { useI18n } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
+import { cleanText } from "@/lib/format";
 
-interface TimelineItem {
+export interface TimelineItem {
   time: string;
   event: string;
 }
 
-export function TimelineView({ items }: { items: TimelineItem[] }) {
+export interface TimelineViewProps {
+  items?: TimelineItem[] | null;
+  className?: string;
+}
+
+/**
+ * Chronology of the story.
+ *
+ * The dot-and-rail treatment is gone. This is a newspaper "how it unfolded"
+ * table instead: hairline rows, the real date or label in the left column, the
+ * event in the right. Rows with no event text are dropped, and an empty or
+ * unparseable `timeline` field renders nothing rather than an empty box.
+ */
+export function TimelineView({ items, className }: TimelineViewProps) {
   const { t } = useI18n();
-  if (!items || items.length === 0) return null;
+
+  const rows = (Array.isArray(items) ? items : [])
+    .map((item) => {
+      if (!item) return null;
+      if (typeof item === "string") {
+        return { time: "", event: cleanText(item) };
+      }
+      return {
+        time: cleanText(String(item.time ?? "")),
+        event: cleanText(String(item.event ?? "")),
+      };
+    })
+    .filter((row): row is { time: string; event: string } => Boolean(row?.event));
+
+  if (rows.length === 0) return null;
+
+  const label = cleanText(t("article.timeline"));
 
   return (
-    <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 p-5 sm:p-6 my-6">
-      <h3 className="text-xs font-bold uppercase tracking-widest text-neutral-500 dark:text-neutral-400 mb-4 flex items-center gap-2">
-        <Clock className="h-4 w-4 text-rose-600" />
-        <span>{t("article.timeline")}</span>
-      </h3>
-      <div className="relative pl-6 space-y-5 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-neutral-200 dark:before:bg-neutral-800">
-        {items.map((item, idx) => (
-          <div key={idx} className="relative">
-            <div className="absolute -left-6 top-1.5 h-2 w-2 rounded-full border-2 border-rose-600 bg-white dark:bg-neutral-900" />
-            <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block">
-              {item.time}
-            </span>
-            <p className="text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 mt-0.5 leading-relaxed">
-              {item.event}
+    <section
+      aria-label={label}
+      className={cn(
+        "rounded-lg border border-border bg-card p-5 shadow-xs sm:p-6",
+        className
+      )}
+    >
+      <h3 className="section-label text-accent">{label}</h3>
+
+      <ol className="mt-2 border-t border-border">
+        {rows.map((row, index) => (
+          <li
+            key={index}
+            className="flex flex-col gap-1 border-b border-border py-3 last:border-b-0 sm:flex-row sm:gap-6 sm:py-4"
+          >
+            {row.time && (
+              <span className="section-label w-48 shrink-0 pt-0.5">{row.time}</span>
+            )}
+            <p className="text-sm leading-relaxed text-card-foreground sm:leading-[1.75]">
+              {row.event}
             </p>
-          </div>
+          </li>
         ))}
-      </div>
-    </div>
+      </ol>
+    </section>
   );
 }

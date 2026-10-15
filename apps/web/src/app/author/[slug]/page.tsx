@@ -1,11 +1,22 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { User, Mail, Award, BookOpen, ExternalLink, ChevronRight } from "lucide-react";
 import { getAuthorBySlug, getArticles } from "@/lib/api";
-import { NewsCard } from "@/components/news/NewsCard";
+import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+import { Container } from "@/components/ui/container";
+import { SectionHeader } from "@/components/ui/section-header";
+import { NewsCard } from "@/components/shared/news-card";
+import { Photo } from "@/components/ui/photo";
+import { cleanText, formatCount } from "@/lib/format";
 
 export const revalidate = 60;
 
+/**
+ * Author masthead + archive.
+ *
+ * Two invented things used to live here: a fallback bio for any author the API
+ * had no biography for, and a "Verified Editorial Staff" badge every profile
+ * wore regardless of the data. Both are gone — a profile now says only what
+ * `Author` actually carries, and the story count is the API's own `total`.
+ */
 export default async function AuthorProfilePage({
   params,
 }: {
@@ -18,84 +29,93 @@ export default async function AuthorProfilePage({
     notFound();
   }
 
-  const { items: articles } = await getArticles({ author: slug, limit: 20 });
+  const { items: articles, total } = await getArticles({ author: slug, limit: 20 });
+
+  const bio = cleanText(author.bio);
+  const expertise = cleanText(author.expertise);
+  const role = cleanText(author.role);
+  const storyCount = total > 0 ? total : articles.length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-xs font-medium text-slate-500">
-        <Link href="/" className="hover:text-slate-900 dark:hover:text-slate-100">
-          Home
-        </Link>
-        <ChevronRight className="w-3.5 h-3.5" />
-        <span className="text-slate-900 dark:text-slate-100 font-semibold">Authors</span>
-        <ChevronRight className="w-3.5 h-3.5" />
-        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{author.name}</span>
-      </nav>
+    <div className="flex w-full flex-1 flex-col">
+      <Container className="pt-8 sm:pt-12">
+        <Breadcrumbs items={[{ label: "Authors" }, { label: author.name }]} />
 
-      {/* Author Bio Card */}
-      <div className="p-8 rounded-3xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-6 items-start">
-        <div className="w-24 h-24 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-800 dark:text-emerald-300 font-black text-3xl shrink-0">
-          {author.avatar_url ? (
-            <img src={author.avatar_url} alt={author.name} className="w-full h-full object-cover rounded-2xl" />
-          ) : (
-            author.name.charAt(0)
-          )}
-        </div>
+        {/* ── Masthead ────────────────────────────────────────────────────── */}
+        <header className="mt-6 border-b border-border pb-10">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+            {author.avatar_url && (
+              <Photo
+                src={author.avatar_url}
+                alt={author.name}
+                ratio="1/1"
+                radius="lg"
+                zoom={false}
+                showCredit={false}
+                className="h-24 w-24 shrink-0 sm:h-28 sm:w-28"
+              />
+            )}
 
-        <div className="flex-1 space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-              {author.name}
-            </h1>
-            <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold rounded-full">
-              {author.role}
-            </span>
-          </div>
+            <div className="min-w-0 flex-1">
+              {role && (
+                <p className="section-label text-accent">{role}</p>
+              )}
+              <h1 className="mt-2 font-display text-4xl leading-[1.05] tracking-tight text-foreground sm:text-5xl">
+                {author.name}
+              </h1>
 
-          {author.expertise && (
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
-              <Award className="w-4 h-4 text-emerald-600" />
-              <span>Specialties: {author.expertise}</span>
+              {bio && (
+                <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
+                  {bio}
+                </p>
+              )}
+
+              {(expertise || storyCount > 0) && (
+                <dl className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-3 text-sm">
+                  {expertise && (
+                    <div className="flex items-baseline gap-2">
+                      <dt className="section-label">
+                        Focus
+                      </dt>
+                      <dd className="text-foreground">{expertise}</dd>
+                    </div>
+                  )}
+                  {storyCount > 0 && (
+                    <div className="flex items-baseline gap-2">
+                      <dt className="section-label">
+                        Stories
+                      </dt>
+                      <dd className="tabular-nums text-foreground">{formatCount(storyCount)}</dd>
+                    </div>
+                  )}
+                </dl>
+              )}
             </div>
-          )}
-
-          <p className="text-sm text-slate-700 dark:text-slate-300 max-w-3xl leading-relaxed">
-            {author.bio || "Staff journalist and researcher at Daily Discovery newsroom focusing on verified regional developments, economy, and technological advancements."}
-          </p>
-
-          <div className="pt-2 flex flex-wrap gap-4 text-xs font-medium text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <BookOpen className="w-4 h-4 text-slate-400" />
-              {articles.length} Published Stories
-            </span>
-            <span className="text-slate-300 dark:text-slate-700">•</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-              Verified Editorial Staff
-            </span>
           </div>
-        </div>
-      </div>
+        </header>
+      </Container>
 
-      {/* Articles by Author */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-          Articles & Coverage by {author.name}
-        </h2>
+      {/* ── Archive ─────────────────────────────────────────────────────── */}
+      <Container className="py-10 sm:py-14">
         {articles.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {articles.map((article) => (
-              <NewsCard key={article.id} article={article} />
-            ))}
-          </div>
+          <>
+            <SectionHeader
+              label="Archive"
+              title={`Reporting by ${author.name}`}
+              description="Newest first, as published in the archive."
+            />
+            <div className="grid gap-6 sm:grid-cols-2">
+              {articles.map((article) => (
+                <NewsCard key={article.id} article={article} variant="standard" />
+              ))}
+            </div>
+          </>
         ) : (
-          <div className="p-12 text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
-            <p className="text-sm text-slate-500 font-medium">
-              No published articles found for this author yet.
-            </p>
-          </div>
+          <p className="py-10 text-sm leading-relaxed text-muted-foreground">
+            No stories are listed for this byline yet.
+          </p>
         )}
-      </div>
+      </Container>
 
       {/* JSON-LD Person Schema */}
       <script

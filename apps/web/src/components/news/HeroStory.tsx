@@ -1,76 +1,130 @@
 "use client";
 
-import React from "react";
+import * as React from "react";
 import Link from "next/link";
-import { Clock, ExternalLink, ArrowRight, ShieldCheck } from "lucide-react";
-import { Article } from "@/types";
+import { ArrowRight } from "lucide-react";
+import type { Article } from "@/types";
+import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
+import { cleanText, formatReadingTime } from "@/lib/format";
+import { Photo } from "@/components/ui/photo";
+import { Byline } from "@/components/ui/byline";
+import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
 
+/** "PUBLIC_DOMAIN" -> "Public domain". Pipeline tokens are not copy. */
+function humanizeLicense(value?: string | null): string {
+  const cleaned = cleanText(value);
+  if (!cleaned) return "";
+  const spaced = cleaned.replace(/[_/]+/g, " ").replace(/\s+/g, " ").toLowerCase();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+/**
+ * The lead story slot on a listing page.
+ *
+ * Two fabrications removed: `hero_image_url` used to fall back to a hardcoded
+ * Unsplash photograph, so every lead looked illustrated even when the desk had
+ * no rights to an image, and an absent `published_at` printed "Today". With no
+ * verified picture the slot becomes a typographic lead — headline, deck, summary,
+ * byline — which is what a magazine does when it has no art.
+ */
 export function HeroStory({ article }: { article: Article }) {
-  const { lang, t } = useI18n();
+  const { lang } = useI18n();
 
-  const title = lang === "km" && article.title_km ? article.title_km : article.title;
-  const summary = lang === "km" && article.summary_km ? article.summary_km : article.summary;
+  const title = cleanText(lang === "km" && article.title_km ? article.title_km : article.title);
+  const summary = cleanText(lang === "km" && article.summary_km ? article.summary_km : article.summary);
+  const deck = cleanText(article.subheadline);
+  const image = article.hero_image_url || null;
   const url = article.country === "KH" ? `/cambodia/news/${article.slug}` : `/world/news/${article.slug}`;
 
+  const sectionName = cleanText(article.category?.name) || (article.country === "KH" ? "Cambodia" : "World");
+
+  const author = cleanText(article.author?.name);
+  const source = cleanText(article.primary_source?.name || article.source_attribution_text)
+    .replace(/^(?:source|reported by)\s*:\s*/i, "");
+  const sourceUrl = article.primary_source_url || article.primary_source?.website_url || null;
+  const date = article.published_at || article.created_at || null;
+  const readingTime = formatReadingTime(article.content);
+
   return (
-    <article className="group relative flex flex-col md:flex-row gap-8 border-b border-neutral-200 dark:border-neutral-800 pb-12 mb-12">
-      {/* Story Details Container (Left side on desktop) */}
-      <div className="flex-1 flex flex-col justify-center order-2 md:order-1">
-        <div className="space-y-5">
-          <div className="flex items-center gap-3 text-[11px] font-bold text-neutral-500 uppercase tracking-widest">
-            <span className="text-neutral-900 dark:text-neutral-100 border-b border-neutral-900 dark:border-neutral-100 pb-0.5">
-              {article.category?.name || "Special Report"}
-            </span>
-            <span>•</span>
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {article.published_at ? new Date(article.published_at).toLocaleDateString(undefined, { month: "long", day: "numeric" }) : "Today"}
-            </span>
-          </div>
-
-          <Link href={url} className="block group-hover:opacity-80 transition-opacity">
-            <h2 className="text-3xl md:text-5xl font-black tracking-tight leading-[1.1] text-neutral-900 dark:text-white font-serif">
-              {title}
-            </h2>
-          </Link>
-
-          {article.subheadline && (
-            <p className="text-lg md:text-xl text-neutral-600 dark:text-neutral-300 font-medium leading-snug">
-              {article.subheadline}
-            </p>
+    <article
+      className={cn(
+        "group border-b border-border pb-10",
+        image && "grid gap-6 md:grid-cols-2 md:gap-10"
+      )}
+    >
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          {article.is_breaking && (
+            <CategoryMark category="breaking" tone="chip">
+              Breaking
+            </CategoryMark>
           )}
-
-          <p className="text-sm md:text-base text-neutral-500 dark:text-neutral-400 leading-relaxed line-clamp-3">
-            {summary}
-          </p>
+          <CategoryMark
+            category={categoryKey(article.category?.name || sectionName)}
+            tone="dot"
+          >
+            {sectionName}
+          </CategoryMark>
         </div>
 
-        {/* Attribution & Read Link */}
-        <div className="pt-8 mt-8 flex items-center gap-4">
-          <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
-            <ShieldCheck className="h-4 w-4 text-neutral-900 dark:text-white" />
-            {article.source_attribution_text || "Verified Reporting"}
-          </div>
-        </div>
-      </div>
+        <div>
+          <h2 className="font-display text-3xl leading-[1.12] tracking-tight text-foreground sm:text-4xl">
+            <Link href={url} className="transition-colors hover:text-accent">
+              {title}
+            </Link>
+          </h2>
 
-      {/* Visual Background / Image Container (Right side on desktop) */}
-      <div className="w-full md:w-[55%] relative aspect-[4/3] md:aspect-auto overflow-hidden bg-neutral-100 dark:bg-neutral-900 order-1 md:order-2">
-        <Link href={url} className="block w-full h-full">
-          <img
-            src={article.hero_image_url || "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=1200&q=80"}
-            alt={article.title}
-            className="w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0 group-hover:scale-[1.02] transition-all duration-700 ease-out"
-          />
-        </Link>
-        
-        {article.hero_image_credit && (
-          <div className="absolute bottom-3 right-3 text-[9px] uppercase tracking-wider text-white bg-black/60 px-2 py-1">
-            Credit: {article.hero_image_credit}
-          </div>
+          {deck && (
+            <p className="mt-3 font-display text-lg leading-snug text-muted-foreground">{deck}</p>
+          )}
+        </div>
+
+        {summary && (
+          <p className="line-clamp-3 text-base leading-[1.8] text-muted-foreground">{summary}</p>
         )}
+
+        <div className="mt-auto pt-2">
+          <Byline
+            author={author}
+            source={source}
+            sourceUrl={sourceUrl}
+            date={date}
+            dateStyle="medium"
+            readingTime={readingTime}
+            views={article.views_count > 0 ? article.views_count : null}
+            location={cleanText(article.province_or_city) || null}
+            size="md"
+          />
+
+          <Link
+            href={url}
+            className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-foreground"
+          >
+            Read the story
+            <ArrowRight
+              size={15}
+              className="transition-transform duration-300 group-hover:translate-x-0.5"
+              aria-hidden="true"
+            />
+          </Link>
+        </div>
       </div>
+
+      {image && (
+        <figure className="self-center">
+          <Link href={url} aria-label={title} className="block">
+            <Photo
+              src={image}
+              alt={article.hero_image_alt || title}
+              credit={article.hero_image_credit}
+              license={humanizeLicense(article.hero_image_license)}
+              ratio="4/3"
+              radius="hero"
+            />
+          </Link>
+        </figure>
+      )}
     </article>
   );
 }

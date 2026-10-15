@@ -1,8 +1,17 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { Upload, Download, Image as ImageIcon, Sliders } from "lucide-react";
+import { Upload, Download, SlidersHorizontal } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
+/**
+ * Client-side JPEG recompression.
+ *
+ * The canvas pipeline, the accepted mime list and `formatBytes` are untouched.
+ * What changed is how you reach it: the click-anywhere drop div is now a real,
+ * keyboard-focusable button next to the file input it opens, and the two size
+ * figures sit in one quiet panel instead of a rose tile and an emerald tile.
+ */
 export function ImageCompressor() {
   const [originalFile, setOriginalFile] = useState<File | null>(null);
   const [originalPreview, setOriginalPreview] = useState<string | null>(null);
@@ -68,97 +77,115 @@ export function ImageCompressor() {
   };
 
   return (
-    <div className="p-6 sm:p-8 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl max-w-2xl mx-auto space-y-6">
+    <div className="space-y-6">
       <input
+        id="image-source"
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
         accept="image/jpeg,image/png,image/webp"
-        className="hidden"
+        className="sr-only"
       />
 
       {!originalPreview ? (
-        <div
-          onClick={() => fileInputRef.current?.click()}
-          className="p-12 border-2 border-dashed border-neutral-300 dark:border-neutral-700 rounded-3xl text-center cursor-pointer hover:border-rose-500 hover:bg-neutral-50 dark:hover:bg-neutral-950/50 transition-all flex flex-col items-center justify-center gap-3 text-neutral-500"
-        >
-          <div className="h-14 w-14 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 flex items-center justify-center">
-            <Upload className="h-7 w-7" />
-          </div>
+        <div className="flex flex-col items-center gap-4 rounded-lg bg-surface-muted px-6 py-10 text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-md border border-border bg-surface text-category-tools">
+            <Upload size={20} aria-hidden="true" />
+          </span>
           <div>
-            <span className="font-bold text-sm text-neutral-900 dark:text-white block">
-              Click or Drag Image Here to Compress
-            </span>
-            <span className="text-xs text-neutral-400">
-              Supports JPEG, PNG, and WebP (Privacy-first: runs entirely in your browser)
-            </span>
+            <p className="text-sm font-semibold text-foreground">Choose an image to compress</p>
+            <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
+              JPEG, PNG and WebP. The picture stays in your browser — it is never uploaded.
+            </p>
           </div>
+          <Button variant="primary" size="sm" onClick={() => fileInputRef.current?.click()}>
+            Select image
+          </Button>
+          <label htmlFor="image-source" className="text-xs text-muted-foreground underline-offset-4">
+            or pick a file with the system dialog
+          </label>
         </div>
       ) : (
-        <div className="space-y-6">
+        <>
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-              <span className="flex items-center gap-1.5">
-                <Sliders className="h-3.5 w-3.5 text-rose-600" />
-                Compression Quality: {Math.round(quality * 100)}%
-              </span>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="text-xs text-rose-600 hover:underline"
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label
+                htmlFor="image-quality"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground"
               >
-                Choose another image
-              </button>
+                <SlidersHorizontal size={13} aria-hidden="true" />
+                Quality
+              </label>
+              <span className="text-sm tabular-nums text-foreground">{Math.round(quality * 100)}%</span>
             </div>
             <input
+              id="image-quality"
               type="range"
               min="0.1"
               max="0.95"
               step="0.05"
               value={quality}
               onChange={(e) => handleQualityChange(parseFloat(e.target.value))}
-              className="w-full accent-rose-600 cursor-pointer"
+              className="h-1.5 w-full cursor-pointer accent-accent"
             />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              className="-ml-2"
+            >
+              Choose another image
+            </Button>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 text-center space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
-                Original Size
-              </span>
-              <span className="text-lg font-bold text-neutral-900 dark:text-white block">
-                {originalFile ? formatBytes(originalFile.size) : "0 KB"}
-              </span>
+          <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
+            <div className="space-y-2 bg-surface-muted px-4 py-4">
+              <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Original
+              </dt>
+              <dd className="text-lg font-semibold leading-none tabular-nums text-foreground">
+                {originalFile ? formatBytes(originalFile.size) : "—"}
+              </dd>
               {originalPreview && (
-                <img src={originalPreview} alt="Original" className="h-32 mx-auto object-contain rounded-lg" />
+                <img
+                  src={originalPreview}
+                  alt="The image you selected, before compression"
+                  className="mx-auto h-32 rounded-md object-contain"
+                />
               )}
             </div>
 
-            <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 text-center space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
-                Compressed Size
-              </span>
-              <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400 block">
-                {compressedSize ? formatBytes(compressedSize) : "0 KB"}
-              </span>
+            <div className="space-y-2 bg-surface-muted px-4 py-4">
+              <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Compressed
+              </dt>
+              <dd className="text-lg font-semibold leading-none tabular-nums text-foreground">
+                {compressedSize !== null ? formatBytes(compressedSize) : "—"}
+              </dd>
               {compressedPreview && (
-                <img src={compressedPreview} alt="Compressed" className="h-32 mx-auto object-contain rounded-lg" />
+                <img
+                  src={compressedPreview}
+                  alt="The same image after compression"
+                  className="mx-auto h-32 rounded-md object-contain"
+                />
               )}
             </div>
-          </div>
+          </dl>
 
           {compressedPreview && (
-            <div className="text-center pt-2">
-              <a
-                href={compressedPreview}
-                download={`compressed-${originalFile?.name || "image.jpg"}`}
-                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg transition-colors"
-              >
-                <Download className="h-4 w-4" />
-                Download Compressed JPEG
-              </a>
+            <div className="flex justify-center border-t border-border pt-5">
+              <Button variant="primary" size="md" asChild className="gap-2">
+                <a
+                  href={compressedPreview}
+                  download={`compressed-${originalFile?.name || "image.jpg"}`}
+                >
+                  <Download size={15} aria-hidden="true" />
+                  Download compressed JPEG
+                </a>
+              </Button>
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

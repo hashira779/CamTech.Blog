@@ -1,11 +1,14 @@
 """
-Image Search Service — High-resolution, multi-source image discovery for News Articles and Tourism Places.
-Supports:
-1. Wikimedia Commons Full-HD (1600px/1920px) photography with open licensing
-2. Wikipedia PageImages Original Resolution
-3. You.com Live Web Image Search (when YOU_API_KEY is configured)
-4. Curated Magazine-Grade High-Resolution (1600px, Q=85) Unsplash Photography Library
-   with deterministic category-matching (no duplicate motherboard pictures).
+Image Search Service — high-resolution image discovery for News Articles and Tourism Places.
+
+Sources actually used for stored content:
+1. Wikimedia Commons, full-HD (1600px) photography with open licensing
+2. Wikipedia PageImages at original resolution
+3. The publisher's own image when a feed supplies one (set in the ingestion worker)
+
+Every candidate must name its subject before it is stored (see
+`ImageSearchService.news_image_is_attributable`); the generic pools below are the images we
+reject, not a fallback. The story that has no matching photograph shows no photograph.
 """
 
 import re
@@ -232,7 +235,13 @@ class ImageSearchService:
 
     @classmethod
     def get_curated_news_photo(cls, category: str, title: str) -> str:
-        """Select a gorgeous 1600px photo deterministically based on title hash."""
+        """DEPRECATED: not wired into any write path.
+
+        Returned a photo from a generic per-category pool, which put the same laptop
+        picture on unrelated stories and let a card claim a photograph it had no right to.
+        Every URL in these pools is rejected by news_image_is_attributable /
+        is_generic_place_image. Kept only so nothing that still imports it breaks.
+        """
         cat_key = (category or "technology").lower()
         pool = CATEGORY_NEWS_IMAGE_POOLS.get(cat_key) or CATEGORY_NEWS_IMAGE_POOLS["technology"]
         # Use SHA-256 for stable, uniform distribution
@@ -241,47 +250,74 @@ class ImageSearchService:
         return pool[idx]
 
     @classmethod
+    def credit_for_host(cls, url: str) -> str:
+        """Attribution stated by the file's own host — never a credit invented for a photo.
+
+        Stored rows had "NASA / ESA / CSA Scientific Archive" pasted onto an Unsplash
+        picture and "Wikipedia / Public Press Attribution" onto another stock file, so
+        credit is now derived from the URL and nothing else.
+        """
+        host = (re.match(r"https?://([^/]+)", str(url or "")) or [None, ""])[1].lower()
+        if "wikimedia" in host:
+            return "Wikimedia Commons"
+        if "wikipedia" in host:
+            return "Wikipedia"
+        if host.startswith("images.") and "unsplash" in host:
+            return "Unsplash"
+        return host
+
+    @classmethod
+    def news_image_is_attributable(cls, url: str, title: str, context: str = "") -> bool:
+        """Only keep a discovered photo when it can be named back to this story.
+
+        A Commons/Wikipedia keyword hit is not evidence of relevance: a Bruegel painting
+        of children playing was attached to a Google Play article, and a photo of
+        humanitarian aid to Gaza to a Starlink/Ukraine story. The filename (or the page
+        title the file came from) must carry a distinctive word of the headline.
+        """
+        from app.services.ai_tourism_engine import is_generic_place_image, subject_context_matches
+
+        if not url or not str(url).startswith("http"):
+            return False
+        if is_generic_place_image(url):
+            return False
+        haystack = urllib.parse.unquote(str(url).split("?")[0]) + " " + str(context or "")
+        return subject_context_matches(haystack, subject=title)
+
+    @classmethod
     async def search_news_image(
         cls,
         title: str,
         category: str = "technology",
         country: str = "WORLD",
         tags: list = None
-    ) -> Tuple[str, str, str]:
-        """
-        Discovers a high-resolution, contextually-relevant hero image for a news story.
-        Returns: (hero_image_url, hero_image_credit, hero_image_alt)
+    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """Find a hero image that genuinely belongs to this story, or say there is none.
+
+        Returns (url, credit, alt); url is None when nothing attributable was found, which
+        is the honest answer — the reader UI renders a text-only card. There used to be a
+        third step here that returned a curated Unsplash photo, so every story in a category
+        wore the same generic picture. That fallback is gone: 26 of 81 stored article heroes
+        came from it, including 4 of the 5 published ones.
         """
         queries = cls._clean_search_keywords(title)
-        
-        # 1. Try Wikimedia Commons High-Res Search with extracted subjects
+        context_words = " ".join([str(title)] + [str(t) for t in (tags or [])])
+
+        # 1. Wikimedia Commons, but only files whose name names the story.
         for q in queries[:2]:
             search_q = f"{q} Cambodia" if country == "KH" and "cambodia" not in q.lower() else q
-            found = await cls.search_commons_high_res(search_q, max_results=3)
-            if found:
-                return (
-                    found[0],
-                    "Wikimedia Commons (Open Media License)",
-                    title[:150]
-                )
+            for found in await cls.search_commons_high_res(search_q, max_results=3):
+                if cls.news_image_is_attributable(found, context_words):
+                    return (found, cls.credit_for_host(found), title[:150])
 
-        # 2. Try Wikipedia PageImages Original
-        if queries:
-            wiki_img = await cls.search_wikipedia_original(queries[0])
-            if wiki_img:
-                return (
-                    wiki_img,
-                    "Wikipedia / Public Press Attribution",
-                    title[:150]
-                )
+        # 2. Wikipedia's own lead image for the matched article.
+        for q in queries[:1]:
+            wiki_img = await cls.search_wikipedia_original(q)
+            if wiki_img and cls.news_image_is_attributable(wiki_img, context_words):
+                return (wiki_img, cls.credit_for_host(wiki_img), title[:150])
 
-        # 3. Fallback to magazine-grade 1600px curated editorial photography (categorized & distinct)
-        curated_url = cls.get_curated_news_photo(category, title)
-        return (
-            curated_url,
-            "Editorial Photography via Unsplash",
-            title[:150]
-        )
+        logger.info(f"[ImageSearch:News] No attributable hero for '{title[:60]}' — leaving it empty")
+        return (None, None, title[:150])
 
     @classmethod
     def get_diverse_place_gallery(cls, place_type: str, place_name: str, count: int = 12) -> List[str]:

@@ -1,185 +1,208 @@
 import Link from "next/link";
 import { Metadata } from "next";
-import { Globe2, Clock, Newspaper } from "lucide-react";
-import { PublicPageShell } from "@/components/layout/public-shell";
-import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/shared/empty-state";
-import { getArticles, getTrending } from "@/lib/api";
-import { NewsCard } from "@/components/news/NewsCard";
+import { ArrowRight } from "lucide-react";
 import { AdSlot } from "@/components/ads/AdSlot";
+import { EmptyState } from "@/components/shared/empty-state";
+import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+import { Container, Section } from "@/components/ui/container";
+import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
+import { NewsCard } from "@/components/shared/news-card";
+import { SectionHeader } from "@/components/ui/section-header";
+import { getArticles, getTrending } from "@/lib/api";
+import { cleanText, formatCount, formatDate } from "@/lib/format";
+import type { TrendingResponse } from "@/types";
 
 export const metadata: Metadata = {
-  title: "World News | Daily Discovery",
+  title: "World News",
   description:
     "Global perspectives on geopolitics, international markets, and the major events reshaping our world.",
 };
 
 export const revalidate = 60;
 
+type RailItem = TrendingResponse["world"][number];
+
+/**
+ * World section front — same grid as /cambodia so the two fronts line up.
+ *
+ * Same honesty fixes as the Cambodia page: the Unsplash fallback image, the
+ * "By … Editor" byline and the "Today" date are gone; stories render through
+ * `NewsCard`, which shows nothing it does not have.
+ */
 export default async function WorldNewsPage() {
-  const [{ items }, trending] = await Promise.all([
+  const [{ items, total }, trending] = await Promise.all([
     getArticles({ country: "WORLD", limit: 20 }),
     getTrending(),
   ]);
-  const featuredArticles = items.slice(0, 2);
-  const latestArticles = items.slice(2, 10);
-  const topInsights =
-    trending.world?.length > 0
-      ? trending.world.slice(0, 4)
-      : items.slice(10, 14);
+
+  const lead = items[0];
+  const secondary = items.slice(1, 3);
+  const latest = items.slice(3, 14);
+  const mostRead = (trending.world || []).slice(0, 6);
 
   return (
-    <PublicPageShell
-      breadcrumbs={[{ label: "World News", href: "/world" }]}
-      badge={
-        <Badge variant="info" size="sm" className="gap-1">
-          <Globe2 size={12} />
-          Global
-        </Badge>
-      }
-      title="World News"
-      description="Global perspectives on geopolitics, international markets, and major breaking events reshaping our world."
-    >
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-        {/* Main column */}
-        <div className="space-y-10 lg:col-span-8">
-          {items.length === 0 ? (
+    <div className="flex w-full flex-1 flex-col">
+      {/* ── Section masthead ──────────────────────────────────────────────── */}
+      <Container className="pt-8 sm:pt-12">
+        <Breadcrumbs items={[{ label: "World" }]} />
+
+        <div className="mt-6 flex flex-col gap-6 border-b border-border pb-8 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <CategoryMark category="world" tone="dot">
+              World
+            </CategoryMark>
+            <h1 className="mt-3 font-display text-4xl leading-[1.05] tracking-tight text-foreground sm:text-5xl">
+              World
+            </h1>
+            <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+              International reporting on geopolitics, markets and the events beyond Cambodia.
+              Every story is credited to the publisher that reported it.
+            </p>
+          </div>
+
+          <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+            {total > 0 && (
+              <span className="tabular-nums">{formatCount(total)} stories in this section</span>
+            )}
+            <Link
+              href="/sources"
+              className="group inline-flex items-center gap-1.5 font-medium text-accent transition-colors hover:text-foreground"
+            >
+              How we attribute
+              <ArrowRight
+                size={14}
+                aria-hidden="true"
+                className="transition-transform duration-300 group-hover:translate-x-0.5"
+              />
+            </Link>
+          </div>
+        </div>
+      </Container>
+
+      {items.length === 0 ? (
+        <Section>
+          <Container>
             <EmptyState
-              icon={Newspaper}
               title="No world stories published yet"
-              description="International reporting is drafted by the newsroom and appears here as soon as it clears review."
+              description="International reporting appears here as soon as the first stories clear review."
               actionLabel="Search the archive"
               actionHref="/search?q=world"
             />
-          ) : (
-            <>
-              {featuredArticles.length > 0 && (
-                <section className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  {featuredArticles.map((article) => (
-                    <NewsCard key={article.id} article={article} />
-                  ))}
-                </section>
-              )}
+          </Container>
+        </Section>
+      ) : (
+        <>
+          <Container className="pb-4 pt-10 sm:pt-12">
+            <div className="grid gap-12 lg:grid-cols-12 lg:gap-10">
+              {/* ── Lead, features, latest ────────────────────────────────── */}
+              <div className="lg:col-span-8">
+                <NewsCard article={lead} variant="feature" priority showSummary />
 
-              <section className="space-y-6">
-                <div className="flex items-center gap-2 border-b border-slate-200 pb-3 dark:border-slate-800">
-                  <Clock className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                    Latest Updates
-                  </h2>
-                </div>
+                <AdSlot slot="HOME_TOP" />
 
-                {latestArticles.length === 0 ? (
-                  <p className="py-6 text-sm text-slate-500 dark:text-slate-400">
-                    More stories are scheduled to publish soon.
-                  </p>
-                ) : (
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {latestArticles.map((article) => {
-                      const href = `/world/news/${article.slug}`;
-                      return (
-                        <article
-                          key={article.id}
-                          className="group grid grid-cols-1 gap-5 py-6 first:pt-0 sm:grid-cols-3"
-                        >
-                          <Link
-                            href={href}
-                            className="block overflow-hidden rounded-lg border border-slate-200 bg-slate-100 aspect-[4/3] sm:col-span-1 dark:border-slate-800 dark:bg-slate-800"
-                          >
-                            <img
-                              src={
-                                article.hero_image_url ||
-                                "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80"
-                              }
-                              alt={article.title}
-                              loading="lazy"
-                              className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-                            />
-                          </Link>
-                          <div className="flex flex-col justify-center sm:col-span-2">
-                            <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">
-                              {article.category?.name || "Global"}
-                            </span>
-                            <Link href={href}>
-                              <h3 className="line-clamp-2 text-lg font-semibold leading-snug text-slate-900 transition-colors group-hover:text-teal-600 dark:text-slate-100 dark:group-hover:text-teal-400">
-                                {article.title}
-                              </h3>
-                            </Link>
-                            <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-                              {article.summary}
-                            </p>
-                            <div className="mt-3 text-xs text-slate-400 dark:text-slate-500">
-                              By{" "}
-                              {article.author?.name ||
-                                article.primary_source?.name ||
-                                "Editor"}{" "}
-                              •{" "}
-                              {article.published_at
-                                ? new Date(article.published_at).toLocaleDateString()
-                                : "Today"}
-                            </div>
-                          </div>
-                        </article>
-                      );
-                    })}
+                {secondary.length > 0 && (
+                  <div className="mt-10">
+                    <SectionHeader label="In this issue" title="More across the region and beyond" />
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      {secondary.map((article) => (
+                        <NewsCard key={article.id} article={article} variant="standard" />
+                      ))}
+                    </div>
                   </div>
                 )}
-              </section>
-            </>
-          )}
-        </div>
 
-        {/* Sidebar */}
-        <aside className="lg:col-span-4">
-          <div className="space-y-6 lg:sticky lg:top-8">
-            <div className="rounded-lg border border-slate-200 bg-white p-4 text-center dark:border-slate-800 dark:bg-slate-900">
-              <span className="mb-2 block text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                Advertisement
-              </span>
-              <AdSlot slot="HOME_TOP" />
-            </div>
-
-            {topInsights.length > 0 && (
-              <div className="rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-                <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  <span className="h-2 w-2 rounded-full bg-teal-500" />
-                  Global Insights
-                </h3>
-                <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {topInsights.map((art: any) => {
-                    const insightHref = art.url || `/world/news/${art.slug}`;
-                    const catName =
-                      typeof art.category === "object"
-                        ? art.category?.name
-                        : art.category || "Geopolitics";
-                    return (
-                      <Link
-                        key={art.id}
-                        href={insightHref}
-                        className="group block py-4 first:pt-0 last:pb-0"
-                      >
-                        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">
-                          {catName}
-                        </span>
-                        <h4 className="line-clamp-2 text-sm font-medium leading-snug text-slate-800 transition-colors group-hover:text-teal-600 dark:text-slate-200 dark:group-hover:text-teal-400">
-                          {art.title}
-                        </h4>
-                      </Link>
-                    );
-                  })}
-                </div>
+                {latest.length > 0 && (
+                  <div className="mt-12">
+                    <SectionHeader label="Latest" title="Recently filed" />
+                    <div>
+                      {latest.map((article, index) => (
+                        <NewsCard
+                          key={article.id}
+                          article={article}
+                          variant="list"
+                          rank={index + 1}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
 
-            <div className="rounded-lg border border-slate-200 bg-white p-4 text-center dark:border-slate-800 dark:bg-slate-900">
-              <span className="mb-2 block text-[10px] uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                Advertisement
-              </span>
-              <AdSlot slot="SIDEBAR" />
+              {/* ── Sidebar rail ──────────────────────────────────────────── */}
+              <aside className="lg:col-span-4">
+                <div className="space-y-10 lg:sticky lg:top-8">
+                  <div>
+                    <SectionHeader label="Most read" title="Opened most often" />
+
+                    {mostRead.length > 0 ? (
+                      <ol className="divide-y divide-border">
+                        {mostRead.map((item, index) => (
+                          <RailRow key={`${item.id}-${index}`} item={item} rank={index + 1} />
+                        ))}
+                      </ol>
+                    ) : (
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        Reading figures appear once stories have been opened.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border border-border bg-card p-5 shadow-xs">
+                    <p className="section-label text-muted-foreground">Attribution</p>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                      World stories are summarised from the publisher&rsquo;s own feed and credit
+                      the original report. The feeds we draw on are listed in the source registry.
+                    </p>
+                    <Link
+                      href="/sources"
+                      className="group mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-foreground"
+                    >
+                      Source registry
+                      <ArrowRight
+                        size={14}
+                        aria-hidden="true"
+                        className="transition-transform duration-300 group-hover:translate-x-0.5"
+                      />
+                    </Link>
+                  </div>
+
+                  <AdSlot slot="SIDEBAR" />
+                </div>
+              </aside>
             </div>
-          </div>
-        </aside>
-      </div>
-    </PublicPageShell>
+          </Container>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Trending rows are a narrower API shape than `Article`, so they are not cards. */
+function RailRow({ item, rank }: { item: RailItem; rank: number }) {
+  const href = item.url || `/world/news/${item.slug}`;
+  const views = item.views_count > 0 ? formatCount(item.views_count) : null;
+  const published = formatDate(item.published_at, "medium");
+
+  return (
+    <li>
+      <Link href={href} className="group flex items-start gap-4 py-4">
+        <span className="w-6 shrink-0 pt-0.5 font-display text-xl leading-none text-border-strong tabular-nums">
+          {String(rank).padStart(2, "0")}
+        </span>
+        <span className="min-w-0 flex-1">
+          <CategoryMark category={categoryKey(item.category)}>{item.category}</CategoryMark>
+          <span className="mt-1.5 block text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-accent">
+            {cleanText(item.title)}
+          </span>
+          {(views || published) && (
+            <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              {views && <span>{views} reads</span>}
+              {views && published && <span aria-hidden="true">·</span>}
+              {published && <span>{published}</span>}
+            </span>
+          )}
+        </span>
+      </Link>
+    </li>
   );
 }

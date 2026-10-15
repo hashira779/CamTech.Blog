@@ -8,20 +8,22 @@ import {
   Phone,
   Globe,
   Mail,
-  ShieldCheck,
-  Star,
   Compass,
-  ArrowRight,
   ExternalLink,
-  Wifi,
-  Coffee,
-  CheckCircle2,
-  AlertTriangle,
-  Heart,
-  Share2
+  Check,
+  X,
+  Landmark,
+  ArrowRight,
 } from "lucide-react";
 import { getPlaceBySlug, getPlaces } from "@/lib/api";
 import PlaceImage from "@/components/travel/place-image";
+import { Container, Section } from "@/components/ui/container";
+import { SectionHeader } from "@/components/ui/section-header";
+import { CategoryMark } from "@/components/ui/category-mark";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { Photo } from "@/components/ui/photo";
+import { PhotoFill } from "@/components/ui/photo-image";
+import { cleanText, humanize } from "@/lib/format";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -33,11 +35,75 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!place) return { title: "Place Not Found" };
 
   return {
-    title: `${place.name} | Verified Travel Guide | Daily Discovery`,
+    title: `${place.name} | Travel Guide`,
     description: place.description.slice(0, 160),
   };
 }
 
+function parseJsonArray(value?: string | null): string[] {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed.filter((v) => typeof v === "string" && v.trim()) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** One labelled fact: the real value when the record carries it, an honest blank when it does not. */
+function FactRow({
+  icon: Icon,
+  label,
+  children,
+  absent,
+}: {
+  icon: typeof MapPin;
+  label: string;
+  children?: React.ReactNode;
+  absent?: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 py-3.5">
+      <Icon size={15} aria-hidden="true" className="mt-0.5 shrink-0 text-border-strong" />
+      <div className="min-w-0 flex-1">
+        <p className="section-label">{label}</p>
+        {children ? (
+          <div className="mt-1 text-sm leading-relaxed text-foreground">{children}</div>
+        ) : (
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+            {absent || "Not recorded yet"}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AmenityRow({ label, present }: { label: string; present: boolean }) {
+  return (
+    <li className="flex items-center justify-between gap-3 py-2.5 text-sm">
+      <span className="text-foreground/90">{label}</span>
+      <span
+        className={`inline-flex items-center gap-1.5 text-xs font-medium ${
+          present ? "text-success" : "text-muted-foreground"
+        }`}
+      >
+        {present ? <Check size={14} aria-hidden="true" /> : <X size={14} aria-hidden="true" />}
+        {present ? "Recorded" : "Not recorded"}
+      </span>
+    </li>
+  );
+}
+
+/**
+ * A single place.
+ *
+ * The photograph gallery is the first thing on the page, and the seeded `rating` / `review_count`
+ * columns are gone: they read as reader feedback ("4.9 — 2,840 verified reviews") when nothing in the
+ * record supports it. Galleries here only hold images verified to depict this place, so an empty one
+ * is a normal state and gets a deliberate, quiet treatment rather than a stock substitute. Every
+ * field in the fact list — address, hours, phone, website, price, coordinates — shows its real value
+ * or says plainly that the record has none.
+ */
 export default async function PlaceDetailPage({ params }: PageProps) {
   const { slug } = await params;
   const place = await getPlaceBySlug(slug);
@@ -49,20 +115,13 @@ export default async function PlaceDetailPage({ params }: PageProps) {
   const isHotel = place.place_type === "ACCOMMODATION";
   const hotel = place.accommodation;
 
-  let amenities: string[] = [];
-  try {
-    amenities = JSON.parse(place.amenities_json || "[]");
-  } catch (e) {}
+  const amenities = parseJsonArray(place.amenities_json);
+  const tags = parseJsonArray(place.tags_json);
 
-  let tags: string[] = [];
-  try {
-    tags = JSON.parse(place.tags_json || "[]");
-  } catch (e) {}
-
-  let gallery: string[] = [];
-  try {
-    gallery = JSON.parse(place.gallery_json || "[]");
-  } catch (e) {}
+  const gallery = parseJsonArray(place.gallery_json);
+  // The hero is usually the first gallery frame; count each URL once.
+  const images = Array.from(new Set([place.hero_image_url, ...gallery].filter(Boolean) as string[]));
+  const [lead, ...rest] = images;
 
   // Related places in same destination
   const relatedData = await getPlaces({
@@ -71,349 +130,425 @@ export default async function PlaceDetailPage({ params }: PageProps) {
   });
   const relatedPlaces = relatedData.items.filter((p) => p.id !== place.id).slice(0, 3);
 
-  return (
-    <div className="min-h-screen pb-24">
-      {/* 1. Header Banner */}
-      <section className="relative overflow-hidden bg-neutral-950 text-white py-14 lg:py-20">
-        {place.hero_image_url && (
-          <div
-            className="absolute inset-0 bg-cover bg-center opacity-30 filter blur-[2px] scale-105"
-            style={{
-              backgroundImage: `url('${place.hero_image_url}')`,
-            }}
-          />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/70 to-transparent" />
+  const destinationName = place.destination?.name || null;
+  const destinationSlug = place.destination?.slug || null;
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2 text-xs font-semibold text-rose-400 mb-4 uppercase tracking-wider">
-            <Link href="/travel" className="hover:underline">
-              Travel
-            </Link>
-            <span>/</span>
-            {place.destination && (
-              <>
-                <Link href={`/travel/${place.destination.slug}`} className="hover:underline">
-                  {place.destination.name}
+  return (
+    <div className="flex w-full flex-1 flex-col">
+      {/* ── 1. Masthead: what this place is, no photograph required ─────────── */}
+      <Section className="border-b border-border pb-8 pt-8 sm:pb-10 sm:pt-10">
+        <Container>
+          <nav aria-label="Breadcrumb" className="mb-6">
+            <ol className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <li>
+                <Link href="/travel" className="transition-colors hover:text-accent">
+                  Travel
                 </Link>
-                <span>/</span>
+              </li>
+              {destinationSlug && destinationName && (
+                <>
+                  <li aria-hidden="true">/</li>
+                  <li>
+                    <Link
+                      href={`/travel/${destinationSlug}`}
+                      className="transition-colors hover:text-accent"
+                    >
+                      {destinationName}
+                    </Link>
+                  </li>
+                </>
+              )}
+              <li aria-hidden="true">/</li>
+              <li className="font-medium text-foreground">{humanize(place.place_type)}</li>
+            </ol>
+          </nav>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <CategoryMark category="travel" tone="dot">
+              {humanize(place.place_type)}
+            </CategoryMark>
+            <StatusBadge status={place.verification_status} size="sm" />
+          </div>
+
+          <h1 className="mt-4 max-w-4xl font-display text-4xl leading-[1.05] tracking-tight text-foreground sm:text-5xl">
+            {place.name}
+          </h1>
+          {place.local_name && (
+            <p className="mt-2 text-lg text-muted-foreground">{place.local_name}</p>
+          )}
+
+          {place.description && (
+            <p className="mt-4 max-w-3xl text-lg leading-relaxed text-foreground/90">
+              {cleanText(place.description)}
+            </p>
+          )}
+
+          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+            <span className="tabular-nums">
+              {images.length > 0
+                ? `${images.length} verified photograph${images.length === 1 ? "" : "s"}`
+                : "No verified photograph yet"}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>Status: {humanize(place.status.toLowerCase())}</span>
+            {destinationName && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{destinationName}</span>
               </>
             )}
-            <span>{place.place_type}</span>
           </div>
+        </Container>
+      </Section>
 
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-            <div className="max-w-3xl">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-rose-600/90 text-white text-[11px] font-extrabold uppercase tracking-wider">
-                  {place.place_type}
-                </span>
-                <span className="flex items-center gap-1 text-emerald-400 text-xs font-semibold bg-emerald-950/60 border border-emerald-800/80 px-2 py-0.5 rounded-full">
-                  <ShieldCheck className="h-3.5 w-3.5" /> {place.verification_status}
-                </span>
+      {/* ── 2. The gallery comes first ─────────────────────────────────────── */}
+      <Section className="pb-0 pt-8 sm:pt-10">
+        <Container>
+          <SectionHeader
+            label="Photographs"
+            title={images.length > 0 ? `${place.name}, as photographed` : "Nothing to show yet"}
+            description="Galleries on this site hold only images verified to depict the place itself. An empty gallery is a real state, not a loading problem — and it is never padded with a stock picture."
+          />
+
+          {images.length === 0 ? (
+            <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xs sm:rounded-3xl">
+              <div className="aspect-[16/9] w-full">
+                <PlaceImage
+                  src={null}
+                  alt={place.name}
+                  className="h-full w-full bg-surface-muted"
+                />
               </div>
-
-              <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
-                {place.name}
-              </h1>
-              {place.local_name && (
-                <p className="text-xl sm:text-2xl font-bold text-neutral-400 mt-1">
-                  {place.local_name}
+              <div className="flex flex-col gap-3 border-t border-border p-6 sm:flex-row sm:items-center sm:justify-between">
+                <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+                  No image of {place.name} has been matched to this record yet. Descriptions, address
+                  and coordinates below are still what the directory holds.
                 </p>
+                <Link
+                  href={`/travel/suggest?place_name=${encodeURIComponent(place.name)}`}
+                  className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-foreground"
+                >
+                  Contribute a photo
+                  <ArrowRight size={14} aria-hidden="true" />
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <figure>
+              <Photo
+                src={lead}
+                alt={place.name}
+                ratio="16/9"
+                radius="hero"
+                priority
+                showCredit={false}
+                placeholderLabel="Photo not verified yet"
+              />
+
+              {rest.length > 0 && (
+                <div className="no-scrollbar mt-4 flex gap-3 overflow-x-auto pb-1">
+                  {rest.map((img, idx) => (
+                    <a
+                      key={`${img}-${idx}`}
+                      href={img}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Open verified photograph ${idx + 2} of ${images.length}`}
+                      className="group block w-32 shrink-0 overflow-hidden rounded-md border border-border bg-card transition-colors hover:border-border-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:w-40"
+                    >
+                      <span className="block aspect-[4/3] bg-surface-muted">
+                        <PhotoFill
+                          src={img}
+                          alt={`${place.name} — verified photograph ${idx + 2}`}
+                          compact
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      </span>
+                    </a>
+                  ))}
+                </div>
               )}
 
-              <div className="mt-4 flex flex-wrap items-center gap-4 text-xs sm:text-sm text-neutral-300">
-                <div className="flex items-center gap-1 font-bold text-white">
-                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                  <span>{place.rating.toFixed(1)}</span>
-                  <span className="text-neutral-400 font-normal">
-                    ({place.review_count} verified reviews)
-                  </span>
-                </div>
-                <span>•</span>
-                <span>Price: <strong className="text-white">{place.price_level}</strong></span>
-                {place.address && (
-                  <>
-                    <span>•</span>
-                    <span className="flex items-center gap-1 text-neutral-300">
-                      <MapPin className="h-3.5 w-3.5 text-rose-400" /> {place.address}
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
+              <figcaption className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span className="tabular-nums">
+                  {images.length} verified photograph{images.length === 1 ? "" : "s"} in this record
+                </span>
+                {rest.length > 0 && <span aria-hidden="true">·</span>}
+                {rest.length > 0 && <span>Select a frame to open the original</span>}
+              </figcaption>
+            </figure>
+          )}
+        </Container>
+      </Section>
 
-            <div className="flex items-center gap-3">
-              <Link
-                href={`/travel/suggest?place_name=${encodeURIComponent(place.name)}&destination_slug=${place.destination?.slug || "siem-reap"}`}
-                className="px-4 py-2.5 rounded-xl bg-neutral-900/90 hover:bg-neutral-800 border border-neutral-700 text-neutral-200 text-xs font-semibold transition-colors"
-              >
-                Suggest Update / Report Closed
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* ── 3. Body: narrative and facts ───────────────────────────────────── */}
+      <Container className="py-10 sm:py-14">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-12">
+          <div className="space-y-10 lg:col-span-7">
+            {place.description && (
+              <section>
+                <SectionHeader as="h2" label="About" title={`About ${place.name}`} />
+                <p className="text-base leading-relaxed text-foreground/90">
+                  {cleanText(place.description)}
+                </p>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          
-          {/* Left / Main Details */}
-          <div className="lg:col-span-2 space-y-10">
-            {/* Hero Image */}
-            <div className="rounded-3xl overflow-hidden shadow-sm border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900 aspect-[16/10]">
-              <PlaceImage src={place.hero_image_url} alt={place.name} />
-            </div>
-
-            {/* Description */}
-            <section className="bg-white dark:bg-neutral-900 rounded-3xl p-6 sm:p-8 border border-neutral-200 dark:border-neutral-800">
-              <h2 className="text-xl font-bold text-neutral-900 dark:text-white mb-4">
-                About {place.name}
-              </h2>
-              <div className="prose dark:prose-invert max-w-none text-sm leading-relaxed text-neutral-700 dark:text-neutral-300 space-y-4">
-                <p>{place.description}</p>
                 {place.description_km && (
-                  <div className="mt-4 p-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-100 dark:border-neutral-700/50">
-                    <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block mb-1">
-                      ការពិពណ៌នាជាភាសាខ្មែរ
-                    </span>
-                    <p className="text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed">
+                  <div className="mt-5 rounded-lg border border-border bg-surface-muted/60 p-5">
+                    <p className="section-label">ការពិពណ៌នាជាភាសាខ្មែរ</p>
+                    <p className="mt-2 text-sm leading-relaxed text-foreground/90">
                       {place.description_km}
                     </p>
                   </div>
                 )}
-              </div>
 
-              {/* Tags */}
-              {tags.length > 0 && (
-                <div className="mt-6 pt-6 border-t border-neutral-100 dark:border-neutral-800 flex flex-wrap gap-2">
-                  {tags.map((tag, idx) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1 rounded-lg text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            {/* Specialized Accommodation Details (Hotels) */}
-            {isHotel && hotel && (
-              <section className="bg-zinc-900 text-white rounded-3xl p-6 sm:p-8 border border-zinc-800 shadow-md">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                  <div>
-                    <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                      Accommodations & Amenities
-                    </span>
-                    <h3 className="text-2xl font-bold mt-1">
-                      {hotel.star_rating}★ {hotel.property_type.replace("_", " ")}
-                    </h3>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs text-zinc-400">Typical Rates</span>
-                    <p className="text-lg font-bold text-amber-300">{hotel.price_range}</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t border-zinc-800 text-xs">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className={`h-4 w-4 ${hotel.has_swimming_pool ? "text-emerald-400" : "text-neutral-500"}`} />
-                    <span>Swimming Pool: {hotel.has_swimming_pool ? "Yes" : "No"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Wifi className={`h-4 w-4 ${hotel.has_free_wifi ? "text-emerald-400" : "text-neutral-500"}`} />
-                    <span>High-Speed WiFi: {hotel.has_free_wifi ? "Free" : "Paid"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Coffee className={`h-4 w-4 ${hotel.has_breakfast ? "text-emerald-400" : "text-neutral-500"}`} />
-                    <span>Breakfast: {hotel.has_breakfast ? "Included" : "Available"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-zinc-400" />
-                    <span>Check-in: {hotel.check_in_time}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-zinc-400" />
-                    <span>Check-out: {hotel.check_out_time}</span>
-                  </div>
-                </div>
-
-                {hotel.booking_url && (
-                  <div className="mt-8">
-                    <a
-                      href={hotel.booking_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white hover:bg-zinc-100 text-zinc-950 font-bold text-sm shadow-xs transition-all"
-                    >
-                      Visit Official Booking Portal <ExternalLink className="h-4 w-4" />
-                    </a>
-                  </div>
+                {tags.length > 0 && (
+                  <ul className="mt-6 flex flex-wrap gap-2">
+                    {tags.map((tag) => (
+                      <li
+                        key={tag}
+                        className="rounded-md border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground"
+                      >
+                        {tag}
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </section>
             )}
 
-            {/* Gallery */}
-            {gallery.length > 0 && (
-              <section className="bg-white dark:bg-neutral-900 rounded-3xl p-6 sm:p-8 border border-neutral-200 dark:border-neutral-800">
-                <div className="flex items-center justify-between mb-5">
-                  <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
-                    Visual Gallery
-                  </h3>
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-500 dark:bg-rose-500/20 dark:text-rose-400">
-                    {gallery.length} Photos
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
-                  {gallery.map((img, idx) => (
-                    <div 
-                      key={idx} 
-                      className="group relative rounded-2xl overflow-hidden aspect-[4/3] bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800/80 shadow-xs"
-                    >
-                      <img 
-                        src={img} 
-                        alt={`${place.name} - Photo ${idx + 1}`} 
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
-                        loading="lazy"
-                      />
-                    </div>
-                  ))}
-                </div>
+            {isHotel && hotel && (
+              <section className="rounded-lg border border-border bg-card p-6 shadow-xs sm:p-7">
+                <p className="section-label text-accent">Accommodation</p>
+                <h2 className="mt-2 font-display text-2xl leading-tight tracking-tight text-foreground">
+                  {humanize(hotel.property_type)}
+                </h2>
+                <p className="mt-1.5 text-sm text-muted-foreground">
+                  Classified as {hotel.star_rating}-star in the record
+                </p>
+
+                <dl className="mt-5 divide-y divide-border border-y border-border text-sm">
+                  <div className="flex items-center justify-between gap-3 py-3">
+                    <dt className="text-muted-foreground">Rate range as recorded</dt>
+                    <dd className="text-right font-medium text-foreground">
+                      {hotel.price_range ? cleanText(hotel.price_range) : "Not recorded yet"}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 py-3">
+                    <dt className="text-muted-foreground">Check-in</dt>
+                    <dd className="text-right tabular-nums text-foreground">
+                      {hotel.check_in_time || "Not recorded yet"}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 py-3">
+                    <dt className="text-muted-foreground">Check-out</dt>
+                    <dd className="text-right tabular-nums text-foreground">
+                      {hotel.check_out_time || "Not recorded yet"}
+                    </dd>
+                  </div>
+                </dl>
+
+                <ul className="mt-5 divide-y divide-border">
+                  <AmenityRow label="Swimming pool" present={hotel.has_swimming_pool} />
+                  <AmenityRow label="Free WiFi" present={hotel.has_free_wifi} />
+                  <AmenityRow label="Breakfast included" present={hotel.has_breakfast} />
+                </ul>
+
+                {hotel.booking_url ? (
+                  <a
+                    href={hotel.booking_url}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="mt-6 inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-xs transition-all hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  >
+                    Booking page recorded for this property
+                    <ExternalLink size={14} aria-hidden="true" />
+                  </a>
+                ) : (
+                  <p className="mt-6 text-sm text-muted-foreground">
+                    No booking address is recorded for this property.
+                  </p>
+                )}
               </section>
             )}
+
+            {amenities.length > 0 && (
+              <section>
+                <SectionHeader as="h3" label="Features" title="What this listing records" />
+                <ul className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
+                  {amenities.map((item) => (
+                    <li
+                      key={item}
+                      className="flex items-start gap-2.5 border-b border-border py-3 text-sm text-foreground/90"
+                    >
+                      <Check size={14} aria-hidden="true" className="mt-1 shrink-0 text-success" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <div className="rounded-lg border border-border bg-surface-muted/60 p-6">
+              <h2 className="font-display text-lg leading-snug text-foreground">
+                Know something this record does not?
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Hours, prices and photos are added by editors and readers. A suggestion is reviewed
+                before it changes the listing.
+              </p>
+              <Link
+                href={`/travel/suggest?place_name=${encodeURIComponent(place.name)}${destinationSlug ? `&destination_slug=${destinationSlug}` : ""}`}
+                className="group mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-foreground"
+              >
+                Suggest an update or report it closed
+                <ArrowRight
+                  size={14}
+                  aria-hidden="true"
+                  className="transition-transform duration-300 group-hover:translate-x-0.5"
+                />
+              </Link>
+            </div>
           </div>
 
-          {/* Right Sidebar: Coordinates, Hours, Contact, Verification */}
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-neutral-900 rounded-3xl p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm space-y-5">
-              <h3 className="text-base font-bold text-neutral-900 dark:text-white border-b border-neutral-100 dark:border-neutral-800 pb-3">
-                Key Information
-              </h3>
+          {/* ── Facts: the value, or plainly nothing ─────────────────────────── */}
+          <aside className="lg:col-span-5">
+            <div className="rounded-lg border border-border bg-card shadow-xs">
+              <h2 className="border-b border-border px-6 py-4 font-display text-lg leading-snug tracking-tight text-foreground">
+                Key information
+              </h2>
 
-              {place.opening_hours && (
-                <div className="flex items-start gap-3 text-xs text-neutral-700 dark:text-neutral-300">
-                  <Clock className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="block text-neutral-900 dark:text-white">Opening Hours</strong>
-                    <span>{place.opening_hours}</span>
-                  </div>
-                </div>
-              )}
+              <div className="divide-y divide-border px-6">
+                <FactRow icon={MapPin} label="Address" absent="No address recorded yet">
+                  {place.address ? cleanText(place.address) : undefined}
+                </FactRow>
 
-              {place.address && (
-                <div className="flex items-start gap-3 text-xs text-neutral-700 dark:text-neutral-300">
-                  <MapPin className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="block text-neutral-900 dark:text-white">Location & Address</strong>
-                    <span>{place.address}</span>
-                  </div>
-                </div>
-              )}
+                <FactRow icon={Clock} label="Opening hours" absent="Hours not recorded yet">
+                  {place.opening_hours ? cleanText(place.opening_hours) : undefined}
+                </FactRow>
 
-              {place.latitude && place.longitude && (
-                <div className="flex items-start gap-3 text-xs text-neutral-700 dark:text-neutral-300">
-                  <Compass className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="block text-neutral-900 dark:text-white">GPS Coordinates</strong>
-                    <span className="font-mono text-[11px]">{place.latitude}°N, {place.longitude}°E</span>
-                  </div>
-                </div>
-              )}
+                <FactRow icon={Landmark} label="Price level" absent="Price level not recorded yet">
+                  {place.price_level ? (
+                    <span className="tabular-nums">{place.price_level}</span>
+                  ) : undefined}
+                </FactRow>
 
-              {place.phone && (
-                <div className="flex items-start gap-3 text-xs text-neutral-700 dark:text-neutral-300">
-                  <Phone className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="block text-neutral-900 dark:text-white">Direct Phone</strong>
-                    <a href={`tel:${place.phone}`} className="text-rose-600 hover:underline">
-                      {place.phone}
-                    </a>
-                  </div>
-                </div>
-              )}
+                <FactRow
+                  icon={Compass}
+                  label="Coordinates"
+                  absent="No coordinates recorded, so this place is not on the province map"
+                >
+                  {typeof place.latitude === "number" && typeof place.longitude === "number" ? (
+                    <span className="tabular-nums">
+                      {place.latitude.toFixed(5)}°N, {place.longitude.toFixed(5)}°E
+                    </span>
+                  ) : undefined}
+                </FactRow>
 
-              {place.website && (
-                <div className="flex items-start gap-3 text-xs text-neutral-700 dark:text-neutral-300">
-                  <Globe className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="block text-neutral-900 dark:text-white">Official Website</strong>
+                <FactRow icon={Globe} label="Official website" absent="No website recorded yet">
+                  {place.website ? (
                     <a
                       href={place.website}
                       target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-rose-600 hover:underline truncate block max-w-[200px]"
+                      rel="noopener noreferrer nofollow"
+                      className="inline-flex items-center gap-1 break-all text-accent underline-offset-2 hover:underline"
                     >
                       {place.website}
+                      <ExternalLink size={12} aria-hidden="true" />
                     </a>
-                  </div>
-                </div>
-              )}
+                  ) : undefined}
+                </FactRow>
 
-              {/* Amenities */}
-              {amenities.length > 0 && (
-                <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800">
-                  <strong className="block text-xs font-bold text-neutral-900 dark:text-white mb-2">
-                    Features & Highlights
-                  </strong>
-                  <ul className="space-y-1.5 text-xs text-neutral-600 dark:text-neutral-300">
-                    {amenities.map((item, idx) => (
-                      <li key={idx} className="flex items-center gap-2">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Non-Destructive Status Badge */}
-              <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 text-[11px] text-neutral-500 flex items-center justify-between">
-                <span>Record Status:</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400 uppercase">
-                  {place.status}
-                </span>
-              </div>
-            </div>
-
-            {/* Related Places in this Destination */}
-            {relatedPlaces.length > 0 && (
-              <div className="bg-white dark:bg-neutral-900 rounded-3xl p-6 border border-neutral-200 dark:border-neutral-800 shadow-sm">
-                <h3 className="text-sm font-bold text-neutral-900 dark:text-white mb-4">
-                  More in {place.destination?.name || "Siem Reap"}
-                </h3>
-                <div className="space-y-4">
-                  {relatedPlaces.map((rel) => (
-                    <Link
-                      key={rel.id}
-                      href={`/travel/place/${rel.slug}`}
-                      className="group flex items-center gap-3"
+                <FactRow icon={Phone} label="Phone" absent="No phone number recorded yet">
+                  {place.phone ? (
+                    <a
+                      href={`tel:${place.phone}`}
+                      className="text-accent underline-offset-2 hover:underline"
                     >
-                      <div className="w-14 h-14 rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 shrink-0">
-                        <PlaceImage
-                          src={rel.hero_image_url}
-                          alt={rel.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          compact
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-xs font-bold text-neutral-900 dark:text-white truncate group-hover:text-rose-600 transition-colors">
-                          {rel.name}
-                        </h4>
-                        <span className="text-[11px] text-neutral-500 block mt-0.5">
-                          {rel.place_type} • {rel.price_level}
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
+                      {place.phone}
+                    </a>
+                  ) : undefined}
+                </FactRow>
+
+                <FactRow icon={Mail} label="Email" absent="No email address recorded yet">
+                  {place.email ? (
+                    <a
+                      href={`mailto:${place.email}`}
+                      className="break-all text-accent underline-offset-2 hover:underline"
+                    >
+                      {place.email}
+                    </a>
+                  ) : undefined}
+                </FactRow>
               </div>
-            )}
-          </div>
+
+              {destinationSlug && destinationName && (
+                <div className="border-t border-border px-6 py-4">
+                  <Link
+                    href={`/travel/${destinationSlug}`}
+                    className="group inline-flex items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-foreground"
+                  >
+                    All places in {destinationName}
+                    <ArrowRight
+                      size={14}
+                      aria-hidden="true"
+                      className="transition-transform duration-300 group-hover:translate-x-0.5"
+                    />
+                  </Link>
+                </div>
+              )}
+            </div>
+          </aside>
         </div>
-      </div>
+
+        {/* ── 4. More places in the directory ──────────────────────────────── */}
+        {relatedPlaces.length > 0 && (
+          <section className="mt-14 border-t border-border pt-10">
+            <SectionHeader
+              label="Keep reading"
+              title={destinationName ? `More in ${destinationName}` : "More places in the directory"}
+              description="Listings sharing this province record, shown in the order the directory returns them."
+            />
+
+            <ul className="divide-y divide-border border-y border-border">
+              {relatedPlaces.map((rel) => (
+                <li key={rel.id}>
+                  <Link
+                    href={`/travel/place/${rel.slug}`}
+                    className="group flex items-center gap-4 py-4"
+                  >
+                    <span className="h-16 w-20 shrink-0 overflow-hidden rounded-md border border-border">
+                      <PlaceImage
+                        src={rel.hero_image_url}
+                        alt={rel.name}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        compact
+                      />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs uppercase tracking-[0.1em] text-category-travel">
+                        {humanize(rel.place_type)}
+                      </span>
+                      <span className="mt-1 block text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-accent">
+                        {rel.name}
+                      </span>
+                      {rel.local_name && (
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          {rel.local_name}
+                        </span>
+                      )}
+                    </span>
+                    <ArrowRight
+                      size={15}
+                      aria-hidden="true"
+                      className="shrink-0 text-border-strong transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-accent"
+                    />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </Container>
     </div>
   );
 }

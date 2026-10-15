@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   let rss = `<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 <channel>
-  <title>Daily Discovery - News &amp; Visual Explanations</title>
+  <title>CamTech.Blog - News &amp; Visual Explanations</title>
   <link>${baseUrl}</link>
   <description>Verified news, visual explanations, and daily discovery platform.</description>
   <language>en</language>

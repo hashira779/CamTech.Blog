@@ -1,101 +1,125 @@
 import React from "react";
 import { Metadata } from "next";
-import { PublicPageShell } from "@/components/layout/public-shell";
-import { ToolCard } from "@/components/shared/tool-card";
-import { Badge } from "@/components/ui/badge";
+import { Calculator, Code2, Image as ImageIcon, FileText } from "lucide-react";
 import { getTools } from "@/lib/api";
-import { Wrench, Calculator, Code2, QrCode } from "lucide-react";
+import type { Tool } from "@/types";
+import { Container, Section } from "@/components/ui/container";
+import { SectionHeader } from "@/components/ui/section-header";
+import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+import { ToolCard } from "@/components/shared/tool-card";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = {
-  title: "Online Utilities & Productivity Tools | Daily Discovery",
-  description: "Free, privacy-conscious financial calculators, developer utilities, and image conversion tools with zero ads or tracking.",
+  title: "Online Utilities & Productivity Tools | CamTech Blog",
+  description:
+    "Free calculators, developer formatters and image tools that run in your browser, with no downloads or tracking.",
 };
 
 export const revalidate = 60;
 
+interface Group {
+  key: string;
+  category: Tool["category"];
+  label: string;
+  title: string;
+  description: string;
+  Icon: typeof Calculator;
+}
+
+const GROUPS: Group[] = [
+  {
+    key: "calculators",
+    category: "CALCULATOR",
+    label: "Calculators",
+    title: "Calculators & financial utilities",
+    description: "Percentages, discounts, loans, profit and dates, computed on your device.",
+    Icon: Calculator,
+  },
+  {
+    key: "developer",
+    category: "DEVELOPER",
+    label: "Developer",
+    title: "Developer & data utilities",
+    description: "Format, validate and inspect structured text.",
+    Icon: Code2,
+  },
+  {
+    key: "image",
+    category: "IMAGE",
+    label: "Image & media",
+    title: "Image & QR utilities",
+    description: "Compress pictures and encode links without uploading them anywhere.",
+    Icon: ImageIcon,
+  },
+  {
+    key: "text",
+    category: "TEXT",
+    label: "Text",
+    title: "Writing & text tools",
+    description: "Count words, characters and reading time as you type.",
+    Icon: FileText,
+  },
+];
+
 export default async function ToolsHubPage() {
   const tools = await getTools();
 
-  const calculators = tools.filter((t) => t.category === "CALCULATOR");
-  const devTools = tools.filter((t) => t.category === "DEVELOPER");
-  const imageTools = tools.filter((t) => t.category === "IMAGE");
+  const groups = GROUPS.map((group) => ({
+    ...group,
+    items: tools.filter((tool) => tool.category === group.category),
+  })).filter((group) => group.items.length > 0);
 
   return (
-    <PublicPageShell
-      breadcrumbs={[{ label: "Tools & Utilities", href: "/tools" }]}
-      badge={
-        <Badge variant="default" size="sm" className="gap-1">
-          <Wrench size={12} />
-          Client Productivity Tools
-        </Badge>
-      }
-      title="Useful Everyday Online Tools"
-      description="Fast, privacy-conscious calculators, developer formatters, and image converters running directly in your browser without tracking or download traps."
-    >
-      <div className="space-y-12">
-        {/* Calculators Grid */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
-            <Calculator className="h-5 w-5 text-teal-700 dark:text-teal-400" />
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              Calculators & Financial Utilities
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {calculators.map((t) => (
-              <ToolCard
-                key={t.id}
-                slug={t.slug}
-                name={t.name}
-                category="Calculator"
-                description={t.description}
-              />
-            ))}
-          </div>
-        </section>
+    <div className="flex w-full flex-1 flex-col">
+      <Section className="pb-8 pt-6 sm:pt-8">
+        <Container>
+          <Breadcrumbs items={[{ label: "Tools", href: "/tools" }]} className="mb-6" />
 
-        {/* Developer Tools Grid */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
-            <Code2 className="h-5 w-5 text-teal-700 dark:text-teal-400" />
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              Developer & Data Utilities
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {devTools.map((t) => (
-              <ToolCard
-                key={t.id}
-                slug={t.slug}
-                name={t.name}
-                category="Developer"
-                description={t.description}
-              />
-            ))}
-          </div>
-        </section>
+          <SectionHeader
+            as="h1"
+            label="Tools"
+            title="Everyday online tools"
+            description="Calculators, formatters and converters that run entirely in your browser. Nothing you enter is uploaded or stored."
+          />
 
-        {/* Image & Media Tools Grid */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
-            <QrCode className="h-5 w-5 text-teal-700 dark:text-teal-400" />
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              Image & QR Utilities
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {imageTools.map((t) => (
-              <ToolCard
-                key={t.id}
-                slug={t.slug}
-                name={t.name}
-                category="File & Media"
-                description={t.description}
-              />
-            ))}
-          </div>
-        </section>
-      </div>
-    </PublicPageShell>
+          {groups.length === 0 ? (
+            <EmptyState
+              icon={Calculator}
+              title="No tools published yet"
+              description="Utilities are added over time. Check back soon, or browse the daily quiz in the meantime."
+              actionLabel="Daily quiz"
+              actionHref="/quiz"
+            />
+          ) : (
+            <div className="mt-10 space-y-12">
+              {groups.map((group) => (
+                <section key={group.key} aria-labelledby={`${group.key}-heading`}>
+                  <SectionHeader
+                    as="h2"
+                    label={group.label}
+                    title={group.title}
+                    description={group.description}
+                    className="mb-5 sm:mb-6"
+                  />
+                  <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                    {group.items.map((tool) => (
+                      <ToolCard
+                        key={tool.id}
+                        slug={tool.slug}
+                        name={tool.name}
+                        category={group.label}
+                        description={tool.description}
+                        usageCount={tool.usage_count}
+                        popular={tool.is_popular}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+        </Container>
+      </Section>
+    </div>
   );
 }

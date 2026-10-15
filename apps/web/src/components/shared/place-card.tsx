@@ -1,10 +1,11 @@
 import * as React from "react";
 import Link from "next/link";
-import { MapPin, ArrowRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ArrowRight, MapPin } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { DESIGN_TOKENS } from "@/lib/tokens";
+import { CategoryMark } from "@/components/ui/category-mark";
+import { Photo } from "@/components/ui/photo";
+import { humanize } from "@/lib/format";
 
 export interface PlaceCardProps {
   id: string;
@@ -18,6 +19,14 @@ export interface PlaceCardProps {
   verificationStatus?: string;
 }
 
+/**
+ * The place card, on the same paper-and-hairline register as the front page's feature card.
+ *
+ * Two honesty fixes: the old card printed "Field Verified" on every tile whether the record carried
+ * a verification status or not, and defaulted the status to `verified` when the caller passed none.
+ * The badge now only appears when a status is actually supplied. A place without a verified
+ * photograph keeps the "Photo not verified yet" tile instead of a stock stand-in.
+ */
 export function PlaceCard({
   slug,
   name,
@@ -26,76 +35,63 @@ export function PlaceCard({
   destinationName,
   shortDescription,
   heroImage,
-  verificationStatus = "verified",
+  verificationStatus,
 }: PlaceCardProps) {
+  const href = `/travel/place/${slug}`;
+
   return (
-    <Card hoverEffect className="overflow-hidden flex flex-col h-full group">
-      {/* 4:3 Image Container */}
-      <Link href={`/travel/place/${slug}`} className="block relative overflow-hidden">
-        <div className={`${DESIGN_TOKENS.aspectRatio.place} bg-slate-100 dark:bg-slate-800 w-full overflow-hidden`}>
-          {heroImage ? (
-            <img
-              src={heroImage}
-              alt={name}
-              loading="lazy"
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-102"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-600 bg-slate-100 dark:bg-slate-800">
-              <span className="text-xs uppercase font-medium">Place Visual</span>
-            </div>
-          )}
-        </div>
-        <div className="absolute top-2.5 left-2.5">
-          <Badge variant="secondary" size="sm" className="bg-white/90 backdrop-blur-xs text-slate-900 border-slate-200">
-            {placeType}
-          </Badge>
-        </div>
+    <Card hoverEffect className="group h-full overflow-hidden">
+      <Link href={href} aria-label={name} className="block">
+        <Photo
+          src={heroImage}
+          alt={name}
+          ratio="4/3"
+          radius="none"
+          showCredit={false}
+          placeholderLabel="Photo not verified yet"
+        />
       </Link>
 
-      {/* Content */}
-      <div className="p-4 sm:p-5 flex flex-col flex-1">
-        {/* Destination & Verification */}
-        <div className="flex items-center justify-between gap-2 mb-2 text-xs text-slate-500 dark:text-slate-400">
-          {destinationName ? (
-            <div className="flex items-center gap-1 truncate">
-              <MapPin size={DESIGN_TOKENS.iconSize.xs} className="text-slate-400 shrink-0" />
-              <span className="truncate">{destinationName}</span>
-            </div>
-          ) : (
-            <span />
-          )}
-          <StatusBadge status={verificationStatus} size="sm" />
+      <div className="flex flex-1 flex-col gap-2 p-5">
+        <div className="flex items-center justify-between gap-2">
+          <CategoryMark category="travel" tone="dot">
+            {humanize(placeType)}
+          </CategoryMark>
+          {verificationStatus && <StatusBadge status={verificationStatus} size="sm" />}
         </div>
 
-        {/* Title */}
-        <Link href={`/travel/place/${slug}`} className="mb-1.5">
-          <h3 className="text-base font-semibold leading-snug tracking-tight text-slate-900 group-hover:text-teal-700 dark:text-slate-100 dark:group-hover:text-teal-400 transition-colors">
+        <h3 className="font-display text-lg leading-snug tracking-tight text-foreground">
+          <Link href={href} className="line-clamp-2 transition-colors hover:text-accent">
             {name}
-          </h3>
-          {localName && (
-            <p className="text-xs text-slate-400 font-khmer mt-0.5">{localName}</p>
-          )}
-        </Link>
+          </Link>
+        </h3>
 
-        {/* Short description */}
+        {localName && <p className="text-xs text-muted-foreground">{localName}</p>}
+
+        {destinationName && (
+          <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MapPin size={13} aria-hidden="true" />
+            <span className="truncate">{destinationName}</span>
+          </p>
+        )}
+
         {shortDescription && (
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-4 leading-relaxed">
+          <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
             {shortDescription}
           </p>
         )}
 
-        {/* Action */}
-        <div className="mt-auto pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Field Verified
-          </span>
+        <div className="mt-auto flex items-center justify-between border-t border-border pt-3">
           <Link
-            href={`/travel/place/${slug}`}
-            className="text-xs font-semibold text-teal-700 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300 inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
+            href={href}
+            className="group/link inline-flex items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-foreground"
           >
-            View Place
-            <ArrowRight size={DESIGN_TOKENS.iconSize.xs} />
+            View place
+            <ArrowRight
+              size={14}
+              aria-hidden="true"
+              className="transition-transform duration-300 group-hover/link:translate-x-0.5"
+            />
           </Link>
         </div>
       </div>

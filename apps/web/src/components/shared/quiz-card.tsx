@@ -1,67 +1,95 @@
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, HelpCircle, Award } from "lucide-react";
+import { ArrowRight, HelpCircle, ListChecks, Clock } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
 import { DESIGN_TOKENS } from "@/lib/tokens";
+import { humanize } from "@/lib/format";
 
 export interface QuizCardProps {
-  id: string;
+  id?: string;
   slug: string;
   title: string;
   description?: string;
   category?: string;
   questionCount?: number;
   difficulty?: string;
+  estimatedMinutes?: number;
 }
 
+/**
+ * One quiz in the quiz index.
+ *
+ * Every figure here has to come from the API: the old card defaulted to
+ * "Daily Trivia / 5 Questions / Medium" and printed an "Interactive Score"
+ * award even when none of that was true. Missing fields now render as nothing.
+ */
 export function QuizCard({
   slug,
   title,
   description,
-  category = "Daily Trivia",
-  questionCount = 5,
-  difficulty = "Medium",
+  category,
+  questionCount,
+  difficulty,
+  estimatedMinutes,
 }: QuizCardProps) {
+  const hasCount = typeof questionCount === "number" && questionCount > 0;
+  const hasMinutes = typeof estimatedMinutes === "number" && estimatedMinutes > 0;
+
   return (
-    <Card hoverEffect className="p-5 flex flex-col h-full group">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400">
-          <HelpCircle size={DESIGN_TOKENS.iconSize.lg} />
-        </div>
-        <div className="flex gap-1.5">
-          <Badge variant="warning" size="sm">
-            {difficulty}
-          </Badge>
-          <Badge variant="secondary" size="sm">
-            {questionCount} Questions
-          </Badge>
-        </div>
+    <Card hoverEffect className="group flex h-full flex-col rounded-lg p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-surface-muted text-category-quiz">
+          <HelpCircle size={DESIGN_TOKENS.iconSize.md} aria-hidden="true" />
+        </span>
+        {category ? (
+          <CategoryMark category={categoryKey("quiz")} tone="chip">
+            {category}
+          </CategoryMark>
+        ) : null}
       </div>
 
-      <Link href={`/quiz/${slug}`} className="mb-2">
-        <h3 className="text-base font-semibold leading-snug tracking-tight text-slate-900 group-hover:text-amber-600 dark:text-slate-100 dark:group-hover:text-amber-400 transition-colors">
+      <h3 className="mb-1.5 font-display text-lg leading-snug tracking-tight text-foreground">
+        <Link href={`/quiz/${slug}`} className="transition-colors hover:text-accent">
           {title}
-        </h3>
-      </Link>
+          <span className="sr-only"> — start quiz</span>
+        </Link>
+      </h3>
 
       {description && (
-        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-4 leading-relaxed">
-          {description}
-        </p>
+        <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
       )}
 
-      <div className="mt-auto pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-        <span className="text-xs text-slate-400 flex items-center gap-1">
-          <Award size={12} className="text-amber-500" />
-          Interactive Score
-        </span>
+      {(hasCount || difficulty || hasMinutes) && (
+        <ul className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+          {hasCount && (
+            <li className="inline-flex items-center gap-1.5 tabular-nums">
+              <ListChecks size={13} aria-hidden="true" />
+              {questionCount} questions
+            </li>
+          )}
+          {difficulty && <li>{humanize(difficulty)}</li>}
+          {hasMinutes && (
+            <li className="inline-flex items-center gap-1.5 tabular-nums">
+              <Clock size={13} aria-hidden="true" />
+              about {estimatedMinutes} min
+            </li>
+          )}
+        </ul>
+      )}
+
+      <div className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-3.5">
+        <span className="text-xs text-muted-foreground">Answer as you go</span>
         <Link
           href={`/quiz/${slug}`}
-          className="text-xs font-semibold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent transition-colors hover:text-foreground"
         >
-          Start Quiz
-          <ArrowRight size={DESIGN_TOKENS.iconSize.xs} />
+          Start
+          <ArrowRight
+            size={DESIGN_TOKENS.iconSize.xs}
+            aria-hidden="true"
+            className="transition-transform duration-300 group-hover:translate-x-0.5"
+          />
         </Link>
       </div>
     </Card>

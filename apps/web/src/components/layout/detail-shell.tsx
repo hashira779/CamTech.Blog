@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Breadcrumbs, BreadcrumbItem } from "@/components/shared/breadcrumbs";
+import { Container } from "@/components/ui/container";
 
 export interface DetailShellProps {
   breadcrumbs: BreadcrumbItem[];
@@ -13,6 +14,15 @@ export interface DetailShellProps {
   relatedContent?: React.ReactNode;
 }
 
+/**
+ * Detail/article shell: breadcrumb, hero, serif headline, then a body column and
+ * an optional rail.
+ *
+ * The body column is capped so long-form copy keeps a reading measure even when
+ * there is no sidebar — previously `lg:col-span-12` let paragraphs run the full
+ * 78rem width. Headline is the display face; the subtitle is deck copy, not a
+ * second heading.
+ */
 export function DetailShell({
   breadcrumbs,
   title,
@@ -25,54 +35,55 @@ export function DetailShell({
   relatedContent,
 }: DetailShellProps) {
   return (
-    <div className="min-h-screen py-6 sm:py-8">
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-        {/* Breadcrumbs */}
-        <div className="mb-4">
+    <div className="flex w-full flex-1 flex-col py-8 sm:py-12">
+      <Container>
+        <div className="mb-5">
           <Breadcrumbs items={breadcrumbs} />
         </div>
 
-        {/* Hero Section if present */}
-        {hero && <div className="mb-6 sm:mb-8">{hero}</div>}
+        {hero && <div className="mb-8">{hero}</div>}
 
-        {/* Title and Action Bar */}
-        <div className="mb-8 pb-4 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              {badge && <div className="mb-2">{badge}</div>}
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                {title}
-              </h1>
-              {subtitle && (
-                <p className="mt-1.5 text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-2xl leading-relaxed">
-                  {subtitle}
-                </p>
-              )}
+        <header className="mb-8 border-b border-border pb-6">
+          {(badge || actions) && (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              {badge}
+              {actions && <div className="flex items-center gap-2">{actions}</div>}
             </div>
-            {actions && <div className="shrink-0 flex items-center gap-2">{actions}</div>}
-          </div>
-        </div>
+          )}
 
-        {/* Main Grid: Content + Sidebar */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-          <div className={`${sidebar ? "lg:col-span-8" : "lg:col-span-12"} space-y-8`}>
+          <h1 className="max-w-3xl font-display text-3xl leading-[1.1] tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+            {title}
+          </h1>
+
+          {subtitle && (
+            <p className="mt-4 max-w-2xl text-lg leading-relaxed text-muted-foreground">
+              {subtitle}
+            </p>
+          )}
+        </header>
+
+        <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
+          <div
+            className={
+              sidebar
+                ? "min-w-0 space-y-8 lg:col-span-8"
+                : "min-w-0 space-y-8 lg:col-span-8 lg:col-start-3"
+            }
+          >
             {children}
           </div>
 
           {sidebar && (
-            <aside className="lg:col-span-4 space-y-6">
-              {sidebar}
+            <aside className="lg:col-span-4 lg:col-start-9">
+              <div className="space-y-8 lg:sticky lg:top-24">{sidebar}</div>
             </aside>
           )}
         </div>
 
-        {/* Related Content */}
         {relatedContent && (
-          <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800">
-            {relatedContent}
-          </div>
+          <div className="mt-14 border-t border-border pt-10">{relatedContent}</div>
         )}
-      </div>
+      </Container>
     </div>
   );
 }

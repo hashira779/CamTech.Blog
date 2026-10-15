@@ -1,10 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Metadata } from "next";
-import { ChevronRight, Wrench, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { getToolBySlug } from "@/lib/api";
 import { ToolDispatcher } from "@/components/tools/ToolDispatcher";
 import { AdSlot } from "@/components/ads/AdSlot";
+import { Container, Section } from "@/components/ui/container";
+import { SectionHeader } from "@/components/ui/section-header";
+import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+import { cleanText, humanize } from "@/lib/format";
 
 export const revalidate = 60;
 
@@ -17,7 +21,7 @@ export async function generateMetadata({
   const tool = await getToolBySlug(resolvedParams.slug);
   if (!tool) return { title: "Tool Not Found" };
   return {
-    title: `${tool.name} | Free Online Tool | Daily Discovery`,
+    title: `${tool.name} | Free Online Tool | CamTech Blog`,
     description: tool.description,
   };
 }
@@ -34,47 +38,59 @@ export default async function ToolExecutionPage({
     notFound();
   }
 
+  const description = cleanText(tool.description);
+
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-xs text-neutral-400">
-        <Link href="/" className="hover:text-rose-600 transition-colors">Home</Link>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <Link href="/tools" className="hover:text-rose-600 transition-colors font-medium text-neutral-600 dark:text-neutral-300">
-          Tools
-        </Link>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <span className="text-neutral-400">{tool.name}</span>
-      </nav>
+    <Section className="pb-12 pt-6 sm:pt-8">
+      <Container>
+        <div className="mx-auto w-full max-w-3xl">
+          <Breadcrumbs
+            items={[
+              { label: "Tools", href: "/tools" },
+              { label: tool.name },
+            ]}
+            className="mb-6"
+          />
 
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <span className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
-          {tool.category}
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-white">
-          {tool.name}
-        </h1>
-        <p className="text-xs sm:text-sm text-neutral-500 max-w-xl mx-auto">
-          {tool.description}
-        </p>
-      </div>
+          <SectionHeader
+            as="h1"
+            label={humanize(tool.category)}
+            title={tool.name}
+            description={description || undefined}
+          />
 
-      {/* Interactive Tool Runner */}
-      <ToolDispatcher tool={tool} />
+          {/* One panel per tool: the calculator supplies the fields, the page
+              supplies the paper, so no route draws its own box. */}
+          <div className="rounded-lg border border-border bg-card p-5 shadow-xs sm:p-7">
+            <ToolDispatcher tool={tool} />
+          </div>
 
-      <AdSlot slot="TOOL_BOTTOM" />
+          <div className="mt-6">
+            <AdSlot slot="TOOL_BOTTOM" />
+          </div>
 
-      {/* Transparency Guarantee */}
-      <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-xs text-neutral-500">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-emerald-500" />
-          <span>All calculations and file processing occur safely on your client device.</span>
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg bg-surface-muted px-4 py-3 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-2">
+              <ShieldCheck size={14} className="shrink-0 text-success" aria-hidden="true" />
+              Calculations and file processing happen on this device only.
+            </span>
+            {/* Only a real version string from the API is printed. */}
+            {tool.version && <span className="tabular-nums">v{tool.version}</span>}
+          </div>
+
+          <Link
+            href="/tools"
+            className="group mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-foreground"
+          >
+            <ArrowLeft
+              size={15}
+              aria-hidden="true"
+              className="transition-transform duration-300 group-hover:-translate-x-0.5"
+            />
+            All tools
+          </Link>
         </div>
-        <span className="font-mono text-[10px]">v{tool.version || "1.0"}</span>
-      </div>
-
-    </div>
+      </Container>
+    </Section>
   );
 }

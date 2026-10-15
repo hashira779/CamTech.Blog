@@ -190,7 +190,9 @@ Do NOT repeat basic tutorials. Deliver mind-expanding, accurate technical journa
                     title=title,
                     category=category,
                     hero_image_url=hero_img,
-                    hero_image_credit=credit or "Unsplash / Wikimedia Science Library",
+                    # No invented library credit: the caption comes from the file's own host
+                    # or the explainer simply has no image to caption.
+                    hero_image_credit=credit,
                     hero_image_alt=alt or title,
                     intro=item.get("intro", ""),
                     main_explanation=item.get("main_explanation", ""),

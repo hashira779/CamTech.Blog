@@ -1,11 +1,33 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ShieldCheck, ExternalLink, Globe, Database, ChevronRight, BookOpen } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { getSourceBySlug, getArticles } from "@/lib/api";
-import { NewsCard } from "@/components/news/NewsCard";
+import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Container } from "@/components/ui/container";
+import { SectionHeader } from "@/components/ui/section-header";
+import { NewsCard } from "@/components/shared/news-card";
+import { cleanText, humanize } from "@/lib/format";
 
 export const revalidate = 60;
 
+function trustTone(trustLevel: string) {
+  const v = trustLevel.toLowerCase();
+  if (v.includes("high")) return "success" as const;
+  if (v.includes("medium") || v.includes("partial")) return "warning" as const;
+  if (v.includes("low")) return "destructive" as const;
+  return "outline" as const;
+}
+
+/**
+ * Source profile.
+ *
+ * The block used to advertise an "Attribution Policy: Strict Attribution
+ * Required" that is not a field on `Source` — an invented guarantee on the page
+ * that exists to prove the opposite. It now lists jurisdiction, language,
+ * category, feed and licence notes, and nothing else.
+ */
 export default async function SourceDetailPage({
   params,
 }: {
@@ -18,92 +40,116 @@ export default async function SourceDetailPage({
     notFound();
   }
 
-  const { items: articles } = await getArticles({ source: slug, limit: 20 });
+  const { items: articles, total } = await getArticles({ source: slug, limit: 20 });
+
+  const trust = humanize(source.trust_level);
+  const licenceNotes = cleanText(source.license_notes);
+  const facts = [
+    { label: "Jurisdiction", value: source.country },
+    { label: "Language", value: source.language ? source.language.toUpperCase() : "" },
+    { label: "Category", value: source.category },
+    { label: "Stories here", value: String(total > 0 ? total : articles.length) },
+  ].filter((fact) => cleanText(fact.value));
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-xs font-medium text-slate-500">
-        <Link href="/" className="hover:text-slate-900 dark:hover:text-slate-100">
-          Home
-        </Link>
-        <ChevronRight className="w-3.5 h-3.5" />
-        <Link href="/sources" className="hover:text-slate-900 dark:hover:text-slate-100">
-          Sources
-        </Link>
-        <ChevronRight className="w-3.5 h-3.5" />
-        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{source.name}</span>
-      </nav>
+    <div className="flex w-full flex-1 flex-col">
+      <Container className="pt-8 sm:pt-12">
+        <Breadcrumbs items={[{ label: "Sources", href: "/sources" }, { label: source.name }]} />
 
-      {/* Source Profile Card */}
-      <div className="p-8 rounded-3xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="space-y-1">
-            <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold rounded-lg inline-flex items-center gap-1.5 mb-2">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              {source.trust_level.replace(/_/g, " ")}
-            </span>
-            <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-              {source.name}
-            </h1>
+        {/* ── Masthead ────────────────────────────────────────────────────── */}
+        <header className="mt-6 border-b border-border pb-10">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <p className="section-label text-accent">Source registry</p>
+              <h1 className="mt-2 font-display text-4xl leading-[1.05] tracking-tight text-foreground sm:text-5xl">
+                {source.name}
+              </h1>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                {trust && (
+                  <Badge variant={trustTone(source.trust_level)} size="sm">
+                    {trust}
+                  </Badge>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  Entries in this registry are the feeds and publishers the site draws on.{" "}
+                  <Link href="/sources" className="text-accent hover:text-foreground">
+                    View all sources
+                  </Link>
+                </p>
+              </div>
+            </div>
+
+            {source.website_url && (
+              <Button asChild variant="outline" size="sm" className="shrink-0">
+                <a href={source.website_url} target="_blank" rel="noopener noreferrer nofollow">
+                  Publisher website
+                  <ExternalLink size={14} strokeWidth={2} aria-hidden="true" />
+                </a>
+              </Button>
+            )}
           </div>
 
-          <a
-            href={source.website_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-2 shadow-sm transition-colors"
-          >
-            <span>Visit Publisher Website</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        </div>
+          {facts.length > 0 && (
+            <dl className="mt-8 grid gap-6 border-t border-border pt-6 sm:grid-cols-2 lg:grid-cols-4">
+              {facts.map((fact) => (
+                <div key={fact.label}>
+                  <dt className="section-label">{fact.label}</dt>
+                  <dd className="mt-1.5 text-sm font-medium text-foreground">
+                    {fact.label === "Stories here" ? (
+                      <span className="tabular-nums">{fact.value}</span>
+                    ) : (
+                      fact.value
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-          <div>
-            <span className="text-xs text-slate-400 block font-medium">Jurisdiction</span>
-            <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{source.country}</span>
-          </div>
-          <div>
-            <span className="text-xs text-slate-400 block font-medium">Primary Language</span>
-            <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{source.language.toUpperCase()}</span>
-          </div>
-          <div>
-            <span className="text-xs text-slate-400 block font-medium">Category</span>
-            <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{source.category}</span>
-          </div>
-          <div>
-            <span className="text-xs text-slate-400 block font-medium">Attribution Policy</span>
-            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Strict Attribution Required</span>
-          </div>
-        </div>
-
-        {source.license_notes && (
-          <div className="p-4 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-600 dark:text-slate-300">
-            <strong>Attribution & Licensing Notes:</strong> {source.license_notes}
-          </div>
-        )}
-      </div>
-
-      {/* Stories derived from this source */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-          Verified Stories Attributed to {source.name}
-        </h2>
-        {articles.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {articles.map((article) => (
-              <NewsCard key={article.id} article={article} />
-            ))}
-          </div>
-        ) : (
-          <div className="p-12 text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
-            <p className="text-sm text-slate-500 font-medium">
-              No published stories currently attributed to this source.
+          {source.feed_url && (
+            <p className="mt-6 text-sm text-muted-foreground">
+              <span className="section-label">Feed</span>{" "}
+              <a
+                href={source.feed_url}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="break-all text-accent underline-offset-4 hover:underline"
+              >
+                {source.feed_url}
+              </a>
             </p>
-          </div>
+          )}
+
+          {licenceNotes && (
+            <div className="mt-8 border-l-2 border-accent bg-accent-soft/60 p-5">
+              <p className="section-label text-muted-foreground">Licensing notes</p>
+              <p className="mt-2 text-sm leading-relaxed text-foreground">{licenceNotes}</p>
+            </div>
+          )}
+        </header>
+      </Container>
+
+      {/* ── Stories from this source ────────────────────────────────────── */}
+      <Container className="py-10 sm:py-14">
+        {articles.length > 0 ? (
+          <>
+            <SectionHeader
+              label="Syndicated"
+              title={`Stories credited to ${source.name}`}
+              description="Summaries written here; the original report stays with the publisher."
+            />
+            <div className="grid gap-6 sm:grid-cols-2">
+              {articles.map((article) => (
+                <NewsCard key={article.id} article={article} variant="standard" />
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="py-10 text-sm leading-relaxed text-muted-foreground">
+            No stories are currently credited to this source.
+          </p>
         )}
-      </div>
+      </Container>
     </div>
   );
 }

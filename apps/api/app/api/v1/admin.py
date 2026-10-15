@@ -371,15 +371,18 @@ async def enhance_news_images(
     """
     from app.services.image_search_service import image_search_service
     from app.models.category import Category
+    from app.services.filing import hero_provenance_ok
 
-    # Find articles with missing or generic fallback hero images
-    articles_to_fix = db.query(Article).filter(
-        (Article.hero_image_url.is_(None)) |
-        (Article.hero_image_url == "") |
-        (Article.hero_image_url.contains("photo-1518770660439-4636190af475"))
-    ).order_by(Article.created_at.desc()).limit(limit).all()
+    # Anything with no hero, or a hero we cannot honestly show (stock pool, stock host,
+    # or a caption from a different publisher than the file), is re-checked.
+    candidates = db.query(Article).order_by(Article.created_at.desc()).limit(max(limit * 4, limit)).all()
+    articles_to_fix = [
+        art for art in candidates
+        if not art.hero_image_url or not hero_provenance_ok(art.hero_image_url, art.hero_image_credit)[0]
+    ][:limit]
 
     updated_count = 0
+    cleared_count = 0
     updated_items = []
 
     for art in articles_to_fix:
@@ -398,12 +401,16 @@ async def enhance_news_images(
         art.hero_image_credit = credit
         art.hero_image_alt = alt
         updated_count += 1
+        if not img_url:
+            cleared_count += 1
         updated_items.append({"id": art.id, "title": art.title, "image_url": img_url})
 
     db.commit()
     return {
         "status": "success",
         "updated_count": updated_count,
+        # Stories counted here now publish with no photograph instead of a wrong one.
+        "cleared_count": cleared_count,
         "articles": updated_items
     }
 

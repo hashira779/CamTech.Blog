@@ -19,6 +19,25 @@ from app.services import ai_gateway
 logger = logging.getLogger(__name__)
 
 
+def _match_text(value) -> str:
+    """Lowercased, entity-free, single-spaced text for keyword matching."""
+    return re.sub(r"\s+", " ", str(value or "").lower())
+
+
+def _has_word(text: str, word: str) -> bool:
+    """Whole-word (prefix-tolerant) match.
+
+    Signals are matched on word boundaries so "ai" no longer fires on "said", "email",
+    "domain" or "campaign" — the substring bug that filed most of the feed as Technology.
+    Short tokens still need a boundary; longer ones may match a stem ("invest" -> "investment").
+    """
+    if not text or not word:
+        return False
+    if len(word) >= 6:
+        return word in text
+    return re.search(rf"(?<![a-z0-9]){re.escape(word)}(?![a-z0-9])", text) is not None
+
+
 class BaseAIProvider:
     async def generate_draft_editorial(self, title: str, source_content: str, source_name: str) -> Dict[str, Any]:
         raise NotImplementedError
@@ -32,58 +51,159 @@ class BaseAIProvider:
 
 class LocalAIProvider(BaseAIProvider):
     """
-    Deterministic local extraction and structured draft generator.
-    Works reliably without external API dependencies, creating safe, attributed editorial drafts.
+    Deterministic local extraction used when no AI provider answers.
+
+    This engine has no model behind it, so it must not write editorial prose. It only
+    copies sentences that the publisher actually printed, in their original casing. The
+    old version stamped "According to reporting from {source}", force-lowercased the
+    publisher's first sentence ("...created with ai"), added a filler sentence the source
+    never wrote, and invented a why-it-matters paragraph — 77 of 81 stored summaries were
+    that template. An empty extract is honest and gets held for review; a padded one ships
+    fabricated copy to readers.
     """
+
+    # Whole-word signals. The previous version tested substrings in a fixed order, so
+    # "ai" matched "said"/"email"/"campaign" and most of the feed was filed Technology,
+    # while a bare "ministry" pulled world politics onto the Cambodia desk.
+    _CATEGORY_SIGNALS: List[tuple] = [
+        ("Cambodia", [
+            "cambodia", "cambodian", "phnom penh", "siem reap", "khmer", "angkor",
+            "asean", "mekong", "kratie", "mondulkiri", "ratanakiri", "preah vihear",
+            "sihanouk", "kampong", "kampot", "battambang", "pursat", "bavet",
+            "bakong", "funan", "hunsen", "hun manet", "soc son", "khmer times",
+        ]),
+        ("Technology", [
+            "ai", "artificial intelligence", "software", "tech", "technology", "gadget",
+            "cyber", "apple", "google", "semiconductor", "chip", "chips", "datacenter",
+            "data centre", "llm", "startup", "broadband", "5g", "smartphone", "android",
+            "microsoft", "nvidia", "openai", "satellite", "robot", "robotics",
+        ]),
+        ("Business", [
+            "market", "markets", "economy", "economic", "bank", "banks", "inflation",
+            "trade", "investment", "investments", "stock", "stocks", "gdp", "exports",
+            "import", "currency", "riel", "earnings", "revenue", "funding", "raises",
+            "acquisition", "merger", "budget", "wage", "wages",
+        ]),
+        ("Science", [
+            "planet", "nasa", "physics", "climate", "biology", "science", "scientific",
+            "space", "telescope", "research", "study", "studies", "health", "disease",
+            "vaccine", "gene", "genome", "fossil", "archaeolog", "astronom", "quantum",
+        ]),
+        ("Travel", [
+            "travel", "tourism", "tourists", "hotel", "hotels", "resort", "flight",
+            "flights", "destination", "heritage", "visa", "airline", "airport",
+            "arrivals", "itinerary", "cruise",
+        ]),
+    ]
+
+    _ENTITIES = {
+        "&nbsp;": " ", "&amp;": "&", "&quot;": '"', "&#39;": "'", "&apos;": "'",
+        "&lt;": "<", "&gt;": ">", "&ndash;": "-", "&mdash;": "—", "&rsquo;": "'",
+        "&lsquo;": "'", "&ldquo;": '"', "&rdquo;": '"', "&hellip;": "…",
+    }
+
+    # Runs a publisher uses for their own boilerplate, not for reporting.
+    _NOISE_SENTENCES = re.compile(
+        r"^(click|read more|sign up|subscribe|follow us|join the conversation|share this|related|comments?|advertisement|sponsored)",
+        re.I,
+    )
+
+    @classmethod
+    def _plain_text(cls, value: str) -> str:
+        """Strip markup and untangle HTML entities before anything is split or shown."""
+        # Entities first: a feed-escaped "&lt;div&gt;" must not survive decoding and then
+        # be removed as markup, or publisher boilerplate reaches the page as literal "<div>".
+        text = str(value or "")
+        for entity, char in cls._ENTITIES.items():
+            text = text.replace(entity, char)
+        text = re.sub(r"&#(\d+);", lambda m: chr(int(m.group(1))) if int(m.group(1)) < 1114112 else " ", text)
+        text = re.sub(r"<[^>]+>", " ", text)
+        return re.sub(r"\s+", " ", text).strip()
+
+    @classmethod
+    def _sentences(cls, text: str) -> List[str]:
+        """Publisher sentences, verbatim. No rewriting, no case changes, no added filler."""
+        out: List[str] = []
+        for part in re.split(r"(?<=[.!?])\s+", cls._plain_text(text)):
+            sentence = part.strip()
+            if len(sentence) < 30 or sentence.count(" ") < 4:
+                continue
+            if cls._NOISE_SENTENCES.match(sentence):
+                continue
+            out.append(sentence)
+        return out
+
+    @classmethod
+    def _restore_case(cls, sentence: str, title: str) -> str:
+        """Re-capitalise proper nouns the old template lowercased, using the publisher's own title."""
+        if sentence[:1].isupper():
+            return sentence
+        words = sentence.split(" ")
+        title_words = {w for w in re.findall(r"[A-Za-z][A-Za-z0-9'-]{2,}", title or "")}
+        if words:
+            head = words[0]
+            match = next((t for t in title_words if t.lower() == head.lower()), None)
+            if match:
+                words[0] = match
+        restored = " ".join(words)
+        for word in title_words:
+            restored = re.sub(rf"\b{re.escape(word.lower())}\b", word, restored)
+        return restored[:1].upper() + restored[1:]
+
     async def generate_draft_editorial(self, title: str, source_content: str, source_name: str) -> Dict[str, Any]:
-        clean_content = re.sub(r"<[^>]+>", " ", source_content)
-        sentences = [s.strip() for s in re.split(r"[.!?]+", clean_content) if len(s.strip()) > 20]
-        attribution = f"According to reporting from {source_name}"
+        sentences = self._sentences(source_content)
+        if not sentences:
+            # Nothing quotable arrived. Leave the fields empty: the quality gate holds the
+            # draft instead of shipping an invented summary, and the UI hides blank sections.
+            return {
+                "summary": "",
+                "key_points": [],
+                "why_it_matters": "",
+                "suggested_tags": [],
+                "seo_title": (title or "")[:60],
+                "seo_description": (title or "")[:155],
+                "ai_draft_status": "AI_DRAFT_PENDING_EDITOR_REVIEW",
+                "engine": "local",
+                "extracted": False,
+            }
 
-        if sentences:
-            summary = f"{attribution}, {sentences[0].lower()}."
-            if len(sentences) > 1:
-                summary += " The development highlights key ongoing shifts in the sector."
-        else:
-            summary = f"{attribution}, significant developments were reported regarding {title}."
-
-        key_points = [f"Documented report: {s}" for s in sentences[1:4]]
-        if not key_points:
-            key_points = [
-                f"Initial coverage provided by {source_name}.",
-                "Official statements and documentation are being monitored.",
-                "Further regional developments are expected to follow.",
-            ]
-
-        why_it_matters = (
-            f"This event represents an important indicator for stakeholders following regional and sector-specific "
-            f"trends. As noted by {source_name}, sustained monitoring will clarify long-term impacts."
-        )
+        summary = self._restore_case(sentences[0], title)
+        if len(summary) > 320:
+            summary = summary[:320].rsplit(" ", 1)[0] + "…"
 
         return {
             "summary": summary,
-            "key_points": key_points,
-            "why_it_matters": why_it_matters,
-            "suggested_tags": [source_name, "Verified Reporting", "Current Affairs"],
-            "seo_title": f"{title} | Daily Discovery News Analysis"[:60],
+            "key_points": [self._restore_case(s, title) for s in sentences[1:4]],
+            "why_it_matters": "",
+            "suggested_tags": [],
+            "seo_title": (title or "")[:60],
             "seo_description": summary[:155],
             "ai_draft_status": "AI_DRAFT_PENDING_EDITOR_REVIEW",
             "engine": "local",
+            "extracted": True,
         }
 
     async def classify_category(self, title: str, content: str) -> str:
-        text = (title + " " + content).lower()
-        if any(w in text for w in ["phnom penh", "cambodia", "siem reap", "khmer", "ministry", "angkor"]):
+        text = _match_text(title + " " + content)
+        headline = _match_text(title)
+        scores: Dict[str, int] = {}
+        for category, words in LocalAIProvider._CATEGORY_SIGNALS:
+            score = 0
+            for word in words:
+                if _has_word(headline, word):
+                    score += 3
+                elif _has_word(text, word):
+                    score += 1
+            if score:
+                scores[category] = score
+        if not scores:
+            return "World"
+        best = max(scores.items(), key=lambda kv: kv[1])[0]
+        # Cambodia outranks a generic vertical when the two are within one point of each
+        # other: a Bakong payment story is Cambodia news before it is Business news.
+        if best != "Cambodia" and scores.get("Cambodia", 0) >= max(scores.values()) - 1:
             return "Cambodia"
-        if any(w in text for w in ["ai", "software", "tech", "gadget", "cyber", "apple", "google", "semiconductor", "chip"]):
-            return "Technology"
-        if any(w in text for w in ["market", "economy", "bank", "inflation", "trade", "investment", "stock", "gdp"]):
-            return "Business"
-        if any(w in text for w in ["planet", "nasa", "physics", "climate", "biology", "science", "space", "health"]):
-            return "Science"
-        if any(w in text for w in ["travel", "tourism", "hotel", "resort", "flight", "destination", "heritage"]):
-            return "Travel"
-        return "World"
+        return best
 
     async def generate_quiz_draft(self, topic: str) -> Dict[str, Any]:
         return {

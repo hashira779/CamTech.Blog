@@ -1,13 +1,30 @@
 import { Metadata } from "next";
 import { Article, TravelGuide } from "@/types";
 
-export const SITE_NAME = "Daily Discovery";
+export const SITE_NAME = "CamTech.Blog";
 export const SITE_ALT_NAME = "CamTech Blog";
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://blog.camtech.cam";
 export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.jpg`;
 export const TWITTER_HANDLE = "@camtechblog";
 export const DEFAULT_DESCRIPTION =
   "A modern discovery, news, and utility platform providing verified Cambodia and international news, visual explanations, quizzes, and everyday tools.";
+
+/**
+ * Stored `seo_title` values predate the brand consolidation, and some still end in
+ * the old "| Daily Discovery". The root layout appends the brand exactly once
+ * (`%s | CamTech.Blog`), so a stored suffix would print it twice — the reader would
+ * see "… | Daily Discovery | CamTech.Blog". Strip it here and let the template own it.
+ */
+const BRAND_SUFFIX = /\s*[|\-–—]\s*(?:daily discovery|camtech blog|camtech\.blog)(?: travel)?\s*$/i;
+
+export function stripBrandSuffix(value?: string | null): string {
+  return (value || "").replace(BRAND_SUFFIX, "").trim();
+}
+
+/** The title to show a stored article under, without a duplicated brand. */
+export function articleSeoTitle(article: Pick<Article, "seo_title" | "title">): string {
+  return stripBrandSuffix(article.seo_title) || stripBrandSuffix(article.title);
+}
 
 /**
  * Generate JSON-LD structured data for articles (NewsArticle schema).
@@ -26,7 +43,7 @@ export function generateArticleJsonLd(article: Article, baseUrl: string = SITE_U
       "@type": "WebPage",
       "@id": articleUrl,
     },
-    headline: article.seo_title || article.title,
+    headline: articleSeoTitle(article),
     description: article.seo_description || article.summary,
     image: article.hero_image_url
       ? [article.hero_image_url]

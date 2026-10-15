@@ -2,7 +2,7 @@ import json
 import re
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple, Dict, Any
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import or_, and_, desc
 from app.models.article import Article, ArticleSource, ArticleRevision
 from app.models.category import Category
@@ -18,6 +18,18 @@ def slugify(text: str) -> str:
     return text.strip("-")
 
 class ArticleService:
+    # Public responses embed author / category / primary_source, so every read path
+    # eager-loads the same set; without it a 20-item list fires 80 extra queries.
+    # The to-one relationships use joinedload (no row multiplication). `sources` is a
+    # collection, so it uses selectinload: a joined collection would be cut by the
+    # page's own LIMIT and silently return fewer articles than requested.
+    _READER_RELATIONSHIPS = (
+        selectinload(Article.sources),
+        joinedload(Article.author),
+        joinedload(Article.category),
+        joinedload(Article.primary_source),
+    )
+
     @staticmethod
     def get_articles(
         db: Session,
@@ -31,7 +43,7 @@ class ArticleService:
         skip: int = 0,
         limit: int = 20
     ) -> Tuple[List[Article], int]:
-        query = db.query(Article).options(joinedload(Article.sources))
+        query = db.query(Article).options(*ArticleService._READER_RELATIONSHIPS)
 
         if status and status.upper() not in ("ALL", "ANY"):
             query = query.filter(Article.status == status)
@@ -59,7 +71,7 @@ class ArticleService:
 
     @staticmethod
     def get_article_by_slug(db: Session, slug: str) -> Optional[Article]:
-        return db.query(Article).options(joinedload(Article.sources)).filter(Article.slug == slug).first()
+        return db.query(Article).options(*ArticleService._READER_RELATIONSHIPS).filter(Article.slug == slug).first()
 
     @staticmethod
     def get_article_by_id(db: Session, article_id: str) -> Optional[Article]:
@@ -102,6 +114,24 @@ class ArticleService:
         has_image_with_credit = bool(not article.hero_image_url or (article.hero_image_credit and len(article.hero_image_credit) > 2))
         if not has_image_with_credit: missing.append("Hero image requires credit attribution")
 
+        # A story may ship with no photograph; it may not ship with a wrong one or a
+        # caption that does not belong to the file it names.
+        from app.services.filing import hero_provenance_ok, filing_is_consistent
+        hero_provenance_verified, hero_reason = hero_provenance_ok(article.hero_image_url, article.hero_image_credit)
+        if not hero_provenance_verified: missing.append(f"Hero image cannot be shown: {hero_reason}")
+
+        category_row = db.query(Category).filter(Category.id == article.category_id).first() if article.category_id else None
+        filing_consistent = filing_is_consistent(
+            article.country,
+            category_row.slug if category_row else None,
+            category_row.scope if category_row else None,
+        )
+        if not filing_consistent:
+            missing.append(
+                f"Filed under the {category_row.name if category_row else 'Cambodia'} category but on the "
+                f"{article.country or 'unset'} desk — set the country or the category"
+            )
+
         # Duplicate check against other published articles using lightweight tuple query
         candidate_rows = db.query(Article.id, Article.title, Article.primary_source_url).filter(Article.id != article.id).order_by(desc(Article.created_at)).limit(100).all()
         candidates = [{"id": r[0], "title": r[1], "url": r[2]} for r in candidate_rows]
@@ -119,7 +149,8 @@ class ArticleService:
         can_publish = (
             has_headline and has_summary and has_body and has_author and
             has_category and has_source_attribution and has_source_url and
-            has_image_with_credit and no_duplicate_detected and seo_metadata_complete
+            has_image_with_credit and hero_provenance_verified and filing_consistent and
+            no_duplicate_detected and seo_metadata_complete
         )
 
         return QualityChecklist(
@@ -131,6 +162,8 @@ class ArticleService:
             has_source_attribution=has_source_attribution,
             has_source_url=has_source_url,
             has_image_with_credit=has_image_with_credit,
+            hero_provenance_verified=hero_provenance_verified,
+            filing_consistent=filing_consistent,
             no_duplicate_detected=no_duplicate_detected,
             no_unsupported_claims=no_unsupported_claims,
             editorial_reviewed=editorial_reviewed,

@@ -1,8 +1,10 @@
 "use client";
 
-import React from "react";
-import { ExternalLink, ShieldCheck, Info } from "lucide-react";
+import * as React from "react";
+import { ExternalLink, ShieldCheck } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
+import { cleanText } from "@/lib/format";
 
 interface AttributionBoxProps {
   sourceName?: string;
@@ -10,54 +12,108 @@ interface AttributionBoxProps {
   license?: string;
   authorName?: string;
   authorRole?: string;
+  className?: string;
 }
 
+/** "UNSPLASH_LICENSE" -> "Unsplash license". Tokens are data, not copy. */
+function humanizeLicense(value?: string | null): string {
+  const cleaned = cleanText(value);
+  if (!cleaned) return "";
+  const spaced = cleaned.replace(/[_/]+/g, " ").replace(/\s+/g, " ").toLowerCase();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+function isHttpUrl(value?: string | null): boolean {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Source attribution.
+ *
+ * Two honesty problems lived here: a hardcoded publisher string
+ * ("Original Publisher / Press Wire") printed whenever the pipeline knew
+ * nothing, and a link to `sourceUrl` even when the field was empty, which
+ * pointed at the article page itself. Both are gone — the box now renders only
+ * the fields that exist, and returns null when there is no source, no author
+ * and no link to show. The claim of "strict editorial standards" became one
+ * plain sentence about what this desk actually does.
+ */
 export function AttributionBox({
   sourceName,
   sourceUrl,
   license,
   authorName,
-  authorRole
+  authorRole,
+  className,
 }: AttributionBoxProps) {
   const { t } = useI18n();
 
-  return (
-    <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/40 p-5 sm:p-6 my-8 space-y-4">
-      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
-        <ShieldCheck className="h-4 w-4 text-emerald-500" />
-        <span>{t("article.source_attribution")}</span>
-      </div>
+  const source = cleanText(sourceName);
+  const author = cleanText(authorName);
+  const role = cleanText(authorRole);
+  const licence = humanizeLicense(license);
+  const url = isHttpUrl(sourceUrl) ? sourceUrl.trim() : "";
 
-      <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
-        Daily Discovery adheres to strict editorial attribution standards. We provide verified synthesis, context,
-        and analysis while directing readers to original reporting and official primary documentation.
+  if (!source && !author && !url) return null;
+
+  const publisher = source || author;
+
+  return (
+    <section
+      aria-label={cleanText(t("article.source_attribution"))}
+      className={cn(
+        "rounded-lg border border-border bg-card p-5 shadow-xs sm:p-6",
+        className
+      )}
+    >
+      <h3 className="section-label flex items-center gap-2 text-accent">
+        <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
+        <span>{cleanText(t("article.source_attribution"))}</span>
+      </h3>
+
+      <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">
+        This desk summarises and adds context. The reporting belongs to the publisher below, and we
+        link it so you can read it in full.
       </p>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-neutral-200/80 dark:border-neutral-800/80">
-        <div>
-          <span className="text-[11px] text-neutral-400 uppercase tracking-wider block">
-            {t("article.original_reporting_by")}
-          </span>
-          <span className="text-sm font-bold text-neutral-900 dark:text-white">
-            {sourceName || "Original Publisher / Press Wire"}
-          </span>
-          {license && (
-            <span className="text-[10px] ml-2 px-2 py-0.5 rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 font-mono">
-              {license}
-            </span>
-          )}
-        </div>
+      <dl className="mt-4">
+        {(publisher || author || licence || role) && (
+          <div className="flex flex-col gap-1 border-t border-border pt-3 sm:flex-row sm:items-baseline sm:gap-6">
+            <dt className="section-label w-48 shrink-0">
+              {cleanText(t("article.original_reporting_by"))}
+            </dt>
+            <dd className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-card-foreground">
+              {publisher && <span className="font-medium">{publisher}</span>}
+              {author && publisher && author !== publisher && <span>{author}</span>}
+              {role && <span className="text-muted-foreground">{role}</span>}
+              {licence && <span className="text-muted-foreground">{licence}</span>}
+            </dd>
+          </div>
+        )}
+      </dl>
 
+      {url && (
         <a
-          href={sourceUrl}
+          href={url}
           target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow transition-colors"
+          rel="noopener noreferrer nofollow"
+          className="group mt-4 inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-surface px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:border-border-strong hover:bg-surface-muted"
         >
-          <span>{t("article.view_original_source")}</span>
-          <ExternalLink className="h-3.5 w-3.5" />
+          <span>{cleanText(t("article.view_original_source"))}</span>
+          <ExternalLink
+            size={14}
+            strokeWidth={2}
+            aria-hidden="true"
+            className="transition-transform duration-300 group-hover:-translate-y-0.5"
+          />
         </a>
-      </div>
-    </div>
+      )}
+    </section>
   );
 }

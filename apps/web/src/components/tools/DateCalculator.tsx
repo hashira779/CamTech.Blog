@@ -1,8 +1,19 @@
 "use client";
 
 import React, { useState } from "react";
-import { Calendar, Plus, Minus, Clock } from "lucide-react";
+import { FormField, Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+/**
+ * Days between two dates, and a date a given number of days away.
+ *
+ * `getDifference()` and `getAddSubResult()` are the original loops and the
+ * original UTC-mixed date maths — including the business-day count, which still
+ * walks the range one day at a time. Only the surfaces moved: the emerald result
+ * block is now a paper panel, and the two modes use the tab primitive instead of
+ * hand-drawn underline buttons.
+ */
 export function DateCalculator() {
   const [tab, setTab] = useState<"difference" | "add_sub">("difference");
 
@@ -64,139 +75,113 @@ export function DateCalculator() {
   const addSubResult = getAddSubResult();
 
   return (
-    <div className="space-y-6">
-      <div className="flex border-b border-slate-200 dark:border-slate-800">
-        <button
-          onClick={() => setTab("difference")}
-          className={`pb-3 px-4 text-sm font-bold border-b-2 transition-colors ${
-            tab === "difference"
-              ? "border-emerald-600 text-emerald-600 dark:text-emerald-400"
-              : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-          }`}
-        >
-          Time Between Dates
-        </button>
-        <button
-          onClick={() => setTab("add_sub")}
-          className={`pb-3 px-4 text-sm font-bold border-b-2 transition-colors ${
-            tab === "add_sub"
-              ? "border-emerald-600 text-emerald-600 dark:text-emerald-400"
-              : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-          }`}
-        >
-          Add / Subtract Days
-        </button>
-      </div>
+    <Tabs value={tab} onValueChange={(value) => setTab(value as "difference" | "add_sub")}>
+      <TabsList className="w-full justify-start">
+        <TabsTrigger value="difference">Time between dates</TabsTrigger>
+        <TabsTrigger value="add_sub">Add / subtract days</TabsTrigger>
+      </TabsList>
 
-      {tab === "difference" ? (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Start Date
-              </label>
-              <input
+      <TabsContent value="difference">
+        <div className="space-y-6 pt-2">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="Start date" id="date-start">
+              <Input
+                id="date-start"
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
-            </div>
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                End Date
-              </label>
-              <input
+            </FormField>
+            <FormField label="End date" id="date-end">
+              <Input
+                id="date-end"
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
-            </div>
+            </FormField>
           </div>
 
-          <div className="p-6 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-              Total Duration
-            </span>
-            <div className="mt-2 text-4xl md:text-5xl font-black text-emerald-900 dark:text-emerald-100">
-              {diffResult.totalDays} Days
-            </div>
-            <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-300 font-medium">
-              Equivalent to <strong>{diffResult.weeks} weeks</strong> and{" "}
-              <strong>{diffResult.remDays} days</strong>
+          <div className="rounded-lg bg-surface-muted p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Total duration
+            </p>
+            <p className="mt-1.5 font-display text-4xl leading-none tabular-nums text-foreground">
+              {diffResult.totalDays}
+              <span className="ml-2 text-xl text-muted-foreground">days</span>
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground tabular-nums">
+              Equivalent to <span className="font-medium text-foreground">{diffResult.weeks} weeks</span>{" "}
+              and <span className="font-medium text-foreground">{diffResult.remDays} days</span>.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-center">
-              <span className="text-xs text-slate-500 block">Working Business Days</span>
-              <span className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1 block">
+          <dl className="divide-y divide-border rounded-lg border border-border">
+            <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+              <dt className="text-sm text-muted-foreground">Working business days</dt>
+              <dd className="text-sm font-semibold tabular-nums text-foreground">
                 {diffResult.businessDays}
-              </span>
+              </dd>
             </div>
-            <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-center">
-              <span className="text-xs text-slate-500 block">Weekend Days</span>
-              <span className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1 block">
+            <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+              <dt className="text-sm text-muted-foreground">Weekend days</dt>
+              <dd className="text-sm font-semibold tabular-nums text-foreground">
                 {diffResult.weekendDays}
-              </span>
+              </dd>
             </div>
-          </div>
+          </dl>
         </div>
-      ) : (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Starting Date
-              </label>
-              <input
+      </TabsContent>
+
+      <TabsContent value="add_sub">
+        <div className="space-y-6 pt-2">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <FormField label="Starting date" id="date-base">
+              <Input
+                id="date-base"
                 type="date"
                 value={baseDate}
                 onChange={(e) => setBaseDate(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
-            </div>
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Operation
-              </label>
-              <select
+            </FormField>
+
+            <FormField label="Operation" id="date-operation">
+              <Select
+                id="date-operation"
                 value={operation}
                 onChange={(e) => setOperation(e.target.value as "add" | "subtract")}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               >
                 <option value="add">Add (+)</option>
                 <option value="subtract">Subtract (-)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Number of Days
-              </label>
-              <input
+              </Select>
+            </FormField>
+
+            <FormField label="Number of days" id="date-days">
+              <Input
+                id="date-days"
                 type="number"
                 min="1"
+                inputMode="numeric"
                 value={numDays}
                 onChange={(e) => setNumDays(parseInt(e.target.value, 10) || 0)}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="tabular-nums"
               />
-            </div>
+            </FormField>
           </div>
 
-          <div className="p-6 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-              Calculated Target Date
-            </span>
-            <div className="mt-2 text-4xl md:text-5xl font-black text-emerald-900 dark:text-emerald-100">
+          <div className="rounded-lg bg-surface-muted p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Target date
+            </p>
+            <p className="mt-1.5 font-display text-3xl leading-none tabular-nums text-foreground">
               {addSubResult.resultDate}
-            </div>
-            <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-300 font-semibold">
-              Falls on a <strong>{addSubResult.dayName}</strong>
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Falls on a <span className="font-medium text-foreground">{addSubResult.dayName}</span>.
             </p>
           </div>
         </div>
-      )}
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }

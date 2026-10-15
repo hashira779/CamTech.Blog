@@ -12,26 +12,25 @@ import {
   Printer,
   Bookmark,
   Share2,
-  Navigation,
   ArrowRight,
-  CheckCircle2,
   Sliders,
-  Utensils,
-  Star,
-  Search,
-  ChevronDown,
-  Layers,
-  ChevronRight,
   Luggage,
-  Coffee,
-  Waves,
-  Mountain,
   Landmark,
-  Eye,
-  Check
+  Coffee,
+  Mountain,
+  Check,
 } from "lucide-react";
 import { generateTripPlan, getDestinations } from "@/lib/api";
 import { Destination, TripPlanResponse } from "@/types";
+import { Container, Section } from "@/components/ui/container";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
+import { Photo } from "@/components/ui/photo";
+import { CategoryMark } from "@/components/ui/category-mark";
+import { useI18n } from "@/lib/i18n";
+import { cleanText, humanize } from "@/lib/format";
 import plannerOptions from "@/data/planner_options.json";
 
 const STYLE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -49,6 +48,17 @@ const TRAVEL_STYLES = plannerOptions.travel_styles.map((s) => ({
 const BUDGET_OPTIONS = plannerOptions.budget_options;
 const INTEREST_TAGS = plannerOptions.interest_tags;
 const FEATURED_PROVINCES = plannerOptions.featured_provinces;
+
+const DAY_TABS = ["ALL", ...Array.from({ length: 7 }, (_, i) => i + 1)];
+
+/** Shared option-pill classes: ink when selected, hairline paper otherwise. */
+function optionClasses(isSelected: boolean) {
+  return `inline-flex min-h-8 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+    isSelected
+      ? "border-transparent bg-primary text-primary-foreground"
+      : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground"
+  }`;
+}
 
 export default function TripPlannerPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -68,6 +78,8 @@ export default function TripPlannerPage() {
   const [tripPlan, setTripPlan] = useState<TripPlanResponse | null>(null);
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
+
+  const { lang } = useI18n();
 
   // Client-side cache for superfast responses
   const planCache = useRef<Map<string, TripPlanResponse>>(new Map());
@@ -176,194 +188,148 @@ export default function TripPlannerPage() {
     return tripPlan.days.filter((d) => d.day_number === selectedDayTab);
   }, [tripPlan, selectedDayTab]);
 
+  // Kept for parity with the province search state above.
+  void filteredDestinations;
+
   return (
-    <div className="min-h-screen pb-28 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      {/* ━━━ 1. HERO HEADER ━━━ */}
-      <section className="relative overflow-hidden bg-zinc-950 text-white border-b border-zinc-800">
-        {/* Ambient photo background with refined contrast */}
-        <div
-          className="absolute inset-0 bg-cover bg-center transition-all duration-700"
-          style={{
-            backgroundImage: `url('${
-              currentDestination?.hero_image_url || "/images/destinations/siem-reap.jpg"
-            }')`,
-            filter: "brightness(0.22) saturate(1.1)",
-            transform: "scale(1.08)",
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/80 via-zinc-950/60 to-zinc-950" />
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-16">
-          <div className="max-w-3xl">
-            {/* Editorial breadcrumb badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-zinc-300 text-xs font-medium tracking-wide mb-5 backdrop-blur-md">
-              <Navigation className="h-3.5 w-3.5 text-zinc-400" />
-              <span>Cambodia Travel Intelligence</span>
-              <span className="text-zinc-600">•</span>
-              <span className="text-zinc-200">Verified Ground Truth</span>
-            </div>
-
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] text-white">
-              Cambodia Itinerary Architect
-            </h1>
-
-            <p className="mt-4 text-base sm:text-lg text-zinc-300/90 leading-relaxed font-normal max-w-2xl">
-              Curate a bespoke multi-day journey across any of Cambodia&apos;s 25
-              provinces. Geocoded stops, verified local cuisine, authentic Khmer
-              heritage, and accurate travel times from the database.
-            </p>
-
-            {/* Quick stats banner */}
-            <div className="mt-6 flex flex-wrap items-center gap-3 text-xs font-medium text-zinc-300">
-              <span className="inline-flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-full border border-white/10">
-                <CheckCircle2 className="h-3.5 w-3.5 text-zinc-300" /> All 25 Provinces
-              </span>
-              <span className="inline-flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-full border border-white/10">
-                <Sparkles className="h-3.5 w-3.5 text-amber-400" /> 118 Verified Places
-              </span>
-              <span className="inline-flex items-center gap-1.5 bg-white/5 px-3 py-1 rounded-full border border-white/10">
-                <Clock className="h-3.5 w-3.5 text-zinc-300" /> Instant 0ms Cache
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
+    <div className="min-h-screen bg-background pb-24 text-foreground">
+      {/* ━━━ 1. EDITORIAL HERO ━━━ */}
+      <Section className="border-b border-border py-12 sm:py-16">
+        <Container>
+          <CategoryMark category="travel" tone="dot">
+            Trip Planner
+          </CategoryMark>
+          <h1 className="mt-4 max-w-3xl font-display text-3xl leading-tight tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+            Plan a day-by-day Cambodia itinerary
+          </h1>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
+            Choose a province, length of stay and travel style, and we assemble a
+            multi-day route from the destinations and places in our database.
+          </p>
+        </Container>
+      </Section>
 
       {/* ━━━ 2. MAIN PLANNER WORKSPACE ━━━ */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* LEFT: Controls Form (5 cols on lg) */}
-          <div className="lg:col-span-5 space-y-6">
-            <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 sm:p-7 border border-zinc-200/80 dark:border-zinc-800 shadow-xs space-y-6 sticky top-6">
-              
-              <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800">
-                <h2 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                  <Sliders className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />
-                  <span>Customize Your Trip</span>
+      <Container className="mt-10">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+          {/* LEFT: Controls form */}
+          <div className="lg:col-span-5">
+            <Card className="space-y-6 p-5 sm:p-6 lg:sticky lg:top-6">
+              <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
+                <h2 className="flex items-center gap-2 font-display text-base font-semibold text-foreground">
+                  <Sliders className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  Customize your trip
                 </h2>
-                <span className="text-xs text-zinc-500 font-medium">
-                  {durationDays} Days • {travelStyle}
+                <span className="section-label shrink-0">
+                  {durationDays} {durationDays === 1 ? "day" : "days"}
                 </span>
               </div>
 
-              {/* 1. Destination Selector with 25 Provinces */}
+              {/* 1. Destination */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-zinc-500" /> Destination Province
-                  </label>
-                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
-                    {destinations.length} Provinces
-                  </span>
-                </div>
-
-                {/* Dropdown */}
-                <div className="relative">
-                  <select
-                    id="destination-select"
-                    value={destinationSlug}
-                    onChange={(e) => handleSelectProvince(e.target.value)}
-                    className="w-full pl-3 pr-10 py-3 rounded-2xl text-sm font-semibold bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white appearance-none cursor-pointer transition-all shadow-2xs"
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label
+                    htmlFor="destination-select"
+                    className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-foreground"
                   >
-                    {destinations.length > 0 ? (
-                      destinations.map((dest) => (
-                        <option key={dest.id || dest.slug} value={dest.slug}>
-                          {dest.name} {dest.name_km ? `(${dest.name_km})` : ""}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="siem-reap">Siem Reap (សៀមរាប)</option>
-                    )}
-                  </select>
-                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                    <MapPin className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                    Destination province
+                  </label>
+                  {destinations.length > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      {destinations.length} available
+                    </span>
+                  )}
                 </div>
 
-                {/* Popular Quick-Select Pills */}
-                <div className="mt-3">
-                  <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-2">
-                    Popular Destinations:
+                <Select
+                  id="destination-select"
+                  value={destinationSlug}
+                  onChange={(e) => handleSelectProvince(e.target.value)}
+                >
+                  {destinations.length > 0 ? (
+                    destinations.map((dest) => (
+                      <option key={dest.id || dest.slug} value={dest.slug}>
+                        {dest.name}
+                        {lang === "km" && dest.name_km ? ` (${dest.name_km})` : ""}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="siem-reap">Siem Reap</option>
+                  )}
+                </Select>
+
+                {FEATURED_PROVINCES.length > 0 && (
+                  <div className="mt-3">
+                    <div className="section-label mb-2">Popular destinations</div>
+                    <div className="flex flex-wrap gap-2">
+                      {FEATURED_PROVINCES.map((slug) => {
+                        const found = destinations.find((d) => d.slug === slug);
+                        const isSelected = destinationSlug === slug;
+                        return (
+                          <button
+                            key={slug}
+                            type="button"
+                            aria-pressed={isSelected}
+                            onClick={() => handleSelectProvince(slug)}
+                            className={optionClasses(isSelected)}
+                          >
+                            {found ? found.name : humanize(slug)}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {FEATURED_PROVINCES.map((slug) => {
-                      const found = destinations.find((d) => d.slug === slug);
-                      const isSelected = destinationSlug === slug;
-                      return (
-                        <button
-                          key={slug}
-                          type="button"
-                          onClick={() => handleSelectProvince(slug)}
-                          className={`
-                            px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer
-                            ${
-                              isSelected
-                                ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-bold shadow-2xs"
-                                : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                            }
-                          `}
-                        >
-                          {found ? found.name : slug.replace("-", " ")}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                )}
               </div>
 
-              {/* 2. Duration Days (1 to 7) */}
+              {/* 2. Duration */}
               <div>
-                <div className="flex justify-between items-center mb-2.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-zinc-500" /> Duration of Stay
-                  </label>
-                  <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5 rounded-full border border-zinc-200 dark:border-zinc-700">
-                    {durationDays} {durationDays === 1 ? "Day" : "Days"} Itinerary
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-7 gap-1.5 mb-3">
-                  {[1, 2, 3, 4, 5, 6, 7].map((num) => (
+                <label
+                  htmlFor="duration-range"
+                  className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-foreground"
+                >
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                  Duration of stay
+                </label>
+                <div className="mb-3 grid grid-cols-7 gap-1.5">
+                  {DAY_TABS.filter((t): t is number => t !== "ALL").map((num) => (
                     <button
                       key={num}
                       type="button"
+                      aria-pressed={durationDays === num}
                       onClick={() => {
                         setDurationDays(num);
                         handleGeneratePlan(destinationSlug, num, travelStyle, budgetLevel, selectedInterests);
                       }}
-                      className={`
-                        py-2 rounded-xl text-xs font-bold transition-all text-center cursor-pointer
-                        ${
-                          durationDays === num
-                            ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 shadow-2xs"
-                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200/60 dark:border-zinc-700/60"
-                        }
-                      `}
+                      className={optionClasses(durationDays === num)}
                     >
                       {num}d
                     </button>
                   ))}
                 </div>
-
                 <input
+                  id="duration-range"
                   type="range"
                   min={1}
                   max={7}
                   value={durationDays}
                   onChange={(e) => {
-                    const days = parseInt(e.target.value);
+                    const days = parseInt(e.target.value, 10);
                     setDurationDays(days);
                     handleGeneratePlan(destinationSlug, days, travelStyle, budgetLevel, selectedInterests);
                   }}
-                  className="w-full accent-zinc-900 dark:accent-white cursor-pointer h-2 bg-zinc-200 dark:bg-zinc-700 rounded-lg"
+                  className="h-2 w-full cursor-pointer accent-primary"
                 />
               </div>
 
-              {/* 3. Travel Style */}
+              {/* 3. Travel style */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-2.5 flex items-center gap-1.5">
-                  <Luggage className="h-3.5 w-3.5 text-zinc-500" /> Travel Style & Pace
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <span className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-foreground">
+                  <Luggage className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                  Travel style &amp; pace
+                </span>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {TRAVEL_STYLES.map((style) => {
                     const Icon = style.icon;
                     const isSelected = travelStyle === style.id;
@@ -371,69 +337,57 @@ export default function TripPlannerPage() {
                       <button
                         key={style.id}
                         type="button"
+                        aria-pressed={isSelected}
                         onClick={() => {
                           setTravelStyle(style.id);
                           handleGeneratePlan(destinationSlug, durationDays, style.id, budgetLevel, selectedInterests);
                         }}
-                        className={`
-                          p-3 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer
-                          ${
-                            isSelected
-                              ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 border-zinc-900 dark:border-white shadow-2xs"
-                              : "border-zinc-200/80 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
-                          }
-                        `}
+                        className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                          isSelected
+                            ? "border-transparent bg-primary text-primary-foreground"
+                            : "border-border bg-card text-muted-foreground hover:border-border-strong"
+                        }`}
                       >
-                        <div className="flex items-center gap-2 mb-1">
-                          <Icon className={`h-4 w-4 ${isSelected ? "text-white dark:text-zinc-950" : "text-zinc-400"}`} />
-                          <span className="font-bold">
-                            {style.label}
-                          </span>
-                        </div>
-                        <p className={`text-[10px] leading-tight ${isSelected ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-500 dark:text-zinc-400"}`}>
+                        <span className="flex items-center gap-2 text-sm font-semibold">
+                          <Icon className="h-4 w-4" aria-hidden="true" />
+                          {style.label}
+                        </span>
+                        <span className={`text-xs leading-snug ${isSelected ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
                           {style.desc}
-                        </p>
+                        </span>
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* 4. Budget Level */}
+              {/* 4. Budget */}
               <div>
-                <div className="flex items-center justify-between mb-2.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                    <DollarSign className="h-3.5 w-3.5 text-zinc-500" /> Budget Tier
-                  </label>
-                  <span className="text-[11px] text-zinc-500">
-                    {BUDGET_OPTIONS.find((b) => b.id === budgetLevel)?.name}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-4 gap-2 text-center text-xs font-bold">
+                <span className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-foreground">
+                  <DollarSign className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                  Budget tier
+                </span>
+                <div className="grid grid-cols-4 gap-2">
                   {BUDGET_OPTIONS.map((b) => {
                     const isSelected = budgetLevel === b.id;
                     return (
                       <button
                         key={b.id}
                         type="button"
+                        aria-pressed={isSelected}
+                        title={b.desc}
                         onClick={() => {
                           setBudgetLevel(b.id);
                           handleGeneratePlan(destinationSlug, durationDays, travelStyle, b.id, selectedInterests);
                         }}
-                        className={`
-                          py-2.5 rounded-xl border transition-all flex flex-col items-center justify-center cursor-pointer
-                          ${
-                            isSelected
-                              ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 border-zinc-900 dark:border-white shadow-2xs"
-                              : "border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                          }
-                        `}
+                        className={`flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-md border px-2 py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                          isSelected
+                            ? "border-transparent bg-primary text-primary-foreground"
+                            : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground"
+                        }`}
                       >
-                        <span className="text-sm font-extrabold">{b.label}</span>
-                        <span className={`text-[10px] font-normal ${isSelected ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-400"}`}>
-                          {b.name}
-                        </span>
+                        <span className="text-sm font-semibold">{b.label}</span>
+                        <span className="text-xs font-normal opacity-80">{b.name}</span>
                       </button>
                     );
                   })}
@@ -442,27 +396,26 @@ export default function TripPlannerPage() {
 
               {/* 5. Interests */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-2 flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Activity Highlights
-                </label>
-                <div className="flex flex-wrap gap-1.5">
+                <span className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-foreground">
+                  <Sparkles className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                  Activity highlights
+                </span>
+                <div className="flex flex-wrap gap-2">
                   {INTEREST_TAGS.map((item) => {
                     const isSelected = selectedInterests.includes(item.label);
                     return (
                       <button
                         key={item.label}
                         type="button"
+                        aria-pressed={isSelected}
                         onClick={() => handleInterestToggle(item.label)}
-                        className={`
-                          px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer
-                          ${
-                            isSelected
-                              ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-bold shadow-2xs"
-                              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200/50 dark:border-zinc-700/50"
-                          }
-                        `}
+                        className={`inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                          isSelected
+                            ? "border-transparent bg-accent text-accent-foreground"
+                            : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground"
+                        }`}
                       >
-                        <span>{item.icon}</span>
+                        <span aria-hidden="true">{item.icon}</span>
                         <span>{item.label}</span>
                       </button>
                     );
@@ -470,354 +423,308 @@ export default function TripPlannerPage() {
                 </div>
               </div>
 
-              {/* Action Button: World-Class Solid Charcoal / White Button */}
-              <button
+              <Button
                 type="button"
-                onClick={() => handleGeneratePlan()}
+                variant="primary"
+                size="lg"
+                className="w-full"
+                isLoading={loading}
                 disabled={loading}
-                className="w-full py-3.5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-950 font-bold text-sm shadow-xs hover:shadow transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer active:scale-[0.99]"
+                onClick={() => handleGeneratePlan()}
               >
                 {loading ? (
-                  <span className="flex items-center gap-2">
-                    <Compass className="h-4 w-4 animate-spin text-white dark:text-zinc-950" />
-                    <span>Analyzing Route & Computing Itinerary...</span>
-                  </span>
+                  "Building your itinerary"
                 ) : (
                   <>
-                    <Sparkles className="h-4 w-4 text-amber-400 dark:text-amber-600" />
-                    <span>Regenerate Itinerary Plan</span>
+                    <Compass className="h-4 w-4" aria-hidden="true" />
+                    Generate itinerary
                   </>
                 )}
-              </button>
-            </div>
+              </Button>
+            </Card>
           </div>
 
-          {/* RIGHT: Plan Results (7 cols on lg) */}
-          <div className="lg:col-span-7 space-y-6">
-            {loading ? (
-              /* Skeleton Loading State */
-              <div className="space-y-6 animate-pulse">
-                <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 h-44 flex flex-col justify-between">
+          {/* RIGHT: Plan results */}
+          <div className="lg:col-span-7">
+            {loading && !tripPlan ? (
+              <div className="space-y-6">
+                <Card className="h-44 animate-pulse border-border bg-card p-6">
                   <div className="space-y-3">
-                    <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded-md w-1/4" />
-                    <div className="h-8 bg-slate-200 dark:bg-slate-800 rounded-md w-3/4" />
-                    <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded-md w-full" />
+                    <div className="h-4 w-1/4 rounded-sm bg-surface-muted" />
+                    <div className="h-8 w-3/4 rounded-sm bg-surface-muted" />
+                    <div className="h-4 w-full rounded-sm bg-surface-muted" />
                   </div>
-                  <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded-xl w-1/3" />
-                </div>
-
-                {[1, 2, 3].map((n) => (
-                  <div
-                    key={n}
-                    className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 space-y-4"
-                  >
-                    <div className="h-6 bg-slate-200 dark:bg-slate-800 rounded-md w-1/3" />
-                    <div className="space-y-3">
-                      <div className="h-20 bg-slate-100 dark:bg-slate-800/60 rounded-2xl" />
-                      <div className="h-20 bg-slate-100 dark:bg-slate-800/60 rounded-2xl" />
-                    </div>
-                  </div>
-                ))}
+                </Card>
               </div>
             ) : tripPlan ? (
               <div className="space-y-6">
-                
-                {/* Result Hero Header Banner */}
-                <div className="relative overflow-hidden bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-md">
-                  {/* Subtle banner photo */}
-                  <div className="relative h-44 overflow-hidden bg-slate-800">
-                    <img
-                      src={
-                        currentDestination?.hero_image_url ||
-                        "/images/destinations/siem-reap.jpg"
-                      }
-                      alt={tripPlan.destination_name}
-                      className="w-full h-full object-cover brightness-[0.8] saturate-110"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-                    
-                    <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-950/70 backdrop-blur-md text-amber-300 border border-amber-400/20">
-                        {currentDestination?.name_km || "កម្ពុជា"}
-                      </span>
+                {/* Result header */}
+                <Card>
+                  <Photo
+                    src={currentDestination?.hero_image_url}
+                    alt={tripPlan.destination_name}
+                    ratio="16/9"
+                    radius="none"
+                    showCredit={false}
+                    placeholderLabel="Photo not verified yet"
+                  />
+
+                  <div className="space-y-4 p-5 sm:p-6">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h2 className="font-display text-2xl leading-tight tracking-tight text-foreground">
+                          {tripPlan.destination_name}
+                        </h2>
+                        {lang === "km" && currentDestination?.name_km && (
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {currentDestination.name_km}
+                          </p>
+                        )}
+                      </div>
                       <Link
                         href={`/travel/${tripPlan.destination_slug}`}
-                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-md transition-colors"
+                        className="group inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-foreground"
                       >
-                        Explore Province <ArrowRight className="h-3 w-3" />
+                        Explore province
+                        <ArrowRight
+                          size={15}
+                          aria-hidden="true"
+                          className="transition-transform duration-300 group-hover:translate-x-0.5"
+                        />
                       </Link>
                     </div>
 
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                        {tripPlan.destination_name} Custom Odyssey
-                      </h2>
-                    </div>
-                  </div>
+                    {tripPlan.summary && (
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        {cleanText(tripPlan.summary)}
+                      </p>
+                    )}
 
-                  {/* Summary & Toolbar */}
-                  <div className="p-6">
-                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-light">
-                      {tripPlan.summary}
-                    </p>
-
-                    <div className="mt-5 pt-5 border-t border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4">
-                      {/* Metric Badges */}
+                    <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/70 dark:border-zinc-700/70">
-                          <Calendar className="h-3.5 w-3.5 text-zinc-500" /> {tripPlan.duration_days} Days
-                        </span>
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/70 dark:border-zinc-700/70">
-                          <Luggage className="h-3.5 w-3.5 text-zinc-500" /> {tripPlan.travel_style}
-                        </span>
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/70 dark:border-zinc-700/70">
-                          <DollarSign className="h-3.5 w-3.5 text-zinc-500" /> Budget {tripPlan.budget_level}
-                        </span>
+                        <Badge variant="secondary">
+                          <Calendar size={13} aria-hidden="true" />
+                          {tripPlan.duration_days} {tripPlan.duration_days === 1 ? "day" : "days"}
+                        </Badge>
+                        {tripPlan.travel_style && (
+                          <Badge variant="secondary">{humanize(tripPlan.travel_style)}</Badge>
+                        )}
+                        {tripPlan.budget_level && (
+                          <Badge variant="secondary">
+                            <DollarSign size={13} aria-hidden="true" />
+                            {tripPlan.budget_level}
+                          </Badge>
+                        )}
                       </div>
 
-                      {/* Utility Action Buttons */}
                       <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handleSaveTrip}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-semibold text-zinc-800 dark:text-zinc-200 border border-zinc-200/60 dark:border-zinc-700/60 transition-colors cursor-pointer"
-                        >
-                          <Bookmark className="h-3.5 w-3.5 text-zinc-500" />
-                          <span>{savedSuccess ? "Saved!" : "Save Plan"}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleCopyShareLink}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-semibold text-zinc-800 dark:text-zinc-200 border border-zinc-200/60 dark:border-zinc-700/60 transition-colors cursor-pointer"
-                        >
-                          <Share2 className="h-3.5 w-3.5 text-zinc-500" />
-                          <span>{copiedLink ? "Link Copied!" : "Share"}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handlePrint}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-semibold text-zinc-800 dark:text-zinc-200 border border-zinc-200/60 dark:border-zinc-700/60 transition-colors cursor-pointer"
-                        >
-                          <Printer className="h-3.5 w-3.5 text-zinc-500" />
-                          <span>Print</span>
-                        </button>
+                        <Button type="button" variant="outline" size="sm" onClick={handleSaveTrip}>
+                          {savedSuccess ? (
+                            <Check size={14} aria-hidden="true" />
+                          ) : (
+                            <Bookmark size={14} aria-hidden="true" />
+                          )}
+                          {savedSuccess ? "Saved" : "Save"}
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={handleCopyShareLink}>
+                          <Share2 size={14} aria-hidden="true" />
+                          {copiedLink ? "Copied" : "Share"}
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={handlePrint}>
+                          <Printer size={14} aria-hidden="true" />
+                          Print
+                        </Button>
                       </div>
                     </div>
                   </div>
-                </div>
+                </Card>
 
-                {/* Day Filter Tabs */}
+                {/* Day filter tabs */}
                 {tripPlan.days.length > 1 && (
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDayTab("ALL")}
-                      className={`
-                        px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer
-                        ${
-                          selectedDayTab === "ALL"
-                            ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 shadow-2xs"
-                            : "bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
-                        }
-                      `}
-                    >
-                      Complete Itinerary ({tripPlan.days.length} Days)
-                    </button>
-                    {tripPlan.days.map((day) => (
+                  <div className="no-scrollbar -mx-2 overflow-x-auto px-2">
+                    <div role="tablist" aria-label="Filter itinerary by day" className="flex w-max items-center gap-2">
                       <button
-                        key={day.day_number}
                         type="button"
-                        onClick={() => setSelectedDayTab(day.day_number)}
-                        className={`
-                          px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer
-                          ${
-                            selectedDayTab === day.day_number
-                              ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-bold shadow-2xs"
-                              : "bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
-                          }
-                        `}
+                        role="tab"
+                        aria-selected={selectedDayTab === "ALL"}
+                        onClick={() => setSelectedDayTab("ALL")}
+                        className={`inline-flex min-h-8 items-center gap-2 whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                          selectedDayTab === "ALL"
+                            ? "border-transparent bg-primary text-primary-foreground"
+                            : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground"
+                        }`}
                       >
-                        Day {day.day_number}
+                        All days ({tripPlan.days.length})
                       </button>
-                    ))}
+                      {tripPlan.days.map((day) => (
+                        <button
+                          key={day.day_number}
+                          type="button"
+                          role="tab"
+                          aria-selected={selectedDayTab === day.day_number}
+                          onClick={() => setSelectedDayTab(day.day_number)}
+                          className={`inline-flex min-h-8 items-center whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                            selectedDayTab === day.day_number
+                              ? "border-transparent bg-primary text-primary-foreground"
+                              : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground"
+                          }`}
+                        >
+                          Day {day.day_number}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
 
-                {/* Day-by-Day Detailed Itinerary Cards */}
+                {/* Day-by-day itinerary */}
                 <div className="space-y-6">
                   {displayedDays.map((day) => (
-                    <div
-                      key={day.day_number}
-                      className="bg-white dark:bg-zinc-900 rounded-3xl p-6 sm:p-7 border border-zinc-200/80 dark:border-zinc-800 shadow-xs"
-                    >
-                      {/* Day Title and Theme */}
-                      <div className="flex items-start justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4 mb-5">
+                    <Card key={day.day_number} className="p-5 sm:p-6">
+                      <div className="mb-5 flex items-start justify-between gap-3 border-b border-border pb-4">
                         <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-bold text-sm flex items-center justify-center shadow-2xs">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
                             {day.day_number}
-                          </div>
+                          </span>
                           <div>
-                            <h3 className="font-bold text-base sm:text-lg text-zinc-900 dark:text-white tracking-tight">
+                            <h3 className="font-display text-lg leading-snug tracking-tight text-foreground">
                               {day.title}
                             </h3>
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 font-normal">
-                              {day.theme}
-                            </p>
+                            {day.theme && (
+                              <p className="mt-0.5 text-sm text-muted-foreground">{day.theme}</p>
+                            )}
                           </div>
                         </div>
-                        <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5 rounded-full border border-zinc-200/60 dark:border-zinc-700/60">
-                          {day.items.length} Stops
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {day.items.length} {day.items.length === 1 ? "stop" : "stops"}
                         </span>
                       </div>
 
-                      {/* Activity Items with Authentic Images */}
-                      <div className="space-y-4">
-                        {day.items.map((item, idx) => (
-                          <div
-                            key={idx}
-                            className="group flex flex-col sm:flex-row items-start gap-4 p-4 rounded-2xl bg-zinc-50/70 dark:bg-zinc-800/30 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-800/60 transition-all duration-200"
-                          >
-                            {/* Verified Photo */}
-                            <div className="relative w-full sm:w-32 sm:h-28 h-44 rounded-2xl overflow-hidden bg-zinc-800 shrink-0 shadow-2xs">
-                              {item.place_slug ? (
-                                <Link href={`/travel/place/${item.place_slug}`} className="block w-full h-full">
-                                  <img
-                                    src={
-                                      item.hero_image_url ||
-                                      currentDestination?.hero_image_url ||
-                                      "/images/destinations/siem-reap.jpg"
-                                    }
-                                    alt={item.title}
-                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                  />
-                                </Link>
-                              ) : (
-                                <img
-                                  src={
-                                    item.hero_image_url ||
-                                    currentDestination?.hero_image_url ||
-                                    "/images/destinations/siem-reap.jpg"
-                                  }
+                      {day.items.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No stops recorded for this day yet.
+                        </p>
+                      ) : (
+                        <div className="space-y-4">
+                          {day.items.map((item, idx) => (
+                            <div
+                              key={`${day.day_number}-${item.place_slug || item.title}-${idx}`}
+                              className="group flex flex-col gap-4 rounded-lg border border-border bg-surface-muted/40 p-4 sm:flex-row"
+                            >
+                              <div className="w-full shrink-0 sm:w-32">
+                                <Photo
+                                  src={item.hero_image_url}
                                   alt={item.title}
-                                  className="w-full h-full object-cover"
+                                  ratio="4/3"
+                                  radius="md"
+                                  showCredit={false}
+                                  placeholderLabel="Photo not verified yet"
                                 />
-                              )}
-                              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/70 via-transparent to-transparent opacity-60 pointer-events-none" />
-                              
-                              {/* Rating badge overlay */}
-                              {item.rating && (
-                                <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-zinc-950/85 backdrop-blur-md text-amber-300 border border-zinc-800 shadow-2xs pointer-events-none">
-                                  <Star className="h-2.5 w-2.5 fill-amber-300" />
-                                  <span>{item.rating.toFixed(1)}</span>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Content */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                                <span className="font-bold text-xs text-zinc-900 dark:text-white">
-                                  {item.start_time}
-                                </span>
-                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                                  {item.time_of_day}
-                                </span>
-                                {item.place_type && (
-                                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200/60 dark:border-zinc-700/60">
-                                    {item.place_type}
-                                  </span>
-                                )}
                               </div>
 
-                              <h4 className="font-bold text-sm sm:text-base text-zinc-900 dark:text-white leading-snug">
-                                {item.place_slug ? (
-                                  <Link
-                                    href={`/travel/place/${item.place_slug}`}
-                                    className="hover:text-zinc-600 dark:hover:text-zinc-300 inline-flex items-center gap-1.5 transition-colors"
-                                  >
-                                    <span>{item.title}</span>
-                                    <ArrowRight className="h-3.5 w-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                                  </Link>
-                                ) : (
-                                  item.title
-                                )}
-                              </h4>
-
-                              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
-                                {item.description}
-                              </p>
-
-                              {/* Duration, Cost and Explore Badge */}
-                              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60">
-                                <div className="flex items-center gap-2.5 text-xs text-zinc-500 dark:text-zinc-400">
-                                  <span className="flex items-center gap-1 font-medium">
-                                    <Clock className="h-3 w-3 text-zinc-400" /> ~{item.duration_minutes} min
-                                  </span>
-                                  <span>•</span>
-                                  <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                                    Est. {item.estimated_cost}
-                                  </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                                  {item.start_time && (
+                                    <span className="text-xs font-semibold text-foreground">
+                                      {item.start_time}
+                                    </span>
+                                  )}
+                                  {item.time_of_day && (
+                                    <CategoryMark category="travel" tone="text">
+                                      {humanize(item.time_of_day)}
+                                    </CategoryMark>
+                                  )}
+                                  {item.place_type && (
+                                    <Badge variant="outline" size="sm">
+                                      {humanize(item.place_type)}
+                                    </Badge>
+                                  )}
                                 </div>
 
-                                {item.place_slug && (
-                                  <Link
-                                    href={`/travel/place/${item.place_slug}`}
-                                    className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-900 dark:text-zinc-100 hover:underline transition-colors"
-                                  >
-                                    <span>View Place Guide</span>
-                                    <ArrowRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-1" />
-                                  </Link>
+                                <h4 className="text-sm font-semibold leading-snug text-foreground sm:text-base">
+                                  {item.place_slug ? (
+                                    <Link
+                                      href={`/travel/place/${item.place_slug}`}
+                                      className="inline-flex items-center gap-1.5 transition-colors hover:text-accent"
+                                    >
+                                      <span>{item.title}</span>
+                                      <ArrowRight
+                                        size={14}
+                                        aria-hidden="true"
+                                        className="transition-transform duration-300 group-hover:translate-x-0.5"
+                                      />
+                                    </Link>
+                                  ) : (
+                                    item.title
+                                  )}
+                                </h4>
+
+                                {item.description && (
+                                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                                    {cleanText(item.description)}
+                                  </p>
+                                )}
+
+                                {(item.duration_minutes > 0 || item.estimated_cost) && (
+                                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 text-xs text-muted-foreground">
+                                    <div className="flex flex-wrap items-center gap-2.5">
+                                      {item.duration_minutes > 0 && (
+                                        <span className="flex items-center gap-1">
+                                          <Clock size={13} aria-hidden="true" />
+                                          {item.duration_minutes} min
+                                        </span>
+                                      )}
+                                      {item.estimated_cost && (
+                                        <span className="font-medium text-foreground">
+                                          {item.estimated_cost}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
                                 )}
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                          ))}
+                        </div>
+                      )}
+                    </Card>
                   ))}
                 </div>
 
-                {/* Bottom Navigation Links */}
-                <div className="bg-zinc-100 dark:bg-zinc-900 rounded-3xl p-6 border border-zinc-200/80 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                {/* Footer links */}
+                <Card className="flex flex-col items-center justify-between gap-4 bg-secondary/50 p-5 sm:flex-row sm:p-6">
                   <div>
-                    <h4 className="font-bold text-sm text-zinc-900 dark:text-white">
+                    <h4 className="text-sm font-semibold text-foreground">
                       Want to customize this journey further?
                     </h4>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                      Explore transportation options or suggest additional hidden gems in {tripPlan.destination_name}.
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      Check transport options or suggest a place to add in {tripPlan.destination_name}.
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href="/travel/transport"
-                      className="px-3.5 py-2 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/60 transition-colors"
-                    >
-                      Buses & Transit
-                    </Link>
-                    <Link
-                      href="/travel/suggest"
-                      className="px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-semibold shadow-2xs transition-colors"
-                    >
-                      Suggest Place
-                    </Link>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href="/travel/transport">Buses &amp; transit</Link>
+                    </Button>
+                    <Button variant="primary" size="sm" asChild>
+                      <Link href="/travel/suggest">Suggest a place</Link>
+                    </Button>
                   </div>
-                </div>
+                </Card>
               </div>
             ) : (
-              <div className="py-24 text-center rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs p-8">
-                <Compass className="h-8 w-8 text-zinc-400 mx-auto animate-spin" />
-                <h3 className="mt-4 text-base font-bold text-zinc-900 dark:text-white">
-                  Synthesizing Verified Cambodia Itinerary...
+              <Card className="p-10 text-center">
+                <Compass className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden="true" />
+                <h3 className="mt-4 font-display text-lg font-semibold text-foreground">
+                  Ready when you are
                 </h3>
-                <p className="mt-1 text-xs text-zinc-500 max-w-sm mx-auto">
-                  Pulling verified attractions, photos, opening times, and authentic
-                  Khmer cuisine recommendations from our database.
+                <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+                  Adjust the options on the left and select “Generate itinerary” to build
+                  a day-by-day plan for this province.
                 </p>
-              </div>
+              </Card>
             )}
           </div>
         </div>
-      </div>
+      </Container>
     </div>
   );
 }

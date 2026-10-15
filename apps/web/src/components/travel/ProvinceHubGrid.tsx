@@ -3,16 +3,16 @@
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import {
-  MapPin,
   Calendar,
   ArrowRight,
-  Sparkles,
+  Compass,
+  Landmark,
   Waves,
   Mountain,
-  Landmark,
-  Compass,
+  MapPin,
 } from "lucide-react";
 import { Destination } from "@/types";
+import { Photo } from "@/components/ui/photo";
 import regionData from "@/data/region_categories.json";
 import { getProvinceSymbol } from "@/data/province_symbols";
 
@@ -42,6 +42,14 @@ const REGION_CATEGORIES: RegionCategory[] = regionData.region_categories.map((c)
   slugs: c.slugs as string[],
 }));
 
+/**
+ * The 25-province directory.
+ *
+ * Photography leads and the paper carries the type, exactly like the feature card on the front
+ * page. A province whose photograph has not been verified gets the same honest "Photo not verified
+ * yet" tile the places use — never a picture of Angkor Wat standing in for Battambang. `best_time`
+ * and the provincial symbol render only when the record actually carries them.
+ */
 export function ProvinceHubGrid({ destinations }: ProvinceHubGridProps) {
   const [activeCategory, setActiveCategory] = useState("ALL");
 
@@ -53,115 +61,129 @@ export function ProvinceHubGrid({ destinations }: ProvinceHubGridProps) {
   }, [destinations, activeCategory]);
 
   return (
-    <div className="space-y-6">
-      {/* Category Filter Pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        {REGION_CATEGORIES.map((cat) => {
-          const Icon = cat.icon;
-          const isActive = activeCategory === cat.id;
-          return (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
-              className={`
-                inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap
-                transition-all duration-200 cursor-pointer
-                ${
+    <div className="space-y-8">
+      {/* Region filter — hairline chips on paper, one accent state */}
+      <div className="no-scrollbar -mx-2 overflow-x-auto px-2">
+        <div
+          role="tablist"
+          aria-label="Filter provinces by region"
+          className="flex w-max items-center gap-2"
+        >
+          {REGION_CATEGORIES.map((cat) => {
+            const Icon = cat.icon;
+            const isActive = activeCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`inline-flex min-h-8 items-center gap-2 whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                   isActive
-                    ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-bold shadow-xs"
-                    : "bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                }
-              `}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              <span>{cat.label}</span>
-              {cat.id === "ALL" && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? "bg-white/20 text-white dark:bg-zinc-200 dark:text-zinc-950" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"}`}>
-                  {destinations.length}
-                </span>
-              )}
-            </button>
-          );
-        })}
+                    ? "border-transparent bg-primary text-primary-foreground"
+                    : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span>{cat.label}</span>
+                {cat.id === "ALL" && (
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-xs tabular-nums ${
+                      isActive
+                        ? "bg-primary-foreground/15 text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {destinations.length}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* 3-Column Editorial Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredDestinations.map((dest, i) => {
-          const symbol = getProvinceSymbol(dest.slug, dest);
-          return (
-            <Link
-              key={`${activeCategory}-${dest.id || dest.slug}`}
-              href={`/travel/${dest.slug}`}
-              style={{ animationDelay: `${(i % 9) * 0.05}s` }}
-              className="animate-fade-up group relative rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col h-full"
-            >
-              {/* Image Header with Aspect Ratio */}
-              <div className="relative aspect-[16/10] overflow-hidden bg-zinc-800">
-                {dest.hero_image_url ? (
-                  <img
+      {filteredDestinations.length === 0 ? (
+        <p className="border-y border-border py-12 text-center text-sm text-muted-foreground">
+          No province is listed under this region yet.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredDestinations.map((dest) => {
+            const symbol = getProvinceSymbol(dest.slug, dest);
+            return (
+              <article
+                key={`${activeCategory}-${dest.id || dest.slug}`}
+                className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
+              >
+                <Link href={`/travel/${dest.slug}`} aria-label={dest.name} className="block">
+                  <Photo
                     src={dest.hero_image_url}
                     alt={dest.name}
-                    loading={i < 6 ? "eager" : "lazy"}
-                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                    ratio="3/2"
+                    radius="none"
+                    showCredit={false}
+                    placeholderLabel="Photo not verified yet"
                   />
-                ) : (
-                  <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
-                    <MapPin className="h-8 w-8 text-zinc-600" />
+                </Link>
+
+                <div className="flex flex-1 flex-col gap-2.5 p-5 sm:p-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="font-display text-xl leading-snug tracking-tight text-foreground">
+                      <Link
+                        href={`/travel/${dest.slug}`}
+                        className="transition-colors hover:text-accent"
+                      >
+                        {dest.name}
+                      </Link>
+                    </h3>
+                    {dest.name_km && (
+                      <span className="shrink-0 pt-1 text-xs text-muted-foreground">
+                        {dest.name_km}
+                      </span>
+                    )}
                   </div>
-                )}
-                {/* Subtle gradient vignette */}
-                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/85 via-transparent to-transparent opacity-80 group-hover:opacity-60 transition-opacity" />
 
-                {/* Top Floating Badges */}
-                <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide bg-zinc-950/80 backdrop-blur-md text-amber-300 border border-zinc-800 shadow-2xs">
-                    {dest.name_km || "កម្ពុជា"}
-                  </span>
-                  {dest.is_featured && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-950/80 text-zinc-200 border border-zinc-700/60 backdrop-blur-xs">
-                      <Sparkles className="h-2.5 w-2.5 text-amber-400" /> Featured
-                    </span>
-                  )}
-                </div>
-
-                {/* Bottom Image Overlay Title */}
-                <div className="absolute bottom-3 left-4 right-4">
-                  <h3 className="text-xl font-bold text-white tracking-tight drop-shadow-xs group-hover:text-zinc-200 transition-colors">
-                    {dest.name}
-                  </h3>
-                </div>
-              </div>
-
-              {/* Card Content Body */}
-              <div className="p-5 flex-1 flex flex-col justify-between">
-                <div>
-                  <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed">
+                  <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
                     {dest.overview}
                   </p>
-                  <div className="mt-2.5 flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg w-fit">
-                    <span>{symbol.emoji}</span>
-                    <span className="truncate max-w-[210px]">{symbol.symbolName}</span>
+
+                  {symbol.symbolName && (
+                    <p className="mt-auto flex items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+                      <span aria-hidden="true">{symbol.emoji}</span>
+                      <span className="truncate">{symbol.symbolName}</span>
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between gap-3 text-xs">
+                    {dest.best_time_to_visit ? (
+                      <span className="inline-flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                        <Calendar size={13} aria-hidden="true" className="shrink-0" />
+                        <span className="truncate">{dest.best_time_to_visit}</span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground/70">Best time not recorded</span>
+                    )}
+
+                    <Link
+                      href={`/travel/${dest.slug}`}
+                      className="inline-flex shrink-0 items-center gap-1 font-semibold text-accent transition-colors hover:text-foreground"
+                    >
+                      Explore hub
+                      <ArrowRight
+                        size={14}
+                        aria-hidden="true"
+                        className="transition-transform duration-300 group-hover:translate-x-0.5"
+                      />
+                    </Link>
                   </div>
                 </div>
-
-              <div className="mt-4 pt-3.5 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
-                  <Calendar className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                  <span className="truncate max-w-[170px]">
-                    {dest.best_time_to_visit || "Year-round"}
-                  </span>
-                </div>
-                <span className="inline-flex items-center gap-1 font-semibold text-zinc-900 dark:text-zinc-100 group-hover:translate-x-1 transition-transform">
-                  Explore Hub
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </span>
-              </div>
-            </div>
-          </Link>
-          );
-        })}
-      </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -11,43 +11,56 @@ import {
   BookOpen,
   User,
   MapPin,
+  type LucideIcon,
 } from "lucide-react";
 import { PublicPageShell } from "@/components/layout/public-shell";
 import { EmptyState } from "@/components/shared/empty-state";
 import { searchGlobal } from "@/lib/api";
 import { AIAnswerBox } from "@/components/search/AIAnswerBox";
+import { Photo } from "@/components/ui/photo";
+import { SectionHeader } from "@/components/ui/section-header";
+import { CategoryMark, type CategoryKey } from "@/components/ui/category-mark";
+import { cleanText, formatDate } from "@/lib/format";
 import type { SearchResultItem } from "@/types";
 
 export const metadata: Metadata = {
-  title: "Search | Daily Discovery",
+  title: "Search",
   description:
     "One search across news, visual discoveries, travel provinces, places, guides, events, quizzes, tools and authors.",
 };
 
 export const dynamic = "force-dynamic";
 
-const TYPE_META: Record<string, { label: string; icon: typeof FileText; badge: string }> = {
-  ARTICLE: { label: "News", icon: FileText, badge: "text-blue-600 dark:text-blue-400" },
-  DISCOVERY: { label: "Discover", icon: Sparkles, badge: "text-purple-600 dark:text-purple-400" },
-  QUIZ: { label: "Quiz", icon: HelpCircle, badge: "text-amber-600 dark:text-amber-400" },
-  TOOL: { label: "Tools", icon: Wrench, badge: "text-cyan-600 dark:text-cyan-400" },
-  DESTINATION: { label: "Provinces", icon: MapPin, badge: "text-emerald-600 dark:text-emerald-400" },
-  PLACE: { label: "Places", icon: Compass, badge: "text-teal-600 dark:text-teal-400" },
-  GUIDE: { label: "Guides", icon: BookOpen, badge: "text-emerald-600 dark:text-emerald-400" },
-  EVENT: { label: "Events", icon: CalendarDays, badge: "text-rose-600 dark:text-rose-400" },
-  AUTHOR: { label: "Authors", icon: User, badge: "text-indigo-600 dark:text-indigo-400" },
+/**
+ * The nine result types the endpoint can return, each mapped onto a section mark
+ * instead of the old per-type palette (blue/purple/amber/cyan/emerald/teal/rose/
+ * indigo). PLACE and DESTINATION are both travel; EVENT and AUTHOR have no hue of
+ * their own in the token set, so they stay neutral rather than inventing one.
+ */
+const TYPE_META: Record<
+  string,
+  { label: string; icon: LucideIcon; category: CategoryKey }
+> = {
+  ARTICLE: { label: "News", icon: FileText, category: "news" },
+  DISCOVERY: { label: "Discover", icon: Sparkles, category: "discover" },
+  QUIZ: { label: "Quiz", icon: HelpCircle, category: "quiz" },
+  TOOL: { label: "Tools", icon: Wrench, category: "tools" },
+  DESTINATION: { label: "Provinces", icon: MapPin, category: "travel" },
+  PLACE: { label: "Places", icon: Compass, category: "travel" },
+  GUIDE: { label: "Guides", icon: BookOpen, category: "travel" },
+  EVENT: { label: "Events", icon: CalendarDays, category: "neutral" },
+  AUTHOR: { label: "Authors", icon: User, category: "neutral" },
 };
 
-const CHIP_BASE =
-  "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold transition-colors";
-const CHIP_ACTIVE =
-  "border-teal-600 bg-teal-600 text-white dark:border-teal-500 dark:bg-teal-500 dark:text-slate-950";
-const CHIP_IDLE =
-  "border-slate-300 text-slate-600 hover:border-teal-500 hover:text-teal-600 dark:border-slate-700 dark:text-slate-300 dark:hover:border-teal-500 dark:hover:text-teal-400";
-
 function metaFor(type: string) {
-  return TYPE_META[type] || { label: type, icon: FileText, badge: "text-slate-500" };
+  return TYPE_META[type] || { label: type, icon: FileText, category: "neutral" as CategoryKey };
 }
+
+const CHIP_BASE =
+  "inline-flex items-center rounded-full border px-3.5 py-2 text-xs font-medium transition-colors";
+const CHIP_ACTIVE = "border-accent bg-accent text-accent-foreground";
+const CHIP_IDLE =
+  "border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground";
 
 const QUICK_LINKS = [
   { href: "/cambodia", label: "Cambodia news", icon: FileText },
@@ -57,6 +70,65 @@ const QUICK_LINKS = [
   { href: "/tools", label: "Everyday tools", icon: Wrench },
   { href: "/trending", label: "Trending now", icon: CalendarDays },
 ];
+
+function ResultRow({ item }: { item: SearchResultItem }) {
+  const meta = metaFor(item.type);
+  const Icon = meta.icon;
+  const title = cleanText(item.title);
+  const summary = cleanText(item.summary);
+  const category = item.category ? cleanText(item.category) : null;
+  const date = formatDate(item.published_at, "medium");
+
+  return (
+    <li>
+      <Link
+        href={item.url}
+        className="group flex items-start gap-4 py-5 transition-colors hover:bg-surface-muted/60 sm:gap-6"
+        aria-label={title}
+      >
+        {item.image_url ? (
+          <Photo
+            src={item.image_url}
+            alt={title}
+            ratio="4/3"
+            radius="md"
+            compact
+            showCredit={false}
+            className="h-16 w-20 shrink-0 sm:h-[4.5rem] sm:w-24"
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            className="flex h-16 w-20 shrink-0 items-center justify-center rounded-md border border-border bg-surface-muted text-muted-foreground sm:h-[4.5rem] sm:w-24"
+          >
+            <Icon size={20} strokeWidth={1.5} />
+          </span>
+        )}
+
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <CategoryMark category={meta.category}>{meta.label}</CategoryMark>
+            {category && <span className="text-xs text-muted-foreground">{category}</span>}
+          </span>
+
+          <span className="mt-1.5 block font-display text-lg leading-snug text-foreground transition-colors group-hover:text-accent">
+            {title}
+          </span>
+
+          {summary && (
+            <span className="mt-1.5 line-clamp-2 block text-sm leading-relaxed text-muted-foreground">
+              {summary}
+            </span>
+          )}
+
+          {date && (
+            <span className="mt-2 block text-xs text-muted-foreground tabular-nums">{date}</span>
+          )}
+        </span>
+      </Link>
+    </li>
+  );
+}
 
 export default async function SearchPage({
   searchParams,
@@ -83,138 +155,114 @@ export default async function SearchPage({
     <PublicPageShell
       breadcrumbs={[{ label: "Search", href: "/search" }]}
       title="Search"
-      description="One search across news, visual discoveries, travel provinces, places, guides, events, quizzes, tools and authors."
+      description="One index across news, visual discoveries, travel provinces, places, guides, events, quizzes, tools and authors."
     >
-      <div className="space-y-8">
-        {/* Search box */}
-        <form action="/search" method="GET" className="relative">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            name="q"
-            defaultValue={q}
-            placeholder="Search articles, discoveries, travel, quizzes, and tools…"
-            className="w-full rounded-lg border border-slate-300 bg-white py-3 pl-12 pr-28 text-sm text-slate-900 shadow-xs outline-none transition-colors placeholder:text-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      {/* ── Query ──────────────────────────────────────────────────────────── */}
+      <form action="/search" method="GET" className="relative max-w-2xl">
+        <Search
+          size={18}
+          aria-hidden="true"
+          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+        />
+        <label className="sr-only" htmlFor="global-search">
+          Search the archive
+        </label>
+        <input
+          id="global-search"
+          type="text"
+          name="q"
+          defaultValue={q}
+          placeholder="Search articles, discoveries, travel, quizzes and tools…"
+          className="h-12 w-full rounded-md border border-input bg-surface pl-11 pr-28 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        {activeType && <input type="hidden" name="type" value={activeType} />}
+        <button
+          type="submit"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          Search
+        </button>
+      </form>
+
+      {q && (
+        <div className="mt-8 space-y-6">
+          <AIAnswerBox query={q} />
+
+          {presentTypes.length > 1 && (
+            <nav
+              aria-label="Filter results by type"
+              className="flex flex-wrap items-center gap-2"
+            >
+              <Link
+                href={`/search?q=${encodeURIComponent(q)}`}
+                className={`${CHIP_BASE} ${!activeType ? CHIP_ACTIVE : CHIP_IDLE}`}
+              >
+                All ({data.results.length})
+              </Link>
+              {presentTypes.map((t) => {
+                const meta = metaFor(t);
+                return (
+                  <Link
+                    key={t}
+                    href={`/search?q=${encodeURIComponent(q)}&type=${t}`}
+                    className={`${CHIP_BASE} ${activeType === t ? CHIP_ACTIVE : CHIP_IDLE}`}
+                  >
+                    {meta.label} ({counts[t]})
+                  </Link>
+                );
+              })}
+            </nav>
+          )}
+
+          <p className="border-b border-border pb-3 text-sm text-muted-foreground">
+            <span className="font-semibold tabular-nums text-foreground">{visible.length}</span>{" "}
+            {visible.length === 1 ? "result" : "results"}
+            {activeType ? ` in ${metaFor(activeType).label}` : ""} for &ldquo;{q}&rdquo;
+          </p>
+
+          {visible.length === 0 ? (
+            <EmptyState
+              icon={Search}
+              title="Nothing matched that search"
+              description={`No story, place or tool in the index carries “${q}”. Try a broader term such as “Cambodia”, “GPS” or “festival”, or clear the type filter.`}
+              actionLabel="Clear search"
+              actionHref="/search"
+            />
+          ) : (
+            <ul className="divide-y divide-border">
+              {visible.map((item) => (
+                <ResultRow key={`${item.type}-${item.id}`} item={item} />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {!q && (
+        <div className="mt-8">
+          <SectionHeader
+            label="Index"
+            title="Where to start"
+            description="Six places the search box reaches into, if you would rather browse than query."
           />
-          {activeType && <input type="hidden" name="type" value={activeType} />}
-          <button
-            type="submit"
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-teal-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-teal-700"
-          >
-            Search
-          </button>
-        </form>
-
-        {q && (
-          <div className="space-y-5">
-            <AIAnswerBox query={q} />
-
-            {presentTypes.length > 1 && (
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  href={`/search?q=${encodeURIComponent(q)}`}
-                  className={`${CHIP_BASE} ${!activeType ? CHIP_ACTIVE : CHIP_IDLE}`}
-                >
-                  All ({data.results.length})
-                </Link>
-                {presentTypes.map((t) => {
-                  const meta = metaFor(t);
-                  return (
-                    <Link
-                      key={t}
-                      href={`/search?q=${encodeURIComponent(q)}&type=${t}`}
-                      className={`${CHIP_BASE} ${activeType === t ? CHIP_ACTIVE : CHIP_IDLE}`}
-                    >
-                      {meta.label} ({counts[t]})
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="border-b border-slate-200 pb-2 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-              Found {visible.length} result{visible.length === 1 ? "" : "s"}
-              {activeType ? ` in ${metaFor(activeType).label}` : ""} for{" "}
-              &ldquo;{q}&rdquo;
-            </div>
-
-            {visible.length === 0 ? (
-              <EmptyState
-                icon={Search}
-                title="No matching results"
-                description={`Nothing matched “${q}”. Try broader terms like “Cambodia”, “GPS”, or “festival”.`}
-                actionLabel="Clear search"
-                actionHref="/search"
-              />
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {visible.map((item) => {
-                  const meta = metaFor(item.type);
-                  const Icon = meta.icon;
-                  return (
-                    <Link
-                      key={`${item.type}-${item.id}`}
-                      href={item.url}
-                      className="group flex gap-4 rounded-lg border border-slate-200 bg-white p-4 transition-all hover:border-teal-500/50 hover:shadow-xs dark:border-slate-800 dark:bg-slate-900"
-                    >
-                      <div className="h-20 w-24 shrink-0 overflow-hidden rounded-md bg-slate-100 dark:bg-slate-800">
-                        {item.image_url ? (
-                          <img
-                            src={item.image_url}
-                            alt={item.title}
-                            loading="lazy"
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <Icon className={`h-6 w-6 ${meta.badge}`} />
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0 space-y-1.5">
-                        <div
-                          className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${meta.badge}`}
-                        >
-                          <Icon className="h-3.5 w-3.5" />
-                          <span>{meta.label}</span>
-                          {item.category && (
-                            <span className="text-slate-400 dark:text-slate-500">
-                              • {item.category}
-                            </span>
-                          )}
-                        </div>
-                        <h3 className="line-clamp-2 text-sm font-semibold text-slate-900 transition-colors group-hover:text-teal-600 dark:text-slate-100 dark:group-hover:text-teal-400">
-                          {item.title}
-                        </h3>
-                        <p className="line-clamp-2 text-xs text-slate-500 dark:text-slate-400">
-                          {item.summary}
-                        </p>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {!q && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {QUICK_LINKS.map((s) => (
               <Link
                 key={s.href}
                 href={s.href}
-                className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 transition-colors hover:border-teal-500/50 dark:border-slate-800 dark:bg-slate-900"
+                className="group flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3.5 shadow-xs transition-colors hover:border-border-strong"
               >
-                <s.icon className="h-5 w-5 shrink-0 text-teal-600 dark:text-teal-400" />
-                <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                  {s.label}
-                </span>
+                <s.icon
+                  size={18}
+                  aria-hidden="true"
+                  className="shrink-0 text-muted-foreground transition-colors group-hover:text-accent"
+                />
+                <span className="text-sm font-medium text-foreground">{s.label}</span>
               </Link>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </PublicPageShell>
   );
 }

@@ -7,7 +7,7 @@ export function Table({
   ...props
 }: React.HTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="relative w-full overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+    <div className="relative w-full overflow-x-auto rounded-lg border border-border bg-surface">
       <table
         className={cn("w-full caption-bottom text-sm text-left border-collapse", className)}
         {...props}
@@ -25,7 +25,7 @@ export function TableHeader({
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
     <thead
-      className={cn("bg-slate-50 border-b border-slate-200 dark:bg-slate-900/80 dark:border-slate-800", className)}
+      className={cn("border-b border-border bg-surface-muted", className)}
       {...props}
     >
       {children}
@@ -40,7 +40,7 @@ export function TableBody({
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
     <tbody
-      className={cn("divide-y divide-slate-100 dark:divide-slate-800/60 bg-white dark:bg-slate-900", className)}
+      className={cn("divide-y divide-border bg-surface", className)}
       {...props}
     >
       {children}
@@ -56,7 +56,7 @@ export function TableRow({
   return (
     <tr
       className={cn(
-        "transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/40",
+        "transition-colors hover:bg-surface-muted/70",
         className
       )}
       {...props}
@@ -74,7 +74,7 @@ export function TableHead({
   return (
     <th
       className={cn(
-        "h-10 px-4 text-xs font-semibold text-slate-600 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap",
+        "h-10 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap",
         className
       )}
       {...props}
@@ -91,7 +91,7 @@ export function TableCell({
 }: React.TdHTMLAttributes<HTMLTableCellElement>) {
   return (
     <td
-      className={cn("p-4 text-sm text-slate-700 dark:text-slate-300 align-middle", className)}
+      className={cn("p-4 text-sm text-foreground align-middle", className)}
       {...props}
     >
       {children}

@@ -1,6 +1,9 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
+const FIELD_CLASS =
+  "flex w-full rounded-md border bg-surface px-3 py-2 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50";
+
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: boolean;
 }
@@ -12,9 +15,11 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         type={type}
         disabled={disabled}
         ref={ref}
+        aria-invalid={error || undefined}
         className={cn(
-          "flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition-colors placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-teal-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus-visible:outline-teal-500",
-          error && "border-red-500 focus-visible:outline-red-500 dark:border-red-500",
+          FIELD_CLASS,
+          "h-10",
+          error ? "border-destructive" : "border-input hover:border-border-strong",
           className
         )}
         {...props}
@@ -24,7 +29,8 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 );
 Input.displayName = "Input";
 
-export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+export interface TextareaProps
+  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   error?: boolean;
 }
 
@@ -34,9 +40,11 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
       <textarea
         disabled={disabled}
         ref={ref}
+        aria-invalid={error || undefined}
         className={cn(
-          "flex min-h-[80px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition-colors placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-teal-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus-visible:outline-teal-500",
-          error && "border-red-500 focus-visible:outline-red-500 dark:border-red-500",
+          FIELD_CLASS,
+          "min-h-20 leading-relaxed",
+          error ? "border-destructive" : "border-input hover:border-border-strong",
           className
         )}
         {...props}
@@ -69,17 +77,21 @@ export function FormField({
     <div className={cn("flex flex-col space-y-1.5", className)}>
       <label
         htmlFor={id}
-        className="text-xs font-semibold text-slate-700 dark:text-slate-300 tracking-wide flex items-center gap-1"
+        className="text-xs font-semibold tracking-wide text-foreground"
       >
         {label}
-        {required && <span className="text-red-500">*</span>}
+        {required && (
+          <span aria-hidden="true" className="ml-1 text-destructive">
+            *
+          </span>
+        )}
       </label>
       {children}
       {helperText && !error && (
-        <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal">{helperText}</p>
+        <p className="text-xs leading-normal text-muted-foreground">{helperText}</p>
       )}
       {error && (
-        <p className="text-xs font-medium text-red-600 dark:text-red-400 flex items-center gap-1" role="alert">
+        <p className="text-xs font-medium text-destructive" role="alert">
           {error}
         </p>
       )}

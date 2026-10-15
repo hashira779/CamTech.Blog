@@ -1,11 +1,41 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Metadata } from "next";
-import { Sparkles, ChevronRight, CheckCircle2, BookOpen, ExternalLink, HelpCircle, Wrench } from "lucide-react";
+import { CheckCircle2, ExternalLink, HelpCircle, Wrench } from "lucide-react";
 import { getDiscoveryBySlug } from "@/lib/api";
 import { AdSlot } from "@/components/ads/AdSlot";
+import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+import { Container } from "@/components/ui/container";
+import { SectionHeader } from "@/components/ui/section-header";
+import { Photo } from "@/components/ui/photo";
+import { Byline } from "@/components/ui/byline";
+import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
+import { cleanText, formatDate, formatReadingTime } from "@/lib/format";
 
 export const revalidate = 60;
+
+/** A `visual_sections` step. Shapes are loose because the pipeline writes JSON blobs. */
+interface VisualSection {
+  title?: string | null;
+  description?: string | null;
+  caption?: string | null;
+  image_url?: string | null;
+}
+
+interface SourceLink {
+  name?: string | null;
+  url?: string | null;
+}
+
+function parseArray<T>(raw?: string | null): T[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 export async function generateMetadata({
   params,
@@ -16,7 +46,7 @@ export async function generateMetadata({
   const disc = await getDiscoveryBySlug(resolvedParams.slug);
   if (!disc) return { title: "Discovery Not Found" };
   return {
-    title: `${disc.title} | Daily Discovery`,
+    title: disc.title,
     description: disc.intro,
     openGraph: {
       title: disc.title,
@@ -27,6 +57,14 @@ export async function generateMetadata({
   };
 }
 
+/**
+ * An explainer, laid out like one: contained photograph with its real credit, a
+ * serif headline, then body copy at a reading measure.
+ *
+ * The old template hard-coded `<img src={disc.hero_image_url}>` with no guard, so
+ * an explainer without a verified picture rendered a broken glyph. It now goes
+ * through `Photo`, which shows the honest "not verified" tile instead.
+ */
 export default async function DiscoveryDetailPage({
   params,
 }: {
@@ -39,186 +77,237 @@ export default async function DiscoveryDetailPage({
     notFound();
   }
 
-  let visualSections: any[] = [];
-  try {
-    if (disc.visual_sections) visualSections = JSON.parse(disc.visual_sections);
-  } catch (e) {}
+  const visualSections = parseArray<VisualSection>(disc.visual_sections);
+  const importantFacts = parseArray<string>(disc.important_facts).map(cleanText).filter(Boolean);
+  const sourcesList = parseArray<SourceLink | string>(disc.sources);
 
-  let importantFacts: string[] = [];
-  try {
-    if (disc.important_facts) importantFacts = JSON.parse(disc.important_facts);
-  } catch (e) {}
+  const title = cleanText(disc.title);
+  const intro = cleanText(disc.intro);
+  const credit = disc.hero_image_credit ? cleanText(disc.hero_image_credit) : null;
+  const dateLabel = formatDate(disc.published_at, "long");
+  const readingTime = formatReadingTime(disc.main_explanation);
+  const views = disc.views_count > 0 ? disc.views_count : null;
+  const hasMeta = Boolean(dateLabel) || Boolean(readingTime) || views !== null;
 
-  let sourcesList: any[] = [];
-  try {
-    if (disc.sources) sourcesList = JSON.parse(disc.sources);
-  } catch (e) {}
+  const paragraphs = (disc.main_explanation || "")
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
 
   return (
-    <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-xs text-neutral-400">
-        <Link href="/" className="hover:text-rose-600 transition-colors">Home</Link>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <Link href="/discover" className="hover:text-rose-600 transition-colors font-medium text-neutral-600 dark:text-neutral-300">
-          Discover
-        </Link>
-        <ChevronRight className="h-3.5 w-3.5" />
-        <span className="text-neutral-400">{disc.category}</span>
-      </nav>
+    <article className="flex w-full flex-1 flex-col py-8 sm:py-12">
+      <Container>
+        <Breadcrumbs
+          items={[
+            { label: "Discover", href: "/discover" },
+            ...(disc.category ? [{ label: cleanText(disc.category) }] : []),
+          ]}
+          className="mb-6"
+        />
 
-      {/* Header */}
-      <div className="space-y-4">
-        <span className="px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 text-xs font-bold uppercase tracking-wider">
-          {disc.category}
-        </span>
-        <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-neutral-900 dark:text-white leading-tight">
-          {disc.title}
-        </h1>
-        <p className="text-base sm:text-lg font-medium text-neutral-600 dark:text-neutral-300 leading-relaxed">
-          {disc.intro}
-        </p>
-      </div>
+        {/* ── Head ─────────────────────────────────────────────────────────── */}
+        <header className="mx-auto max-w-3xl">
+          <CategoryMark category={categoryKey(disc.category)} tone="dot">
+            {disc.category}
+          </CategoryMark>
 
-      {/* Hero Visual */}
-      <div className="space-y-2">
-        <div className="overflow-hidden rounded-3xl aspect-[16/9] bg-neutral-100 dark:bg-neutral-900">
-          <img
+          <h1 className="mt-3 font-display text-3xl leading-[1.1] tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+            {title}
+          </h1>
+
+          {intro && (
+            <p className="mt-4 text-lg leading-relaxed text-muted-foreground">{intro}</p>
+          )}
+
+          {hasMeta && (
+            <div className="mt-5 border-t border-border pt-4">
+              <Byline
+                date={disc.published_at}
+                dateStyle="long"
+                readingTime={readingTime}
+                views={views}
+                size="md"
+              />
+            </div>
+          )}
+        </header>
+
+        {/* ── Contained hero with its real credit ──────────────────────────── */}
+        <figure className="mt-8">
+          <Photo
             src={disc.hero_image_url}
-            alt={disc.title}
-            className="w-full h-full object-cover"
+            alt={disc.hero_image_alt || title}
+            credit={credit}
+            ratio="16/9"
+            radius="hero"
+            priority
+            showCredit={false}
           />
+          {credit && (
+            <figcaption className="mt-2 text-right text-xs text-muted-foreground">
+              Photograph: {credit}
+            </figcaption>
+          )}
+        </figure>
+
+        {/* ── Body at a reading measure ────────────────────────────────────── */}
+        <div className="mt-10 space-y-10">
+          {paragraphs.length > 0 && (
+            <div className="container-reading space-y-5 text-base leading-[1.75] text-foreground/90 [&_a]:text-accent [&_em]:italic [&_strong]:font-semibold">
+              {paragraphs.map((p, i) => (
+                <p
+                  key={i}
+                  className={i === 0 ? "drop-cap" : undefined}
+                  dangerouslySetInnerHTML={{ __html: p }}
+                />
+              ))}
+            </div>
+          )}
+
+          <Container width="reading" className="px-0">
+            <AdSlot slot="DISCOVERY_MID" />
+          </Container>
+
+          {visualSections.length > 0 && (
+            <section>
+              <SectionHeader label="Anatomy" title="Step by step" />
+              <ol className="space-y-5">
+                {visualSections.map((sec, idx) => {
+                  const secTitle = cleanText(sec.title);
+                  const secDescription = cleanText(sec.description);
+                  const secCaption = cleanText(sec.caption);
+                  if (!secTitle && !secDescription && !sec.image_url) return null;
+
+                  return (
+                    <li
+                      key={idx}
+                      className="grid gap-4 rounded-lg border border-border bg-card p-5 shadow-xs sm:grid-cols-[10rem_1fr] sm:gap-6"
+                    >
+                      {sec.image_url && (
+                        <Photo
+                          src={sec.image_url}
+                          alt={secTitle || title}
+                          ratio="4/3"
+                          radius="md"
+                          showCredit={false}
+                          placeholderLabel="Diagram"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <span className="font-display text-lg leading-none text-border-strong tabular-nums">
+                          {String(idx + 1).padStart(2, "0")}
+                        </span>
+                        {secTitle && (
+                          <h3 className="mt-2 text-base font-semibold leading-snug text-foreground">
+                            {secTitle}
+                          </h3>
+                        )}
+                        {secDescription && (
+                          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                            {secDescription}
+                          </p>
+                        )}
+                        {secCaption && (
+                          <p className="mt-2 text-xs italic text-muted-foreground">{secCaption}</p>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          )}
+
+          {importantFacts.length > 0 && (
+            <section className="container-reading rounded-lg border border-border bg-surface-muted p-6 sm:p-8">
+              <h2 className="section-label text-accent">Key facts</h2>
+              <ul className="mt-4 space-y-3">
+                {importantFacts.map((fact, idx) => (
+                  <li key={idx} className="flex items-start gap-3 text-sm leading-relaxed text-foreground/90">
+                    <CheckCircle2
+                      size={16}
+                      aria-hidden="true"
+                      className="mt-0.5 shrink-0 text-category-discover"
+                    />
+                    <span>{fact}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {sourcesList.length > 0 && (
+            <section className="container-reading border-t border-border pt-6">
+              <h2 className="section-label">Sources</h2>
+              <ul className="mt-3 space-y-2.5">
+                {sourcesList.map((src, idx) => {
+                  const href = typeof src === "string" ? src : src?.url;
+                  const label = cleanText(typeof src === "string" ? src : src?.name || src?.url);
+                  if (!label && !href) return null;
+
+                  return (
+                    <li key={idx} className="text-sm leading-relaxed">
+                      {href ? (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer nofollow"
+                          className="inline-flex items-start gap-1.5 text-muted-foreground transition-colors hover:text-accent"
+                        >
+                          <span className="break-all">{label || href}</span>
+                          <ExternalLink size={13} aria-hidden="true" className="mt-1 shrink-0" />
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground">{label}</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
         </div>
-        {disc.hero_image_credit && (
-          <div className="text-right text-[11px] text-neutral-400 italic">
-            Visual reference: {disc.hero_image_credit}
-          </div>
-        )}
-      </div>
 
-      {/* Main Explanation */}
-      <div className="prose dark:prose-invert max-w-none text-sm sm:text-base leading-relaxed space-y-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
-        <div dangerouslySetInnerHTML={{ __html: disc.main_explanation.replace(/\n\n/g, "<br/><br/>") }} />
-      </div>
-
-      <AdSlot slot="DISCOVERY_MID" />
-
-      {/* Visual Section Breakdown Cards */}
-      {visualSections.length > 0 && (
-        <div className="space-y-4 pt-4">
-          <h2 className="text-base font-extrabold uppercase tracking-wider text-neutral-900 dark:text-white">
-            Step-by-Step Anatomy
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {visualSections.map((sec, idx) => (
-              <div
-                key={idx}
-                className="p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/40 space-y-2 overflow-hidden"
-              >
-                {sec.image_url && (
-                  <div className="-mx-5 -mt-5 mb-3 aspect-[16/9] bg-neutral-100 dark:bg-neutral-800">
-                    <img src={sec.image_url} alt={sec.title} loading="lazy" className="w-full h-full object-cover" />
-                  </div>
-                )}
-                <h3 className="font-bold text-sm text-neutral-900 dark:text-white">
-                  {sec.title}
-                </h3>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                  {sec.description}
-                </p>
-                {sec.caption && (
-                  <p className="text-[10px] text-neutral-400 dark:text-neutral-500 italic">{sec.caption}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Important Facts Box */}
-      {importantFacts.length > 0 && (
-        <div className="p-6 rounded-3xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 flex items-center gap-2">
-            <Sparkles className="h-4 w-4" />
-            <span>Essential Scientific & Historical Facts</span>
-          </h3>
-          <ul className="space-y-2">
-            {importantFacts.map((fact, idx) => (
-              <li key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm text-neutral-800 dark:text-neutral-200">
-                <CheckCircle2 className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                <span>{fact}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Sources & References */}
-      {sourcesList.length > 0 && (
-        <div className="p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
-            <BookOpen className="h-4 w-4" />
-            Verified Scientific Sources & Literature
-          </h4>
-          <div className="flex flex-wrap gap-3">
-            {sourcesList.map((src, idx) => {
-              const href = typeof src === "string" ? src : src?.url;
-              const label = typeof src === "string" ? src : src?.name;
-              if (!href && !label) return null;
-              const inner = (
-                <>
-                  <span className="break-all">{label || href}</span>
-                  <ExternalLink className="h-3 w-3 shrink-0" />
-                </>
-              );
-              return href ? (
-                <a
-                  key={idx}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-700 dark:text-neutral-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
-                >
-                  {inner}
-                </a>
-              ) : (
-                <span
-                  key={idx}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-700 dark:text-neutral-300"
-                >
-                  {inner}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Cross links to Quiz & Tools */}
-      <div className="pt-8 border-t border-neutral-200 dark:border-neutral-800 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Link
-          href="/quiz"
-          className="p-5 rounded-2xl border border-rose-200 dark:border-rose-950/60 bg-rose-50/40 dark:bg-rose-950/10 flex items-center justify-between group"
+        {/* ── Next ─────────────────────────────────────────────────────────── */}
+        <nav
+          aria-label="Keep reading"
+          className="mt-12 grid gap-4 border-t border-border pt-8 sm:grid-cols-2"
         >
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 block">Test yourself</span>
-            <span className="font-bold text-sm text-neutral-900 dark:text-white">Take Today's Daily Quiz</span>
-          </div>
-          <HelpCircle className="h-5 w-5 text-rose-600 group-hover:rotate-12 transition-transform" />
-        </Link>
-        <Link
-          href="/tools"
-          className="p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex items-center justify-between group"
-        >
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">Productivity</span>
-            <span className="font-bold text-sm text-neutral-900 dark:text-white">Explore Everyday Tools</span>
-          </div>
-          <Wrench className="h-5 w-5 text-neutral-600 group-hover:rotate-12 transition-transform" />
-        </Link>
-      </div>
+          <Link
+            href="/quiz"
+            className="group flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-5 shadow-xs hover-lift hover:border-border-strong"
+          >
+            <span className="min-w-0">
+              <span className="section-label block">Test yourself</span>
+              <span className="mt-1.5 block font-display text-lg leading-snug text-foreground transition-colors group-hover:text-accent">
+                Today&rsquo;s daily quiz
+              </span>
+            </span>
+            <HelpCircle
+              size={20}
+              aria-hidden="true"
+              className="shrink-0 text-muted-foreground transition-transform duration-300 group-hover:-rotate-12"
+            />
+          </Link>
 
+          <Link
+            href="/tools"
+            className="group flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-5 shadow-xs hover-lift hover:border-border-strong"
+          >
+            <span className="min-w-0">
+              <span className="section-label block">Utilities</span>
+              <span className="mt-1.5 block font-display text-lg leading-snug text-foreground transition-colors group-hover:text-accent">
+                Everyday tools
+              </span>
+            </span>
+            <Wrench
+              size={20}
+              aria-hidden="true"
+              className="shrink-0 text-muted-foreground transition-transform duration-300 group-hover:-rotate-12"
+            />
+          </Link>
+        </nav>
+      </Container>
     </article>
   );
 }

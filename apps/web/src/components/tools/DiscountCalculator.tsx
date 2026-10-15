@@ -1,8 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { Tag, DollarSign, Percent, ArrowRight } from "lucide-react";
+import { FormField, Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
+/**
+ * Discount, coupon and tax stacked the same way the old card did — the maths is
+ * the original `calculate()` untouched. What changed is the output: the two
+ * saturated emerald/amber panels are now one quiet paper panel whose figures are
+ * set on tabular numerals, because a saving is information, not a celebration.
+ */
 export function DiscountCalculator() {
   const [originalPrice, setOriginalPrice] = useState<number>(120);
   const [discountPercent, setDiscountPercent] = useState<number>(25);
@@ -32,119 +39,129 @@ export function DiscountCalculator() {
   };
 
   const results = calculate();
+  const money = (value: number) =>
+    value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-            Original Price ($)
-          </label>
-          <div className="relative">
-            <DollarSign className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={originalPrice}
-              onChange={(e) => setOriginalPrice(parseFloat(e.target.value) || 0)}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3 py-3 text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-            />
-          </div>
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField label="Original price ($)" id="disc-original">
+          <Input
+            id="disc-original"
+            type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
+            value={originalPrice}
+            onChange={(e) => setOriginalPrice(parseFloat(e.target.value) || 0)}
+            className="tabular-nums"
+          />
+        </FormField>
 
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-            Discount (%)
-          </label>
-          <div className="relative">
-            <Percent className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={discountPercent}
-              onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3 py-3 text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-            Extra Coupon (%)
-          </label>
-          <input
+        <FormField label="Discount (%)" id="disc-primary">
+          <Input
+            id="disc-primary"
             type="number"
             min="0"
             max="100"
+            inputMode="decimal"
+            value={discountPercent}
+            onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
+            className="tabular-nums"
+          />
+        </FormField>
+
+        <FormField label="Extra coupon (%)" id="disc-extra">
+          <Input
+            id="disc-extra"
+            type="number"
+            min="0"
+            max="100"
+            inputMode="decimal"
             value={additionalDiscount}
             onChange={(e) => setAdditionalDiscount(parseFloat(e.target.value) || 0)}
-            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            className="tabular-nums"
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-            Sales Tax (%)
-          </label>
-          <input
+        <FormField label="Sales tax (%)" id="disc-tax">
+          <Input
+            id="disc-tax"
             type="number"
             min="0"
             max="100"
+            inputMode="decimal"
             value={taxRate}
             onChange={(e) => setTaxRate(parseFloat(e.target.value) || 0)}
-            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            className="tabular-nums"
           />
+        </FormField>
+      </div>
+
+      <fieldset className="border-t border-border pt-5">
+        <legend className="section-label mb-3 text-muted-foreground">Quick discount</legend>
+        <div className="flex flex-wrap gap-2">
+          {[10, 15, 20, 25, 30, 40, 50, 70].map((pct) => {
+            const active = discountPercent === pct;
+            return (
+              <button
+                key={pct}
+                type="button"
+                onClick={() => setDiscountPercent(pct)}
+                aria-pressed={active}
+                className={cn(
+                  "h-8 min-w-16 cursor-pointer rounded-md border px-3 text-xs font-semibold tabular-nums transition-colors",
+                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  active
+                    ? "border-transparent bg-accent text-accent-foreground"
+                    : "border-border-strong bg-surface text-muted-foreground hover:border-foreground/30 hover:bg-surface-muted hover:text-foreground"
+                )}
+              >
+                {pct}% off
+              </button>
+            );
+          })}
         </div>
+      </fieldset>
+
+      <div className="rounded-lg bg-surface-muted p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          You pay
+        </p>
+        <p className="mt-1.5 font-display text-4xl leading-none tabular-nums text-foreground">
+          ${money(results.finalPriceWithTax)}
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground tabular-nums">
+          Saving <span className="font-medium text-success">${money(results.totalSavings)}</span>
+          {" · "}
+          {results.effectiveDiscountPercent.toFixed(1)}% effective discount
+        </p>
       </div>
 
-      {/* Preset quick discount buttons */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-xs font-semibold text-slate-500 mr-2">Quick Presets:</span>
-        {[10, 15, 20, 25, 30, 40, 50, 70].map((pct) => (
-          <button
-            key={pct}
-            onClick={() => setDiscountPercent(pct)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-              discountPercent === pct
-                ? "bg-emerald-600 text-white"
-                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-            }`}
-          >
-            {pct}% OFF
-          </button>
-        ))}
-      </div>
-
-      {/* Results Display */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-6 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl">
-          <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-            Final Payable Price
-          </span>
-          <div className="mt-2 text-4xl md:text-5xl font-black text-emerald-900 dark:text-emerald-100">
-            ${results.finalPriceWithTax.toFixed(2)}
+      <dl className="divide-y divide-border rounded-lg border border-border">
+        {taxRate > 0 && (
+          <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+            <dt className="text-sm text-muted-foreground">Price before tax</dt>
+            <dd className="text-sm font-semibold tabular-nums text-foreground">
+              ${money(results.finalPrice)}
+            </dd>
           </div>
-          {taxRate > 0 && (
-            <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">
-              Includes ${results.taxAmount.toFixed(2)} tax (${results.finalPrice.toFixed(2)} before tax)
-            </p>
-          )}
-        </div>
-
-        <div className="p-6 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl">
-          <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-            Total Money Saved
-          </span>
-          <div className="mt-2 text-4xl md:text-5xl font-black text-amber-900 dark:text-amber-100">
-            ${results.totalSavings.toFixed(2)}
+        )}
+        {taxRate > 0 && (
+          <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+            <dt className="text-sm text-muted-foreground">Tax added</dt>
+            <dd className="text-sm font-semibold tabular-nums text-foreground">
+              ${money(results.taxAmount)}
+            </dd>
           </div>
-          <p className="mt-2 text-xs text-amber-700 dark:text-amber-300 font-medium">
-            Effective discount of <strong>{results.effectiveDiscountPercent.toFixed(1)}%</strong>
-          </p>
+        )}
+        <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+          <dt className="text-sm text-muted-foreground">Discount applied to</dt>
+          <dd className="text-sm font-semibold tabular-nums text-foreground">
+            ${money(Number(originalPrice) || 0)}
+          </dd>
         </div>
-      </div>
+      </dl>
     </div>
   );
 }

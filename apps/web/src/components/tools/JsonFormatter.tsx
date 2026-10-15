@@ -1,10 +1,21 @@
 "use client";
 
 import React, { useState } from "react";
-import { Check, Copy, AlertCircle } from "lucide-react";
+import { Check, Copy, Minimize2, Braces } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
+import { Button } from "@/components/ui/button";
+import { FormField, Textarea } from "@/components/ui/input";
 
+/**
+ * JSON beautifier and validator.
+ *
+ * Parsing, minifying and the copy-to-clipboard behaviour are the same; only the
+ * surface changed. The error line is now a `role="alert"` sentence in the
+ * destructive token rather than a rose block, and every control carries a label.
+ */
 export function JsonFormatter() {
-  const [input, setInput] = useState('{"platform":"Daily Discovery","founded":2026,"categories":["Cambodia","World","Discover","Play","Tools"],"ready":true}');
+  const { t } = useI18n();
+  const [input, setInput] = useState('{"platform":"CamTech.Blog","founded":2026,"categories":["Cambodia","World","Discover","Play","Tools"],"ready":true}');
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -35,49 +46,49 @@ export function JsonFormatter() {
   };
 
   return (
-    <div className="p-6 sm:p-8 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl max-w-3xl mx-auto space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleFormat}
-            className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors"
-          >
-            Beautify / Format (2 Spaces)
-          </button>
-          <button
-            onClick={handleMinify}
-            className="px-3.5 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs font-semibold transition-colors"
-          >
-            Minify / Compact
-          </button>
-        </div>
-
-        <button
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="primary" size="sm" onClick={handleFormat} className="gap-1.5">
+          <Braces size={14} aria-hidden="true" />
+          {t("tool.format")} · 2 spaces
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleMinify} className="gap-1.5">
+          <Minimize2 size={14} aria-hidden="true" />
+          Minify
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={handleCopy}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 text-xs font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+          className="ml-auto gap-1.5"
+          aria-live="polite"
         >
-          {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-          {copied ? "Copied" : "Copy"}
-        </button>
+          {copied ? <Check size={14} className="text-success" aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+          {copied ? t("tool.copied") : t("tool.copy")}
+        </Button>
       </div>
 
       {error && (
-        <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span><strong>JSON Syntax Error:</strong> {error}</span>
-        </div>
+        <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm leading-relaxed text-destructive">
+          <span className="font-semibold">JSON syntax error: </span>
+          {error}
+        </p>
       )}
 
-      <textarea
-        rows={12}
-        value={input}
-        onChange={(e) => {
-          setInput(e.target.value);
-          setError(null);
-        }}
-        className="w-full p-4 font-mono text-xs sm:text-sm rounded-2xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
-        spellCheck={false}
-      />
+      <FormField label="JSON input" id="json-input" helperText="Parses on the device. Nothing is sent anywhere.">
+        <Textarea
+          id="json-input"
+          rows={14}
+          value={input}
+          error={Boolean(error)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            setError(null);
+          }}
+          spellCheck={false}
+          className="min-h-64 font-mono text-sm leading-relaxed"
+        />
+      </FormField>
     </div>
   );
 }

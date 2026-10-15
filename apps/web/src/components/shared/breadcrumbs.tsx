@@ -1,7 +1,6 @@
 import * as React from "react";
 import Link from "next/link";
 import { ChevronRight, Home } from "lucide-react";
-import { DESIGN_TOKENS } from "@/lib/tokens";
 
 export interface BreadcrumbItem {
   label: string;
@@ -16,25 +15,24 @@ export interface BreadcrumbsProps {
 export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
   return (
     <nav aria-label="Breadcrumb" className={className}>
-      <ol className="flex items-center space-x-1.5 text-xs text-slate-500 dark:text-slate-400 overflow-x-auto whitespace-nowrap py-1">
+      <ol className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap py-1 text-xs text-muted-foreground">
         <li>
           <Link
             href="/"
-            className="flex items-center hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
-            title="Home"
+            className="flex items-center gap-1 transition-colors hover:text-foreground"
           >
-            <Home size={DESIGN_TOKENS.iconSize.xs} className="mr-1" />
+            <Home size={12} aria-hidden="true" />
             <span>Home</span>
           </Link>
         </li>
         {items.map((item, index) => {
           const isLast = index === items.length - 1;
           return (
-            <li key={index} className="flex items-center space-x-1.5">
-              <ChevronRight size={DESIGN_TOKENS.iconSize.xs} className="text-slate-400 shrink-0" />
+            <li key={`${item.label}-${index}`} className="flex items-center gap-1.5">
+              <ChevronRight size={12} className="shrink-0 text-border-strong" aria-hidden="true" />
               {isLast || !item.href ? (
                 <span
-                  className="font-medium text-slate-900 dark:text-slate-100 truncate max-w-[200px]"
+                  className="max-w-50 truncate font-medium text-foreground"
                   aria-current="page"
                 >
                   {item.label}
@@ -42,7 +40,7 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
               ) : (
                 <Link
                   href={item.href}
-                  className="hover:text-slate-900 dark:hover:text-slate-200 transition-colors truncate max-w-[150px]"
+                  className="max-w-38 truncate transition-colors hover:text-foreground"
                 >
                   {item.label}
                 </Link>

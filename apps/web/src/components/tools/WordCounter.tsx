@@ -1,11 +1,19 @@
 "use client";
 
 import React, { useState } from "react";
-import { FileText, Clock, Mic, AlignLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FormField, Textarea } from "@/components/ui/input";
 
+/**
+ * Word, character and reading-time counters.
+ *
+ * The counting rules and the 200 / 130 words-per-minute assumptions are the
+ * original ones, so every figure is measured from the text in the box. Reading
+ * and speaking times only appear once there is a word to measure.
+ */
 export function WordCounter() {
   const [text, setText] = useState<string>(
-    "Daily Discovery is a modern editorial platform delivering verified news, scientific discoveries, interactive quizzes, and practical online tools."
+    "CamTech.Blog is a modern editorial platform delivering verified news, scientific discoveries, interactive quizzes, and practical online tools."
   );
 
   const stats = React.useMemo(() => {
@@ -32,70 +40,99 @@ export function WordCounter() {
     };
   }, [text]);
 
+  const hasText = stats.words > 0;
+
   return (
     <div className="space-y-6">
-      {/* Metric Cards Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-center">
-          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
-            Words
-          </span>
-          <span className="text-3xl font-black text-emerald-900 dark:text-emerald-100 mt-1 block">
-            {stats.words}
-          </span>
-        </div>
-
-        <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-center">
-          <span className="text-xs font-semibold text-slate-500 block">Characters</span>
-          <span className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1 block">
-            {stats.charsWithSpaces}
-          </span>
-          <span className="text-[10px] text-slate-400 block mt-0.5">({stats.charsWithoutSpaces} no spaces)</span>
-        </div>
-
-        <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-center">
-          <span className="text-xs font-semibold text-slate-500 block">Sentences</span>
-          <span className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1 block">
-            {stats.sentences}
-          </span>
-        </div>
-
-        <div className="p-4 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-xl text-center">
-          <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 block">Reading Time</span>
-          <span className="text-2xl font-bold text-indigo-900 dark:text-indigo-100 mt-1 block">
-            ~{stats.readingTimeMins} min
-          </span>
-        </div>
-
-        <div className="p-4 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 rounded-xl text-center">
-          <span className="text-xs font-semibold text-purple-700 dark:text-purple-400 block">Speaking Time</span>
-          <span className="text-2xl font-bold text-purple-900 dark:text-purple-100 mt-1 block">
-            ~{stats.speakingTimeMins} min
-          </span>
-        </div>
-      </div>
-
-      {/* Editor textarea */}
-      <div>
-        <div className="flex justify-between items-center mb-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            Input Text
-          </label>
-          <button
-            onClick={() => setText("")}
-            className="text-xs font-semibold text-rose-600 hover:underline"
-          >
-            Clear Text
-          </button>
-        </div>
-        <textarea
+      <FormField
+        label="Input text"
+        id="word-counter-input"
+        helperText="Counted on this device only."
+      >
+        <Textarea
+          id="word-counter-input"
           rows={8}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Paste or type your text here to analyze..."
-          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 text-slate-900 dark:text-slate-100 font-normal focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-y"
+          placeholder="Paste or type your text here to analyse"
+          className="text-sm leading-relaxed"
         />
+      </FormField>
+
+      <div className="flex justify-end">
+        <Button variant="ghost" size="sm" onClick={() => setText("")} disabled={!text}>
+          Clear text
+        </Button>
       </div>
+
+      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
+        <div className="bg-surface-muted px-4 py-3">
+          <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Words
+          </dt>
+          <dd className="mt-1 font-display text-2xl leading-none tabular-nums text-foreground">
+            {stats.words}
+          </dd>
+        </div>
+
+        <div className="bg-surface-muted px-4 py-3">
+          <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Characters
+          </dt>
+          <dd className="mt-1 text-xl font-semibold leading-none tabular-nums text-foreground">
+            {stats.charsWithSpaces}
+          </dd>
+          <dd className="mt-1 text-xs tabular-nums text-muted-foreground">
+            {stats.charsWithoutSpaces} without spaces
+          </dd>
+        </div>
+
+        <div className="bg-surface-muted px-4 py-3">
+          <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Sentences
+          </dt>
+          <dd className="mt-1 text-xl font-semibold leading-none tabular-nums text-foreground">
+            {stats.sentences}
+          </dd>
+        </div>
+
+        {stats.paragraphs > 0 && (
+          <div className="bg-surface-muted px-4 py-3">
+            <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Paragraphs
+            </dt>
+            <dd className="mt-1 text-xl font-semibold leading-none tabular-nums text-foreground">
+              {stats.paragraphs}
+            </dd>
+          </div>
+        )}
+
+        {hasText && (
+          <div className="bg-surface-muted px-4 py-3">
+            <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Reading time
+            </dt>
+            <dd className="mt-1 text-xl font-semibold leading-none tabular-nums text-foreground">
+              ~{stats.readingTimeMins} min
+            </dd>
+          </div>
+        )}
+
+        {hasText && (
+          <div className="bg-surface-muted px-4 py-3">
+            <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Speaking time
+            </dt>
+            <dd className="mt-1 text-xl font-semibold leading-none tabular-nums text-foreground">
+              ~{stats.speakingTimeMins} min
+            </dd>
+          </div>
+        )}
+      </dl>
+
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Timings assume 200 words a minute reading and 130 speaking.
+      </p>
     </div>
   );
 }

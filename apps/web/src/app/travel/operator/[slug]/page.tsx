@@ -1,9 +1,16 @@
 import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import { getTransportOperator } from "@/lib/api";
 import { TransportRouteCard } from "@/components/travel/TransportRouteCard";
-import { Star, ShieldCheck, Phone, Mail, Globe, ArrowLeft, Bus, CheckCircle2 } from "lucide-react";
+import { Container } from "@/components/ui/container";
+import { CategoryMark } from "@/components/ui/category-mark";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { MetaDot } from "@/components/ui/byline";
+import { Photo } from "@/components/ui/photo";
+import { cleanText, formatDate } from "@/lib/format";
 
 interface OperatorPageProps {
   params: Promise<{ slug: string }>;
@@ -25,139 +32,164 @@ export default async function OperatorDetailPage({ params }: OperatorPageProps) 
   }
 
   const routes = operator.routes || [];
+  const checked = formatDate(operator.last_verified_at, "medium");
+  const isVerified = operator.verification_status === "VERIFIED";
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-5xl">
-      {/* Breadcrumb Navigation */}
-      <nav className="flex items-center gap-2 text-xs text-muted-foreground mb-6">
-        <Link href="/" className="hover:text-primary transition-colors">Home</Link>
-        <span>/</span>
-        <Link href="/travel" className="hover:text-primary transition-colors">Travel</Link>
-        <span>/</span>
-        <Link href="/travel/transport" className="hover:text-primary transition-colors">Transport</Link>
-        <span>/</span>
-        <span className="text-foreground font-medium">{operator.name}</span>
-      </nav>
+    <div className="flex w-full flex-1 flex-col">
+      <Container className="pt-6 sm:pt-8">
+        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <Link href="/" className="transition-colors hover:text-foreground">
+            Home
+          </Link>
+          <MetaDot />
+          <Link href="/travel" className="transition-colors hover:text-foreground">
+            Travel
+          </Link>
+          <MetaDot />
+          <Link href="/travel/transport" className="transition-colors hover:text-foreground">
+            Transport
+          </Link>
+          <MetaDot />
+          <span className="text-foreground">{cleanText(operator.name)}</span>
+        </nav>
+      </Container>
 
-      {/* Back Link */}
-      <Link
-        href="/travel/transport"
-        className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground mb-6"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" /> Back to Transport Directory
-      </Link>
+      {/* ── Header ───────────────────────────────────────────────────────── */}
+      <Container className="pt-8 pb-10 sm:pt-12">
+        <div className="grid gap-8 lg:grid-cols-12 lg:gap-12">
+          <div className="lg:col-span-7">
+            <CategoryMark category="transport" tone="dot">
+              {operator.operator_type?.toLowerCase().replace(/_/g, " ") || "Transport operator"}
+            </CategoryMark>
 
-      {/* Operator Header Banner */}
-      <div className="bg-card border rounded-2xl p-6 sm:p-8 shadow-sm mb-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pb-6 border-b">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold text-3xl">
-              {operator.operator_type === "MINIVAN" ? "🚐" : operator.operator_type === "TRAIN" ? "🚆" : operator.operator_type === "FERRY" ? "⛴️" : "🚌"}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <h1 className="font-display text-4xl leading-[1.08] tracking-tight text-foreground sm:text-5xl">
+                {cleanText(operator.name)}
+              </h1>
+              {isVerified && <Badge variant="success">Verified record</Badge>}
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl sm:text-3xl font-extrabold">{operator.name}</h1>
-                {operator.verification_status === "VERIFIED" && (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                    <ShieldCheck className="w-3.5 h-3.5" /> Verified Operator
-                  </span>
-                )}
-              </div>
-              {operator.local_name && (
-                <p className="text-sm text-muted-foreground font-khmer mt-0.5">{operator.local_name}</p>
+
+            {operator.local_name && <p className="mt-2 text-lg text-muted-foreground">{operator.local_name}</p>}
+
+            {operator.description && (
+              <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
+                {cleanText(operator.description)}
+              </p>
+            )}
+
+            {operator.description_km && (
+              <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
+                {operator.description_km}
+              </p>
+            )}
+
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              {operator.website && (
+                <Button variant="outline" asChild>
+                  <a href={operator.website} target="_blank" rel="noopener noreferrer nofollow">
+                    Operator website
+                    <ExternalLink size={15} aria-hidden="true" />
+                  </a>
+                </Button>
               )}
-              <div className="flex items-center gap-3 text-xs text-muted-foreground mt-2">
-                <span className="flex items-center gap-1 text-amber-500 font-bold">
-                  <Star className="w-4 h-4 fill-amber-500" /> {operator.rating.toFixed(1)}
-                </span>
-                <span>•</span>
-                <span>{operator.review_count} verified traveler ratings</span>
-                <span>•</span>
-                <span className="uppercase tracking-wider font-semibold text-[11px] bg-muted px-2 py-0.5 rounded">
-                  {operator.operator_type}
-                </span>
-              </div>
+              <Link
+                href="/travel/transport"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ArrowLeft size={15} aria-hidden="true" />
+                All transport routes
+              </Link>
             </div>
           </div>
 
-          {operator.website && (
-            <a
-              href={operator.website}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-sm shrink-0"
-            >
-              <Globe className="w-4 h-4" /> Official Website
-            </a>
-          )}
-        </div>
+          <aside className="lg:col-span-5">
+            {operator.logo_url ? (
+              <Photo
+                src={operator.logo_url}
+                alt={cleanText(operator.name)}
+                ratio="4/3"
+                radius="lg"
+                placeholderLabel="No operator image on record"
+              />
+            ) : null}
 
-        {/* Description */}
-        <div className="py-6 border-b">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-2">
-            Company Overview & Fleet Standards
-          </h2>
-          <p className="text-sm leading-relaxed text-foreground mb-3">{operator.description}</p>
-          {operator.description_km && (
-            <p className="text-sm leading-relaxed text-muted-foreground font-khmer">{operator.description_km}</p>
-          )}
-        </div>
-
-        {/* Fleet Amenities */}
-        {amenities.length > 0 && (
-          <div className="py-6 border-b">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">
-              Onboard Amenities & Standards
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-              {amenities.map((a, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs bg-muted/40 p-2.5 rounded-lg border">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span className="font-medium">{a}</span>
+            <dl className="divide-y divide-border border-y border-border text-sm">
+              {operator.phone && (
+                <div className="flex items-baseline justify-between gap-4 py-3">
+                  <dt className="section-label">Booking line</dt>
+                  <dd className="text-right font-medium tabular-nums text-foreground">
+                    <a href={`tel:${operator.phone}`} className="transition-colors hover:text-accent">
+                      {operator.phone}
+                    </a>
+                  </dd>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              )}
+              {operator.email && (
+                <div className="flex items-baseline justify-between gap-4 py-3">
+                  <dt className="section-label">Email</dt>
+                  <dd className="text-right">
+                    <a
+                      href={`mailto:${operator.email}`}
+                      className="break-all font-medium text-foreground transition-colors hover:text-accent"
+                    >
+                      {operator.email}
+                    </a>
+                  </dd>
+                </div>
+              )}
+              <div className="flex items-baseline justify-between gap-4 py-3">
+                <dt className="section-label">Routes on record</dt>
+                <dd className="tabular-nums text-foreground">{routes.length}</dd>
+              </div>
+              {checked && (
+                <div className="flex items-baseline justify-between gap-4 py-3">
+                  <dt className="section-label">Record checked</dt>
+                  <dd className="tabular-nums text-foreground">{checked}</dd>
+                </div>
+              )}
+            </dl>
 
-        {/* Contact info */}
-        <div className="pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-          {operator.phone && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Phone className="w-4 h-4 text-primary" />
-              <span>Customer Booking Line: <strong>{operator.phone}</strong></span>
-            </div>
-          )}
-          {operator.email && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Mail className="w-4 h-4 text-primary" />
-              <span>Support Email: <strong>{operator.email}</strong></span>
-            </div>
-          )}
+            {amenities.length > 0 && (
+              <div className="mt-6">
+                <p className="section-label text-accent">Onboard</p>
+                <ul className="mt-2 divide-y divide-border text-sm text-muted-foreground">
+                  {amenities.map((a) => (
+                    <li key={a} className="py-2">
+                      {cleanText(a)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </aside>
         </div>
-      </div>
+      </Container>
 
-      {/* Active Routes Section */}
-      <div className="mb-8">
-        <h2 className="text-xl font-extrabold mb-2">
-          Scheduled Routes & Daily Timetables ({routes.length})
-        </h2>
-        <p className="text-xs text-muted-foreground mb-6">
-          Official departure times, estimated highway durations, and verified ticket pricing.
-        </p>
+      {/* ── Routes ───────────────────────────────────────────────────────── */}
+      <Container as="section" className="border-t border-border py-10 sm:py-14">
+        <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="font-display text-2xl leading-tight tracking-tight text-foreground">Scheduled routes</h2>
+          <p className="text-xs text-muted-foreground">
+            {routes.length > 0
+              ? `${routes.length} route${routes.length === 1 ? "" : "s"} held by CamTech.Blog`
+              : "No routes published"}
+          </p>
+        </div>
 
         {routes.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="divide-y divide-border">
             {routes.map((route) => (
               <TransportRouteCard key={route.id} route={{ ...route, operator }} />
             ))}
           </div>
         ) : (
-          <div className="bg-card border rounded-xl p-8 text-center text-muted-foreground">
-            No active scheduled routes published for this operator.
-          </div>
+          <p className="py-10 text-sm leading-relaxed text-muted-foreground">
+            This operator has no scheduled routes in the registry yet. Contact details above are the ones
+            we hold on record.
+          </p>
         )}
-      </div>
+      </Container>
     </div>
   );
 }

@@ -29,7 +29,7 @@ export function StatusBadge({ status, size = "sm", showIcon = true }: StatusBadg
     case "verified":
       return (
         <Badge variant="success" size={size}>
-          {showIcon && <ShieldCheck size={DESIGN_TOKENS.iconSize.xs} className="text-emerald-600 dark:text-emerald-400" />}
+          {showIcon && <ShieldCheck size={DESIGN_TOKENS.iconSize.xs} />}
           Verified
         </Badge>
       );

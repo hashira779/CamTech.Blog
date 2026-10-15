@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { ArrowRightLeft } from "lucide-react";
+import { ArrowLeftRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FormField, Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { humanize } from "@/lib/format";
 
 type UnitCategory = "length" | "weight" | "temperature" | "speed" | "area";
 
@@ -50,6 +55,8 @@ const UNITS: Record<UnitCategory, Record<string, UnitDef>> = {
   },
 };
 
+const CATEGORIES: UnitCategory[] = ["length", "weight", "temperature", "speed", "area"];
+
 export function UnitConverter() {
   const [category, setCategory] = useState<UnitCategory>("length");
   const [fromUnit, setFromUnit] = useState<string>("m");
@@ -83,91 +90,92 @@ export function UnitConverter() {
 
   const convertedValue = convert();
 
-  return (
-    <div className="space-y-6">
-      {/* Category selector */}
-      <div className="flex flex-wrap gap-2">
-        {(["length", "weight", "temperature", "speed", "area"] as UnitCategory[]).map((cat) => (
-          <button
-            key={cat}
-            onClick={() => handleCategoryChange(cat)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors ${
-              category === cat
-                ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/20"
-                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-
-      {/* Input & Units */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
-        <div className="md:col-span-2 space-y-2">
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">From</label>
-          <div className="flex gap-2">
-            <input
-              type="number"
-              value={inputValue}
-              onChange={(e) => setInputValue(parseFloat(e.target.value) || 0)}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-            />
-            <select
-              value={fromUnit}
-              onChange={(e) => setFromUnit(e.target.value)}
-              className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-3 text-slate-900 dark:text-slate-100 font-bold focus:outline-none"
-            >
-              {Object.entries(UNITS[category]).map(([key, u]) => (
-                <option key={key} value={key}>
-                  {u.symbol} - {u.name}
-                </option>
-              ))}
-            </select>
-          </div>
+  const converter = (
+    <div className="space-y-6 pt-2">
+      <div className="grid items-end gap-4 sm:grid-cols-[1fr_auto_1fr]">
+        <div className="space-y-4">
+          <FormField label="From" id="unit-from">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                id="unit-from"
+                type="number"
+                inputMode="decimal"
+                value={inputValue}
+                onChange={(e) => setInputValue(parseFloat(e.target.value) || 0)}
+                className="sm:w-32 tabular-nums"
+              />
+              <Select
+                value={fromUnit}
+                onChange={(e) => setFromUnit(e.target.value)}
+                aria-label="Convert from unit"
+              >
+                {Object.entries(UNITS[category]).map(([key, u]) => (
+                  <option key={key} value={key}>
+                    {u.symbol} — {u.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </FormField>
         </div>
 
-        <div className="flex justify-center md:pt-6">
-          <button
-            onClick={swapUnits}
-            title="Swap units"
-            className="p-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full text-slate-600 dark:text-slate-300 transition-colors"
-          >
-            <ArrowRightLeft className="w-5 h-5" />
-          </button>
-        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={swapUnits}
+          aria-label="Swap units"
+          className="mb-0 rounded-full"
+        >
+          <ArrowLeftRight size={16} aria-hidden="true" />
+        </Button>
 
-        <div className="md:col-span-2 space-y-2">
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">To</label>
-          <select
+        <FormField label="To" id="unit-to">
+          <Select
+            id="unit-to"
             value={toUnit}
             onChange={(e) => setToUnit(e.target.value)}
-            className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 font-bold focus:outline-none"
+            aria-label="Convert to unit"
           >
             {Object.entries(UNITS[category]).map(([key, u]) => (
               <option key={key} value={key}>
-                {u.symbol} - {u.name}
+                {u.symbol} — {u.name}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </FormField>
       </div>
 
-      {/* Result Card */}
-      <div className="p-6 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-center">
-        <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 block mb-1">
-          Conversion Result
-        </span>
-        <div className="text-4xl md:text-5xl font-black text-emerald-900 dark:text-emerald-100">
-          {convertedValue.toLocaleString(undefined, { maximumFractionDigits: 6 })}{" "}
-          <span className="text-2xl text-emerald-600 dark:text-emerald-400 font-bold">
+      <div className="rounded-lg bg-surface-muted p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Result
+        </p>
+        <p className="mt-1.5 font-display text-4xl leading-none tabular-nums text-foreground">
+          {convertedValue.toLocaleString(undefined, { maximumFractionDigits: 6 })}
+          <span className="ml-2 text-2xl text-muted-foreground">
             {UNITS[category][toUnit]?.symbol}
           </span>
-        </div>
-        <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">
-          {inputValue} {UNITS[category][fromUnit]?.name} = {convertedValue.toFixed(4)} {UNITS[category][toUnit]?.name}
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground tabular-nums">
+          {inputValue} {UNITS[category][fromUnit]?.name} ={" "}
+          {convertedValue.toFixed(4)} {UNITS[category][toUnit]?.name}
         </p>
       </div>
     </div>
+  );
+
+  return (
+    <Tabs value={category} onValueChange={(value) => handleCategoryChange(value as UnitCategory)}>
+      <TabsList className="w-full justify-start">
+        {CATEGORIES.map((cat) => (
+          <TabsTrigger key={cat} value={cat}>
+            {humanize(cat)}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+
+      {/* One panel; `value` tracks the active tab so every category renders the
+          same controls against its own unit list. */}
+      <TabsContent value={category}>{converter}</TabsContent>
+    </Tabs>
   );
 }

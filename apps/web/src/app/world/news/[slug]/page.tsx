@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { getArticleBySlug } from "@/lib/api";
 import { ArticleReader } from "@/components/news/ArticleReader";
-import { generateArticleJsonLd, generateOgMeta, SITE_URL } from "@/lib/seo";
+import { articleSeoTitle, generateArticleJsonLd, generateOgMeta, SITE_URL } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
 
 export const revalidate = 60;
@@ -19,7 +19,7 @@ export async function generateMetadata({
   }
 
   const ogMeta = generateOgMeta({
-    title: article.seo_title || article.title,
+    title: articleSeoTitle(article),
     description: article.seo_description || article.summary,
     image: article.hero_image_url,
     type: "article",
@@ -29,7 +29,7 @@ export async function generateMetadata({
   });
 
   return {
-    title: article.seo_title || article.title,
+    title: articleSeoTitle(article),
     description: article.seo_description || article.summary,
     alternates: {
       canonical: `${SITE_URL}/world/news/${article.slug}`,

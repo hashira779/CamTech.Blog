@@ -1,60 +1,65 @@
 import React from "react";
 import Link from "next/link";
-import { TravelGuide } from "@/types";
-import { BookOpen, Clock, ArrowRight } from "lucide-react";
+import type { TravelGuide } from "@/types";
+import { Photo } from "@/components/ui/photo";
+import { CategoryMark } from "@/components/ui/category-mark";
+import { cleanText, estimateReadingMinutes, formatDate } from "@/lib/format";
 
 interface TravelGuideCardProps {
   guide: TravelGuide;
 }
 
+/**
+ * Guide card for the travel rails.
+ *
+ * The photograph now always renders: when the guide has no verified image the
+ * tile says so instead of the card quietly dropping to a stock picture. The read
+ * time is measured from the guide body rather than the `read_time_minutes`
+ * column, which the API seeds with a default of "6 min".
+ */
 export function TravelGuideCard({ guide }: TravelGuideCardProps) {
+  const minutes = estimateReadingMinutes(guide.content);
+  const published = formatDate(guide.published_at, "medium");
+
   return (
-    <div className="group hover-lift bg-card text-card-foreground rounded-2xl border border-border/80 overflow-hidden shadow-2xs hover:shadow-xl hover:border-primary/50 transition-all duration-300 flex flex-col justify-between">
-      {guide.hero_image_url && (
-        <div className="h-44 w-full relative overflow-hidden bg-muted">
-          <img
-            src={guide.hero_image_url}
-            alt={guide.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-          <span className="absolute top-3 left-3 text-[11px] font-semibold bg-background/90 backdrop-blur-md px-2.5 py-1 rounded-full border shadow-sm inline-flex items-center gap-1">
-            <BookOpen className="w-3 h-3 text-primary" /> Travel Field Guide
-          </span>
-        </div>
-      )}
+    <Link
+      href={`/travel/guides/${guide.slug}`}
+      className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs transition-colors hover-lift hover:border-border-strong"
+    >
+      <Photo
+        src={guide.hero_image_url}
+        alt={cleanText(guide.title)}
+        ratio="16/9"
+        radius="none"
+        showCredit={false}
+        placeholderLabel="No verified photograph yet"
+      />
 
-      <div className="p-5 flex-1 flex flex-col justify-between">
-        <div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-            <span className="inline-flex items-center gap-1">
-              <Clock className="w-3 h-3" /> {guide.read_time_minutes} read
-            </span>
-            <span>•</span>
-            <span>Practical guide</span>
-          </div>
+      <div className="flex flex-1 flex-col gap-2 p-5">
+        <CategoryMark category="travel" tone="dot">
+          Field guide
+        </CategoryMark>
 
-          <h3 className="font-bold text-base leading-snug mb-2 hover:text-primary transition-colors">
-            <Link href={`/travel/guides/${guide.slug}`}>{guide.title}</Link>
-          </h3>
+        <h3 className="font-display text-xl leading-snug tracking-tight text-foreground transition-colors group-hover:text-accent">
+          {cleanText(guide.title)}
+        </h3>
 
-          {guide.title_km && (
-            <p className="text-xs text-muted-foreground font-khmer mb-2">{guide.title_km}</p>
-          )}
+        {guide.title_km && <p className="text-sm text-muted-foreground">{guide.title_km}</p>}
 
-          <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed mb-4">
-            {guide.summary}
+        {guide.summary && (
+          <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+            {cleanText(guide.summary)}
           </p>
-        </div>
+        )}
 
-        <div className="pt-3 border-t">
-          <Link
-            href={`/travel/guides/${guide.slug}`}
-            className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
-          >
-            Read Complete Guide <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
+        {(minutes !== null || published) && (
+          <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
+            {minutes !== null && <span>{minutes} min read</span>}
+            {minutes !== null && published && <span aria-hidden="true">·</span>}
+            {published && <span>{published}</span>}
+          </div>
+        )}
       </div>
-    </div>
+    </Link>
   );
 }

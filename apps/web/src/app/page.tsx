@@ -1,259 +1,373 @@
 import Link from "next/link";
-import { getArticles, getTrending } from "@/lib/api";
+import { ArrowRight, Compass, HelpCircle } from "lucide-react";
+import {
+  getArticles,
+  getDailyQuiz,
+  getDiscoveries,
+  getPlaces,
+  getTools,
+  getTrending,
+} from "@/lib/api";
+import type { Article } from "@/types";
 import { AdSlot } from "@/components/ads/AdSlot";
+import { Container, Section } from "@/components/ui/container";
+import { SectionHeader } from "@/components/ui/section-header";
+import { NewsCard } from "@/components/shared/news-card";
+import { Photo } from "@/components/ui/photo";
+import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
+import { formatCount, formatDate, cleanText } from "@/lib/format";
 
 export const revalidate = 60;
 
+/**
+ * Front page.
+ *
+ * Three things changed beyond the styling. The lead story used to be labelled
+ * "Breaking" whatever it was; that mark now only appears when the article has
+ * `is_breaking`. Both image slots used to fall back to a hardcoded Unsplash
+ * photograph, so a story without a verified picture still showed one — those
+ * fallbacks are gone, and the card drops to a typographic treatment instead.
+ * And the "reads" figures are the real `views_count`, hidden when they are zero
+ * rather than replaced with "Trending story".
+ */
+function articleHref(article: Pick<Article, "slug" | "country">) {
+  return article.country === "KH"
+    ? `/cambodia/news/${article.slug}`
+    : `/world/news/${article.slug}`;
+}
+
+function dedupe(articles: Article[]) {
+  const seen = new Set<string>();
+  return articles.filter((article) => {
+    if (seen.has(article.id)) return false;
+    seen.add(article.id);
+    return true;
+  });
+}
+
 export default async function HomePage() {
-  const [articlesData, trendingData] = await Promise.all([
-    getArticles({ limit: 12 }),
-    getTrending()
+  const [cambodia, world, trending, discoveryFeed, placeFeed, quiz, tools] = await Promise.all([
+    getArticles({ country: "KH", limit: 8 }),
+    getArticles({ limit: 10 }),
+    getTrending(),
+    getDiscoveries(),
+    getPlaces({ limit: 8 }),
+    getDailyQuiz(),
+    getTools(),
   ]);
 
-  const allArticles = articlesData.items || [];
-  const heroArticle = allArticles[0];
-  const secondaryArticles = allArticles.slice(1);
-  const trendingList = [...(trendingData?.cambodia || []), ...(trendingData?.world || [])].slice(0, 5);
+  const feed = dedupe([...(cambodia.items || []), ...(world.items || [])]).slice(0, 10);
+  const lead = feed[0];
+  const features = feed.slice(1, 3);
+  const latest = feed.slice(3, 9);
+
+  const mostRead = [
+    ...(trending?.cambodia || []),
+    ...(trending?.world || []),
+  ]
+    .sort((a, b) => (b.views_count || 0) - (a.views_count || 0))
+    .slice(0, 5);
+
+  const discoveries = (discoveryFeed?.items || []).slice(0, 3);
+  const places = (placeFeed?.items || []).filter((place) => place.hero_image_url).slice(0, 4);
+  const popularTools = [...(tools || [])]
+    .sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0))
+    .slice(0, 4);
+
+  const hasContent = Boolean(lead);
 
   return (
-    <div className="bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 font-sans antialiased min-h-screen transition-colors duration-200">
-      {/* 1. BREAKING NEWS TICKER */}
-      {heroArticle && (
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs border-b border-gray-200/80 dark:border-slate-800/80">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-3 text-sm">
-            <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-2.5 py-0.5 rounded-full text-[10px] shrink-0 border border-rose-200/60 dark:border-rose-900/50 shadow-xs">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-pulse-radar absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-600"></span>
-              </span>
-              <span>Breaking</span>
+    <div className="flex w-full flex-1 flex-col">
+      {/* The masthead is the brand, not a page title; the document still needs one. */}
+      <h1 className="sr-only">
+        Today&rsquo;s briefing — Cambodia and world news, travel and discoveries
+      </h1>
+
+      {/* ── Lead ──────────────────────────────────────────────────────────── */}
+      {hasContent && (
+        <Section className="pb-0 pt-8 sm:pt-10">
+          <Container>
+            <div className="grid gap-6 lg:grid-cols-12 lg:gap-8">
+              <div className="lg:col-span-8">
+                <NewsCard article={lead} variant="hero" priority showSummary />
+              </div>
+
+              <div className="flex flex-col gap-6 lg:col-span-4">
+                <p className="section-label text-muted-foreground">Also today</p>
+                {features.map((article) => (
+                  <NewsCard key={article.id} article={article} variant="compact" />
+                ))}
+                <Link
+                  href="/trending"
+                  className="group mt-auto inline-flex items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-foreground"
+                >
+                  Today&rsquo;s full briefing
+                  <ArrowRight
+                    size={15}
+                    className="transition-transform duration-300 group-hover:translate-x-0.5"
+                    aria-hidden="true"
+                  />
+                </Link>
+              </div>
             </div>
-            <Link 
-              href={heroArticle.country === "KH" ? `/cambodia/news/${heroArticle.slug}` : `/world/news/${heroArticle.slug}`}
-              className="font-medium text-gray-700 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 truncate transition-colors text-xs sm:text-sm group flex items-center gap-1.5"
-            >
-              <span className="truncate">{heroArticle.title}</span>
-              <span className="text-gray-400 dark:text-slate-500 group-hover:translate-x-1 transition-transform inline-block">→</span>
-            </Link>
-          </div>
-        </div>
+          </Container>
+        </Section>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* 2. LEAD HERO EDITORIAL STORY */}
-        {heroArticle && (
-          <section className="relative group">
-            {/* Ambient subtle glow */}
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-teal-500/15 via-blue-500/10 to-indigo-500/15 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 -z-10" />
-            
-            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xs border border-gray-200/80 dark:border-slate-800 overflow-hidden transition-all duration-300 group-hover:border-teal-500/30 dark:group-hover:border-teal-500/40">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-0">
-                <div className="lg:col-span-6 p-6 sm:p-10 space-y-5 flex flex-col justify-center order-2 lg:order-1">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
-                    <span className="px-2.5 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950/60 border border-teal-200/60 dark:border-teal-900/50">
-                      {heroArticle.country === "KH" ? "Cambodia" : "World Report"}
-                    </span>
-                    <span className="text-gray-300 dark:text-slate-700">•</span>
-                    <span className="text-gray-500 dark:text-slate-400 font-medium">{heroArticle.source_attribution_text || "Editorial Team"}</span>
-                  </div>
-                  
-                  <Link href={heroArticle.country === "KH" ? `/cambodia/news/${heroArticle.slug}` : `/world/news/${heroArticle.slug}`} className="group/title">
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-gray-900 dark:text-white leading-[1.15] group-hover/title:text-teal-600 dark:group-hover/title:text-teal-400 transition-colors tracking-tight">
-                      {heroArticle.title}
-                    </h1>
-                  </Link>
+      <Container>
+        <AdSlot slot="HOME_TOP" />
+      </Container>
 
-                  {heroArticle.title_km && (
-                    <p className="text-base text-gray-600 dark:text-slate-300 leading-relaxed font-sans font-medium">
-                      {heroArticle.title_km}
-                    </p>
-                  )}
+      {/* ── Latest + most read ────────────────────────────────────────────── */}
+      <Section>
+        <Container>
+          <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
+            <div className="lg:col-span-8">
+              <SectionHeader
+                label="News"
+                title="Latest reporting"
+                actionHref="/cambodia"
+                actionLabel="All Cambodia coverage"
+              />
 
-                  <p className="text-sm sm:text-base text-gray-600 dark:text-slate-300 leading-relaxed line-clamp-3">
-                    {heroArticle.summary}
-                  </p>
-
-                  <div className="pt-4 flex items-center gap-3 text-xs sm:text-sm text-gray-500 dark:text-slate-400 font-medium mt-auto border-t border-gray-100 dark:border-slate-800/80">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-teal-500 to-blue-600 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-xs">
-                       {(heroArticle.author?.name || "E").charAt(0).toUpperCase()}
-                    </div>
-                    <span>By {heroArticle.author?.name || "Senior Editorial Desk"}</span>
-                    <span className="text-gray-300 dark:text-slate-700">•</span>
-                    <span>
-                      {heroArticle.published_at 
-                        ? new Date(heroArticle.published_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) 
-                        : "Today"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="lg:col-span-6 order-1 lg:order-2 overflow-hidden bg-gray-100 dark:bg-slate-800 relative min-h-[300px] lg:min-h-[420px]">
-                  <Link href={heroArticle.country === "KH" ? `/cambodia/news/${heroArticle.slug}` : `/world/news/${heroArticle.slug}`} className="block h-full group/img">
-                    <img
-                      src={heroArticle.hero_image_url || "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80"}
-                      alt={heroArticle.title}
-                      className="absolute inset-0 w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-700 ease-out"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent lg:hidden" />
-                  </Link>
-                </div>
+              <div className="grid gap-6 sm:grid-cols-2">
+                {latest.map((article) => (
+                  <NewsCard key={article.id} article={article} variant="standard" />
+                ))}
               </div>
-            </div>
-          </section>
-        )}
 
-        {/* 3. MAIN 70/30 GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* LEFT COLUMN: Main Stream (70%) */}
-          <div className="lg:col-span-8 space-y-6">
-            <div className="flex items-center justify-between pb-3 border-b-2 border-gray-100 dark:border-slate-800">
-              <h2 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
-                <span>Latest News</span>
-              </h2>
+              {!hasContent && (
+                <p className="py-16 text-center text-sm text-muted-foreground">
+                  No stories are published right now. Check the briefing again shortly.
+                </p>
+              )}
             </div>
 
-            <div className="space-y-4">
-              {secondaryArticles.map((article, idx) => {
-                const url = article.country === "KH" ? `/cambodia/news/${article.slug}` : `/world/news/${article.slug}`;
-                const staggerClass = `stagger-${Math.min((idx % 6) + 1, 6)}`;
-                return (
-                  <article 
-                    key={article.id} 
-                    className={`animate-fade-up ${staggerClass} hover-lift flex flex-col sm:flex-row gap-5 bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl shadow-xs border border-gray-200/80 dark:border-slate-800 group hover:border-teal-500/40 dark:hover:border-teal-500/40 transition-all duration-300`}
-                  >
-                    {/* Thumbnail */}
-                    <Link href={url} className="sm:w-52 shrink-0 block">
-                      <div className="aspect-[4/3] rounded-xl bg-gray-100 dark:bg-slate-800 overflow-hidden relative border border-gray-100 dark:border-slate-800/80">
-                        <img
-                          src={article.hero_image_url || "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=600&q=80"}
-                          alt={article.title}
-                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
-                        />
-                      </div>
-                    </Link>
+            <aside className="lg:col-span-4">
+              <SectionHeader label="Most read" title="What readers opened" />
 
-                    {/* Meta & Heading */}
-                    <div className="flex-1 flex flex-col justify-between py-1">
-                      <div className="space-y-2">
-                        <div className="text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400 flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded-md bg-teal-50 dark:bg-teal-950/60 border border-teal-200/50 dark:border-teal-900/40 text-[10px]">
-                            {article.country === "KH" ? "Cambodia" : "World"}
-                          </span>
-                          {article.category?.name && (
-                            <>
-                              <span className="text-gray-300 dark:text-slate-700">•</span>
-                              <span className="text-gray-500 dark:text-slate-400 font-medium text-[11px]">{article.category.name}</span>
-                            </>
-                          )}
-                        </div>
-
-                        <Link href={url}>
-                          <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors line-clamp-2">
-                            {article.title}
-                          </h3>
-                        </Link>
-
-                        <p className="text-xs sm:text-sm text-gray-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
-                          {article.summary}
-                        </p>
-                      </div>
-
-                      <div className="mt-3 flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400 font-medium">
-                        <span>{article.author?.name || "Editorial Staff"}</span>
-                        <span className="text-gray-300 dark:text-slate-700">•</span>
-                        <span>
-                          {article.published_at 
-                            ? new Date(article.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) 
-                            : "Today"}
+              <ol className="divide-y divide-border">
+                {mostRead.map((item, index) => {
+                  const views = item.views_count > 0 ? formatCount(item.views_count) : null;
+                  const published = formatDate(item.published_at, "medium");
+                  return (
+                    <li key={`${item.id}-${index}`}>
+                      <Link
+                        href={item.url || articleHref({ slug: item.slug, country: "KH" })}
+                        className="group flex items-start gap-4 py-4"
+                      >
+                        <span className="w-6 shrink-0 pt-0.5 font-display text-xl leading-none text-border-strong tabular-nums">
+                          {String(index + 1).padStart(2, "0")}
                         </span>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+                        <span className="min-w-0 flex-1">
+                          <CategoryMark category={categoryKey(item.category)}>
+                            {item.category}
+                          </CategoryMark>
+                          <span className="mt-1.5 block text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-accent">
+                            {cleanText(item.title)}
+                          </span>
+                          {(views || published) && (
+                            <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                              {views && <span>{views} reads</span>}
+                              {views && published && <span aria-hidden="true">·</span>}
+                              {published && <span>{published}</span>}
+                            </span>
+                          )}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ol>
 
-            {/* In-feed Standard AdSlot */}
-            <div className="my-6 rounded-2xl overflow-hidden border border-gray-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs p-4 text-center">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400 dark:text-slate-500 block mb-2">
-                Advertisement
-              </span>
-              <AdSlot slot="HOME_MID" />
-            </div>
+              {mostRead.length === 0 && (
+                <p className="py-8 text-sm text-muted-foreground">
+                  Reading figures appear once stories have been opened.
+                </p>
+              )}
+
+              <AdSlot slot="SIDEBAR" />
+            </aside>
           </div>
+        </Container>
+      </Section>
 
-          {/* RIGHT COLUMN: Sidebar (30%) */}
-          <aside className="lg:col-span-4 space-y-6">
-            {/* Sidebar Top AdSlot */}
-            <div className="rounded-2xl overflow-hidden border border-gray-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs p-4 text-center">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-gray-400 dark:text-slate-500 block mb-2">
-                Advertisement
-              </span>
-              <AdSlot slot="HOME_TOP" />
-            </div>
+      {/* ── Travel ───────────────────────────────────────────────────────── */}
+      {places.length > 0 && (
+        <div className="border-y border-border bg-surface-muted/50">
+          <Section>
+            <Container>
+              <SectionHeader
+                label="Travel"
+                title="Places worth planning around"
+                description="Only places with a photograph we could attribute to the location itself appear here."
+                actionHref="/travel"
+                actionLabel="All guides"
+              />
 
-            {/* Trending Stories */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xs border border-gray-200/80 dark:border-slate-800 p-6 space-y-4">
-              <div className="pb-3 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-teal-500 animate-pulse" />
-                  <h3 className="text-base font-bold text-gray-900 dark:text-white tracking-tight">
-                    Trending Now
-                  </h3>
-                </div>
-              </div>
-
-              <div className="divide-y divide-gray-100 dark:divide-slate-800/80">
-                {trendingList.map((item, idx) => (
-                  <Link 
-                    key={item.id} 
-                    href={item.url || `/cambodia/news/${item.slug}`} 
-                    className="py-3.5 first:pt-1 last:pb-0 flex items-start gap-3.5 group hover:translate-x-1 transition-transform duration-200"
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                {places.map((place) => (
+                  <Link
+                    key={place.id}
+                    href={`/travel/place/${place.slug}`}
+                    className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
                   >
-                    <span className="text-xs font-mono font-black text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/60 border border-teal-200/60 dark:border-teal-900/40 w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                      {String(idx + 1).padStart(2, '0')}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-slate-200 group-hover:text-teal-600 dark:group-hover:text-teal-400 leading-snug line-clamp-2 transition-colors">
-                        {item.title}
-                      </h4>
-                      <div className="mt-1 text-[11px] text-gray-500 dark:text-slate-400 font-medium">
-                        {item.views_count ? `${item.views_count.toLocaleString()} reads` : "Trending story"}
-                      </div>
+                    <Photo
+                      src={place.hero_image_url}
+                      alt={place.name}
+                      ratio="4/3"
+                      radius="none"
+                      showCredit={false}
+                    />
+                    <div className="flex flex-1 flex-col gap-1.5 p-4">
+                      <CategoryMark category="travel" tone="dot">
+                        {place.place_type.toLowerCase().replace(/_/g, " ")}
+                      </CategoryMark>
+                      <h3 className="font-display text-lg leading-snug text-foreground transition-colors group-hover:text-accent">
+                        {place.name}
+                      </h3>
+                      {place.destination?.name && (
+                        <p className="text-xs text-muted-foreground">{place.destination.name}</p>
+                      )}
                     </div>
                   </Link>
                 ))}
               </div>
-            </div>
-
-            {/* Newsletter Subscription Box */}
-            <div className="relative overflow-hidden bg-gradient-to-br from-teal-50/90 via-sky-50/50 to-blue-50/70 dark:from-slate-900 dark:via-slate-900/90 dark:to-teal-950/30 rounded-3xl p-6 text-sm border border-teal-200/50 dark:border-teal-900/40 shadow-xs">
-              <div className="relative z-10 space-y-3">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-teal-600 dark:text-teal-400 bg-white/80 dark:bg-slate-800 px-2.5 py-1 rounded-full border border-teal-200/60 dark:border-teal-800/50 inline-block">
-                  Curated Briefing
-                </span>
-                <h4 className="font-extrabold text-base text-gray-900 dark:text-white leading-tight">
-                  Daily Technology Brief
-                </h4>
-                <p className="text-gray-600 dark:text-slate-300 text-xs leading-relaxed">
-                  The latest in technology, science, and regional discoveries delivered straight to your inbox each morning.
-                </p>
-                <div className="space-y-2 pt-1">
-                  <input 
-                    type="email" 
-                    placeholder="name@company.com" 
-                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-gray-300/80 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500/50 bg-white dark:bg-slate-950 dark:text-white placeholder-gray-400 shadow-2xs" 
-                  />
-                  <button className="w-full bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-500 hover:to-blue-500 text-white font-semibold py-2.5 rounded-xl text-xs transition-all shadow-sm hover:shadow-md hover:scale-[1.01] active:scale-[0.99]">
-                    Subscribe Free
-                  </button>
-                </div>
-              </div>
-            </div>
-          </aside>
+            </Container>
+          </Section>
         </div>
-      </div>
+      )}
+
+      {/* ── Discover ─────────────────────────────────────────────────────── */}
+      {discoveries.length > 0 && (
+        <Section>
+          <Container>
+            <SectionHeader
+              label="Discover"
+              title="Explained, not just reported"
+              actionHref="/discover"
+              actionLabel="All explainers"
+            />
+
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {discoveries.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`/discover/${item.slug}`}
+                  className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
+                >
+                  <Photo
+                    src={item.hero_image_url}
+                    alt={item.hero_image_alt || item.title}
+                    credit={item.hero_image_credit}
+                    ratio="16/9"
+                    radius="none"
+                  />
+                  <div className="flex flex-1 flex-col gap-2.5 p-5">
+                    <CategoryMark category={categoryKey(item.category)}>{item.category}</CategoryMark>
+                    <h3 className="font-display text-xl leading-snug text-foreground transition-colors group-hover:text-accent">
+                      {cleanText(item.title)}
+                    </h3>
+                    <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                      {cleanText(item.intro)}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </Container>
+        </Section>
+      )}
+
+      {/* ── Quiz + tools ──────────────────────────────────────────────────── */}
+      {(quiz || popularTools.length > 0) && (
+        <Section className="pt-0">
+          <Container>
+            <div className="grid gap-6 lg:grid-cols-12">
+              {quiz && (
+                <div className="lg:col-span-7">
+                  <Link
+                    href={`/quiz/${quiz.slug}`}
+                    className="group flex h-full flex-col justify-between gap-6 rounded-lg border border-border bg-card p-6 shadow-xs hover-lift hover:border-border-strong sm:p-8"
+                  >
+                    <div>
+                      <CategoryMark category="quiz" tone="dot">
+                        Daily quiz
+                      </CategoryMark>
+                      <h2 className="mt-3 max-w-xl font-display text-2xl leading-tight tracking-tight text-foreground sm:text-3xl">
+                        {cleanText(quiz.title)}
+                      </h2>
+                      <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
+                        {cleanText(quiz.description)}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5">
+                        <HelpCircle size={14} aria-hidden="true" />
+                        {quiz.questions?.length ?? 0} questions
+                      </span>
+                      {quiz.estimated_minutes > 0 && <span>· about {quiz.estimated_minutes} min</span>}
+                      <span className="ml-auto inline-flex items-center gap-1.5 font-medium text-accent">
+                        Start
+                        <ArrowRight
+                          size={15}
+                          className="transition-transform duration-300 group-hover:translate-x-0.5"
+                          aria-hidden="true"
+                        />
+                      </span>
+                    </div>
+                  </Link>
+                </div>
+              )}
+
+              {popularTools.length > 0 && (
+                <div className="lg:col-span-5">
+                  <div className="flex h-full flex-col rounded-lg border border-border bg-card p-6 shadow-xs sm:p-8">
+                    <CategoryMark category="tools" tone="dot">
+                      Tools
+                    </CategoryMark>
+                    <h2 className="mt-3 font-display text-xl leading-snug tracking-tight text-foreground">
+                      Useful today
+                    </h2>
+                    <ul className="mt-4 divide-y divide-border">
+                      {popularTools.map((tool) => (
+                        <li key={tool.id}>
+                          <Link
+                            href={`/tools/${tool.slug}`}
+                            className="group flex items-center justify-between gap-3 py-3 text-sm"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium text-foreground transition-colors group-hover:text-accent">
+                                {tool.name}
+                              </span>
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {tool.category.toLowerCase()}
+                              </span>
+                            </span>
+                            {tool.usage_count > 0 && (
+                              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                                {formatCount(tool.usage_count)} uses
+                              </span>
+                            )}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                    <Link
+                      href="/tools"
+                      className="group mt-auto inline-flex items-center gap-1.5 pt-4 text-sm font-medium text-accent transition-colors hover:text-foreground"
+                    >
+                      <Compass size={15} className="transition-transform duration-300 group-hover:rotate-12" aria-hidden="true" />
+                      All tools
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Container>
+        </Section>
+      )}
     </div>
   );
 }

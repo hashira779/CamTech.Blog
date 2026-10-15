@@ -1,8 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { DollarSign, Calendar, TrendingUp } from "lucide-react";
+import { FormField, Input } from "@/components/ui/input";
 
+/**
+ * Reducing-balance EMI.
+ *
+ * The formula, the zero-rate branch and the `en-US` currency formatting are the
+ * original ones. Only the three coloured figures are gone: monthly EMI is the
+ * headline on a paper panel and interest/repayment follow in a definition list.
+ */
 export function LoanCalculator() {
   const [amount, setAmount] = useState("10000");
   const [rate, setRate] = useState("8.5");
@@ -24,59 +31,73 @@ export function LoanCalculator() {
   const totalPayment = emi * n;
   const totalInterest = totalPayment - p;
 
+  const money = (value: number) =>
+    value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return (
-    <div className="p-6 sm:p-8 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl max-w-2xl mx-auto space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <label className="text-xs font-semibold text-neutral-500 block mb-1">Loan Amount ($)</label>
-          <input
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <FormField label="Loan amount ($)" id="loan-amount">
+          <Input
+            id="loan-amount"
             type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 font-bold text-sm"
+            className="tabular-nums"
           />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-neutral-500 block mb-1">Annual Interest Rate (%)</label>
-          <input
+        </FormField>
+
+        <FormField label="Annual interest rate (%)" id="loan-rate">
+          <Input
+            id="loan-rate"
             type="number"
+            min="0"
             step="0.1"
+            inputMode="decimal"
             value={rate}
             onChange={(e) => setRate(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 font-bold text-sm"
+            className="tabular-nums"
           />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-neutral-500 block mb-1">Tenure (Months)</label>
-          <input
+        </FormField>
+
+        <FormField label="Tenure (months)" id="loan-months">
+          <Input
+            id="loan-months"
             type="number"
+            min="1"
+            inputMode="numeric"
             value={months}
             onChange={(e) => setMonths(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 font-bold text-sm"
+            className="tabular-nums"
           />
-        </div>
+        </FormField>
       </div>
 
-      <div className="p-6 rounded-2xl bg-neutral-50 dark:bg-neutral-950 border border-neutral-100 dark:border-neutral-800 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
-        <div>
-          <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block">Monthly EMI</span>
-          <span className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1 block">
-            ${emi.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-        </div>
-        <div>
-          <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block">Total Interest</span>
-          <span className="text-2xl font-black text-amber-500 mt-1 block">
-            ${totalInterest.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-        </div>
-        <div>
-          <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block">Total Repayment</span>
-          <span className="text-2xl font-black text-neutral-900 dark:text-white mt-1 block">
-            ${totalPayment.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-        </div>
+      <div className="rounded-lg bg-surface-muted p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Monthly instalment
+        </p>
+        <p className="mt-1.5 font-display text-4xl leading-none tabular-nums text-foreground">
+          ${money(emi)}
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground tabular-nums">
+          {n} instalments on a ${money(p)} loan.
+        </p>
       </div>
+
+      <dl className="divide-y divide-border rounded-lg border border-border">
+        <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+          <dt className="text-sm text-muted-foreground">Total interest</dt>
+          <dd className="text-sm font-semibold tabular-nums text-foreground">${money(totalInterest)}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+          <dt className="text-sm text-muted-foreground">Total repayment</dt>
+          <dd className="text-sm font-semibold tabular-nums text-foreground">${money(totalPayment)}</dd>
+        </div>
+      </dl>
     </div>
   );
 }

@@ -85,7 +85,7 @@ export function WizardShell({
                     {isCompleted ? <Check size={14} /> : idx + 1}
                   </div>
                   <span
-                    className={`mt-1.5 text-[11px] font-medium hidden sm:block ${
+                    className={`mt-1.5 text-xs font-medium hidden sm:block ${
                       isCurrent
                         ? "text-slate-900 dark:text-slate-100 font-semibold"
                         : "text-slate-400 dark:text-slate-500"

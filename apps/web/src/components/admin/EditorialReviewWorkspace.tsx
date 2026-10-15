@@ -110,7 +110,7 @@ export function EditorialReviewWorkspace() {
             <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-900 dark:text-white">
               Ingested Queue ({queue.length})
             </h3>
-            <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
+            <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-xs font-bold">
               Review Needed
             </span>
           </div>
@@ -133,18 +133,18 @@ export function EditorialReviewWorkspace() {
                         : "border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 bg-white dark:bg-neutral-900"
                     }`}
                   >
-                    <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1">
+                    <div className="flex items-center justify-between text-xs text-neutral-400 mb-1">
                       <span className="font-bold uppercase text-neutral-700 dark:text-neutral-300">
                         {item.country === "KH" ? "🇰🇭 Cambodia" : "🌐 World"}
                       </span>
-                      <span className="px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 font-mono text-[9px]">
+                      <span className="px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 font-mono text-xs">
                         {item.status}
                       </span>
                     </div>
                     <h4 className="text-xs font-bold text-neutral-900 dark:text-white line-clamp-2 leading-snug">
                       {item.title}
                     </h4>
-                    <span className="text-[10px] text-neutral-400 mt-1 block truncate">
+                    <span className="text-xs text-neutral-400 mt-1 block truncate">
                       Source: {item.source_name}
                     </span>
                   </div>
@@ -159,7 +159,7 @@ export function EditorialReviewWorkspace() {
           {selectedItem ? (
             <div className="space-y-4 overflow-y-auto pr-1">
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+                <label className="text-xs font-bold uppercase tracking-wider text-neutral-400 block mb-1">
                   Headline
                 </label>
                 <input
@@ -171,7 +171,7 @@ export function EditorialReviewWorkspace() {
               </div>
 
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+                <label className="text-xs font-bold uppercase tracking-wider text-neutral-400 block mb-1">
                   Original Editorial Summary ("What happened?")
                 </label>
                 <textarea
@@ -183,7 +183,7 @@ export function EditorialReviewWorkspace() {
               </div>
 
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+                <label className="text-xs font-bold uppercase tracking-wider text-neutral-400 block mb-1">
                   Editorial Context & Analysis ("Why it matters")
                 </label>
                 <textarea
@@ -195,7 +195,7 @@ export function EditorialReviewWorkspace() {
               </div>
 
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+                <label className="text-xs font-bold uppercase tracking-wider text-neutral-400 block mb-1">
                   Full Article Body
                 </label>
                 <textarea
@@ -259,13 +259,13 @@ export function EditorialReviewWorkspace() {
                     <FileCheck className="h-4 w-4 text-rose-600" />
                     Quality Gate Checklist
                   </span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${selectedItem.quality_gate.can_publish ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'}`}>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${selectedItem.quality_gate.can_publish ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'}`}>
                     {selectedItem.quality_gate.can_publish ? "PASSED" : "PENDING"}
                   </span>
                 </div>
 
                 {selectedItem.quality_gate.missing.length > 0 ? (
-                  <ul className="space-y-1 text-[11px] text-amber-600 dark:text-amber-400">
+                  <ul className="space-y-1 text-xs text-amber-600 dark:text-amber-400">
                     {selectedItem.quality_gate.missing.map((m, idx) => (
                       <li key={idx} className="flex items-start gap-1.5">
                         <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -274,7 +274,7 @@ export function EditorialReviewWorkspace() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
                     <CheckCircle2 className="h-4 w-4" />
                     All required editorial standards, attributions, and checks verified!
                   </p>
@@ -284,7 +284,7 @@ export function EditorialReviewWorkspace() {
               {/* Source Verification Box */}
               <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 space-y-2 text-xs">
                 <div className="flex items-center justify-between text-neutral-400">
-                  <span className="font-bold uppercase text-[10px]">Source Wire</span>
+                  <span className="font-bold uppercase text-xs">Source Wire</span>
                   <span className="text-emerald-500 font-semibold flex items-center gap-1">
                     <ShieldCheck className="h-3.5 w-3.5" /> Verified
                   </span>
@@ -296,7 +296,7 @@ export function EditorialReviewWorkspace() {
                   href={selectedItem.source_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] text-rose-600 hover:underline break-all"
+                  className="inline-flex items-center gap-1 text-xs text-rose-600 hover:underline break-all"
                 >
                   {selectedItem.source_url}
                   <ExternalLink className="h-3 w-3 shrink-0" />
@@ -305,11 +305,11 @@ export function EditorialReviewWorkspace() {
 
               {/* AI Assistance Metadata (Section 10) */}
               <div className="p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 space-y-2 text-xs">
-                <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-bold uppercase text-[10px]">
+                <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-bold uppercase text-xs">
                   <Sparkles className="h-3.5 w-3.5" />
                   AI Synthesis Metadata
                 </div>
-                <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
                   Draft summary and key points were extracted and formatted with strict attribution guidelines.
                   Human editor sign-off required prior to public release.
                 </p>

@@ -1,8 +1,10 @@
 import * as React from "react";
-import { Breadcrumbs, BreadcrumbItem } from "@/components/shared/breadcrumbs";
-import { Clock, Calendar, User, Share2, ShieldCheck, ExternalLink } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { DESIGN_TOKENS } from "@/lib/tokens";
+import { Breadcrumbs, type BreadcrumbItem } from "@/components/shared/breadcrumbs";
+import { Container } from "@/components/ui/container";
+import { Photo } from "@/components/ui/photo";
+import { Byline } from "@/components/ui/byline";
+import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
+import { cleanText, formatDate } from "@/lib/format";
 
 export interface ArticleShellProps {
   breadcrumbs: BreadcrumbItem[];
@@ -13,6 +15,7 @@ export interface ArticleShellProps {
   authorName?: string;
   authorSlug?: string;
   publishedDate?: string;
+  /** Only a measured figure. An unmeasured story shows no read time at all. */
   readingTimeMinutes?: number;
   heroImage?: string;
   heroImageAlt?: string;
@@ -24,14 +27,27 @@ export interface ArticleShellProps {
   relatedContent?: React.ReactNode;
 }
 
+/**
+ * Long-form shell used by guide, place and transport articles.
+ *
+ * Same reading language as the news article page: serif headline in the reading
+ * measure, photograph wider than the text, hairline rules instead of boxes.
+ *
+ * The invented defaults are gone. This component used to sign every story
+ * "Daily Discovery Editorial", print "4 min read" without measuring anything,
+ * and date a story with no timestamp "Recently Updated"; all three now render
+ * nothing when the caller has no value. Body copy is capped at the reading
+ * measure and every hardcoded slate/teal class has been replaced by tokens.
+ */
 export function ArticleShell({
   breadcrumbs,
   category,
   title,
   subtitle,
-  authorName = "Daily Discovery Editorial",
+  authorName,
+  authorSlug,
   publishedDate,
-  readingTimeMinutes = 4,
+  readingTimeMinutes,
   heroImage,
   heroImageAlt,
   imageCredit,
@@ -41,125 +57,122 @@ export function ArticleShell({
   sidebar,
   relatedContent,
 }: ArticleShellProps) {
-  const formattedDate = publishedDate
-    ? new Date(publishedDate).toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      })
-    : "Recently Updated";
+  const author = cleanText(authorName);
+  const publisher = cleanText(sourceName);
+  const dateLabel = formatDate(publishedDate, "long");
+  const credit = cleanText(imageCredit);
+  const hasMeta = Boolean(author || publisher || dateLabel || readingTimeMinutes);
 
   return (
-    <div className="min-h-screen py-6 sm:py-8">
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-        {/* Breadcrumb */}
-        <div className="mb-4">
-          <Breadcrumbs items={breadcrumbs} />
-        </div>
+    <div className="w-full py-8 sm:py-12">
+      <Container className="pb-6">
+        {breadcrumbs.length > 0 && <Breadcrumbs items={breadcrumbs} />}
+      </Container>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-          {/* Main Article Column - Controlled readable width */}
-          <article className="lg:col-span-8 flex flex-col">
-            {/* Category & Metadata Header */}
-            <div className="mb-4">
-              <Badge variant="default" size="md" className="mb-3">
+      <div className={sidebar ? "container-page grid gap-12 lg:grid-cols-12" : "container-page"}>
+        <div className={sidebar ? "lg:col-span-8" : "mx-auto max-w-3xl"}>
+          <header>
+            {cleanText(category) && (
+              <CategoryMark category={categoryKey(category)} tone="dot">
                 {category}
-              </Badge>
+              </CategoryMark>
+            )}
 
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100 leading-tight">
-                {title}
-              </h1>
+            <h1 className="mt-3 font-display text-3xl leading-[1.14] tracking-tight text-foreground sm:text-4xl lg:text-5xl lg:leading-[1.08]">
+              {cleanText(title)}
+            </h1>
 
-              {subtitle && (
-                <p className="mt-3 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed font-normal">
-                  {subtitle}
-                </p>
+            {cleanText(subtitle) && (
+              <p className="mt-4 font-display text-lg leading-snug text-muted-foreground sm:text-xl">
+                {subtitle}
+              </p>
+            )}
+
+            {hasMeta && (
+              <div className="mt-6 border-t border-border pt-4">
+                <Byline
+                  author={author}
+                  authorHref={authorSlug ? `/author/${authorSlug}` : null}
+                  source={publisher}
+                  sourceUrl={sourceUrl}
+                  date={publishedDate}
+                  dateStyle="long"
+                  readingTime={
+                    readingTimeMinutes && readingTimeMinutes > 0 ? readingTimeMinutes : null
+                  }
+                  size="md"
+                />
+              </div>
+            )}
+          </header>
+
+          {heroImage && (
+            <figure className="mt-8">
+              <Photo
+                src={heroImage}
+                alt={cleanText(heroImageAlt) || cleanText(title)}
+                credit={credit}
+                ratio="16/9"
+                radius="hero"
+                priority
+                showCredit={false}
+              />
+              {credit && (
+                <figcaption className="mt-2 text-right text-xs text-muted-foreground">
+                  {credit}
+                </figcaption>
               )}
+            </figure>
+          )}
 
-              {/* Author & Timestamp Bar */}
-              <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-                <div className="flex items-center gap-3">
-                  <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                    <User size={14} className="text-teal-600" />
-                    {authorName}
-                  </span>
-                  <span>•</span>
-                  <time dateTime={publishedDate} className="flex items-center gap-1">
-                    <Calendar size={13} />
-                    {formattedDate}
-                  </time>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    <Clock size={13} />
-                    {readingTimeMinutes} min read
-                  </span>
-                </div>
-              </div>
-            </div>
+          <div className="mt-8 max-w-3xl text-base leading-[1.85] text-foreground">
+            {children}
+          </div>
 
-            {/* Hero Image */}
-            {heroImage && (
-              <figure className="mb-8 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800">
-                <div className={`${DESIGN_TOKENS.aspectRatio.news} w-full overflow-hidden`}>
-                  <img
-                    src={heroImage}
-                    alt={heroImageAlt || title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                {imageCredit && (
-                  <figcaption className="px-4 py-2 text-[11px] text-slate-400 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800/80">
-                    Photo Credit: {imageCredit}
-                  </figcaption>
-                )}
-              </figure>
-            )}
+          {(publisher || sourceUrl) && (
+            <div className="mt-10 flex flex-col gap-3 rounded-lg border border-border bg-card p-5 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                <span className="section-label block text-accent">Source attribution</span>
+                <span className="mt-1.5 block">
+                  {publisher
+                    ? <>Reported against the material published by <span className="font-medium text-card-foreground">{publisher}</span>.</>
+                    : <>Reported against the original publication linked below.</>}
+                </span>
+              </p>
 
-            {/* Reading Column: Strictly capped at max-w-3xl for optimal typography */}
-            <div className="prose prose-slate dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 leading-relaxed space-y-4 sm:text-base">
-              {children}
-            </div>
-
-            {/* Source Attribution Box */}
-            {sourceName && (
-              <div className="mt-8 p-4 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="text-xs text-slate-600 dark:text-slate-400">
-                  <span className="font-semibold text-slate-800 dark:text-slate-200 block mb-0.5">
-                    Source Attribution & Fact Check
-                  </span>
-                  Reported with primary verification from <span className="font-medium">{sourceName}</span>.
-                </div>
-                {sourceUrl && (
-                  <a
-                    href={sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 hover:text-teal-800 dark:text-teal-400 shrink-0"
+              {sourceUrl && (
+                <a
+                  href={sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-md border border-border bg-surface px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:border-border-strong hover:bg-surface-muted"
+                >
+                  View original source
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    className="h-4 w-4"
+                    aria-hidden="true"
                   >
-                    View Original Source
-                    <ExternalLink size={12} />
-                  </a>
-                )}
-              </div>
-            )}
-          </article>
-
-          {/* Secondary Sidebar Column */}
-          {sidebar && (
-            <aside className="lg:col-span-4 space-y-6">
-              {sidebar}
-            </aside>
+                    <path d="M14 4h6v6M20 4l-9 9" />
+                    <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+                  </svg>
+                </a>
+              )}
+            </div>
           )}
         </div>
 
-        {/* Related Content section */}
-        {relatedContent && (
-          <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800">
-            {relatedContent}
-          </div>
-        )}
+        {sidebar && <aside className="lg:col-span-4">{sidebar}</aside>}
       </div>
+
+      {relatedContent && (
+        <div className="mt-14 border-t border-border">
+          <Container className="pt-10">{relatedContent}</Container>
+        </div>
+      )}
     </div>
   );
 }

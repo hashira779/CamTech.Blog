@@ -118,7 +118,7 @@ export function AdminShell({ title, description, actions, children }: AdminShell
         <nav className="flex-1 overflow-y-auto p-3 space-y-6">
           {ADMIN_NAVIGATION.map((group) => (
             <div key={group.label}>
-              <h4 className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5">
+              <h4 className="px-3 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5">
                 {group.label}
               </h4>
               <ul className="space-y-0.5">
@@ -148,7 +148,7 @@ export function AdminShell({ title, description, actions, children }: AdminShell
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="p-3 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+        <div className="p-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400 flex items-center justify-between">
           <span>v1.2.0 • Production</span>
           <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" title="All Services Healthy" />
         </div>

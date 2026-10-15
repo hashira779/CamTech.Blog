@@ -1,23 +1,33 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ShieldCheck, Cookie, X } from "lucide-react";
+import { Cookie, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
+/**
+ * Cookie consent.
+ *
+ * Same two choices and the same stored key, restated on the token palette. The
+ * copy no longer claims compliance with an ad network's policy — it says what
+ * the site actually does: functional cookies plus optional analytics.
+ */
 export function ConsentBanner() {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     const consent = localStorage.getItem("daily_discovery_consent");
     if (!consent) {
-      // Delay display slightly to avoid layout flicker
       const timer = setTimeout(() => setIsVisible(true), 800);
       return () => clearTimeout(timer);
     }
   }, []);
 
   const handleConsent = (choice: "ALL" | "ESSENTIAL") => {
-    localStorage.setItem("daily_discovery_consent", JSON.stringify({ choice, timestamp: new Date().toISOString() }));
+    localStorage.setItem(
+      "daily_discovery_consent",
+      JSON.stringify({ choice, timestamp: new Date().toISOString() })
+    );
     setIsVisible(false);
   };
 
@@ -25,45 +35,55 @@ export function ConsentBanner() {
 
   return (
     <aside
-      aria-label="Cookie consent banner"
-      className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:max-w-lg z-50 p-5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl animate-in slide-in-from-bottom duration-300"
+      aria-label="Cookie consent"
+      className="fixed inset-x-4 bottom-4 z-50 md:inset-x-auto md:right-6 md:w-[26rem]"
     >
-      <div className="flex items-start gap-3">
-        <div className="p-2 bg-emerald-100 dark:bg-emerald-950/60 rounded-xl text-emerald-700 dark:text-emerald-400 shrink-0">
-          <Cookie className="w-5 h-5" />
-        </div>
-        <div className="flex-1 text-xs text-slate-600 dark:text-slate-300">
-          <p className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-1">
-            Privacy & Cookie Preferences
-          </p>
-          <p>
-            We use functional and analytical cookies to ensure fast performance and evaluate editorial readership. We
-            respect your privacy and comply with Google Publisher Policies.
-          </p>
-          <div className="mt-2 flex gap-3 text-[11px] font-semibold">
-            <Link href="/cookie-policy" className="text-emerald-600 dark:text-emerald-400 hover:underline">
-              Cookie Policy
-            </Link>
-            <Link href="/privacy" className="text-emerald-600 dark:text-emerald-400 hover:underline">
-              Privacy Policy
-            </Link>
-          </div>
-        </div>
-      </div>
+      <div className="rounded-lg border border-border bg-surface-elevated p-5 shadow-lg animate-fade-in">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+            <Cookie size={16} aria-hidden="true" />
+          </span>
 
-      <div className="mt-4 flex items-center justify-end gap-2">
-        <button
-          onClick={() => handleConsent("ESSENTIAL")}
-          className="px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-        >
-          Essential Only
-        </button>
-        <button
-          onClick={() => handleConsent("ALL")}
-          className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm"
-        >
-          Accept All
-        </button>
+          <div className="min-w-0 flex-1">
+            <h2 className="font-display text-base font-semibold text-foreground">
+              Cookie preferences
+            </h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+              We use essential cookies to make the site work, and optional
+              analytics cookies to understand which stories readers actually
+              finish.
+            </p>
+            <div className="mt-2.5 flex gap-4 text-sm">
+              <Link
+                href="/cookie-policy"
+                className="text-accent underline-offset-4 hover:underline"
+              >
+                Cookies
+              </Link>
+              <Link href="/privacy" className="text-accent underline-offset-4 hover:underline">
+                Privacy
+              </Link>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleConsent("ESSENTIAL")}
+            aria-label="Dismiss and continue with essential cookies only"
+            className="-mr-1 -mt-1 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <Button size="sm" variant="ghost" onClick={() => handleConsent("ESSENTIAL")}>
+            Essential only
+          </Button>
+          <Button size="sm" variant="primary" onClick={() => handleConsent("ALL")}>
+            Accept all
+          </Button>
+        </div>
       </div>
     </aside>
   );

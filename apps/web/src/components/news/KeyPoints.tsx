@@ -1,26 +1,59 @@
 "use client";
 
-import React from "react";
-import { CheckCircle2 } from "lucide-react";
+import * as React from "react";
 import { useI18n } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
+import { cleanText } from "@/lib/format";
 
-export function KeyPoints({ points }: { points: string[] }) {
+export interface KeyPointsProps {
+  points?: string[] | null;
+  className?: string;
+}
+
+/**
+ * The "Key points" brief.
+ *
+ * It used to sit in a rose pill box with 12px rose text. It is now the same
+ * hairline card as the timeline and the attribution box, so the four article
+ * modules read as one family. Entries arrive from the ingestion pipeline as a
+ * JSON string; anything that cleans down to an empty line is dropped, and when
+ * nothing survives the component renders no frame at all.
+ */
+export function KeyPoints({ points, className }: KeyPointsProps) {
   const { t } = useI18n();
-  if (!points || points.length === 0) return null;
+
+  const items = (Array.isArray(points) ? points : [])
+    .map((point) => cleanText(typeof point === "string" ? point : ""))
+    .filter(Boolean);
+
+  if (items.length === 0) return null;
+
+  const label = cleanText(t("article.key_points"));
 
   return (
-    <div className="rounded-2xl border border-rose-100 dark:border-rose-950/40 bg-rose-50/40 dark:bg-rose-950/10 p-5 sm:p-6 my-6">
-      <h3 className="text-xs font-bold uppercase tracking-widest text-rose-600 dark:text-rose-400 mb-3 flex items-center gap-2">
-        <span>{t("article.key_points")}</span>
-      </h3>
-      <ul className="space-y-2.5">
-        {points.map((pt, idx) => (
-          <li key={idx} className="flex items-start gap-3 text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed">
-            <CheckCircle2 className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-            <span>{pt}</span>
+    <section
+      aria-label={label}
+      className={cn(
+        "rounded-lg border border-border bg-card p-5 shadow-xs sm:p-6",
+        className
+      )}
+    >
+      <h3 className="section-label text-accent">{label}</h3>
+
+      <ul className="mt-4 space-y-3">
+        {items.map((point, index) => (
+          <li
+            key={index}
+            className="flex gap-3 text-sm leading-relaxed text-card-foreground sm:text-base sm:leading-[1.75]"
+          >
+            <span
+              aria-hidden="true"
+              className="mt-3 h-px w-5 shrink-0 bg-border-strong"
+            />
+            <span>{point}</span>
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 }

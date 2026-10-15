@@ -11,6 +11,7 @@ from app.ingestion.rss_fetcher import fetch_rss_feed
 from app.deduplication.detector import detect_duplicates
 from app.ai.provider import get_ai_provider
 from app.services.auth_service import require_admin
+from app.services.filing import strip_brand_suffix
 from app.models.user import User
 
 router = APIRouter(prefix="/sources", tags=["Sources"])
@@ -103,7 +104,7 @@ async def fetch_source_now(source_id: str, db: Session = Depends(get_db), user: 
                 primary_source_url=item["url"],
                 source_attribution_text=source.name,
                 status="AI_DRAFT",  # Lands strictly in editorial review queue!
-                seo_title=draft["seo_title"],
+                seo_title=strip_brand_suffix(draft["seo_title"]),
                 seo_description=draft["seo_description"]
             )
             db.add(new_article)

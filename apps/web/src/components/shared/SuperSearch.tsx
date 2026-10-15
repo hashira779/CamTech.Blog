@@ -1,248 +1,339 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { Search, X, Loader2, FileText, Compass, HelpCircle, Wrench, ArrowRight, Sparkles, CalendarDays, BookOpen, User } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Search,
+  X,
+  Loader2,
+  FileText,
+  Compass,
+  HelpCircle,
+  Wrench,
+  ArrowRight,
+  CalendarDays,
+  BookOpen,
+  User,
+  Sparkles,
+} from "lucide-react";
 import { searchGlobal } from "@/lib/api";
 import { SearchResultItem } from "@/types";
+import { useI18n, type Language } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
+import { cleanText } from "@/lib/format";
+
+/**
+ * Command palette search.
+ *
+ * Restyled onto the token palette, and the footer legend that used to promise
+ * "↑↓ to navigate" now actually works — arrow keys move a visible highlight and
+ * Enter opens the highlighted result. Quick links come from the real navigation
+ * table instead of a second invented list, and result marks reuse the same
+ * category hues as the rest of the site.
+ */
+const QUICK_LINKS: { href: string; key: string; Icon: typeof Compass }[] = [
+  { href: "/travel", key: "nav.travel", Icon: Compass },
+  { href: "/quiz", key: "nav.quiz", Icon: HelpCircle },
+  { href: "/tools", key: "nav.tools", Icon: Wrench },
+  { href: "/discover", key: "nav.discover", Icon: Sparkles },
+];
+
+function iconFor(type: string) {
+  switch (type.toLowerCase()) {
+    case "article":
+      return { Icon: FileText, mark: "text-category-news" };
+    case "place":
+    case "destination":
+    case "travel":
+      return { Icon: Compass, mark: "text-category-travel" };
+    case "quiz":
+      return { Icon: HelpCircle, mark: "text-category-quiz" };
+    case "tool":
+      return { Icon: Wrench, mark: "text-category-tools" };
+    case "discovery":
+      return { Icon: Sparkles, mark: "text-category-discover" };
+    case "guide":
+      return { Icon: BookOpen, mark: "text-category-travel" };
+    case "event":
+      return { Icon: CalendarDays, mark: "text-category-breaking" };
+    case "author":
+      return { Icon: User, mark: "text-muted-foreground" };
+    default:
+      return { Icon: Search, mark: "text-muted-foreground" };
+  }
+}
+
+function titleFor(item: SearchResultItem, lang: Language) {
+  return (lang === "km" && item.title_km ? item.title_km : item.title) || item.title;
+}
 
 export function SuperSearch() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchResultItem[]>([]);
+  const [active, setActive] = useState(0);
   const router = useRouter();
+  const { lang, t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setIsOpen((prev) => !prev);
       }
-      if (e.key === "Escape") {
-        setIsOpen(false);
-      }
+      if (e.key === "Escape") setIsOpen(false);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 100);
-    } else {
-      setQuery("");
-      setResults([]);
+    if (isOpen) {
+      const timer = setTimeout(() => inputRef.current?.focus(), 60);
+      return () => clearTimeout(timer);
     }
+    setQuery("");
+    setResults([]);
+    setActive(0);
   }, [isOpen]);
 
   useEffect(() => {
     const timer = setTimeout(async () => {
-      if (query.trim().length >= 2) {
-        setLoading(true);
-        const data = await searchGlobal(query.trim());
-        setResults(data.results || []);
-        setLoading(false);
-      } else {
+      const term = query.trim();
+      if (term.length < 2) {
         setResults([]);
+        setLoading(false);
+        return;
       }
+      setLoading(true);
+      const data = await searchGlobal(term);
+      setResults(data.results || []);
+      setActive(0);
+      setLoading(false);
     }, 300);
     return () => clearTimeout(timer);
   }, [query]);
 
-  const handleResultClick = (url: string) => {
-    setIsOpen(false);
-    router.push(url);
-  };
+  const go = useCallback(
+    (url: string) => {
+      setIsOpen(false);
+      router.push(url);
+    },
+    [router]
+  );
 
-  const getIcon = (type: string) => {
-    switch (type.toLowerCase()) {
-      case "article":
-      case "news":
-        return <FileText className="w-4 h-4 text-blue-500" />;
-      case "place":
-      case "destination":
-      case "travel":
-        return <Compass className="w-4 h-4 text-amber-500" />;
-      case "quiz":
-        return <HelpCircle className="w-4 h-4 text-green-500" />;
-      case "tool":
-        return <Wrench className="w-4 h-4 text-purple-500" />;
-      case "discovery":
-        return <Sparkles className="w-4 h-4 text-blue-500" />;
-      case "guide":
-        return <BookOpen className="w-4 h-4 text-teal-500" />;
-      case "event":
-        return <CalendarDays className="w-4 h-4 text-rose-500" />;
-      case "author":
-        return <User className="w-4 h-4 text-indigo-500" />;
-      default:
-        return <Search className="w-4 h-4 text-gray-500" />;
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!results.length) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive((i) => (i + 1) % results.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((i) => (i - 1 + results.length) % results.length);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const item = results[active];
+      if (item) go(item.url);
     }
   };
+
+  // Keep the highlighted row inside the scroll box while arrowing.
+  useEffect(() => {
+    const box = listRef.current;
+    if (!box) return;
+    const row = box.querySelector<HTMLElement>(`[data-index="${active}"]`);
+    row?.scrollIntoView({ block: "nearest" });
+  }, [active]);
+
+  const summaryCount = useMemo(() => results.length, [results]);
 
   return (
     <>
       <button
+        type="button"
         onClick={() => setIsOpen(true)}
-        className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white bg-neutral-100 dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg transition-colors w-48 lg:w-64"
+        className="hidden w-56 items-center gap-2 rounded-md border border-border bg-surface-muted/70 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground md:flex lg:w-64"
       >
-        <Search className="w-4 h-4" />
-        <span className="flex-1 text-left">Search everything...</span>
-        <kbd className="hidden sm:inline-flex items-center gap-1 px-1.5 font-mono text-[10px] font-medium text-neutral-500 dark:text-neutral-400 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded opacity-100">
-          <span className="text-xs">⌘</span>K
+        <Search size={15} aria-hidden="true" />
+        <span className="flex-1 text-left">{t("common.search")}</span>
+        <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 font-sans text-xs text-muted-foreground">
+          Ctrl K
         </kbd>
       </button>
 
       <button
+        type="button"
         onClick={() => setIsOpen(true)}
-        className="md:hidden p-2 text-neutral-600 dark:text-neutral-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-neutral-800 rounded-full transition-colors"
+        aria-label={t("common.search")}
+        className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
       >
-        <Search size={20} />
+        <Search size={18} />
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-16 sm:pt-24 px-4 pb-4">
+        <div
+          className="fixed inset-0 z-[100] flex items-start justify-center px-4 pb-4 pt-4 sm:pt-20"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("nav.search_placeholder")}
+        >
           <div
-            className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity"
+            className="fixed inset-0 bg-foreground/30 backdrop-blur-sm"
             onClick={() => setIsOpen(false)}
+            aria-hidden="true"
           />
-          
-          <div className="relative w-full max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-              <Search className="w-5 h-5 text-gray-400 mr-3" />
+
+          <div className="relative flex w-full max-w-xl flex-col overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
+            <div className="flex items-center gap-3 border-b border-border px-4">
+              <Search size={17} className="shrink-0 text-muted-foreground" aria-hidden="true" />
               <input
                 ref={inputRef}
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search across articles, places, quizzes, tools..."
-                className="flex-1 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400 text-base py-2 outline-none"
+                onKeyDown={onKeyDown}
+                placeholder={t("nav.search_placeholder")}
+                aria-label={t("common.search")}
+                autoComplete="off"
+                className="h-12 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
               />
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                aria-label="Close search"
+                className="-mr-1 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
-                <X className="w-5 h-5" />
+                <X size={16} />
               </button>
             </div>
 
-            <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
+            <div ref={listRef} className="max-h-[58vh] overflow-y-auto overscroll-contain p-2">
               {loading && (
-                <div className="flex items-center justify-center p-8 text-gray-500">
-                  <Loader2 className="w-6 h-6 animate-spin mr-2" />
-                  <span>Searching the entire system...</span>
+                <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+                  <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                  Searching…
                 </div>
               )}
 
-              {!loading && query.length > 0 && query.length < 2 && (
-                <div className="p-8 text-center text-sm text-gray-500">
-                  Type at least 2 characters to search...
-                </div>
+              {!loading && query.length > 0 && query.trim().length < 2 && (
+                <p className="py-10 text-center text-sm text-muted-foreground">
+                  Type at least two characters.
+                </p>
               )}
 
-              {!loading && query.length >= 2 && results.length === 0 && (
-                <div className="p-12 text-center">
-                  <Search className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-900 dark:text-white font-medium">No results found</p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Try searching for something else like &ldquo;Cambodia&rdquo; or &ldquo;Quiz&rdquo;
+              {!loading && query.trim().length >= 2 && results.length === 0 && (
+                <div className="px-4 py-12 text-center">
+                  <p className="font-display text-base text-foreground">
+                    Nothing found for “{query.trim()}”
+                  </p>
+                  <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-muted-foreground">
+                    Try a place name, a topic, or the source you read it on.
                   </p>
                 </div>
               )}
 
               {!loading && results.length > 0 && (
-                <div className="p-2 space-y-1">
-                  <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Search Results
-                  </div>
-                  {results.map((item) => (
+                <>
+                  <p className="section-label px-2 py-2 text-muted-foreground">
+                    {summaryCount} result{summaryCount === 1 ? "" : "s"}
+                  </p>
+                  <ul className="space-y-0.5">
+                    {results.map((item, index) => {
+                      const { Icon, mark } = iconFor(item.type);
+                      const isActiveRow = index === active;
+                      return (
+                        <li key={`${item.type}-${item.id}`}>
+                          <button
+                            type="button"
+                            data-index={index}
+                            onClick={() => go(item.url)}
+                            onMouseMove={() => setActive(index)}
+                            className={cn(
+                              "flex w-full items-start gap-3 rounded-md px-2.5 py-2.5 text-left transition-colors",
+                              isActiveRow ? "bg-muted" : "hover:bg-muted/60"
+                            )}
+                          >
+                            <Icon
+                              size={16}
+                              aria-hidden="true"
+                              className={cn("mt-0.5 shrink-0", mark)}
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-baseline gap-2">
+                                <span className="truncate text-sm font-medium text-foreground">
+                                  {titleFor(item, lang)}
+                                </span>
+                                <span className="shrink-0 text-xs uppercase tracking-[0.08em] text-muted-foreground">
+                                  {item.type.toLowerCase()}
+                                </span>
+                              </span>
+                              {item.summary && (
+                                <span className="mt-0.5 line-clamp-1 block text-sm text-muted-foreground">
+                                  {cleanText(item.summary)}
+                                </span>
+                              )}
+                            </span>
+                            <ArrowRight
+                              size={15}
+                              aria-hidden="true"
+                              className={cn(
+                                "mt-1 shrink-0 transition-opacity",
+                                isActiveRow ? "text-accent opacity-100" : "opacity-0"
+                              )}
+                            />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+
+                  <div className="mt-2 border-t border-border pt-2">
                     <button
-                      key={item.id}
-                      onClick={() => handleResultClick(item.url)}
-                      className="w-full text-left flex items-start gap-3 p-3 hover:bg-blue-50 dark:hover:bg-gray-800 rounded-xl transition-colors group"
+                      type="button"
+                      onClick={() =>
+                        go(`/search?q=${encodeURIComponent(query.trim())}`)
+                      }
+                      className="w-full rounded-md px-2.5 py-2 text-sm font-medium text-accent transition-colors hover:bg-muted"
                     >
-                      <div className="mt-0.5 p-1.5 bg-white dark:bg-gray-700 rounded-md shadow-sm border border-gray-100 dark:border-gray-600">
-                        {getIcon(item.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-gray-900 dark:text-white truncate">
-                            {item.title}
-                          </span>
-                          <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded">
-                            {item.type}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-500 line-clamp-1 mt-0.5">
-                          {item.summary}
-                        </p>
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 mt-2 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+                      {t("home.view_all")}
                     </button>
-                  ))}
-                  
-                  {results.length > 0 && (
-                    <div className="px-3 pt-3 pb-1 border-t border-gray-100 dark:border-gray-800 mt-2">
-                      <button 
-                        onClick={() => {
-                          setIsOpen(false);
-                          router.push(`/search?q=${encodeURIComponent(query)}`);
-                        }}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-medium w-full text-center py-2"
-                      >
-                        View all results in search page &rarr;
-                      </button>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                </>
               )}
 
-              {!query && (
-                <div className="p-2">
-                  <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Quick Links
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 p-2">
-                    {[
-                      { title: "Travel & Guides", url: "/travel", icon: Compass, color: "text-amber-500" },
-                      { title: "Daily Quiz", url: "/quiz", icon: HelpCircle, color: "text-green-500" },
-                      { title: "Tools & Utilities", url: "/tools", icon: Wrench, color: "text-purple-500" },
-                      { title: "Discoveries", url: "/discover", icon: Sparkles, color: "text-blue-500" }
-                    ].map((link) => (
-                      <button
-                        key={link.title}
-                        onClick={() => handleResultClick(link.url)}
-                        className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-800 hover:border-blue-200 hover:bg-blue-50 dark:hover:bg-gray-800 transition-colors text-left"
-                      >
-                        <link.icon className={`w-5 h-5 ${link.color}`} />
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {link.title}
-                        </span>
-                      </button>
+              {!query && !loading && (
+                <div>
+                  <p className="section-label px-2 py-2 text-muted-foreground">Browse</p>
+                  <ul className="grid grid-cols-1 gap-0.5 sm:grid-cols-2">
+                    {QUICK_LINKS.map(({ href, key, Icon }) => (
+                      <li key={href}>
+                        <button
+                          type="button"
+                          onClick={() => go(href)}
+                          className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-muted"
+                        >
+                          <Icon size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+                          {t(key)}
+                        </button>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
               )}
             </div>
-            
-            <div className="bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800 px-4 py-2.5 flex items-center justify-between text-xs text-gray-500">
-              <div className="flex items-center gap-4">
-                <span className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 font-sans">↑</kbd>
-                  <kbd className="px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 font-sans">↓</kbd>
-                  <span className="ml-1">to navigate</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 font-sans">Enter</kbd>
-                  <span className="ml-1">to select</span>
-                </span>
-              </div>
-              <div className="font-semibold text-blue-600 flex items-center gap-1">
-                <Sparkles className="w-3 h-3" />
-                Super Search
-              </div>
+
+            <div className="flex items-center justify-between border-t border-border bg-surface-muted/60 px-4 py-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 font-sans">↑</kbd>
+                <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 font-sans">↓</kbd>
+                to navigate
+                <kbd className="ml-2 rounded border border-border bg-surface px-1.5 py-0.5 font-sans">Enter</kbd>
+                to open
+              </span>
+              <span className="tabular-nums">{t("common.search")}</span>
             </div>
           </div>
         </div>

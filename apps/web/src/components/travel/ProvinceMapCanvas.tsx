@@ -59,27 +59,47 @@ function popupHtml(place: MapPlacePoint): string {
   );
 }
 
+/**
+ * Leaflet paints its own DOM (markers, popups, zoom control, attribution), so none of it can
+ * carry Tailwind classes. Every colour below is read from the tokens in `globals.css` instead of
+ * a raw hex, which is what makes the map follow the light/dark switch — the values resolve again
+ * whenever `.dark` / `[data-theme="dark"]` changes, without this component re-rendering.
+ * The 10px / 11px type from the old inline block is raised to the 12px floor the site uses.
+ */
 const MAP_CSS = `
-.pd-map { background: #f4f4f5; }
+.pd-map { background: var(--surface-muted); }
 .pd-pin { background: transparent; border: none; }
 .pd-pin__dot {
   display: block; width: 16px; height: 16px; border-radius: 9999px;
-  background: #059669; border: 2px solid #ffffff;
-  box-shadow: 0 1px 6px rgba(0,0,0,.35);
+  background: var(--accent); border: 2px solid var(--surface);
+  box-shadow: 0 1px 4px color-mix(in oklab, var(--foreground) 30%, transparent);
 }
 .pd-pin__dot:hover { transform: scale(1.2); }
-.leaflet-container { font: inherit; }
-.leaflet-popup-content-wrapper { border-radius: 14px; }
+.leaflet-container { font: inherit; background: var(--surface-muted); }
+.leaflet-bar, .leaflet-bar a { border-color: var(--border); }
+.leaflet-bar a { background: var(--surface); color: var(--foreground); }
+.leaflet-bar a:hover { background: var(--surface-elevated); color: var(--accent); }
+.leaflet-control-attribution {
+  background: color-mix(in oklab, var(--surface) 82%, transparent);
+  color: var(--muted-foreground);
+}
+.leaflet-control-attribution a { color: var(--accent); }
+.leaflet-popup-content-wrapper {
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: var(--shadow-md);
+}
+.leaflet-popup-tip { background: var(--surface); }
 .leaflet-popup-content { margin: 12px 14px; }
+.leaflet-popup-close-button { color: var(--muted-foreground); }
 .pd-pop { display: flex; flex-direction: column; gap: 3px; min-width: 168px; }
-.pd-pop__type { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #71717a; }
-.pd-pop__name { font-size: 14px; font-weight: 700; color: #18181b; text-decoration: none; }
-.pd-pop__name:hover { text-decoration: underline; }
-.pd-pop__coord { font-size: 11px; color: #52525b; font-variant-numeric: tabular-nums; }
-.pd-pop__cta { margin-top: 4px; font-size: 12px; font-weight: 600; color: #047857; text-decoration: none; }
+.pd-pop__type { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-foreground); }
+.pd-pop__name { font-size: 14px; font-weight: 700; color: var(--foreground); text-decoration: none; }
+.pd-pop__name:hover { color: var(--accent); text-decoration: underline; }
+.pd-pop__coord { font-size: 12px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+.pd-pop__cta { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--accent); text-decoration: none; }
 .pd-pop__cta:hover { text-decoration: underline; }
-.dark .pd-pop__name { color: #fafafa; }
-.dark .leaflet-popup-content-wrapper, .dark .leaflet-popup-tip { background: #18181b; color: #fafafa; }
 `;
 
 export default function ProvinceMapCanvas({

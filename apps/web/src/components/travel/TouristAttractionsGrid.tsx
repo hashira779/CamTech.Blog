@@ -2,18 +2,11 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import {
-  MapPin,
-  Star,
-  ArrowRight,
-  Sparkles,
-  Compass,
-  Landmark,
-  Waves,
-  Mountain,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowRight, Compass, Landmark, Waves, Mountain, ShieldCheck } from "lucide-react";
 import { Place } from "@/types";
+import { Photo } from "@/components/ui/photo";
+import { CategoryMark } from "@/components/ui/category-mark";
+import { humanize } from "@/lib/format";
 import travelConfig from "@/data/travel_config.json";
 
 interface TouristAttractionsGridProps {
@@ -32,6 +25,15 @@ const FILTER_TABS = travelConfig.attraction_filter_tabs.map((tab) => ({
   icon: TAB_ICONS[tab.icon] || Compass,
 }));
 
+/**
+ * The landmarks rail.
+ *
+ * Two honesty fixes beyond the palette. The seeded `rating` / `review_count` columns used to be
+ * printed as stars with a "4.90" default when the value was missing — they are not reader feedback,
+ * so they are gone. The footer also claimed "Open Daily" and a "$$" price for every card, and only
+ * a handful of records carry opening hours at all; a card now states only what its row carries and
+ * says so quietly when a field is absent.
+ */
 export function TouristAttractionsGrid({ places }: TouristAttractionsGridProps) {
   const [activeFilter, setActiveFilter] = useState("ALL");
 
@@ -41,138 +43,125 @@ export function TouristAttractionsGrid({ places }: TouristAttractionsGridProps) 
       return places.filter((p) => p.place_type === "TEMPLE");
     }
     if (activeFilter === "NATURE") {
-      return places.filter((p) =>
-        ["WATERFALL", "NATIONAL_PARK", "LAKE"].includes(p.place_type)
-      );
+      return places.filter((p) => ["WATERFALL", "NATIONAL_PARK", "LAKE"].includes(p.place_type));
     }
     if (activeFilter === "BEACH") {
-      return places.filter((p) =>
-        ["BEACH", "RESORT"].includes(p.place_type)
-      );
+      return places.filter((p) => ["BEACH", "RESORT"].includes(p.place_type));
     }
     return places;
   }, [places, activeFilter]);
 
   return (
-    <div className="space-y-6">
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        {FILTER_TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeFilter === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveFilter(tab.id)}
-              className={`
-                inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap
-                transition-all duration-200 cursor-pointer
-                ${
+    <div className="space-y-8">
+      <div className="no-scrollbar -mx-2 overflow-x-auto px-2">
+        <div
+          role="tablist"
+          aria-label="Filter attractions by type"
+          className="flex w-max items-center gap-2"
+        >
+          {FILTER_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveFilter(tab.id)}
+                className={`inline-flex min-h-8 items-center gap-2 whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                   isActive
-                    ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-bold shadow-xs"
-                    : "bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                }
-              `}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+                    ? "border-transparent bg-primary text-primary-foreground"
+                    : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Responsive Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {filteredPlaces.map((place, i) => (
-          <Link
-            key={`${activeFilter}-${place.id || place.slug}`}
-            href={`/travel/place/${place.slug}`}
-            style={{ animationDelay: `${(i % 8) * 0.05}s` }}
-            className="animate-fade-up group rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col h-full"
-          >
-            {/* Visual Aspect Ratio */}
-            <div className="relative aspect-[4/3] overflow-hidden bg-zinc-800">
-              {place.hero_image_url ? (
-                <img
+      {filteredPlaces.length === 0 ? (
+        <p className="border-y border-border py-12 text-center text-sm text-muted-foreground">
+          Nothing in this category has been verified yet.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {filteredPlaces.map((place) => (
+            <article
+              key={`${activeFilter}-${place.id || place.slug}`}
+              className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
+            >
+              <Link href={`/travel/place/${place.slug}`} aria-label={place.name} className="block">
+                <Photo
                   src={place.hero_image_url}
                   alt={place.name}
-                  loading={i < 4 ? "eager" : "lazy"}
-                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                  ratio="4/3"
+                  radius="none"
+                  showCredit={false}
+                  placeholderLabel="Photo not verified yet"
                 />
-              ) : (
-                <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
-                  <Landmark className="h-8 w-8 text-zinc-600" />
-                </div>
-              )}
+              </Link>
 
-              {/* Gradient Vignette */}
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent opacity-70" />
-
-              {/* Floating Badges */}
-              <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1.5">
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-zinc-950/80 backdrop-blur-md text-zinc-200 border border-zinc-700/60">
-                  {place.place_type}
-                </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-950/80 backdrop-blur-md text-zinc-300 border border-zinc-700/60">
-                  <ShieldCheck className="h-3 w-3 text-zinc-300" /> Verified
-                </span>
-              </div>
-
-              {/* Destination Pill at Bottom Left */}
-              <div className="absolute bottom-2.5 left-3">
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-200 drop-shadow-xs">
-                  <MapPin className="h-3 w-3 text-zinc-400" />
-                  {place.destination?.name || "Cambodia"}
-                </span>
-              </div>
-            </div>
-
-            {/* Card Content Body */}
-            <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
-              <div>
-                {/* Rating & Review */}
-                <div className="flex items-center gap-1.5 text-xs text-amber-500 mb-1.5">
-                  <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                  <span className="font-bold text-zinc-900 dark:text-zinc-100">
-                    {place.rating ? place.rating.toFixed(2) : "4.90"}
-                  </span>
-                  {place.review_count && (
-                    <span className="text-[11px] text-zinc-400">
-                      ({place.review_count.toLocaleString()})
+              <div className="flex flex-1 flex-col gap-2 p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <CategoryMark category="travel" tone="dot">
+                    {humanize(place.place_type)}
+                  </CategoryMark>
+                  {place.verification_status && (
+                    <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                      <ShieldCheck size={13} aria-hidden="true" className="text-success" />
+                      {humanize(place.verification_status.toLowerCase())}
                     </span>
                   )}
                 </div>
 
-                {/* Place Name */}
-                <h3 className="text-base font-bold text-zinc-900 dark:text-white leading-snug group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors line-clamp-1">
-                  {place.name}
+                <h3 className="font-display text-lg leading-snug tracking-tight text-foreground">
+                  <Link
+                    href={`/travel/place/${place.slug}`}
+                    className="line-clamp-2 transition-colors hover:text-accent"
+                  >
+                    {place.name}
+                  </Link>
                 </h3>
+
                 {place.local_name && (
-                  <p className="text-xs text-zinc-500 font-khmer mt-0.5 line-clamp-1">
-                    {place.local_name}
+                  <p className="text-xs text-muted-foreground">{place.local_name}</p>
+                )}
+
+                {place.description && (
+                  <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                    {place.description}
                   </p>
                 )}
 
-                {/* Description */}
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2 mt-2 leading-relaxed">
-                  {place.description}
-                </p>
+                <div className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-3 text-xs">
+                  <span className="min-w-0 truncate text-muted-foreground">
+                    {place.opening_hours
+                      ? place.opening_hours
+                      : place.address
+                        ? place.address
+                        : "Address not recorded"}
+                  </span>
+                  <Link
+                    href={`/travel/place/${place.slug}`}
+                    className="inline-flex shrink-0 items-center gap-1 font-semibold text-accent transition-colors hover:text-foreground"
+                  >
+                    View
+                    <ArrowRight
+                      size={14}
+                      aria-hidden="true"
+                      className="transition-transform duration-300 group-hover:translate-x-0.5"
+                    />
+                  </Link>
+                </div>
               </div>
-
-              {/* Footer Action */}
-              <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs">
-                <span className="text-zinc-400 text-[11px]">
-                  {place.price_level || "$$"} · Open Daily
-                </span>
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100 group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
-                  View Place
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </span>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
+            </article>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

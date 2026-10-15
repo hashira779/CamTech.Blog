@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import React, { useMemo, useState } from "react";
-import { Crosshair, MapPin, ExternalLink } from "lucide-react";
+import { ArrowRight, Crosshair, MapPin, ExternalLink } from "lucide-react";
 
 export interface MapPlacePoint {
   slug: string;
@@ -26,7 +26,7 @@ interface ProvinceMapProps {
 const ProvinceMapCanvas = dynamic(() => import("./ProvinceMapCanvas"), {
   ssr: false,
   loading: () => (
-    <div className="h-full w-full animate-pulse bg-neutral-200 dark:bg-neutral-800" />
+    <div className="h-full w-full animate-pulse bg-surface-muted" />
   ),
 });
 
@@ -38,6 +38,14 @@ function isGeocoded(place: MapPlacePoint): boolean {
   return !(latitude === 0 && longitude === 0);
 }
 
+/**
+ * The province map.
+ *
+ * Leaflet + OpenStreetMap are unchanged — same tile layer, same marker/fitBounds logic, same
+ * fly-to interaction from the companion list. Only the surrounding chrome was restyled, and the
+ * colours that used to be hardcoded inside the canvas now come from the theme tokens, so the map
+ * flips with light/dark. Every count shown here is a real count of the rows this province carries.
+ */
 export default function ProvinceMap({
   places,
   destinationName,
@@ -60,30 +68,39 @@ export default function ProvinceMap({
   }
 
   return (
-    <section className="rounded-3xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
-      <div className="p-6 border-b border-neutral-100 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <section
+      aria-label={`Map of ${destinationName}`}
+      className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
+    >
+      <header className="flex flex-col gap-4 border-b border-border p-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-zinc-500" /> Map of {destinationName}
+          <span className="section-label inline-flex items-center gap-1.5 text-accent">
+            <MapPin size={13} aria-hidden="true" />
+            OpenStreetMap
+          </span>
+          <h2 className="mt-2 font-display text-xl leading-tight tracking-tight text-foreground">
+            Map of {destinationName}
           </h2>
-          <p className="text-xs text-neutral-500 mt-1">
+          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted-foreground">
             {geocoded.length > 0
               ? "Every directory entry with stored GPS coordinates, plotted on open OpenStreetMap data."
               : `No place in ${destinationName} has stored coordinates yet.`}
           </p>
         </div>
-        <div className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
-          {geocoded.length} of {totalPlaces} places mapped
-        </div>
-      </div>
+
+        <p className="shrink-0 text-sm font-medium tabular-nums text-muted-foreground">
+          <span className="font-display text-2xl leading-none text-foreground">
+            {geocoded.length}
+          </span>{" "}
+          of {totalPlaces} places mapped
+        </p>
+      </header>
 
       {geocoded.length === 0 ? (
-        <div className="p-8 text-center">
-          <Crosshair className="h-7 w-7 mx-auto text-zinc-400" />
-          <p className="mt-3 text-sm font-semibold text-neutral-800 dark:text-neutral-200">
-            No verified coordinates yet
-          </p>
-          <p className="mt-1 text-xs text-neutral-500 max-w-md mx-auto leading-relaxed">
+        <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
+          <Crosshair size={24} strokeWidth={1.5} aria-hidden="true" className="text-border-strong" />
+          <p className="mt-1 font-display text-lg text-foreground">No verified coordinates yet</p>
+          <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
             Coordinates are added per place by editors. The {totalPlaces} place
             {totalPlaces === 1 ? "" : "s"} for {destinationName}{" "}
             {totalPlaces === 1 ? "is" : "are"} still listed in the grid below.
@@ -91,7 +108,7 @@ export default function ProvinceMap({
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="relative h-80 sm:h-96 lg:h-[440px] bg-neutral-100 dark:bg-neutral-800">
+          <div className="relative h-80 border-b border-border bg-surface-muted sm:h-96 lg:h-[440px] lg:border-b-0">
             <ProvinceMapCanvas
               places={geocoded}
               centerLat={centerLat}
@@ -101,11 +118,14 @@ export default function ProvinceMap({
             />
           </div>
 
-          <div className="border-t lg:border-t-0 lg:border-l border-neutral-200 dark:border-neutral-800 flex flex-col min-h-0">
-            <div className="px-4 pt-4 pb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-              {focusPlace ? "Selected location" : "Select a place to fly there"}
+          <div className="flex min-h-0 flex-col">
+            <div className="px-5 pt-5 pb-3">
+              <p className="section-label">
+                {focusPlace ? "Selected location" : "Select a place to fly there"}
+              </p>
             </div>
-            <ul className="flex-1 max-h-[300px] lg:max-h-[372px] overflow-y-auto px-2 pb-2 space-y-1">
+
+            <ul className="max-h-[300px] flex-1 space-y-1 overflow-y-auto px-3 pb-3 lg:max-h-[364px]">
               {geocoded.map((place) => {
                 const active = place.slug === focus.slug;
                 return (
@@ -113,19 +133,24 @@ export default function ProvinceMap({
                     <button
                       type="button"
                       onClick={() => selectPlace(place.slug)}
-                      className={`w-full text-left rounded-xl px-3 py-2 border transition-colors ${
+                      aria-pressed={active}
+                      className={`w-full rounded-md border px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                         active
-                          ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800"
-                          : "bg-transparent border-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                          ? "border-accent/40 bg-accent-soft"
+                          : "border-transparent hover:bg-surface-muted"
                       }`}
                     >
-                      <span className="block text-[9px] font-bold uppercase tracking-wider text-zinc-500">
+                      <span className="section-label block truncate">
                         {place.place_type.replace(/_/g, " ")}
                       </span>
-                      <span className="block text-xs font-bold text-neutral-900 dark:text-white line-clamp-1">
+                      <span
+                        className={`mt-1 block text-sm font-semibold leading-snug line-clamp-1 ${
+                          active ? "text-accent" : "text-foreground"
+                        }`}
+                      >
                         {place.name}
                       </span>
-                      <span className="block text-[10px] text-neutral-500 tabular-nums">
+                      <span className="mt-0.5 block text-xs tabular-nums text-muted-foreground">
                         {place.latitude.toFixed(4)}, {place.longitude.toFixed(4)}
                       </span>
                     </button>
@@ -134,40 +159,44 @@ export default function ProvinceMap({
               })}
             </ul>
 
-            <div className="px-4 py-3 border-t border-neutral-100 dark:border-neutral-800 text-[11px] text-neutral-500 leading-relaxed">
+            <footer className="border-t border-border px-5 py-4 text-xs leading-relaxed text-muted-foreground">
               {unmappedCount > 0 ? (
                 <p>
-                  {unmappedCount} place{unmappedCount === 1 ? " has" : "s have"} no coordinates
-                  yet, so{" "}
-                  {unmappedCount === 1 ? "it is" : "they are"} not on the map. They still appear
+                  {unmappedCount} place{unmappedCount === 1 ? " has" : "s have"} no coordinates yet,
+                  so {unmappedCount === 1 ? "it is" : "they are"} not on the map. They still appear
                   in the places grid below.
                 </p>
               ) : (
                 <p>All {totalPlaces} listed places have coordinates.</p>
               )}
-              <p className="mt-1">
+              <p className="mt-1.5">
                 Map data &copy;{" "}
                 <a
                   href="https://www.openstreetmap.org/copyright"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline inline-flex items-center gap-0.5"
+                  className="inline-flex items-center gap-0.5 text-accent underline-offset-2 hover:underline"
                 >
-                  OpenStreetMap contributors <ExternalLink className="h-2.5 w-2.5" />
+                  OpenStreetMap contributors <ExternalLink size={11} aria-hidden="true" />
                 </a>
                 , ODbL.
               </p>
-            </div>
+            </footer>
           </div>
         </div>
       )}
 
-      <div className="px-6 py-3 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950/40">
+      <div className="border-t border-border bg-surface-muted/60 px-6 py-3">
         <Link
           href="/travel/nearby"
-          className="text-xs font-semibold text-primary hover:underline"
+          className="group inline-flex items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-foreground"
         >
-          Find places near a coordinate &rarr;
+          Find places near a coordinate
+          <ArrowRight
+            size={15}
+            aria-hidden="true"
+            className="transition-transform duration-300 group-hover:translate-x-0.5"
+          />
         </Link>
       </div>
     </section>

@@ -33,10 +33,10 @@ export function AdSlot({ slot, className = "" }: AdSlotProps) {
 
   return (
     <div
-      className={`my-6 mx-auto flex flex-col items-center justify-center rounded-lg border border-dashed border-neutral-300 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 p-4 text-center text-xs text-neutral-400 ${className}`}
+      className={`mx-auto my-6 flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-surface-muted/50 p-4 text-center text-xs text-muted-foreground ${className}`}
       data-ad-slot={slot}
     >
-      <span className="text-[10px] font-medium tracking-widest uppercase text-neutral-400">
+      <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
         Advertisement
       </span>
       <div className="mt-2 min-h-[90px] w-full flex items-center justify-center">

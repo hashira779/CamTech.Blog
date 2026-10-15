@@ -4,8 +4,6 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   Compass,
-  MapPin,
-  Calendar,
   ArrowRight,
   ChevronLeft,
   ChevronRight,
@@ -15,35 +13,34 @@ import {
   Bus,
   Footprints,
   PlusCircle,
-  Palmtree,
-  Mountain,
-  Waves,
-  Globe2,
-  Sparkles,
+  MapPin,
 } from "lucide-react";
 import { Destination } from "@/types";
+import { Container } from "@/components/ui/container";
+import { PhotoFill } from "@/components/ui/photo-image";
 
 interface HeroDestinationSliderProps {
   destinations: Destination[];
 }
 
-function getDestIcon(slug: string) {
-  if (slug.includes("siem") || slug.includes("battambang"))
-    return <Palmtree className="h-3.5 w-3.5" />;
-  if (
-    slug.includes("sihanouk") ||
-    slug.includes("kep") ||
-    slug.includes("koh") ||
-    slug.includes("kampot")
-  )
-    return <Waves className="h-3.5 w-3.5" />;
-  if (slug.includes("mondulkiri") || slug.includes("ratanakiri") || slug.includes("preah-vihear"))
-    return <Mountain className="h-3.5 w-3.5" />;
-  return <Globe2 className="h-3.5 w-3.5" />;
-}
+const QUICK_LINKS = [
+  { href: "/travel/planner", icon: Navigation, label: "Trip planner" },
+  { href: "/travel/transport", icon: Bus, label: "Buses & routes" },
+  { href: "/travel/nearby", icon: Footprints, label: "Near me" },
+  { href: "/travel/suggest", icon: PlusCircle, label: "Suggest a place" },
+];
 
+/**
+ * The travel section cover: one province at a time, led by its photograph.
+ *
+ * The old version painted a blurred, saturated copy of the picture behind the whole section, ran a
+ * teal-to-amber gradient through the progress bar, and — the part that mattered — substituted a
+ * stock Angkor Wat frame for any province without its own verified photograph. Battambang was being
+ * shown as Angkor. Slides now render through `PhotoFill`, so a province without verified imagery
+ * shows the same honest "Photo not verified yet" tile as everywhere else on the site.
+ * Autoplay, the play/pause control, arrow-key navigation and the thumbnail rail are unchanged.
+ */
 export function HeroDestinationSlider({ destinations }: HeroDestinationSliderProps) {
-  // Filter destinations that have valid data and images from the database
   const validDests = React.useMemo(() => {
     if (!destinations || destinations.length === 0) return [];
     // Prioritize popular ones first, but keep full list from database
@@ -73,10 +70,10 @@ export function HeroDestinationSlider({ destinations }: HeroDestinationSliderPro
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const slideDuration = 6000; // 6 seconds per slide
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const startTimeRef = useRef<number>(Date.now());
+  // Starts at 0 and is stamped by the autoplay effect below, which runs before the first tick —
+  // calling Date.now() during render would make the component impure.
+  const startTimeRef = useRef<number>(0);
   const [progress, setProgress] = useState(0);
 
   const currentDest = validDests[currentIndex] || validDests[0];
@@ -84,11 +81,9 @@ export function HeroDestinationSlider({ destinations }: HeroDestinationSliderPro
   const goToSlide = useCallback(
     (index: number) => {
       if (index === currentIndex || validDests.length <= 1) return;
-      setIsTransitioning(true);
       setCurrentIndex(index);
       setProgress(0);
       startTimeRef.current = Date.now();
-      setTimeout(() => setIsTransitioning(false), 500);
     },
     [currentIndex, validDests.length]
   );
@@ -106,17 +101,12 @@ export function HeroDestinationSlider({ destinations }: HeroDestinationSliderPro
     if (!isPlaying || validDests.length <= 1) return;
 
     startTimeRef.current = Date.now();
-    const interval = 50; // update progress every 50ms
 
     const progressTimer = setInterval(() => {
       const elapsed = Date.now() - startTimeRef.current;
-      const pct = Math.min((elapsed / slideDuration) * 100, 100);
-      setProgress(pct);
-
-      if (elapsed >= slideDuration) {
-        nextSlide();
-      }
-    }, interval);
+      setProgress(Math.min((elapsed / slideDuration) * 100, 100));
+      if (elapsed >= slideDuration) nextSlide();
+    }, 50);
 
     return () => clearInterval(progressTimer);
   }, [isPlaying, currentIndex, validDests.length, nextSlide]);
@@ -135,256 +125,203 @@ export function HeroDestinationSlider({ destinations }: HeroDestinationSliderPro
 
   return (
     <section
-      className="relative overflow-hidden bg-zinc-950 text-white border-b border-zinc-800"
+      className="paper-grain border-b border-border bg-surface-muted/60"
       onMouseEnter={() => setIsPlaying(false)}
       onMouseLeave={() => setIsPlaying(true)}
       aria-roledescription="carousel"
-      aria-label="Cambodia Destinations Showcase"
+      aria-label="Cambodia destinations"
     >
-      {/* ━━━ AMBIENT BACKDROP WITH SMOOTH CROSSFADE ━━━ */}
-      {validDests.map((dest, idx) => (
-        <div
-          key={dest.id || dest.slug}
-          className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out pointer-events-none ${
-            idx === currentIndex ? "opacity-35 scale-105" : "opacity-0 scale-100"
-          }`}
-          style={{
-            backgroundImage: `url('${dest.hero_image_url || "/images/places/angkor-wat.jpg"}')`,
-            filter: "blur(20px) brightness(0.4) saturate(1.2)",
-            transformOrigin: "center center",
-            transition: "opacity 1s ease-in-out, transform 8s ease-out",
-          }}
-        />
-      ))}
-      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-zinc-950/80 pointer-events-none" />
+      <Container className="py-8 sm:py-12">
+        {/* Masthead row: the section mark, the quiet utility links, the transport control */}
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-border pb-4">
+          <p className="section-label inline-flex items-center gap-2">
+            <Compass size={14} aria-hidden="true" className="text-accent" />
+            Travel — Kingdom of Cambodia
+          </p>
 
-      {/* ━━━ MAIN CAROUSEL CONTENT CONTAINER ━━━ */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14 pb-16 sm:pb-20">
-        {/* Navigation Quick-Tabs */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6 sm:mb-8 border-b border-white/10 pb-4">
-          <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium tracking-wide">
-            <Compass className="h-3.5 w-3.5 text-amber-400 animate-spin-slow" />
-            <span className="text-zinc-300">Kingdom of Cambodia</span>
-            <span className="text-zinc-600">/</span>
-            <span className="text-zinc-400">Verified Database Travel Portal</span>
-          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <nav aria-label="Travel tools" className="hidden items-center gap-4 sm:flex">
+              {QUICK_LINKS.map(({ href, icon: Icon, label }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-accent"
+                >
+                  <Icon size={14} aria-hidden="true" />
+                  {label}
+                </Link>
+              ))}
+            </nav>
 
-          <div className="flex items-center gap-2">
-            {[
-              {
-                href: "/travel/planner",
-                icon: <Navigation className="h-3.5 w-3.5 text-teal-400" />,
-                label: "Trip Planner",
-              },
-              {
-                href: "/travel/transport",
-                icon: <Bus className="h-3.5 w-3.5 text-blue-400" />,
-                label: "Transit",
-              },
-              {
-                href: "/travel/nearby",
-                icon: <Footprints className="h-3.5 w-3.5 text-emerald-400" />,
-                label: "Near Me",
-              },
-              {
-                href: "/travel/suggest",
-                icon: <PlusCircle className="h-3.5 w-3.5 text-purple-400" />,
-                label: "Suggest",
-              },
-            ].map((btn) => (
-              <Link
-                key={btn.href}
-                href={btn.href}
-                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/5 hover:bg-white/15 text-zinc-300 hover:text-white border border-white/10 transition-all hover:-translate-y-0.5"
-              >
-                {btn.icon}
-                <span>{btn.label}</span>
-              </Link>
-            ))}
-
-            {/* Play/Pause Button */}
             <button
+              type="button"
               onClick={() => setIsPlaying(!isPlaying)}
-              className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white transition-colors border border-white/10 cursor-pointer ml-1"
-              title={isPlaying ? "Pause autoplay" : "Play autoplay"}
               aria-label={isPlaying ? "Pause autoplay" : "Play autoplay"}
+              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
-              {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+              {isPlaying ? <Pause size={14} /> : <Play size={14} />}
             </button>
           </div>
         </div>
 
-        {/* ━━━ HERO SLIDE STAGE ━━━ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-          {/* Slide Text & Actions (Left 6 Cols) */}
-          <div className="lg:col-span-6 flex flex-col justify-center space-y-5 z-10">
-            {/* Province & Region Badges */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 backdrop-blur-md">
-                {getDestIcon(currentDest.slug)}
-                <span>{currentDest.name_km || "កម្ពុជា"}</span>
+        <div className="grid grid-cols-1 items-center gap-8 pt-8 lg:grid-cols-12 lg:gap-10">
+          {/* ── Cover type ─────────────────────────────────────────────────── */}
+          <div className="flex flex-col gap-5 lg:col-span-5">
+            <div className="flex items-center gap-3">
+              <span className="section-label text-accent">
+                Province {currentIndex + 1} of {validDests.length}
               </span>
-
-              {currentDest.best_time_to_visit && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-zinc-300 bg-white/5 border border-white/10 backdrop-blur-md">
-                  <Calendar className="h-3.5 w-3.5 text-teal-400" />
-                  <span>{currentDest.best_time_to_visit}</span>
-                </span>
+              {currentDest.name_km && (
+                <span className="text-xs text-muted-foreground">{currentDest.name_km}</span>
               )}
-
-              <span className="text-[11px] font-semibold text-zinc-400 px-2 py-0.5 rounded bg-zinc-800/80 border border-zinc-700/60">
-                {currentIndex + 1} / {validDests.length}
-              </span>
             </div>
 
-            {/* Destination Name with Smooth Entrance Transition */}
-            <div key={`title-${currentDest.slug}`} className="space-y-2 animate-fade-in">
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.08]">
+            <div key={`title-${currentDest.slug}`} className="animate-fade-in">
+              <h1 className="font-display text-4xl leading-[1.05] tracking-tight text-foreground sm:text-5xl">
                 {currentDest.name}
               </h1>
-              <p className="text-sm sm:text-base text-zinc-300 font-normal leading-relaxed line-clamp-3 max-w-xl">
-                {currentDest.overview ||
-                  "Discover authentic cultural landmarks, ancient architectural heritage, and scenic natural wonders verified across Cambodia."}
-              </p>
+              {currentDest.overview && (
+                <p className="mt-3 line-clamp-3 max-w-xl text-base leading-relaxed text-muted-foreground">
+                  {currentDest.overview}
+                </p>
+              )}
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-3 pt-2">
+            {currentDest.best_time_to_visit && (
+              <p className="text-sm text-muted-foreground">
+                <span className="text-foreground">Best time to visit</span>{" "}
+                {currentDest.best_time_to_visit}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-3 pt-1">
               <Link
                 href={`/travel/${currentDest.slug}`}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white text-zinc-950 font-bold text-sm hover:bg-zinc-100 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 group cursor-pointer"
+                className="group inline-flex h-10 items-center gap-2 rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground shadow-xs transition-all hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
-                <span>Explore {currentDest.name}</span>
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                Explore {currentDest.name}
+                <ArrowRight
+                  size={15}
+                  aria-hidden="true"
+                  className="transition-transform duration-300 group-hover:translate-x-0.5"
+                />
               </Link>
-
               <Link
                 href={`/travel/planner?destination=${currentDest.slug}`}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition-all border border-white/15 backdrop-blur-md hover:-translate-y-0.5 cursor-pointer"
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-border-strong px-5 text-sm font-medium text-foreground transition-colors hover:border-foreground/30 hover:bg-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
-                <Navigation className="h-4 w-4 text-teal-400" />
-                <span>Plan Trip Here</span>
+                <Navigation size={15} aria-hidden="true" />
+                Plan a trip here
               </Link>
             </div>
 
-            {/* Slide Navigation Controls */}
-            <div className="flex items-center gap-3 pt-4">
+            <div className="flex items-center gap-3 pt-2">
               <button
+                type="button"
                 onClick={prevSlide}
-                className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all border border-white/15 hover:scale-105 active:scale-95 cursor-pointer"
                 aria-label="Previous destination"
+                className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft size={18} />
               </button>
               <button
+                type="button"
                 onClick={nextSlide}
-                className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all border border-white/15 hover:scale-105 active:scale-95 cursor-pointer"
                 aria-label="Next destination"
+                className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
-                <ChevronRight className="h-5 w-5" />
+                <ChevronRight size={18} />
               </button>
 
-              {/* Autoplay Progress Line */}
-              <div className="flex-1 max-w-[200px] h-1.5 bg-white/15 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-amber-400 to-teal-400 rounded-full transition-all duration-75"
+              <span
+                aria-hidden="true"
+                className="ml-2 h-px flex-1 max-w-[200px] overflow-hidden bg-border"
+              >
+                <span
+                  className="block h-px bg-accent transition-[width] duration-75"
                   style={{ width: `${progress}%` }}
                 />
-              </div>
-
-              <span className="text-xs text-zinc-400 font-mono">
-                0{currentIndex + 1} / 0{validDests.length}
               </span>
             </div>
           </div>
 
-          {/* Slide Visual Card with Ken Burns Zoom (Right 6 Cols) */}
-          <div className="lg:col-span-6 relative">
-            <div className="relative aspect-[16/10] sm:aspect-[16/10] rounded-3xl overflow-hidden border border-white/15 shadow-2xl bg-zinc-900 group">
-              {validDests.map((dest, idx) => (
-                <div
-                  key={`slide-img-${dest.id || dest.slug}`}
-                  className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
-                    idx === currentIndex ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
-                  }`}
-                >
-                  <img
-                    src={dest.hero_image_url || "/images/destinations/siem-reap.jpg"}
-                    alt={dest.name}
-                    className={`w-full h-full object-cover transition-transform ease-out ${
-                      idx === currentIndex ? "scale-105 duration-[6000ms]" : "scale-100 duration-500"
+          {/* ── Cover photograph ───────────────────────────────────────────── */}
+          <div className="lg:col-span-7">
+            <figure className="overflow-hidden rounded-2xl border border-border bg-card shadow-md sm:rounded-3xl">
+              <div className="relative aspect-[3/2] bg-surface-muted">
+                {validDests.map((dest, idx) => (
+                  <div
+                    key={`slide-${dest.id || dest.slug}`}
+                    aria-hidden={idx !== currentIndex}
+                    className={`absolute inset-0 transition-opacity duration-700 ease-out ${
+                      idx === currentIndex ? "opacity-100" : "pointer-events-none opacity-0"
                     }`}
-                  />
-                  {/* Subtle inner vignettes */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-black/20" />
-
-                  {/* Corner Badge */}
-                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-zinc-950/70 backdrop-blur-md text-white border border-white/15">
-                      <MapPin className="h-3.5 w-3.5 text-amber-400" />
-                      {dest.name}, Cambodia
-                    </span>
-                    <span className="text-[11px] font-medium text-zinc-300 bg-black/50 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10">
-                      Verified Data
-                    </span>
+                  >
+                    <PhotoFill
+                      src={dest.hero_image_url}
+                      alt={dest.name}
+                      priority={idx === 0}
+                      className="h-full w-full object-cover"
+                    />
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+
+              <figcaption className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border px-5 py-3">
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                  <MapPin size={14} aria-hidden="true" className="text-accent" />
+                  {currentDest.name}
+                  {currentDest.country?.name ? `, ${currentDest.country.name}` : ""}
+                </span>
+                <span className="section-label tabular-nums">
+                  {String(currentIndex + 1).padStart(2, "0")} / {String(validDests.length).padStart(2, "0")}
+                </span>
+              </figcaption>
+            </figure>
           </div>
         </div>
 
-        {/* ━━━ BOTTOM THUMBNAIL SELECTOR STRIP ━━━ */}
-        <div className="mt-8 pt-6 border-t border-white/10">
-          <div className="flex items-center justify-between mb-3 text-xs text-zinc-400 font-medium">
-            <span className="flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-amber-400" /> Featured Provincial Hubs (Direct Database Data)
-            </span>
-            <span className="hidden sm:inline text-zinc-400 text-[11px]">
-              Click destination to preview
-            </span>
-          </div>
+        {/* ── Thumbnail rail ───────────────────────────────────────────────── */}
+        <div className="mt-8 border-t border-border pt-6">
+          <p className="section-label mb-4">Provincial hubs in this carousel</p>
 
-          <div className="grid grid-cols-4 sm:grid-cols-8 gap-2.5">
+          <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
             {validDests.map((dest, idx) => {
               const isActive = idx === currentIndex;
               return (
                 <button
                   key={`thumb-${dest.id || dest.slug}`}
+                  type="button"
                   onClick={() => goToSlide(idx)}
-                  className={`
-                    relative rounded-xl overflow-hidden aspect-[4/3] text-left transition-all duration-300 cursor-pointer group
-                    ${
-                      isActive
-                        ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-zinc-950 scale-102 shadow-lg"
-                        : "opacity-60 hover:opacity-100 hover:scale-101 border border-white/10"
-                    }
-                  `}
-                  title={`View ${dest.name}`}
+                  aria-label={`View ${dest.name}`}
+                  aria-current={isActive}
+                  className={`group cursor-pointer overflow-hidden rounded-md border transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                    isActive
+                      ? "border-accent shadow-sm"
+                      : "border-border opacity-70 hover:border-border-strong hover:opacity-100"
+                  }`}
                 >
-                  <img
-                    src={dest.hero_image_url || "/images/destinations/siem-reap.jpg"}
-                    alt={dest.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
-                  <div className="absolute bottom-1.5 left-2 right-2 truncate">
-                    <p className="text-[11px] font-bold text-white truncate leading-tight">
-                      {dest.name}
-                    </p>
-                    <p className="text-[9px] text-zinc-300 truncate">
-                      {dest.name_km || "កម្ពុជា"}
-                    </p>
-                  </div>
-                  {isActive && (
-                    <div className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-                  )}
+                  <span className="block aspect-[4/3] bg-surface-muted">
+                    <PhotoFill
+                      src={dest.hero_image_url}
+                      alt={dest.name}
+                      compact
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  </span>
+                  <span
+                    className={`block truncate px-2 py-1.5 text-left text-xs font-medium ${
+                      isActive ? "text-accent" : "text-muted-foreground"
+                    }`}
+                  >
+                    {dest.name}
+                  </span>
                 </button>
               );
             })}
           </div>
         </div>
-      </div>
+      </Container>
     </section>
   );
 }

@@ -1,74 +1,62 @@
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Container } from "@/components/ui/container";
 
+/**
+ * Loading placeholder for the article page.
+ *
+ * It now mirrors `ArticleReader` exactly — letterhead in the reading measure, a
+ * page-width hero, then body lines at the same measure — so nothing jumps when
+ * the real story swaps in. The old skeleton also drew a rose pill, an avatar
+ * circle and three share buttons that the finished page does not have.
+ */
 export function ArticleSkeleton() {
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
-      {/* 1. Breadcrumb Skeleton */}
-      <div className="flex items-center gap-2">
-        <Skeleton className="h-3.5 w-12 rounded" />
-        <span className="text-neutral-300 dark:text-neutral-700">/</span>
-        <Skeleton className="h-3.5 w-16 rounded" />
-        <span className="text-neutral-300 dark:text-neutral-700">/</span>
-        <Skeleton className="h-3.5 w-24 rounded" />
-      </div>
-
-      {/* 2. Header & Headline Skeleton */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2.5">
-          <Skeleton className="h-5 w-20 rounded-full" />
-          <Skeleton className="h-4 w-28 rounded" />
+    <div aria-hidden="true" className="flex w-full flex-1 animate-fade-in flex-col">
+      <Container width="reading" className="pt-6 pb-8 sm:pt-10">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-3.5 w-14" />
+          <Skeleton className="h-3.5 w-20" />
+          <Skeleton className="h-3.5 w-32" />
         </div>
 
-        <div className="space-y-3">
-          <Skeleton className="h-9 sm:h-11 w-full rounded-lg" />
-          <Skeleton className="h-9 sm:h-11 w-4/5 rounded-lg" />
+        <div className="mt-6 flex items-center gap-2">
+          <Skeleton className="h-3.5 w-24" />
         </div>
 
-        <Skeleton className="h-5 w-11/12 rounded pt-1" />
+        <div className="mt-4 space-y-3">
+          <Skeleton className="h-9 w-full sm:h-11" />
+          <Skeleton className="h-9 w-4/5 sm:h-11" />
+        </div>
 
-        {/* Metadata & Author Row Skeleton */}
-        <div className="flex flex-wrap items-center justify-between gap-4 py-4 border-y border-neutral-100 dark:border-neutral-800">
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-10 w-10 rounded-full" />
-            <div className="space-y-1.5">
-              <Skeleton className="h-4 w-32 rounded" />
-              <Skeleton className="h-3 w-24 rounded" />
-            </div>
-          </div>
+        <div className="mt-6 border-t border-border pt-4">
           <div className="flex items-center gap-2">
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <Skeleton className="h-8 w-8 rounded-full" />
+            <Skeleton className="h-3.5 w-28" />
+            <Skeleton className="h-3.5 w-20" />
+            <Skeleton className="h-3.5 w-24" />
           </div>
         </div>
-      </div>
+      </Container>
 
-      {/* 3. Hero Featured Image Skeleton */}
-      <div className="w-full h-[280px] sm:h-[420px] rounded-2xl overflow-hidden bg-neutral-100 dark:bg-neutral-900">
-        <Skeleton className="w-full h-full rounded-2xl" />
-      </div>
+      <Container className="pb-8">
+        <Skeleton className="aspect-video w-full rounded-2xl sm:rounded-3xl" />
+      </Container>
 
-      {/* 4. Key Takeaways Box Skeleton */}
-      <div className="bg-neutral-50 dark:bg-neutral-900/50 rounded-2xl p-6 border border-neutral-200/80 dark:border-neutral-800 space-y-3">
-        <Skeleton className="h-5 w-32 rounded" />
-        <Skeleton className="h-4 w-full rounded" />
-        <Skeleton className="h-4 w-5/6 rounded" />
-        <Skeleton className="h-4 w-3/4 rounded" />
-      </div>
+      <Container width="reading" className="flex flex-col gap-5 pb-2 pt-4">
+        <div className="space-y-2.5 rounded-lg border border-border bg-surface-muted p-5 sm:p-6">
+          <Skeleton className="h-3.5 w-28" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-11/12" />
+        </div>
+      </Container>
 
-      {/* 5. Article Paragraph Lines Skeleton */}
-      <div className="space-y-4 pt-2">
-        <Skeleton className="h-4 w-full rounded" />
-        <Skeleton className="h-4 w-full rounded" />
-        <Skeleton className="h-4 w-11/12 rounded" />
-        <Skeleton className="h-4 w-4/5 rounded" />
-        
-        <div className="py-2" />
-
-        <Skeleton className="h-4 w-full rounded" />
-        <Skeleton className="h-4 w-full rounded" />
-        <Skeleton className="h-4 w-5/6 rounded" />
-      </div>
+      <Container width="reading" className="space-y-5 pb-16 pt-6">
+        <Skeleton className="h-5 w-full" />
+        <Skeleton className="h-5 w-full" />
+        <Skeleton className="h-5 w-4/5" />
+        <Skeleton className="h-5 w-full" />
+        <Skeleton className="h-5 w-11/12" />
+        <Skeleton className="h-5 w-3/5" />
+      </Container>
     </div>
   );
 }

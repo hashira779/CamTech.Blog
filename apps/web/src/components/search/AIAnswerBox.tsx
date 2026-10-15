@@ -4,7 +4,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Sparkles, Loader2, ExternalLink } from "lucide-react";
 import { getSearchAnswer, type SearchAnswer } from "@/lib/api";
+import { cleanText } from "@/lib/format";
 
+/**
+ * The composed answer above the search results.
+ *
+ * Behaviour is unchanged — it still only mounts for a non-empty query, still
+ * fetches on every query change, and renders nothing when the endpoint has no
+ * answer (the live feed currently returns `answer: null` with no engine
+ * configured, so an empty frame would be the only content). Only the surface
+ * changed: the teal glass box became a paper card on a hairline.
+ */
 export function AIAnswerBox({ query }: { query: string }) {
   const [state, setState] = useState<SearchAnswer | null | "loading">(query ? "loading" : null);
 
@@ -27,37 +37,52 @@ export function AIAnswerBox({ query }: { query: string }) {
 
   if (state === "loading") {
     return (
-      <div className="p-4 rounded-2xl border border-teal-200/60 dark:border-teal-900/40 bg-teal-50/50 dark:bg-teal-950/20 flex items-center gap-2.5 text-sm text-teal-700 dark:text-teal-300">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        <span>AI is reading the matching stories to answer this…</span>
+      <div
+        role="status"
+        className="flex items-center gap-2.5 rounded-lg border border-border bg-surface-muted px-4 py-3.5 text-sm text-muted-foreground"
+      >
+        <Loader2 size={16} aria-hidden="true" className="animate-spin shrink-0" />
+        <span>Composing an answer from the matching stories…</span>
       </div>
     );
   }
 
   if (!state || !state.answer) return null;
 
+  const citations = state.citations ?? [];
+
   return (
-    <div className="p-5 rounded-2xl border border-teal-200/60 dark:border-teal-900/40 bg-teal-50/50 dark:bg-teal-950/20 space-y-3">
-      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-teal-700 dark:text-teal-300">
-        <Sparkles className="h-3.5 w-3.5" />
-        <span>AI answer from our verified content</span>
-      </div>
-      <p className="text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed">{state.answer}</p>
-      {state.citations.length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-1">
-          {state.citations.map((c, idx) => (
-            <Link
-              key={idx}
-              href={c.url}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-teal-200/70 dark:border-teal-900/50 bg-white/60 dark:bg-neutral-900/40 text-[11px] text-neutral-700 dark:text-neutral-300 hover:text-teal-700 dark:hover:text-teal-300 transition-colors"
-            >
-              <span className="line-clamp-1 max-w-[220px]">{c.title}</span>
-              <span className="uppercase font-bold text-[9px] text-teal-600 dark:text-teal-400">{c.type}</span>
-              <ExternalLink className="h-3 w-3" />
-            </Link>
-          ))}
+    <aside className="rounded-lg border border-border bg-surface-muted p-5 sm:p-6">
+      <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.1em] text-accent">
+        <Sparkles size={14} aria-hidden="true" />
+        Answer composed from our indexed stories
+      </h2>
+
+      <p className="mt-3 text-base leading-relaxed text-foreground/90">
+        {cleanText(state.answer)}
+      </p>
+
+      {citations.length > 0 && (
+        <div className="mt-4 border-t border-border pt-4">
+          <h3 className="section-label">Cited</h3>
+          <ul className="mt-2.5 flex flex-wrap gap-2">
+            {citations.map((c, idx) => (
+              <li key={idx}>
+                <Link
+                  href={c.url}
+                  className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                >
+                  <span className="truncate">{cleanText(c.title)}</span>
+                  <span className="shrink-0 font-semibold uppercase tracking-[0.08em] text-accent">
+                    {c.type}
+                  </span>
+                  <ExternalLink size={12} aria-hidden="true" className="shrink-0" />
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
-    </div>
+    </aside>
   );
 }

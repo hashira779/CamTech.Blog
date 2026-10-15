@@ -14,6 +14,13 @@ import { DateCalculator } from "./DateCalculator";
 import { UnitConverter } from "./UnitConverter";
 import { WordCounter } from "./WordCounter";
 
+/**
+ * Maps a tool slug to the component that runs it.
+ *
+ * Dispatch only — the page around it owns the panel, so no calculator draws its
+ * own box, border or shadow. The slug table and the default fallback are
+ * unchanged.
+ */
 export function ToolDispatcher({ tool }: { tool: Tool }) {
   switch (tool.slug) {
     case "percentage-calculator":

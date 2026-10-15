@@ -27,6 +27,7 @@ from app.ingestion.rss_fetcher import fetch_rss_feed
 from app.deduplication.detector import detect_duplicates
 from app.ai.provider import get_ai_provider
 from app.services.image_search_service import image_search_service
+from app.services.filing import strip_brand_suffix
 
 logging.basicConfig(
     level=logging.INFO,
@@ -182,8 +183,10 @@ async def ingest_rss_feeds_job():
                         duplicates_dropped += 1
                         continue
 
-                    # 5b. Use AI provider to classify category and generate editorial draft
+                    # 5b. Draft the story. The local fallback engine quotes the publisher;
+                    # it does not write editorial prose, so nothing here is invented.
                     matched_cat = None
+                    detected_category = None
                     try:
                         detected_category = await ai_provider.classify_category(title, raw_summary)
                         # Try to find matching category in DB
@@ -199,27 +202,40 @@ async def ingest_rss_feeds_job():
                         draft = await ai_provider.generate_draft_editorial(title, raw_summary, source_name)
                     except Exception as ai_err:
                         logger.warning(f"AI processing failed for '{title}': {ai_err}")
+                        # No summary is invented here. The headline is the publisher's own
+                        # sentence; anything else would be us writing the news.
                         draft = {
-                            "summary": f"According to {source_name}, {title.lower()}.",
+                            "summary": title,
                             "key_points": [],
                             "why_it_matters": "",
                             "seo_title": title[:150],
-                            "seo_description": f"Latest news: {title[:120]}",
+                            "seo_description": title[:155],
                             "engine": "fallback",
                         }
                         article_category_id = category.id
 
-                    # 5c. Create the article
-                    country = source_country if source_country in ["KH", "US", "UK", "JP", "CN"] else "WORLD"
+                    # 5c. File it on the desk the story is about, not the desk that printed it.
+                    from app.services.filing import resolve_country, category_is_cambodia
+                    country = resolve_country(detected_category, source_country, title, raw_summary)
+                    if matched_cat is not None and category_is_cambodia(matched_cat.slug, matched_cat.scope):
+                        country = "KH"
+
                     base_slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')[:80]
                     slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
                     image_url = item.get("image_url")
 
-                    # 5c. Hero image: prefer the story's own image from the feed (credited to the
-                    # source); otherwise discover a relevant high-resolution image.
+                    # 5c. Hero image: the story's own picture from the feed, credited to the
+                    # publisher. Otherwise only a photograph that names this story is kept;
+                    # when nothing qualifies the article ships with no image at all.
                     if image_url:
-                        hero_img_url = image_url
-                        hero_img_credit = f"Image: {source_name}"
+                        from app.services.ai_tourism_engine import filter_live_images
+                        live = await filter_live_images([image_url])
+                        if live:
+                            hero_img_url = image_url
+                            hero_img_credit = f"Image: {source_name}"
+                        else:
+                            hero_img_url, hero_img_credit = None, None
+                            logger.info(f"[RSS] Dropped dead feed image for '{title[:60]}': {image_url}")
                         hero_img_alt = title[:255]
                     else:
                         category_name_for_img = matched_cat.slug if matched_cat else (source_category_name or "world")
@@ -250,7 +266,7 @@ async def ingest_rss_feeds_job():
                         author_id=author.id,
                         language="en",
                         status="AI_DRAFT",  # Hybrid: News Autopilot publishes after the review window
-                        seo_title=draft.get("seo_title", title[:150]),
+                        seo_title=strip_brand_suffix(draft.get("seo_title", title[:150])),
                         seo_description=draft.get("seo_description", draft.get("summary", "")[:155]),
                         ai_draft_metadata=json.dumps({
                             "source": source_name,

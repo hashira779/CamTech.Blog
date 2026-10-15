@@ -1,7 +1,6 @@
 import * as React from "react";
 import { LucideIcon, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DESIGN_TOKENS } from "@/lib/tokens";
 
 export interface EmptyStateProps {
   icon?: LucideIcon;
@@ -24,15 +23,13 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div
-      className={`flex flex-col items-center justify-center p-8 sm:p-12 text-center rounded-lg border border-dashed border-slate-300 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 ${className || ""}`}
+      className={`flex flex-col items-center justify-center rounded-lg border border-dashed border-border-strong bg-surface-muted/50 p-8 text-center sm:p-12 ${className || ""}`}
     >
-      <div className="flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 mb-4">
-        <Icon size={DESIGN_TOKENS.iconSize.xl} />
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-surface text-muted-foreground">
+        <Icon size={20} />
       </div>
-      <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-1">
-        {title}
-      </h3>
-      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-sm mb-6 leading-relaxed">
+      <h3 className="mb-1 font-display text-base text-foreground">{title}</h3>
+      <p className="mb-6 max-w-sm text-sm leading-relaxed text-muted-foreground">
         {description}
       </p>
       {actionLabel && (

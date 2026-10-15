@@ -11,10 +11,10 @@ export interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const variantClasses: Record<SkeletonVariant, string> = {
   default: "rounded-md",
-  text: "h-4 w-full rounded",
+  text: "h-4 w-full rounded-sm",
   circle: "rounded-full aspect-square shrink-0",
-  image: "w-full aspect-video rounded-xl",
-  card: "w-full rounded-2xl p-4 border border-slate-200 dark:border-slate-800",
+  image: "w-full aspect-video rounded-lg",
+  card: "w-full rounded-lg border border-border p-4",
 };
 
 export function Skeleton({
@@ -33,9 +33,10 @@ export function Skeleton({
 
   return (
     <div
+      aria-hidden="true"
       className={cn(
-        "relative overflow-hidden bg-slate-200/80 dark:bg-slate-800/80",
-        "after:absolute after:inset-0 after:-translate-x-full after:animate-[shimmer_1.8s_infinite] after:bg-gradient-to-r after:from-transparent after:via-white/40 dark:after:via-white/10 after:to-transparent",
+        "relative overflow-hidden bg-muted",
+        "after:absolute after:inset-0 after:-translate-x-full after:animate-[shimmer_1.8s_infinite] after:bg-gradient-to-r after:from-transparent after:via-surface/60 after:to-transparent",
         variantClasses[variant],
         className
       )}

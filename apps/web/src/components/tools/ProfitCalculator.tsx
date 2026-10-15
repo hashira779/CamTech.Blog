@@ -1,8 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
-import { TrendingUp, DollarSign, Percent } from "lucide-react";
+import { FormField, Input } from "@/components/ui/input";
 
+/**
+ * Margin, markup and net profit on one unit price.
+ *
+ * `calculate()` is the original arithmetic, character for character. The three
+ * coloured result tiles it used to feed are now one paper panel: a serif figure
+ * for the number a reader came for, then a definition list for the rest, all on
+ * tabular numerals so the columns line up.
+ */
 export function ProfitCalculator() {
   const [costPrice, setCostPrice] = useState<number>(50);
   const [sellingPrice, setSellingPrice] = useState<number>(85);
@@ -32,112 +40,100 @@ export function ProfitCalculator() {
   };
 
   const results = calculate();
+  const money = (value: number) =>
+    value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-            Unit Cost Price ($)
-          </label>
-          <div className="relative">
-            <DollarSign className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={costPrice}
-              onChange={(e) => setCostPrice(parseFloat(e.target.value) || 0)}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3 py-3 text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-            />
-          </div>
-        </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <FormField label="Unit cost price ($)" id="profit-cost">
+          <Input
+            id="profit-cost"
+            type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
+            value={costPrice}
+            onChange={(e) => setCostPrice(parseFloat(e.target.value) || 0)}
+            className="tabular-nums"
+          />
+        </FormField>
 
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-            Unit Selling Price ($)
-          </label>
-          <div className="relative">
-            <DollarSign className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={sellingPrice}
-              onChange={(e) => setSellingPrice(parseFloat(e.target.value) || 0)}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3 py-3 text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-            />
-          </div>
-        </div>
+        <FormField label="Unit selling price ($)" id="profit-selling">
+          <Input
+            id="profit-selling"
+            type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
+            value={sellingPrice}
+            onChange={(e) => setSellingPrice(parseFloat(e.target.value) || 0)}
+            className="tabular-nums"
+          />
+        </FormField>
 
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-            Units Sold (Volume)
-          </label>
-          <input
+        <FormField label="Units sold" id="profit-units">
+          <Input
+            id="profit-units"
             type="number"
             min="1"
+            inputMode="numeric"
             value={units}
             onChange={(e) => setUnits(parseInt(e.target.value, 10) || 1)}
-            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            className="tabular-nums"
           />
-        </div>
+        </FormField>
       </div>
 
-      {/* Primary Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-6 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl">
-          <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-            Profit Margin (%)
-          </span>
-          <div className="mt-2 text-4xl font-black text-emerald-900 dark:text-emerald-100">
+      <div className="rounded-lg bg-surface-muted p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Total net profit
+        </p>
+        <p
+          className={
+            results.totalProfit >= 0
+              ? "mt-1.5 font-display text-4xl leading-none tabular-nums text-foreground"
+              : "mt-1.5 font-display text-4xl leading-none tabular-nums text-destructive"
+          }
+        >
+          {results.totalProfit < 0 ? "-" : ""}${money(Math.abs(results.totalProfit))}
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground tabular-nums">
+          {results.unitProfit < 0
+            ? `Loss of $${money(Math.abs(results.unitProfit))} per unit`
+            : `$${money(results.unitProfit)} profit per unit`}{" "}
+          across {units} units.
+        </p>
+      </div>
+
+      <dl className="divide-y divide-border rounded-lg border border-border">
+        <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+          <dt className="text-sm text-muted-foreground">Profit margin</dt>
+          <dd className="text-sm font-semibold tabular-nums text-foreground">
             {results.margin.toFixed(2)}%
-          </div>
-          <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">
-            Profit as a percentage of total revenue
-          </p>
+          </dd>
         </div>
-
-        <div className="p-6 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-2xl">
-          <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400">
-            Markup (%)
-          </span>
-          <div className="mt-2 text-4xl font-black text-indigo-900 dark:text-indigo-100">
+        <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+          <dt className="text-sm text-muted-foreground">
+            Markup <span className="text-xs">above cost</span>
+          </dt>
+          <dd className="text-sm font-semibold tabular-nums text-foreground">
             {results.markup.toFixed(2)}%
-          </div>
-          <p className="mt-2 text-xs text-indigo-700 dark:text-indigo-300">
-            Percentage added above cost price
-          </p>
+          </dd>
         </div>
-
-        <div className="p-6 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl">
-          <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-            Total Net Profit
-          </span>
-          <div className="mt-2 text-4xl font-black text-amber-900 dark:text-amber-100">
-            ${results.totalProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-          <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-            ${results.unitProfit.toFixed(2)} profit per unit across {units} units
-          </p>
+        <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+          <dt className="text-sm text-muted-foreground">Total revenue</dt>
+          <dd className="text-sm font-semibold tabular-nums text-foreground">
+            ${money(results.totalRevenue)}
+          </dd>
         </div>
-      </div>
-
-      {/* Aggregate Balance */}
-      <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-center">
-        <div>
-          <span className="text-xs text-slate-500 block">Total Revenue</span>
-          <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
-            ${results.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
+        <div className="flex items-baseline justify-between gap-4 px-4 py-3">
+          <dt className="text-sm text-muted-foreground">Total inventory cost</dt>
+          <dd className="text-sm font-semibold tabular-nums text-foreground">
+            ${money(results.totalCost)}
+          </dd>
         </div>
-        <div>
-          <span className="text-xs text-slate-500 block">Total Inventory Cost</span>
-          <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
-            ${results.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-        </div>
-      </div>
+      </dl>
     </div>
   );
 }

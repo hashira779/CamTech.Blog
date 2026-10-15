@@ -1,162 +1,361 @@
-@import url('https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;500;600;700&family=Noto+Sans+Khmer:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
 
+/* ============================================================================
+   CamTech.Blog — design tokens
+   ----------------------------------------------------------------------------
+   One warm-paper editorial palette, one type ladder, one radius ladder.
+   Every value below is bound to a Tailwind utility through the `@theme inline`
+   block, so `bg-card`, `text-muted-foreground` and `border-border` are real
+   classes. They used to be written all over the travel pages and silently
+   render nothing, because Tailwind v4 only generates a utility for a token
+   declared in `@theme`.
+   ========================================================================== */
+
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a;
-  
+  color-scheme: light;
+
+  /* Surfaces — warm paper, never cool gray */
+  --background: #fbf9f5;
+  --foreground: #1c1917;
+
   --surface: #ffffff;
-  --surface-muted: #f8fafc;
+  --surface-muted: #f5f1e9;
   --surface-elevated: #ffffff;
 
   --card: #ffffff;
-  --card-foreground: #0f172a;
-  
+  --card-foreground: #1c1917;
+
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  
-  --primary: #0f766e;
-  --primary-foreground: #ffffff;
-  
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  
-  --muted: #f8fafc;
-  --muted-foreground: #64748b;
-  
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
-  
-  --destructive: #ef4444;
+  --popover-foreground: #1c1917;
+
+  /* Ink is the primary action colour; terracotta is the single accent */
+  --primary: #1f1b16;
+  --primary-foreground: #fbf9f5;
+
+  --secondary: #f0eae0;
+  --secondary-foreground: #1c1917;
+
+  --muted: #f3eee6;
+  --muted-foreground: #6f675e;
+
+  --accent: #b4552d;
+  --accent-foreground: #ffffff;
+  --accent-soft: #f7ebe3;
+
+  --destructive: #a93226;
   --destructive-foreground: #ffffff;
-  
-  --success: #10b981;
+
+  --success: #3f6b4a;
   --success-foreground: #ffffff;
 
-  --warning: #f59e0b;
-  --warning-foreground: #0f172a;
+  --warning: #a8762a;
+  --warning-foreground: #ffffff;
 
-  --info: #0284c7;
+  --info: #3a6073;
   --info-foreground: #ffffff;
-  
-  --border: #e2e8f0;
-  --input: #cbd5e1;
-  --ring: #0f766e;
-  
-  --radius: 0.5rem;
+
+  /* Hairlines, not borders */
+  --border: #e7e1d8;
+  --border-strong: #d8d0c4;
+  --input: #d9d2c7;
+  --ring: #b4552d;
+
+  /* Section marks. The soft tint is mixed from the hue so it tracks the theme
+     without a second hand-maintained table. */
+  --category-news: #3a6073;
+  --category-world: #5b4b8a;
+  --category-travel: #2f6b4f;
+  --category-discover: #8a5a2b;
+  --category-quiz: #a2543f;
+  --category-tools: #6b6252;
+  --category-transport: #4f6b7a;
+  --category-breaking: #a93226;
+
+  --radius: 14px;
 }
 
 :root.dark,
 .dark,
 [data-theme="dark"] {
-  --background: #090d16;
-  --foreground: #f8fafc;
-  
-  --surface: #0f172a;
-  --surface-muted: #0c1222;
-  --surface-elevated: #1e293b;
+  color-scheme: dark;
 
-  --card: #0f172a;
-  --card-foreground: #f8fafc;
-  
-  --popover: #0f172a;
-  --popover-foreground: #f8fafc;
-  
-  --primary: #14b8a6;
-  --primary-foreground: #042f2e;
-  
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
-  
-  --muted: #131b2e;
-  --muted-foreground: #94a3b8;
-  
-  --accent: #1e293b;
-  --accent-foreground: #f8fafc;
-  
-  --destructive: #f87171;
-  --destructive-foreground: #450a0a;
-  
-  --success: #34d399;
-  --success-foreground: #064e3b;
+  --background: #12100e;
+  --foreground: #f5f1ea;
 
-  --warning: #fbbf24;
-  --warning-foreground: #451a03;
+  --surface: #1a1714;
+  --surface-muted: #16130f;
+  --surface-elevated: #221e1a;
 
-  --info: #38bdf8;
-  --info-foreground: #082f49;
-  
-  --border: #1e293b;
-  --input: #334155;
-  --ring: #14b8a6;
+  --card: #1a1714;
+  --card-foreground: #f5f1ea;
+
+  --popover: #1f1b17;
+  --popover-foreground: #f5f1ea;
+
+  --primary: #f5f1ea;
+  --primary-foreground: #17140f;
+
+  --secondary: #262119;
+  --secondary-foreground: #f5f1ea;
+
+  --muted: #1f1b16;
+  --muted-foreground: #a79e92;
+
+  --accent: #e08a5a;
+  --accent-foreground: #1a1207;
+  --accent-soft: #2a1d14;
+
+  --destructive: #e0705f;
+  --destructive-foreground: #2a1210;
+
+  --success: #7fb08a;
+  --success-foreground: #10200f;
+
+  --warning: #d9a441;
+  --warning-foreground: #241a08;
+
+  --info: #7fa6bc;
+  --info-foreground: #0e1a20;
+
+  --border: #2a2521;
+  --border-strong: #3a332c;
+  --input: #3a332c;
+  --ring: #e08a5a;
+
+  --category-news: #8fb4c9;
+  --category-world: #a99bd4;
+  --category-travel: #86b796;
+  --category-discover: #d0a86a;
+  --category-quiz: #d99a80;
+  --category-tools: #b3a894;
+  --category-transport: #93b3c4;
+  --category-breaking: #e0705f;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not(.light):not([data-theme="light"]) {
-    --background: #090d16;
-    --foreground: #f8fafc;
-    
-    --surface: #0f172a;
-    --surface-muted: #0c1222;
-    --surface-elevated: #1e293b;
+    color-scheme: dark;
 
-    --card: #0f172a;
-    --card-foreground: #f8fafc;
-    
-    --popover: #0f172a;
-    --popover-foreground: #f8fafc;
-    
-    --primary: #14b8a6;
-    --primary-foreground: #042f2e;
-    
-    --secondary: #1e293b;
-    --secondary-foreground: #f8fafc;
-    
-    --muted: #131b2e;
-    --muted-foreground: #94a3b8;
-    
-    --accent: #1e293b;
-    --accent-foreground: #f8fafc;
-    
-    --destructive: #f87171;
-    --destructive-foreground: #450a0a;
-    
-    --success: #34d399;
-    --success-foreground: #064e3b;
+    --background: #12100e;
+    --foreground: #f5f1ea;
 
-    --warning: #fbbf24;
-    --warning-foreground: #451a03;
+    --surface: #1a1714;
+    --surface-muted: #16130f;
+    --surface-elevated: #221e1a;
 
-    --info: #38bdf8;
-    --info-foreground: #082f49;
-    
-    --border: #1e293b;
-    --input: #334155;
-    --ring: #14b8a6;
+    --card: #1a1714;
+    --card-foreground: #f5f1ea;
+
+    --popover: #1f1b17;
+    --popover-foreground: #f5f1ea;
+
+    --primary: #f5f1ea;
+    --primary-foreground: #17140f;
+
+    --secondary: #262119;
+    --secondary-foreground: #f5f1ea;
+
+    --muted: #1f1b16;
+    --muted-foreground: #a79e92;
+
+    --accent: #e08a5a;
+    --accent-foreground: #1a1207;
+    --accent-soft: #2a1d14;
+
+    --destructive: #e0705f;
+    --destructive-foreground: #2a1210;
+
+    --success: #7fb08a;
+    --success-foreground: #10200f;
+
+    --warning: #d9a441;
+    --warning-foreground: #241a08;
+
+    --info: #7fa6bc;
+    --info-foreground: #0e1a20;
+
+    --border: #2a2521;
+    --border-strong: #3a332c;
+    --input: #3a332c;
+    --ring: #e08a5a;
+
+    --category-news: #8fb4c9;
+    --category-world: #a99bd4;
+    --category-travel: #86b796;
+    --category-discover: #d0a86a;
+    --category-quiz: #d99a80;
+    --category-tools: #b3a894;
+    --category-transport: #93b3c4;
+    --category-breaking: #e0705f;
   }
 }
 
-html {
-  scroll-behavior: smooth;
+/* Bind every token above to a Tailwind utility. `inline` matters: it makes
+   `bg-card` compile to `var(--card)` instead of a frozen copy, so the theme
+   switch keeps working at runtime. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-elevated: var(--surface-elevated);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-category-news: var(--category-news);
+  --color-category-world: var(--category-world);
+  --color-category-travel: var(--category-travel);
+  --color-category-discover: var(--category-discover);
+  --color-category-quiz: var(--category-quiz);
+  --color-category-tools: var(--category-tools);
+  --color-category-transport: var(--category-transport);
+  --color-category-breaking: var(--category-breaking);
+
+  /* Fonts. The Khmer face sits in the same stack as a per-glyph fallback, so
+     Khmer text renders in Kantumruy Pro without a single lang-specific class. */
+  --font-sans: var(--font-ui), var(--font-khmer), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-serif), var(--font-khmer), ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* One radius ladder. Existing rounded-lg / -xl / -2xl / -3xl usages all snap
+     onto this scale, which is how the seven competing radii collapse to one. */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-3xl: 28px;
+
+  /* Warm-tinted elevation. Shadows carry the ink colour, not pure black. */
+  --shadow-xs: 0 1px 2px rgba(28, 25, 23, 0.05);
+  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.04), 0 4px 12px -6px rgba(28, 25, 23, 0.1);
+  --shadow-md: 0 2px 4px rgba(28, 25, 23, 0.04), 0 12px 28px -12px rgba(28, 25, 23, 0.16);
+  --shadow-lg: 0 4px 8px rgba(28, 25, 23, 0.05), 0 24px 48px -20px rgba(28, 25, 23, 0.22);
+  --shadow-xl: 0 8px 16px rgba(28, 25, 23, 0.06), 0 40px 80px -32px rgba(28, 25, 23, 0.28);
+
+  /* One type ladder with a 12px floor — nothing on the site is smaller. */
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 14px;
+  --text-sm--line-height: 20px;
+  --text-base: 16px;
+  --text-base--line-height: 26px;
+  --text-lg: 18px;
+  --text-lg--line-height: 28px;
+  --text-xl: 20px;
+  --text-xl--line-height: 30px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+  --text-3xl: 30px;
+  --text-3xl--line-height: 38px;
+  --text-4xl: 36px;
+  --text-4xl--line-height: 42px;
+  --text-5xl: 46px;
+  --text-5xl--line-height: 50px;
+
+  --container-page: 78rem;
+  --container-reading: 46rem;
+  --container-wide: 92rem;
 }
 
-body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Kantumruy Pro", "Noto Sans Khmer", "Khmer OS Battambang", sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* ─── Base ─────────────────────────────────────────────────────────────── */
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Headlines are the serif; UI and body copy stay in the sans. */
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+
+  h3,
+  h4,
+  h5,
+  h6 {
+    letter-spacing: -0.01em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 9999px;
+    border: 3px solid var(--background);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+  }
 }
 
-/* Accessible focus ring style */
-:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
-}
-
-/* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
@@ -168,93 +367,297 @@ body {
   }
 }
 
-/* Custom sleek scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.55);
+/* ─── Layout containers ────────────────────────────────────────────────── */
+
+@layer components {
+  /* The one page container. Replaces `max-w-7xl mx-auto px-4 sm:px-6 lg:px-8`
+     copy-pasted into every header, footer and page. */
+  .container-page {
+    width: 100%;
+    max-width: var(--container-page);
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+  }
+
+  .container-reading {
+    width: 100%;
+    max-width: var(--container-reading);
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+  }
+
+  .container-wide {
+    width: 100%;
+    max-width: var(--container-wide);
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-page,
+    .container-reading,
+    .container-wide {
+      padding-inline: 2rem;
+    }
+  }
+
+  /* Uppercase section mark used above every heading on the site. */
+  .section-label {
+    font-size: var(--text-xs);
+    line-height: var(--text-xs--line-height);
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  .hairline {
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Photography treatment: generous radius, hairline inner ring, no border box. */
+  .photo {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background-color: var(--surface-muted);
+    box-shadow: inset 0 0 0 1px rgba(28, 25, 23, 0.06);
+  }
+
+  .photo-hero {
+    border-radius: var(--radius-3xl);
+  }
+
+  /* Warm paper texture, drawn with gradients so there is no image asset. */
+  .paper-grain {
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(180, 85, 45, 0.05), transparent 45%),
+      radial-gradient(circle at 85% 0%, rgba(58, 96, 115, 0.05), transparent 40%);
+  }
+
+  /* Restrained elevation on hover — the old version threw a neon teal glow. */
+  .hover-lift,
+  .card-hover {
+    transition:
+      transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 0.25s ease;
+  }
+
+  .hover-lift:hover,
+  .card-hover:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Kept as a soft translucent paper surface rather than frosted neon glass. */
+  .glass {
+    background: color-mix(in oklab, var(--surface) 82%, transparent);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    border: 1px solid var(--border);
+  }
+
+  /* Single accent gradient. The old one ran teal → sky → violet. */
+  .text-gradient {
+    background: linear-gradient(100deg, var(--accent) 0%, #c9793f 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Editorial lead-in for long-form article copy. */
+  .drop-cap::first-letter {
+    float: left;
+    font-family: var(--font-display);
+    font-size: 3.6em;
+    line-height: 0.82;
+    font-weight: 600;
+    padding-right: 0.08em;
+    margin-top: 0.06em;
+    color: var(--foreground);
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
-::selection {
-  background: #0f766e;
-  color: #ffffff;
-}
-
-/* ─── Premium Micro-Animations ─── */
+/* ─── Motion ───────────────────────────────────────────────────────────── */
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slide-in-right {
-  from { opacity: 0; transform: translateX(20px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.97); }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes gentle-float {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-5px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
 }
 
 @keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
+  }
 }
 
 @keyframes pulse-radar {
-  0%   { transform: scale(0.95); opacity: 0.9; }
-  50%  { transform: scale(1.6); opacity: 0; }
-  100% { transform: scale(0.95); opacity: 0; }
+  0% {
+    transform: scale(0.95);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
 }
 
-.animate-fade-up    { animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.animate-fade-in    { animation: fade-in 0.5s ease both; }
-.animate-slide-right{ animation: slide-in-right 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.animate-scale-in   { animation: scale-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.animate-float      { animation: gentle-float 4s ease-in-out infinite; }
-.animate-shimmer    { background-size: 200% 100%; animation: shimmer 2s linear infinite; }
-.animate-pulse-soft { animation: pulse-soft 3s ease-in-out infinite; }
-.animate-pulse-radar{ animation: pulse-radar 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
 
-/* Stagger delays for grid children */
-.stagger-1 { animation-delay: 0.04s; }
-.stagger-2 { animation-delay: 0.08s; }
-.stagger-3 { animation-delay: 0.12s; }
-.stagger-4 { animation-delay: 0.16s; }
-.stagger-5 { animation-delay: 0.20s; }
-.stagger-6 { animation-delay: 0.24s; }
-.stagger-7 { animation-delay: 0.28s; }
-.stagger-8 { animation-delay: 0.32s; }
+@keyframes page-progress {
+  0% {
+    transform: scaleX(0);
+    opacity: 1;
+  }
+  60% {
+    transform: scaleX(0.75);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-fade-in {
+  animation: fade-in 0.5s ease both;
+}
+.animate-slide-right {
+  animation: slide-in-right 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-scale-in {
+  animation: scale-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-float {
+  animation: gentle-float 5s ease-in-out infinite;
+}
+.animate-shimmer {
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+.animate-pulse-soft {
+  animation: pulse-soft 3s ease-in-out infinite;
+}
+.animate-pulse-radar {
+  animation: pulse-radar 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.animate-spin-slow {
+  animation: spin-slow 14s linear infinite;
+}
+
+.stagger-1 {
+  animation-delay: 0.04s;
+}
+.stagger-2 {
+  animation-delay: 0.08s;
+}
+.stagger-3 {
+  animation-delay: 0.12s;
+}
+.stagger-4 {
+  animation-delay: 0.16s;
+}
+.stagger-5 {
+  animation-delay: 0.2s;
+}
+.stagger-6 {
+  animation-delay: 0.24s;
+}
+.stagger-7 {
+  animation-delay: 0.28s;
+}
+.stagger-8 {
+  animation-delay: 0.32s;
+}
 
 /* Smooth image reveal on load */
 .img-reveal {
   opacity: 0;
-  transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    opacity 0.5s ease,
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
   transform: scale(1.03);
 }
 .img-reveal[data-loaded="true"],
@@ -263,54 +666,13 @@ body {
   transform: scale(1);
 }
 
-/* Premium glass morphism */
-.glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(14px) saturate(180%);
-  -webkit-backdrop-filter: blur(14px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+/* Reading progress bar for long-form articles. */
+.reading-progress {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  transform-origin: 0 50%;
+  background: var(--accent);
+  z-index: 60;
 }
-:root.dark .glass,
-.dark .glass {
-  background: rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(14px) saturate(180%);
-  -webkit-backdrop-filter: blur(14px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-/* Hover lift effect */
-.hover-lift {
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
-}
-.hover-lift:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.08), 0 6px 14px -4px rgba(0, 0, 0, 0.04);
-}
-:root.dark .hover-lift:hover,
-.dark .hover-lift:hover {
-  box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.55), 0 0 20px -4px rgba(20, 184, 166, 0.15);
-}
-
-/* Text gradient utility */
-.text-gradient {
-  background: linear-gradient(135deg, #14b8a6 0%, #0ea5e9 50%, #8b5cf6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-@keyframes page-progress {
-  0% { transform: scaleX(0); opacity: 1; }
-  60% { transform: scaleX(0.75); opacity: 1; }
-  100% { transform: scaleX(1); opacity: 0; }
-}
-
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.animate-spin-slow {
-  animation: spin-slow 12s linear infinite;
-}
-

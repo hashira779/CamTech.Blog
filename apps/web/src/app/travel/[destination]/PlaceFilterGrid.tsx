@@ -1,171 +1,215 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { ArrowRight, Hotel, Landmark, Search, Sparkles, ShoppingBag, Utensils, Waves, X } from "lucide-react";
 import { Place } from "@/types";
-import PlaceImage from "@/components/travel/place-image";
-import {
-  Star,
-  ShieldCheck,
-  Search,
-  MapPin,
-  Clock,
-  Landmark,
-  Hotel,
-  Utensils,
-  ShoppingBag,
-  Waves,
-  Sparkles
-} from "lucide-react";
+import { Photo } from "@/components/ui/photo";
+import { CategoryMark } from "@/components/ui/category-mark";
+import { humanize } from "@/lib/format";
 
 interface Props {
   places: Place[];
   destinationSlug: string;
 }
 
-const CATEGORY_TABS = [
-  { id: "ALL", label: "All Places" },
-  { id: "TEMPLE", label: "Temples & Shrines", icon: Landmark },
-  { id: "ACCOMMODATION", label: "Hotels & Resorts", icon: Hotel },
-  { id: "RESTAURANT", label: "Dining & Cafes", icon: Utensils },
-  { id: "MARKET", label: "Markets & Crafts", icon: ShoppingBag },
-  { id: "WATERFALL", label: "Nature & Waterfalls", icon: Waves },
-  { id: "ACTIVITY", label: "Nightlife & Activities", icon: Sparkles },
+const CATEGORY_TABS: { id: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: "ALL", label: "All places", icon: Search },
+  { id: "TEMPLE", label: "Temples & shrines", icon: Landmark },
+  { id: "ACCOMMODATION", label: "Hotels & resorts", icon: Hotel },
+  { id: "RESTAURANT", label: "Dining & cafes", icon: Utensils },
+  { id: "MARKET", label: "Markets & crafts", icon: ShoppingBag },
+  { id: "WATERFALL", label: "Nature & waterfalls", icon: Waves },
+  { id: "ACTIVITY", label: "Nightlife & activities", icon: Sparkles },
 ];
 
+/**
+ * The place rail on a destination page.
+ *
+ * Rebuilt on the shared primitives. Beyond the palette: the seeded `rating` column used to print a
+ * star and a number on every tile — it is not reader feedback, so it is gone, along with the
+ * invented indigo "hotel" banner that appeared on records with no price data. A card states only
+ * what its row actually carries.
+ */
 export function PlaceFilterGrid({ places, destinationSlug }: Props) {
   const [activeType, setActiveType] = useState<string>("ALL");
   const [searchTerm, setSearchTerm] = useState<string>("");
 
-  const filteredPlaces = places.filter((p) => {
-    const matchesType = activeType === "ALL" || p.place_type === activeType;
-    const matchesSearch =
-      !searchTerm ||
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.local_name && p.local_name.includes(searchTerm)) ||
-      p.description.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesType && matchesSearch;
-  });
+  const filteredPlaces = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return places.filter((p) => {
+      const matchesType = activeType === "ALL" || p.place_type === activeType;
+      if (!matchesType) return false;
+      if (!term) return true;
+      return [p.name, p.local_name, p.description, p.place_type]
+        .filter(Boolean)
+        .some((field) => String(field).toLowerCase().includes(term));
+    });
+  }, [places, activeType, searchTerm]);
+
+  const isFiltered = activeType !== "ALL" || searchTerm.trim().length > 0;
 
   return (
     <div className="space-y-6">
-      {/* Category Pills & Search Bar */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 sm:pb-0 scrollbar-none">
-          {CATEGORY_TABS.map((tab) => {
-            const isActive = activeType === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveType(tab.id)}
-                className={`whitespace-nowrap px-3.5 py-1.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                  isActive
-                    ? "bg-rose-600 text-white shadow-sm shadow-rose-600/30"
-                    : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
+      <div className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="no-scrollbar -mx-2 overflow-x-auto px-2">
+          <div
+            role="tablist"
+            aria-label="Filter places by type"
+            className="flex w-max items-center gap-2"
+          >
+            {CATEGORY_TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeType === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setActiveType(tab.id)}
+                  className={`inline-flex min-h-8 items-center gap-2 whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                    isActive
+                      ? "border-transparent bg-primary text-primary-foreground"
+                      : "border-border bg-card text-muted-foreground hover:border-border-strong hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Search Input */}
-        <div className="relative min-w-[240px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
+        <div className="relative sm:min-w-64">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
           <input
-            type="text"
-            placeholder="Filter by name or keywords..."
+            type="search"
+            placeholder="Filter by name or keyword"
+            aria-label="Filter places by name or keyword"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 rounded-xl text-xs bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 focus:outline-none focus:ring-2 focus:ring-rose-500 text-neutral-900 dark:text-white"
+            className="h-10 w-full rounded-lg border border-input bg-surface pl-9 pr-9 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring"
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm("")}
+              aria-label="Clear keyword filter"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Grid */}
+      <p className="text-xs text-muted-foreground" aria-live="polite">
+        {filteredPlaces.length} of {places.length} places
+        {isFiltered ? " match the current filter" : " recorded for this destination"}
+      </p>
+
       {filteredPlaces.length === 0 ? (
-        <div className="py-16 text-center rounded-2xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800">
-          <p className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-            No places matched your filter.
+        <div className="rounded-2xl border border-border bg-surface-muted/50 px-6 py-14 text-center">
+          <p className="text-sm text-muted-foreground">
+            {places.length === 0
+              ? "No places have been recorded for this destination yet."
+              : "Nothing matches that filter."}
           </p>
-          <button
-            onClick={() => {
-              setActiveType("ALL");
-              setSearchTerm("");
-            }}
-            className="mt-3 text-xs font-bold text-rose-600 hover:underline"
-          >
-            Reset filters
-          </button>
+          {isFiltered && places.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveType("ALL");
+                setSearchTerm("");
+              }}
+              className="mt-3 text-sm font-medium text-accent underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              Reset filters
+            </button>
+          )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPlaces.map((place) => {
-            const isHotel = place.place_type === "ACCOMMODATION";
-            const hotel = place.accommodation;
-
-            return (
-              <Link
-                key={place.id}
-                href={`/travel/place/${place.slug}`}
-                className="group flex flex-col bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
-              >
-                <div className="relative aspect-[16/10] overflow-hidden bg-neutral-100 dark:bg-neutral-800">
-                  <PlaceImage
-                    src={place.hero_image_url}
-                    alt={place.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute top-3 left-3 bg-neutral-900/80 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wider">
-                    {place.place_type}
-                  </div>
-                  <div className="absolute top-3 right-3 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-md px-2 py-0.5 rounded-md text-[11px] font-bold text-neutral-900 dark:text-white flex items-center gap-1">
-                    <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                    {place.rating.toFixed(1)}
-                  </div>
-                </div>
-
-                <div className="p-5 flex-1 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-baseline justify-between gap-2">
-                      <h3 className="font-bold text-base text-neutral-900 dark:text-white group-hover:text-rose-600 transition-colors line-clamp-1">
-                        {place.name}
-                      </h3>
-                      {place.local_name && (
-                        <span className="text-xs font-semibold text-neutral-400 shrink-0">
-                          {place.local_name}
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2 mt-2 leading-relaxed">
-                      {place.description}
-                    </p>
-
-                    {/* Hotel specific badge */}
-                    {isHotel && hotel && (
-                      <div className="mt-3 flex items-center gap-2 text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-lg border border-indigo-100 dark:border-indigo-900/60">
-                        <span>{hotel.star_rating}★ {hotel.property_type}</span>
-                        <span>•</span>
-                        <span>{hotel.price_range}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between text-xs text-neutral-500">
-                    <span className="flex items-center gap-1 truncate max-w-[60%]">
-                      <MapPin className="h-3 w-3 shrink-0 text-neutral-400" />
-                      <span className="truncate">{place.address || destinationSlug}</span>
-                    </span>
-                    <span className="font-semibold text-neutral-900 dark:text-neutral-200">
-                      {place.price_level}
-                    </span>
-                  </div>
-                </div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredPlaces.map((place) => (
+            <article
+              key={`${activeType}-${place.id || place.slug}`}
+              className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
+            >
+              <Link href={`/travel/place/${place.slug}`} aria-label={place.name} className="block">
+                <Photo
+                  src={place.hero_image_url}
+                  alt={place.name}
+                  ratio="3/2"
+                  radius="none"
+                  showCredit={false}
+                  placeholderLabel="Photo not verified yet"
+                />
               </Link>
-            );
-          })}
+
+              <div className="flex flex-1 flex-col gap-2 p-5">
+                <CategoryMark category="travel" tone="dot">
+                  {humanize(place.place_type)}
+                </CategoryMark>
+
+                <div className="flex items-baseline justify-between gap-2">
+                  <h3 className="font-display text-lg leading-snug tracking-tight text-foreground">
+                    <Link
+                      href={`/travel/place/${place.slug}`}
+                      className="line-clamp-2 transition-colors hover:text-accent"
+                    >
+                      {place.name}
+                    </Link>
+                  </h3>
+                  {place.local_name && (
+                    <span className="shrink-0 text-xs text-muted-foreground">{place.local_name}</span>
+                  )}
+                </div>
+
+                {place.description && (
+                  <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                    {place.description}
+                  </p>
+                )}
+
+                {place.accommodation?.star_rating && (
+                  <p className="text-xs text-muted-foreground">
+                    {place.accommodation.star_rating}-star{" "}
+                    {place.accommodation.property_type
+                      ? humanize(String(place.accommodation.property_type).toLowerCase())
+                      : "property"}
+                    {place.accommodation.price_range ? ` · ${place.accommodation.price_range}` : ""}
+                  </p>
+                )}
+
+                <div className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-3 text-xs">
+                  <span className="min-w-0 truncate text-muted-foreground">
+                    {place.address || destinationSlug}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-3">
+                    {place.price_level && place.price_level !== "FREE" && (
+                      <span className="font-medium text-foreground">{place.price_level}</span>
+                    )}
+                    <Link
+                      href={`/travel/place/${place.slug}`}
+                      className="inline-flex items-center gap-1 font-semibold text-accent transition-colors hover:text-foreground"
+                    >
+                      View
+                      <ArrowRight
+                        size={14}
+                        aria-hidden="true"
+                        className="transition-transform duration-300 group-hover:translate-x-0.5"
+                      />
+                    </Link>
+                  </span>
+                </div>
+              </div>
+            </article>
+          ))}
         </div>
       )}
     </div>

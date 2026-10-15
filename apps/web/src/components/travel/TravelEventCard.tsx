@@ -1,40 +1,64 @@
 import React from "react";
-import { TravelEvent } from "@/types";
-import { Calendar, MapPin, Sparkles } from "lucide-react";
+import type { TravelEvent } from "@/types";
+import { MapPin } from "lucide-react";
+import { Photo } from "@/components/ui/photo";
+import { CategoryMark } from "@/components/ui/category-mark";
+import { cleanText, formatDate } from "@/lib/format";
 
 interface TravelEventCardProps {
   event: TravelEvent;
 }
 
+/**
+ * Event card.
+ *
+ * Dates go through `formatDate` instead of printing the raw ISO string, and the
+ * end date only appears when the record has one. There is no event detail route,
+ * so the card stays unlinked rather than pointing at a page that does not exist.
+ */
 export function TravelEventCard({ event }: TravelEventCardProps) {
+  const start = formatDate(event.start_date, "long");
+  const end = formatDate(event.end_date, "long");
+  const when = start && end && end !== start ? `${start} — ${end}` : start || end;
+  const typeLabel = event.event_type?.toLowerCase().replace(/_/g, " ");
+
   return (
-    <div className="bg-card text-card-foreground rounded-xl border p-5 shadow-sm hover:border-primary/50 transition-all flex flex-col justify-between">
-      <div>
-        <div className="flex items-start justify-between gap-3 mb-2">
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
-            <Sparkles className="w-3 h-3" /> {event.event_type}
-          </span>
-          <span className="text-xs font-semibold text-primary inline-flex items-center gap-1 bg-primary/10 px-2 py-1 rounded">
-            <Calendar className="w-3 h-3" /> {event.start_date}
-          </span>
+    <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs transition-colors hover:border-border-strong">
+      <Photo
+        src={event.hero_image_url}
+        alt={cleanText(event.name)}
+        ratio="3/2"
+        radius="none"
+        showCredit={false}
+        placeholderLabel="No verified photograph yet"
+      />
+
+      <div className="flex flex-1 flex-col gap-2 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {typeLabel && (
+            <CategoryMark category={typeLabel} tone="dot">
+              {typeLabel}
+            </CategoryMark>
+          )}
+          {when && <p className="text-xs tabular-nums text-muted-foreground">{when}</p>}
         </div>
 
-        <h4 className="font-bold text-base mt-1 mb-1">{event.name}</h4>
-        {event.name_km && (
-          <p className="text-xs text-muted-foreground font-khmer mb-2">{event.name_km}</p>
+        <h3 className="font-display text-lg leading-snug tracking-tight text-foreground">{cleanText(event.name)}</h3>
+        {event.name_km && <p className="text-sm text-muted-foreground">{event.name_km}</p>}
+
+        {event.description && (
+          <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+            {cleanText(event.description)}
+          </p>
         )}
 
-        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 mb-3">
-          {event.description}
-        </p>
+        {event.venue && (
+          <p className="mt-auto flex items-start gap-1.5 border-t border-border pt-3 text-xs text-muted-foreground">
+            <MapPin size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <span>{event.venue}</span>
+          </p>
+        )}
       </div>
-
-      {event.venue && (
-        <div className="pt-3 border-t text-xs text-muted-foreground flex items-center gap-1">
-          <MapPin className="w-3 h-3 text-primary shrink-0" />
-          <span className="truncate">{event.venue}</span>
-        </div>
-      )}
-    </div>
+    </article>
   );
 }

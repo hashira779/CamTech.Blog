@@ -1,85 +1,191 @@
 import Link from "next/link";
-import { ShieldCheck, ExternalLink, Globe, Database, Award } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { getSources } from "@/lib/api";
+import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+import { Container, Section } from "@/components/ui/container";
+import { SectionHeader } from "@/components/ui/section-header";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import type { Source } from "@/types";
+import { cleanText, humanize } from "@/lib/format";
 
 export const revalidate = 60;
 
+/** A registry row must never invent a value the pipeline did not return. */
+function NotRecorded() {
+  return (
+    <span className="text-border-strong">
+      <span aria-hidden="true">&mdash;</span>
+      <span className="sr-only">Not recorded</span>
+    </span>
+  );
+}
+
+/**
+ * `ui/table.tsx` still paints its own slate header/body/hover. Each override
+ * repeats for `dark:` because tailwind-merge only drops a base class when the
+ * same variant is supplied, and the primitive ships both.
+ */
+const TH = "text-muted-foreground dark:text-muted-foreground";
+const TD = "align-top text-foreground dark:text-foreground";
+const TD_MUTED = "align-top text-muted-foreground dark:text-muted-foreground";
+
+function byName(a: Source, b: Source) {
+  return a.name.localeCompare(b.name);
+}
+
+/**
+ * Source registry.
+ *
+ * This page is the site's transparency claim, so it renders the `Source`
+ * records and nothing else: name, country, language, trust level and licence
+ * notes as stored. The old grid promised "Strict Attribution Required" for
+ * every card, a label that is not a field on the record.
+ */
 export default async function SourcesDirectoryPage() {
   const sources = await getSources();
+  const rows = [...(sources || [])].sort((a, b) => a.country.localeCompare(b.country) || byName(a, b));
+
+  const jurisdictions = new Set(rows.map((source) => source.country).filter(Boolean)).size;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Header Banner */}
-      <div className="p-8 rounded-3xl bg-zinc-950 text-white space-y-2 border border-zinc-800 shadow-xs">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">
-          <Database className="h-4 w-4" />
-          <span>Transparency & Attribution</span>
-        </div>
-        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-          Verified Source Registry
-        </h1>
-        <p className="text-xs sm:text-sm text-zinc-300 max-w-3xl leading-relaxed font-normal">
-          Daily Discovery maintains a strict, auditable Source Registry. We never scrape full text or mirror external publishers.
-          Every external report is independently summarized, credited, and attributed to its original publisher.
-        </p>
-      </div>
+    <div className="flex w-full flex-1 flex-col">
+      <Container className="pt-8 sm:pt-12">
+        <Breadcrumbs items={[{ label: "Sources" }]} />
 
-      {/* Sources Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {sources.map((source) => (
-          <div
-            key={source.id}
-            className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
-          >
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold rounded-lg flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  {source.trust_level.replace(/_/g, " ")}
-                </span>
-                <span className="text-xs font-bold text-slate-400 uppercase">
-                  {source.country} • {source.language}
-                </span>
+        <div className="mt-6 border-b border-border pb-8">
+          <p className="section-label text-accent">Transparency &amp; attribution</p>
+          <h1 className="mt-3 font-display text-4xl leading-[1.05] tracking-tight text-foreground sm:text-5xl">
+            Source registry
+          </h1>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
+            Every publisher and feed this site draws on is listed below. We do not republish full
+            articles or mirror external sites: stories are summarised here and credited to the
+            original publisher, with a link back to the report they came from.
+          </p>
+
+          {rows.length > 0 && (
+            <dl className="mt-6 flex flex-wrap gap-x-8 gap-y-3 text-sm">
+              <div className="flex items-baseline gap-2">
+                <dt className="section-label">Sources</dt>
+                <dd className="tabular-nums text-foreground">{rows.length}</dd>
               </div>
-
-              <div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                  <Link href={`/source/${source.slug}`} className="hover:text-emerald-600 dark:hover:text-emerald-400">
-                    {source.name}
-                  </Link>
-                </h3>
-                <p className="text-xs text-slate-500 font-medium mt-1">
-                  Category: {source.category}
-                </p>
-              </div>
-
-              {source.license_notes && (
-                <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">
-                  {source.license_notes}
-                </p>
+              {jurisdictions > 0 && (
+                <div className="flex items-baseline gap-2">
+                  <dt className="section-label">
+                    Jurisdictions
+                  </dt>
+                  <dd className="tabular-nums text-foreground">{jurisdictions}</dd>
+                </div>
               )}
-            </div>
+            </dl>
+          )}
+        </div>
+      </Container>
 
-            <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-              <Link
-                href={`/source/${source.slug}`}
-                className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
-              >
-                View Attribution Profile →
-              </Link>
-              <a
-                href={source.website_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center gap-1"
-              >
-                <span>Site</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-          </div>
-        ))}
-      </div>
+      <Section className="pt-8">
+        <Container>
+          {rows.length === 0 ? (
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              The registry is empty right now — no sources are recorded, so nothing here is being
+              credited.
+            </p>
+          ) : (
+            <>
+              <SectionHeader
+                label="Registry"
+                title="Recorded sources"
+                description="Values are shown exactly as the ingestion pipeline records them."
+                as="h2"
+              />
+
+              <Table className="bg-card">
+                <TableHeader className="border-border bg-surface-muted dark:border-border dark:bg-surface">
+                  <TableRow>
+                    <TableHead className={TH}>Source</TableHead>
+                    <TableHead className={TH}>Country</TableHead>
+                    <TableHead className={TH}>Language</TableHead>
+                    <TableHead className={TH}>Trust level</TableHead>
+                    <TableHead className={TH}>Licence notes</TableHead>
+                  </TableRow>
+                </TableHeader>
+
+                <TableBody className="divide-border bg-card dark:divide-border dark:bg-transparent">
+                  {rows.map((source) => {
+                    const notes = cleanText(source.license_notes);
+                    return (
+                      <TableRow key={source.id} className="hover:bg-surface-muted/70 dark:hover:bg-surface">
+                        <TableCell className={TD}>
+                          <Link
+                            href={`/source/${source.slug}`}
+                            className="font-display text-base leading-snug transition-colors hover:text-accent"
+                          >
+                            {source.name}
+                          </Link>
+                          {source.category && (
+                            <span className="mt-1 block text-xs text-muted-foreground">
+                              {humanize(source.category)}
+                            </span>
+                          )}
+                        </TableCell>
+
+                        <TableCell className={TD_MUTED}>
+                          {source.country ? source.country : <NotRecorded />}
+                        </TableCell>
+
+                        <TableCell className={TD_MUTED}>
+                          {source.language ? source.language.toUpperCase() : <NotRecorded />}
+                        </TableCell>
+
+                        <TableCell className={TD}>
+                          {source.trust_level ? humanize(source.trust_level) : <NotRecorded />}
+                        </TableCell>
+
+                        <TableCell className={TD_MUTED}>
+                          {notes ? (
+                            <span className="block max-w-prose text-sm leading-relaxed">{notes}</span>
+                          ) : (
+                            <NotRecorded />
+                          )}
+                          {source.website_url && (
+                            <a
+                              href={source.website_url}
+                              target="_blank"
+                              rel="noopener noreferrer nofollow"
+                              className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent transition-colors hover:text-foreground"
+                            >
+                              Original site
+                              <ExternalLink size={12} strokeWidth={2} aria-hidden="true" />
+                            </a>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+
+              <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
+                Missing a publisher, or is an attribution on one of our stories wrong?{" "}
+                <Link href="/contact" className="text-accent hover:text-foreground">
+                  Tell the newsroom
+                </Link>
+                . How corrections are handled is set out in the{" "}
+                <Link href="/corrections-policy" className="text-accent hover:text-foreground">
+                  corrections policy
+                </Link>
+                .
+              </p>
+            </>
+          )}
+        </Container>
+      </Section>
     </div>
   );
 }
