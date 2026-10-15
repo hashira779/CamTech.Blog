@@ -94,7 +94,7 @@ export function Header() {
           </button>
 
           <Link href="/" className="group inline-flex items-center">
-            <Logo size="md" />
+            <Logo size="md" showPopupOnHover={true} />
           </Link>
         </div>
 

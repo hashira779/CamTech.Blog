@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Light Mode Background Gradient -->
+    <linearGradient id="bgGradLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="50%" stop-color="#fbf8f5" />
+      <stop offset="100%" stop-color="#f2eae1" />
+    </linearGradient>
+
+    <!-- Rich Terracotta Copper Gradient for Light Background -->
+    <linearGradient id="copperGradLight" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#803413" />
+      <stop offset="35%" stop-color="#a6491e" />
+      <stop offset="70%" stop-color="#c96637" />
+      <stop offset="100%" stop-color="#e07d4d" />
+    </linearGradient>
+
+    <!-- Warm Amber Highlight Gradient -->
+    <linearGradient id="amberHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#b85425" />
+      <stop offset="100%" stop-color="#7a2e0e" />
+    </linearGradient>
+
+    <!-- Subtle Ambient Drop Filter -->
+    <filter id="softShadowLight" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#7a2e0e" flood-opacity="0.12" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base Frame -->
+  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#bgGradLight)" stroke="#c96637" stroke-width="4.5" stroke-opacity="0.35" filter="url(#softShadowLight)" />
+
+  <!-- Inner Ambient Aura -->
+  <circle cx="256" cy="240" r="140" fill="#c96637" opacity="0.05" />
+
+  <!-- Central Angkor Wat Temple & Digital Circuit Iconography -->
+  <g id="temple-circuit" stroke="url(#copperGradLight)" stroke-linecap="round" stroke-linejoin="round">
+    
+    <!-- === Central Spire (Tallest) === -->
+    <!-- Pinnacle Cone -->
+    <polygon points="256,90 236,132 276,132" fill="url(#copperGradLight)" stroke="none" />
+    <!-- Spire Tiers -->
+    <polygon points="256,128 226,170 286,170" fill="none" stroke-width="6" />
+    <polygon points="256,166 218,212 294,212" fill="none" stroke-width="6" />
+    <polygon points="256,206 208,258 304,258" fill="none" stroke-width="6.5" />
+    
+    <!-- === Left Spire === -->
+    <polygon points="172,160 156,195 188,195" fill="url(#copperGradLight)" stroke="none" />
+    <polygon points="172,192 148,228 196,228" fill="none" stroke-width="5" />
+    <polygon points="172,224 140,264 204,264" fill="none" stroke-width="5.5" />
+
+    <!-- === Right Spire === -->
+    <polygon points="340,160 324,195 356,195" fill="url(#copperGradLight)" stroke="none" />
+    <polygon points="340,192 316,228 364,228" fill="none" stroke-width="5" />
+    <polygon points="340,224 308,264 372,264" fill="none" stroke-width="5.5" />
+
+    <!-- === Circuit Board Traces Interlocking with Temple Base === -->
+    <!-- Center Bus Lines -->
+    <path d="M 256,268 L 256,330 L 220,366 L 160,366" fill="none" stroke-width="5" />
+    <path d="M 256,330 L 292,366 L 352,366" fill="none" stroke-width="5" />
+    
+    <!-- Left Flank Traces -->
+    <path d="M 172,272 L 172,320 L 132,360 L 100,360" fill="none" stroke-width="5" />
+    <path d="M 148,320 L 148,340 L 112,376 L 90,376" fill="none" stroke-width="4" />
+
+    <!-- Right Flank Traces -->
+    <path d="M 340,272 L 340,320 L 380,360 L 412,360" fill="none" stroke-width="5" />
+    <path d="M 364,320 L 364,340 L 400,376 L 422,376" fill="none" stroke-width="4" />
+
+    <!-- Vertical Data Pathways -->
+    <path d="M 236,264 L 236,310 L 194,352" fill="none" stroke-width="4.5" />
+    <path d="M 276,264 L 276,310 L 318,352" fill="none" stroke-width="4.5" />
+  </g>
+
+  <!-- Glowing Circuit Terminals / Nodes -->
+  <g fill="url(#amberHighlight)">
+    <circle cx="256" cy="270" r="5.5" />
+    <circle cx="160" cy="366" r="6" />
+    <circle cx="352" cy="366" r="6" />
+    <circle cx="100" cy="360" r="5" />
+    <circle cx="90" cy="376" r="4.5" />
+    <circle cx="412" cy="360" r="5" />
+    <circle cx="422" cy="376" r="4.5" />
+    <circle cx="194" cy="352" r="5" />
+    <circle cx="318" cy="352" r="5" />
+  </g>
+
+  <!-- Wordmark "CAMTECH" -->
+  <text x="256" y="430" 
+        text-anchor="middle" 
+        font-family="system-ui, -apple-system, sans-serif" 
+        font-size="34" 
+        font-weight="800" 
+        letter-spacing="7" 
+        fill="#1c1815">CAMTECH</text>
+
+  <!-- Subtitle Tagline "BLOG" -->
+  <text x="256" y="456" 
+        text-anchor="middle" 
+        font-family="system-ui, -apple-system, sans-serif" 
+        font-size="12" 
+        font-weight="600" 
+        letter-spacing="5" 
+        fill="#a6491e" 
+        opacity="0.95">TECHNOLOGY &amp; JOURNALISM</text>
+</svg>
