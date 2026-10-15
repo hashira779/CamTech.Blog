@@ -65,6 +65,8 @@ jobs:
           grep -q "^MINIO_ROOT_PASSWORD=" .env || echo "MINIO_ROOT_PASSWORD=minio_secret_key" >> .env
           grep -q "^PUBLIC_API_URL=" .env || echo "PUBLIC_API_URL=https://cms.camtech.cam/api/v1" >> .env
           grep -q "^PUBLIC_WEB_URL=" .env || echo "PUBLIC_WEB_URL=https://blog.camtech.cam" >> .env
+          grep -q "^NEXT_PUBLIC_ADSENSE_PUBLISHER_ID=" .env || echo "NEXT_PUBLIC_ADSENSE_PUBLISHER_ID=ca-pub-1311307969887065" >> .env
+          grep -q "^NEXT_PUBLIC_ADSENSE_ENABLED=" .env || echo "NEXT_PUBLIC_ADSENSE_ENABLED=true" >> .env
           chmod 600 .env
 
       # ------------------------------------------------------------------------
@@ -147,6 +149,7 @@ jobs:
           
           # Verify Web frontend
           curl -s -f http://localhost:3000/ > /dev/null 2>&1 && echo "✅ Web frontend (port 3000) responded OK" || echo "Web frontend check completed"
+          curl -s -f http://localhost:3000/ads.txt > /dev/null 2>&1 && echo "✅ Web /ads.txt served OK" || echo "Web ads.txt check completed"
 
           # Verify Admin frontend on port 3001
           ADMIN_OK=false

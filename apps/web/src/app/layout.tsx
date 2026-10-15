@@ -103,6 +103,9 @@ export const metadata: Metadata = {
       { url: "/logo.png" },
     ],
   },
+  other: {
+    "google-adsense-account": "ca-pub-1311307969887065",
+  },
 };
 
 export default function RootLayout({
@@ -117,6 +120,18 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/* Google AdSense Account Verification */}
+        <meta
+          name="google-adsense-account"
+          content="ca-pub-1311307969887065"
+        />
+        {/* Google AdSense Script for Site Approval & Auto Ads */}
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1311307969887065"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -141,14 +156,6 @@ export default function RootLayout({
             __html: `(function(){var r=document.documentElement;r.classList.add('js');try{var t=localStorage.getItem('dd_theme');var d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d){r.classList.add('dark');r.classList.remove('light');r.setAttribute('data-theme','dark');r.style.colorScheme='dark';}else{r.classList.remove('dark');r.classList.add('light');r.setAttribute('data-theme','light');r.style.colorScheme='light';}}catch(e){}})();`,
           }}
         />
-        {process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID && process.env.NEXT_PUBLIC_ADSENSE_ENABLED === "true" && (
-          <Script
-            async
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID}`}
-            crossOrigin="anonymous"
-            strategy="afterInteractive"
-          />
-        )}
       </head>
       <body className="min-h-screen flex flex-col bg-background text-foreground antialiased transition-colors duration-200">
         <NextTopLoader

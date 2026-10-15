@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 
 export type AdSlotType =
   | "HOME_TOP"
@@ -19,31 +19,41 @@ interface AdSlotProps {
 
 /**
  * Section 37: AdSlot abstraction layer.
- * Keeps real AdSense dormant initially while reserving clean, zero-layout-shift responsive slots.
- * No deceptive buttons, no forced clicks, content is prioritized.
+ * Monetization slots for Google AdSense with zero layout shift and graceful fallbacks.
  */
 export function AdSlot({ slot, className = "" }: AdSlotProps) {
-  const isEnabled = process.env.NEXT_PUBLIC_ADSENSE_ENABLED === "true";
-  const publisherId = process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID;
+  const isEnabled = process.env.NEXT_PUBLIC_ADSENSE_ENABLED !== "false";
+  const publisherId =
+    process.env.NEXT_PUBLIC_ADSENSE_PUBLISHER_ID || "ca-pub-1311307969887065";
+
+  useEffect(() => {
+    if (!isEnabled) return;
+    try {
+      if (typeof window !== "undefined") {
+        ((window as unknown as { adsbygoogle: unknown[] }).adsbygoogle =
+          (window as unknown as { adsbygoogle: unknown[] }).adsbygoogle || []).push({});
+      }
+    } catch {
+      // Ignore adsbygoogle push errors (e.g. ad blockers or duplicate requests)
+    }
+  }, [isEnabled]);
 
   if (!isEnabled) {
-    // Dormant placeholder mode (safe, compliant, zero visual clutter)
     return null;
   }
 
   return (
     <div
-      className={`mx-auto my-6 flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-surface-muted/50 p-4 text-center text-xs text-muted-foreground ${className}`}
+      className={`mx-auto my-6 flex flex-col items-center justify-center rounded-lg border border-dashed border-border/50 bg-surface-muted/30 p-3 text-center text-xs text-muted-foreground ${className}`}
       data-ad-slot={slot}
     >
-      <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+      <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/70">
         Advertisement
       </span>
-      <div className="mt-2 min-h-[90px] w-full flex items-center justify-center">
-        {/* Real AdSense snippet activates here when enabled in .env */}
+      <div className="mt-2 min-h-[90px] w-full flex items-center justify-center overflow-hidden">
         <ins
           className="adsbygoogle"
-          style={{ display: "block", width: "100%" }}
+          style={{ display: "block", width: "100%", textAlign: "center" }}
           data-ad-client={publisherId}
           data-ad-slot={slot}
           data-ad-format="auto"
