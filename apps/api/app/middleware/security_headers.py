@@ -8,27 +8,53 @@ for the Daily Discovery API platform.
 import uuid
 import time
 from typing import Dict, List, Optional
+from urllib.parse import urlsplit
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-from app.common.config import settings
+from app.common.config import is_live, settings
 
 
-# Standard allowed CORS origins across environments
-DEFAULT_ALLOWED_ORIGINS: List[str] = [
+# Origins that only ever exist while someone is running this on their own laptop. They are kept
+# apart from the real ones so "may this be here when the public can reach the API?" has one
+# answer instead of a comment nobody reads.
+DEV_ONLY_ORIGINS: List[str] = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3001",
+]
+
+PRODUCTION_ORIGINS: List[str] = [
     "https://blog.camtech.cam",
     "https://cms.camtech.cam",
 ]
 
+DEFAULT_ALLOWED_ORIGINS: List[str] = DEV_ONLY_ORIGINS + PRODUCTION_ORIGINS
+
+_LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"}
+
+
+def _is_loopback_origin(origin: str) -> bool:
+    host = (urlsplit(origin).hostname or "").lower()
+    return host in _LOOPBACK_HOSTS or host.startswith("127.")
+
+
 def get_cors_origins() -> List[str]:
-    """Return all allowed origins including runtime configured FRONTEND_URL."""
-    origins = list(DEFAULT_ALLOWED_ORIGINS)
+    """Origins a browser is allowed to call this API from.
+
+    The origin in a CORS request is whatever the visitor's browser claims about itself, so a
+    loopback entry does not help real users at all - it only admits anything on the same machine
+    as the API, plus any page open in a developer's own browser. When the deployment is live the
+    loopback origins are dropped even if `FRONTEND_URL` still points at one, because forgetting
+    to override the default is the usual way a site ends up trusting `http://localhost:3000` in
+    production.
+    """
+    origins = list(PRODUCTION_ORIGINS) if is_live() else list(DEFAULT_ALLOWED_ORIGINS)
     if settings.FRONTEND_URL and settings.FRONTEND_URL not in origins:
         origins.append(settings.FRONTEND_URL)
+    if is_live():
+        origins = [origin for origin in origins if not _is_loopback_origin(origin)]
     return origins
 
 

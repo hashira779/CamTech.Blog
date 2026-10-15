@@ -31,19 +31,36 @@ def seed_database():
 
     try:
         # 1. Admin User
-        admin_email = "admin@dailydiscovery.com"
-        admin = db.query(User).filter(User.email == admin_email).first()
-        if not admin:
+        #
+        # This script runs on every deploy (the pipeline calls it after `alembic upgrade head`),
+        # and it used to contain a hard-coded SUPER_ADMIN password - which meant the credential
+        # was readable by anyone with repository access, and the site's front door was the
+        # repository. The password now has to be supplied by the machine doing the seeding; with
+        # it unset, no admin is created and everything else in this script still runs.
+        admin_email = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "")
+        admin_password = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "")
+        admin = db.query(User).filter(User.email == admin_email).first() if admin_email else None
+        if admin:
+            print(f"- Admin user already exists: {admin_email} (password left untouched)")
+        elif admin_email and admin_password:
             admin = User(
                 email=admin_email,
-                hashed_password=get_password_hash("AdminDaily2026!"),
-                full_name="Chief Editorial Admin",
+                hashed_password=get_password_hash(admin_password),
+                full_name=os.getenv("BOOTSTRAP_ADMIN_NAME", "Chief Editorial Admin"),
                 role="SUPER_ADMIN",
                 is_active=True,
                 is_superuser=True
             )
             db.add(admin)
-            print("✓ Created Super Admin user: admin@dailydiscovery.com (password: AdminDaily2026!)")
+            # Never print the password. It would land in the CI log, which is readable by anyone
+            # with access to the workflow run.
+            print(f"Created Super Admin user: {admin_email}")
+        else:
+            print(
+                "SKIPPING admin creation: set BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD "
+                "in the environment to seed a first administrator. No password belongs in this "
+                "file, in a commit, or in a deploy log."
+            )
 
         # 2. Authors
         authors_data = [
@@ -702,17 +719,37 @@ def seed_database():
             {"name": "Date & Days Calculator", "name_km": "ម៉ាស៊ីនគិតថ្ងៃខែ", "slug": "date-calculator", "category": "CALCULATOR", "description": "Calculate days between dates, working business days, and add or subtract calendar days.", "icon": "CalendarDays", "is_popular": False},
             {"name": "Unit Converter", "name_km": "កម្មវិធីបំប្លែងខ្នាត", "slug": "unit-converter", "category": "CALCULATOR", "description": "Convert length, mass, temperature, area, digital storage, and speed between metric and imperial units.", "icon": "Scale", "is_popular": True},
             
+            # Cambodia Specific Everyday Tools
+            {"name": "Cambodia Salary & Tax on Salary (ToS) Calculator", "name_km": "ម៉ាស៊ីនគិតពន្ធលើប្រាក់បៀវត្សរ៍ និង ប.ស.ស (ToS)", "slug": "cambodia-salary-tax-calculator", "category": "CALCULATOR", "description": "Calculate official GDT Cambodia Tax on Salary, NSSF pension deductions, dependent relief, and net take-home salary in USD and KHR.", "icon": "Receipt", "is_popular": True},
+            {"name": "Bakong KHQR Generator & Bill Splitter", "name_km": "កម្មវិធីបង្កើត Bakong KHQR និងចែកវិក្កយបត្រ", "slug": "khqr-generator", "category": "IMAGE", "description": "Generate official National Bank of Cambodia (NBC) Bakong KHQR codes with EMVCo CRC-16 checksums for USD/KHR, plus instant restaurant bill splitting.", "icon": "QrCode", "is_popular": True},
+            {"name": "USD ↔ KHR Cash Change & Currency Converter", "name_km": "ម៉ាស៊ីនគិតលុយអាប់ ដុល្លារ និង រៀល (USD/KHR)", "slug": "cambodia-change-calculator", "category": "CALCULATOR", "description": "Solve dual-currency cash change calculations in Cambodian markets with banknote denomination counters (50k, 20k, 10k, 5k, 2k, 1k, 500, 100 Riel).", "icon": "Coins", "is_popular": True},
+            {"name": "EDC Electricity Bill & Tariff Calculator", "name_km": "ម៉ាស៊ីនគិតថ្លៃភ្លើងរដ្ឋ អគ្គិសនីកម្ពុជា (EDC)", "slug": "edc-electricity-calculator", "category": "CALCULATOR", "description": "Compute official Electricité du Cambodge (EDC) progressive residential tiered tariffs (380, 480, 610, 730 KHR/kWh) from meter readings in KHR and USD.", "icon": "Zap", "is_popular": True},
+            {"name": "Cambodia Public Holidays & Lunar Calendar (2026-2029)", "name_km": "ប្រតិទិនថ្ងៃឈប់សម្រាកបុណ្យជាតិ និងបុណ្យប្រពៃណីខ្មែរ", "slug": "khmer-holiday-calculator", "category": "TEXT", "description": "Official Royal Government of Cambodia public holiday calendar, Khmer New Year, Pchum Ben, Water Festival countdown, and long-weekend bridge planner.", "icon": "Calendar", "is_popular": True},
+            {"name": "Cambodia Weather & PM2.5 Air Quality Monitor", "name_km": "ឧបករណ៍តាមដានអាកាសធាតុ និងគុណភាពខ្យល់ PM2.5", "slug": "cambodia-weather-air-quality", "category": "CALCULATOR", "description": "Live real-time rain radar, temperature, humidity, and PM2.5 dust pollution AQI alerts for Phnom Penh and Cambodian provinces via Open-Meteo public API.", "icon": "CloudSun", "is_popular": True},
+            {"name": "Cambodia ISP & Network Diagnostic Inspector", "name_km": "ឧបករណ៍ពិនិត្យប្រព័ន្ធអ៊ីនធឺណិត ISP និង IP កម្ពុជា", "slug": "cambodia-isp-checker", "category": "DEVELOPER", "description": "Instant detector for Smart Axiata, Cellcard, Metfone, Ezecom, public IP, ASN, and interactive multi-server ping latency benchmark via ipwho.is.", "icon": "Wifi", "is_popular": True},
+            {"name": "USDT & Crypto to KHR / USD Cashout Calculator", "name_km": "ម៉ាស៊ីនគិតលុយគ្រីបតូ USDT, BTC និង ប្រាក់រៀល", "slug": "crypto-khr-converter", "category": "CALCULATOR", "description": "Live conversion of Tether (USDT), Bitcoin, and Ethereum to USD and Cambodian Riel with local OTC / P2P exchanger fee margin calculator via CoinGecko.", "icon": "Coins", "is_popular": True},
+            {"name": "Browser DNS & Domain Health Inspector", "name_km": "ឧបករណ៍ពិនិត្យកំណត់ត្រា DNS និងដែនគេហទំព័រ", "slug": "dns-lookup-inspector", "category": "DEVELOPER", "description": "Inspect A, AAAA, CNAME, MX, TXT (SPF/DKIM), and NS records directly in browser via Google Public DNS over HTTPS (DoH RFC 8484).", "icon": "Globe", "is_popular": False},
+            {"name": "Instant Public Knowledge & Wikipedia Search", "name_km": "ឧបករណ៍ស្វែងរកចំណេះដឹងទូទៅ និង វិគីភីឌា", "slug": "knowledge-search-tool", "category": "TEXT", "description": "Instant topic definitions, historical records, and quick encyclopedic knowledge retrieval in English and Khmer without tracking or ads.", "icon": "Search", "is_popular": False},
+
+            # Financial & Business Calculators
+            {"name": "Compound Interest & Investment Calculator (2026-2029)", "name_km": "ម៉ាស៊ីនគិតការប្រាក់បូកបន្ថែម", "slug": "compound-interest-calculator", "category": "CALCULATOR", "description": "Project wealth growth from 2026 to 2029 and beyond with annual/monthly compounding, deposits, and yearly milestone breakdowns.", "icon": "TrendingUp", "is_popular": True},
+            {"name": "Salary & Freelance Rate Calculator", "name_km": "ម៉ាស៊ីនគិតប្រាក់បៀវត្សរ៍និងតម្លៃម៉ោង", "slug": "salary-freelance-calculator", "category": "CALCULATOR", "description": "Compute gross-to-net income, minimum billable hourly rate, taxes, and overhead expenses in USD and Cambodian Riel (KHR).", "icon": "DollarSign", "is_popular": True},
+            
             # Developer Tools
             {"name": "JSON Formatter & Validator", "name_km": "កម្មវិធីត្រួតពិនិត្យ JSON", "slug": "json-formatter", "category": "DEVELOPER", "description": "Beautify, format, and validate JSON data structures with syntax highlighting and instant error detection.", "icon": "Code2", "is_popular": True},
-            {"name": "Base64 Encoder & Decoder", "name_km": "កម្មវិធី Base64", "slug": "base64-converter", "category": "DEVELOPER", "description": "Encode plain text to Base64 strings or decode Base64 data safely client-side.", "icon": "Binary", "is_popular": False},
-            {"name": "UUID Generator", "name_km": "កម្មវិធីបង្កើត UUID", "slug": "uuid-generator", "category": "DEVELOPER", "description": "Generate RFC 4122 compliant Version-4 UUIDs in bulk for software development and databases.", "icon": "Fingerprint", "is_popular": False},
-            {"name": "URL Encoder & Decoder", "name_km": "កម្មវិធីបំប្លែង URL", "slug": "url-encoder", "category": "DEVELOPER", "description": "Escape and unescape URL components, query parameters, and special characters.", "icon": "Link", "is_popular": False},
+            {"name": "Base64 Encoder & Decoder", "name_km": "កម្មវិធី Base64", "slug": "base64-converter", "category": "DEVELOPER", "description": "Encode plain text to Base64 strings or decode Base64 data safely client-side.", "icon": "Binary", "is_popular": True},
+            {"name": "UUID Generator", "name_km": "កម្មវិធីបង្កើត UUID", "slug": "uuid-generator", "category": "DEVELOPER", "description": "Generate timestamp-ordered UUID v7, random UUID v4, and NanoIDs in bulk with live timestamp decoding.", "icon": "Fingerprint", "is_popular": True},
+            {"name": "URL Encoder & Decoder", "name_km": "កម្មវិធីបំប្លែង URL", "slug": "url-encoder", "category": "DEVELOPER", "description": "Escape and unescape URL components, query parameters, and inspect query strings.", "icon": "Link", "is_popular": False},
+            {"name": "CSV to JSON Converter", "name_km": "បំប្លែង CSV ទៅ JSON", "slug": "csv-to-json", "category": "DEVELOPER", "description": "Convert spreadsheet CSV tabular rows into clean, structured JSON objects and vice versa with table preview.", "icon": "FileSpreadsheet", "is_popular": True},
+            {"name": "Cryptographic Password & Passphrase Generator", "name_km": "កម្មវិធីបង្កើតពាក្យសម្ងាត់សុវត្ថិភាព", "slug": "password-generator", "category": "DEVELOPER", "description": "Generate high-entropy passwords and memorable Diceware passphrases using Web Crypto with real-time crack time estimates.", "icon": "KeyRound", "is_popular": True},
+            {"name": "Cryptographic Hash & Checksum Tool", "name_km": "កម្មវិធីគណនា Hash និង Checksum", "slug": "hash-generator", "category": "DEVELOPER", "description": "Compute SHA-256, SHA-512, SHA-384, and SHA-1 checksums for text or files locally in your browser with integrity verification.", "icon": "ShieldAlert", "is_popular": False},
             
             # Image / File / Text Tools
             {"name": "Word & Character Counter", "name_km": "កម្មវិធីរាប់ពាក្យ", "slug": "word-counter", "category": "TEXT", "description": "Analyze word count, character count, estimated reading time, and speaking time for any text.", "icon": "FileText", "is_popular": True},
+            {"name": "Markdown & HTML Live Formatter", "name_km": "កម្មវិធីសរសេរ Markdown និងបម្លែង HTML", "slug": "markdown-previewer", "category": "TEXT", "description": "Write and format markdown in real time with live HTML preview, reading statistics, and one-click export.", "icon": "FileCode", "is_popular": True},
             {"name": "QR Code Generator", "name_km": "កម្មវិធីបង្កើត QR Code", "slug": "qr-code-generator", "category": "IMAGE", "description": "Generate high-resolution customizable QR codes for websites, WiFi networks, phone numbers, and text.", "icon": "QrCode", "is_popular": True},
             {"name": "Image Compressor", "name_km": "កម្មវិធីបង្រួមរូបភាព", "slug": "image-compressor", "category": "IMAGE", "description": "Compress JPEG, PNG, and WebP images directly in your browser without uploading your photos to a server.", "icon": "ImageDown", "is_popular": True},
-            {"name": "CSV to JSON Converter", "name_km": "បំប្លែង CSV ទៅ JSON", "slug": "csv-to-json", "category": "DEVELOPER", "description": "Convert spreadsheet CSV tabular rows into clean, structured JSON objects.", "icon": "FileSpreadsheet", "is_popular": False}
+            {"name": "Color Palette & WCAG 2.2 Contrast Checker", "name_km": "ឧបករណ៍ត្រួតពិនិត្យកម្រិតពណ៌និង Contrast", "slug": "color-contrast-checker", "category": "IMAGE", "description": "Check color contrast ratios, test light/dark readability, and verify WCAG 2.2 AA and AAA accessibility compliance.", "icon": "Palette", "is_popular": True}
         ]
 
         for t_data in tools_seed:
@@ -720,7 +757,12 @@ def seed_database():
             if not tool:
                 tool = Tool(**t_data)
                 db.add(tool)
+            else:
+                for k, v in t_data.items():
+                    setattr(tool, k, v)
+        db.commit()
         print(f"✓ Ensured {len(tools_seed)} production-ready tools in registry")
+
 
         # 9. Countries Registry
         countries_seed = [

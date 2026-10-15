@@ -6,6 +6,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { NewsCard } from "@/components/shared/news-card";
 import { Photo } from "@/components/ui/photo";
 import { cleanText, formatCount } from "@/lib/format";
+import { escapeJsonForScript } from "@/lib/sanitize";
 
 export const revalidate = 60;
 
@@ -121,7 +122,7 @@ export default async function AuthorProfilePage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: escapeJsonForScript({
             "@context": "https://schema.org",
             "@type": "Person",
             name: author.name,

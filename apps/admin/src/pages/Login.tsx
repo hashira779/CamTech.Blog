@@ -58,9 +58,11 @@ export default function Login() {
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">
         {/* Brand Mark */}
         <div className="flex justify-center">
-          <div className="w-10 h-10 rounded-lg bg-zinc-100 text-zinc-950 font-bold flex items-center justify-center text-sm shadow-sm">
-            CT
-          </div>
+          <img
+            src="/logo.png"
+            alt="CamTech Logo"
+            className="w-12 h-12 rounded-xl object-contain bg-zinc-900 border border-zinc-700/60 shadow-md"
+          />
         </div>
         <h2 className="mt-5 text-center text-lg font-semibold tracking-tight text-zinc-100">
           Sign in to CamTech Editorial
@@ -99,7 +101,7 @@ export default function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full pl-9 pr-3 py-2 bg-zinc-950/80 border border-zinc-800 rounded-md text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 transition-colors"
-                  placeholder="admin@dailydiscovery.com"
+                  placeholder="you@camtech.cam"
                 />
               </div>
             </div>
@@ -109,16 +111,13 @@ export default function Login() {
                 <label className="block text-xs font-medium text-zinc-300">
                   Password
                 </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('admin@dailydiscovery.com');
-                    setPassword('AdminDaily2026!');
-                  }}
-                  className="text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors"
-                >
-                  Use Default Credentials
-                </button>
+                {/*
+                  A button used to sit here that filled this form in with the seeded super-admin
+                  address and its password. This page is served to the whole internet at
+                  cms.camtech.cam, so it was not a convenience - it was the admin credential, in a
+                  downloadable bundle, one click from working. Any account it named has to be
+                  treated as published and have its password changed.
+                */}
               </div>
               <div className="mt-1.5 relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={14} />

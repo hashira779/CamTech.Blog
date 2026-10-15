@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from app.common.database import get_db
+from app.common.html_hygiene import sanitize_stored_html
 from app.models.source import Source, SourceFetchLog
 from app.models.article import Article
 from app.schemas.source import SourceOut, SourceCreate, SourceUpdate, IngestionResultOut
@@ -96,7 +97,12 @@ async def fetch_source_now(source_id: str, db: Session = Depends(get_db), user: 
                 summary=draft["summary"],
                 key_points=json.dumps(draft["key_points"]),
                 why_it_matters=draft["why_it_matters"],
-                content=f"{item['raw_summary']}\n\n*Original editorial summary compiled by Daily Discovery Newsroom.*",
+                # The manual "Fetch now" path writes the publisher's own summary as the body, so it
+                # gets the same treatment as the scheduled worker: markup that executes never
+                # reaches the row.
+                content=sanitize_stored_html(
+                    f"{item['raw_summary']}\n\n*Original editorial summary compiled by Daily Discovery Newsroom.*"
+                ),
                 category_id=category.id if category else None,
                 author_id=author.id if author else None,
                 country=source.country,

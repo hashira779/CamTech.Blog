@@ -85,9 +85,25 @@ rate_limiter = InMemoryRateLimiter()
 # Default rate limit tiers: list of (path_pattern, max_requests, window_seconds)
 DEFAULT_LIMITS: List[Tuple[str, int, int]] = [
     ("/api/v1/auth/login", 10, 60),  # 10 req/min for login (anti-bruteforce)
+    ("/api/v1/search/answer", 8, 60),  # one paid AI call per request, so far tighter than search
     ("/api/v1/search", 30, 60),      # 30 req/min for search
     ("*", 60, 60),                   # 60 req/min general limit
 ]
+
+# Read-only listing endpoints a crawler is allowed to walk without a budget. Anything that
+# costs money (AI), writes (admin), or authenticates is deliberately absent.
+BOT_EXEMPT_PREFIXES = (
+    "/api/v1/articles",
+    "/api/v1/authors",
+    "/api/v1/sources",
+    "/api/v1/trending",
+    "/api/v1/discoveries",
+    "/api/v1/quizzes",
+    "/api/v1/tools",
+    "/api/v1/travel",
+    "/sitemap.xml",
+    "/robots.txt",
+)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -133,9 +149,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if path in self.exempt_paths:
             return await call_next(request)
 
-        # 2. Skip rate-limiting for verified search engine bots (SEO & indexer friendly)
+        # 2. Crawlers get a free pass on read-only listings, and nowhere else. The user-agent
+        #    is self-declared, so this exemption used to mean "set the word googlebot in your
+        #    header and every limit in this file stops applying" - including the search-answer
+        #    endpoint, which spends real money on each call, and the admin AI triggers.
         user_agent = request.headers.get("user-agent", "").lower()
-        if any(bot in user_agent for bot in ("googlebot", "mediapartners-google", "bingbot")):
+        is_crawler = request.method == "GET" and any(
+            bot in user_agent for bot in ("googlebot", "mediapartners-google", "bingbot")
+        )
+        if is_crawler and path.startswith(BOT_EXEMPT_PREFIXES):
             return await call_next(request)
 
         # 3. Identify client IP and match endpoint rule

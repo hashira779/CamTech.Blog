@@ -1,4 +1,8 @@
 from typing import List, Dict, Any, Optional
+import logging
+
+logger = logging.getLogger(__name__)
+
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import StreamingResponse
@@ -16,7 +20,7 @@ from app.models.user import User
 from app.models.place import Place, PlaceSuggestion
 from app.models.location import Destination
 from app.schemas.travel import PlaceSuggestionOut
-from app.services.auth_service import require_admin
+from app.services.auth_service import require_admin, require_infra_admin
 from app.services.article_service import ArticleService
 from app.services.google_drive_service import storage_service
 
@@ -173,15 +177,27 @@ async def upload_image(
 ):
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image files are allowed")
-    
+    if file.content_type == "image/svg+xml":
+        # An SVG is a script that happens to render as a picture, and it would be served back
+        # from the storage origin with none of this site's headers.
+        raise HTTPException(status_code=400, detail="SVG uploads are not allowed")
+
     # Auto-generate year/month folder structure if none is provided
     if not folder_path:
         from datetime import datetime
         now = datetime.now()
         folder_path = f"Uploads/{now.year}/{now.strftime('%m')}"
 
+    # Both of these are interpolated into the object key, so a caller used to be able to write
+    # outside the intended prefix with `../../`. Keep the shape, drop the traversal.
+    safe_folder = "/".join(
+        part for part in folder_path.replace("\\", "/").split("/") if part not in ("", ".", "..")
+    )
+    safe_name = (file.filename or "upload").replace("\\", "/").rsplit("/", 1)[-1]
+    safe_name = "".join(ch for ch in safe_name if ch.isalnum() or ch in "._-") or "upload"
+
     content = await file.read()
-    result = await storage_service.upload_file(file.filename, content, file.content_type, folder_path=folder_path)
+    result = await storage_service.upload_file(safe_name, content, file.content_type, folder_path=safe_folder)
     return result
 
 @router.get("/storage/{file_id}")
@@ -195,8 +211,11 @@ async def view_storage_image(
             media_type=mime_type,
             headers={"Cache-Control": "public, max-age=604800"}
         )
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Image not found: {str(e)}")
+    except Exception:
+        # This route is public by design (article and place photographs are served through it),
+        # so the failure must not describe itself: the driver text used to come back verbatim.
+        logger.warning("Storage object %s could not be streamed", file_id)
+        raise HTTPException(status_code=404, detail="Image not found")
 
 @router.get("/storage/files")
 async def list_storage_files(
@@ -211,7 +230,7 @@ async def list_storage_files(
 @router.delete("/storage/{file_id}")
 async def delete_storage_file(
     file_id: str,
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_infra_admin)
 ):
     try:
         success = await storage_service.delete_file(file_id)
@@ -652,7 +671,7 @@ class ProviderTest(BaseModel):
     provider_id: str
 
 @router.get("/ai-providers")
-def get_ai_providers(current_user: User = Depends(require_admin)):
+def get_ai_providers(current_user: User = Depends(require_infra_admin)):
     """Redacted provider config (fallback order) plus the built-in vendor catalog."""
     from app.services import ai_gateway
     return {
@@ -665,7 +684,7 @@ def get_ai_providers(current_user: User = Depends(require_admin)):
 def save_ai_providers(
     payload: ProvidersUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_infra_admin),
 ):
     """Persist the provider registry. Masked keys keep the stored secret; a real string
     overwrites it; '__CLEAR__' removes it. Order in the list is fallback priority."""
@@ -679,7 +698,7 @@ def save_ai_providers(
 @router.post("/ai-providers/test")
 def test_ai_provider(
     payload: ProviderTest,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_infra_admin),
 ):
     """Ping one provider with a tiny prompt so the editor can verify a key works."""
     from app.services import ai_gateway
@@ -873,15 +892,30 @@ class DatabaseMigrateRequest(BaseModel):
 @router.post("/database/migrate")
 def admin_migrate_database(
     req: DatabaseMigrateRequest,
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_infra_admin)
 ):
     """
     Super System: Connects to a new database and runs auto-migration (creating tables).
     If copy_data is True, attempts to copy existing data.
+
+    This endpoint opens a connection to a URL that came from the request body and, with
+    `copy_data`, writes every table into it - users and password hashes included. It is now
+    administrator-only, and the URL is checked so that it cannot be used to drop a SQLite
+    database somewhere on the server's disk or to reach a driver the app never intends to use.
     """
     from sqlalchemy import create_engine
     from app.common.database import Base, engine as current_engine
-    
+
+    target = (req.target_url or "").strip()
+    scheme = target.split("://", 1)[0].lower() if "://" in target else ""
+    if scheme not in {"postgresql", "postgresql+psycopg2", "mysql", "mysql+pymysql"}:
+        # `sqlite:///any/path` would create or overwrite a file on the container's filesystem,
+        # and any other driver is a dependency this app does not have anyway.
+        raise HTTPException(
+            status_code=400,
+            detail="target_url must be a postgresql:// or mysql:// connection string",
+        )
+
     try:
         # 1. Connect to new target database
         new_engine = create_engine(req.target_url)
@@ -909,8 +943,12 @@ def admin_migrate_database(
             message += " Data transfer attempt completed."
             
         return {"success": True, "message": message}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Database migration failed: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception:
+        # Driver errors quote the connection string, which carries the target password.
+        logger.exception("Database migration failed")
+        raise HTTPException(status_code=400, detail="Database migration failed")
 
 @router.get("/place-suggestions", response_model=List[PlaceSuggestionOut])
 def get_place_suggestions(

@@ -1,0 +1,39 @@
+# Build context hygiene for apps/api.
+#
+# The Dockerfile does `COPY . .`, so everything in this directory used to be baked into the
+# running image - including the SQLite database, the local virtualenv and the scratch reports.
+# Anything that should never reach a container belongs here.
+#
+# NOTE ON `.env`: excluded, because docker-compose.yml now passes the API its own JWT_SECRET and
+# SESSION_SECRET from the file next to it on the server. Before that change the container had no
+# other source for a signing key, so the committed one came along in the image - which meant the
+# key that mints admin tokens was readable by anyone with repository access.
+#
+# Sequencing matters if you are reading this on a server that is already running: create the
+# `.env` next to docker-compose.yml first, then deploy. Compose stops with a named error if a
+# `${VAR:?...}` is unset, and the API refuses to boot on a missing or previously-published
+# secret; both are meant to be loud, not quiet.
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local data and generated reports - never part of an image.
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+uploads/
+scratch/
+*.log
+*cleanup*.json
+*_report*.json

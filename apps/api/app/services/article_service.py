@@ -10,6 +10,7 @@ from app.models.author import Author
 from app.models.source import Source
 from app.schemas.article import ArticleCreate, ArticleUpdate, QualityChecklist
 from app.deduplication.detector import detect_duplicates
+from app.common.html_hygiene import safe_link, sanitize_stored_html
 
 def slugify(text: str) -> str:
     text = text.lower().strip()
@@ -184,6 +185,12 @@ class ArticleService:
             slug = f"{base_slug}-{count}"
             count += 1
 
+        # The CMS posts the body as HTML, and this row is read back by the public renderer, the RSS
+        # export and the generators. Script-bearing markup and a link a reader must not follow are
+        # removed here, at the door, so they never sit in the database waiting for a weaker reader.
+        body = sanitize_stored_html(article_in.content)
+        source_url = safe_link(article_in.primary_source_url, allow_relative=False)
+
         article = Article(
             slug=slug,
             title=article_in.title,
@@ -191,7 +198,7 @@ class ArticleService:
             subheadline=article_in.subheadline,
             summary=article_in.summary,
             summary_km=article_in.summary_km,
-            content=article_in.content,
+            content=body,
             key_points=article_in.key_points,
             why_it_matters=article_in.why_it_matters,
             timeline=article_in.timeline,
@@ -204,7 +211,7 @@ class ArticleService:
             province_or_city=article_in.province_or_city,
             language=article_in.language or "en",
             primary_source_id=article_in.primary_source_id,
-            primary_source_url=article_in.primary_source_url,
+            primary_source_url=source_url,
             source_attribution_text=article_in.source_attribution_text,
             hero_image_url=article_in.hero_image_url,
             hero_image_credit=article_in.hero_image_credit,

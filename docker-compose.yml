@@ -1,14 +1,47 @@
+# ==============================================================================
+# Daily Discovery - production compose
+#
+# Two rules, both learned the hard way:
+#
+# 1. Nothing that listens for humans needs a public port. Every container here is reached
+#    either by another container over `daily_discovery_net` (api -> postgres:5432,
+#    web -> api:8000) or by the reverse proxy on this same machine. So every published port is
+#    bound to 127.0.0.1: the host's nginx and any operator with a shell can still reach it, and
+#    the internet cannot. A port published on 0.0.0.0 is reachable past Cloudflare by anyone who
+#    learns the origin IP - and an unauthenticated Redis or a Postgres with a committed
+#    password is not a fallback, it is the front door.
+#
+# 2. Secrets live on the server, in a file that git never sees. Compose reads `.env` from the
+#    directory next to this file for `${VAR}` substitution; that file is created once by hand
+#    (see docs/deployment.md) and holds JWT_SECRET, SESSION_SECRET, POSTGRES_PASSWORD,
+#    REDIS_PASSWORD and the MinIO keys. The `:?` suffix means a missing value aborts the
+#    `up` with a readable error instead of starting a container that signs admin sessions with
+#    a key from a public repository.
+#
+# Do not put a real value in this file. It is committed, and anything committed here has to be
+# rotated, not deleted.
+# ==============================================================================
 services:
   web:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* is inlined into the browser bundle at BUILD time, so setting it under
+        # `environment:` alone changes nothing for a visitor's fetch - it has to be a build arg.
+        # The default is the path that is actually reachable from a browser: the admin container's
+        # nginx is the only public proxy to the API (verified: https://cms.camtech.cam/api/v1/...
+        # answers JSON, while https://blog.camtech.cam/api/v1/... is a 404 from Next.js). Without
+        # this the bundle is built with the Dockerfile's `http://localhost:8000` default, so every
+        # client-side call leaves the visitor to find an API on their own machine.
+        - NEXT_PUBLIC_API_URL=${PUBLIC_API_URL:-https://cms.camtech.cam/api/v1}
+        - INTERNAL_API_URL=http://api:8000/api/v1
     container_name: daily_discovery_web
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+      - NEXT_PUBLIC_API_URL=${PUBLIC_API_URL:-https://cms.camtech.cam/api/v1}
       - INTERNAL_API_URL=http://api:8000/api/v1
       - NODE_ENV=production
     depends_on:
@@ -28,8 +61,11 @@ services:
       dockerfile: Dockerfile
     container_name: daily_discovery_admin
     restart: unless-stopped
+    # No VITE_API_URL here on purpose. The admin SPA defaults to the relative `/api/v1`, which its
+    # own nginx proxies to `http://api:8000` - same-origin, so no CORS and no absolute URL to bake
+    # into the bundle at build time.
     ports:
-      - "3001:80"
+      - "127.0.0.1:3001:80"
     depends_on:
       api:
         condition: service_healthy
@@ -48,18 +84,28 @@ services:
     container_name: daily_discovery_api
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      # Loopback only: the reverse proxy is on this host. Leaving 8000 open to the world would
+      # also make every "who is calling me" decision in the app lie, because a direct visitor
+      # can set CF-Connecting-IP and X-Forwarded-For to anything they like.
+      - "127.0.0.1:8000:8000"
     environment:
       - PORT=8000
-      - FRONTEND_URL=http://localhost:3000
-      - DATABASE_URL=postgresql+psycopg2://discovery_user:discovery_secret@postgres:5432/daily_discovery
-      - REDIS_URL=redis://redis:6379/0
-      - STORAGE_PROVIDER=minio
+      # Without this the container inherits APP_ENV=development from the repo's .env, which
+      # reopens /docs, /redoc and /openapi.json and keeps the loopback CORS origins trusted.
+      - APP_ENV=production
+      - DEBUG=false
+      - FRONTEND_URL=${PUBLIC_WEB_URL:-https://blog.camtech.cam}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is missing from the server .env next to docker-compose.yml}
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET is missing from the server .env next to docker-compose.yml}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-discovery_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is missing from the server .env}@postgres:5432/${POSTGRES_DB:-daily_discovery}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is missing from the server .env}@redis:6379/0
+      - STORAGE_PROVIDER=${STORAGE_PROVIDER:-minio}
       - S3_ENDPOINT_URL=http://minio:9000
-      - S3_ACCESS_KEY=minio_admin
-      - S3_SECRET_KEY=minio_secret_key
-      - S3_BUCKET=dailydiscovery-media
-      - S3_PUBLIC_URL=https://cms.camtech.cam:9000/dailydiscovery-media
+      - S3_ACCESS_KEY=${MINIO_ROOT_USER:?MINIO_ROOT_USER is missing from the server .env}
+      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is missing from the server .env}
+      - S3_BUCKET=${S3_BUCKET:-dailydiscovery-media}
+      - S3_PUBLIC_URL=${S3_PUBLIC_URL:-https://blog.camtech.cam/media}
     volumes:
       - ./database:/app/database
     depends_on:
@@ -85,14 +131,18 @@ services:
     container_name: daily_discovery_worker
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql+psycopg2://discovery_user:discovery_secret@postgres:5432/daily_discovery
-      - REDIS_URL=redis://redis:6379/0
-      - STORAGE_PROVIDER=minio
+      - APP_ENV=production
+      - DEBUG=false
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is missing from the server .env next to docker-compose.yml}
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET is missing from the server .env next to docker-compose.yml}
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-discovery_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is missing from the server .env}@postgres:5432/${POSTGRES_DB:-daily_discovery}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is missing from the server .env}@redis:6379/0
+      - STORAGE_PROVIDER=${STORAGE_PROVIDER:-minio}
       - S3_ENDPOINT_URL=http://minio:9000
-      - S3_ACCESS_KEY=minio_admin
-      - S3_SECRET_KEY=minio_secret_key
-      - S3_BUCKET=dailydiscovery-media
-      - S3_PUBLIC_URL=https://cms.camtech.cam:9000/dailydiscovery-media
+      - S3_ACCESS_KEY=${MINIO_ROOT_USER:?MINIO_ROOT_USER is missing from the server .env}
+      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is missing from the server .env}
+      - S3_BUCKET=${S3_BUCKET:-dailydiscovery-media}
+      - S3_PUBLIC_URL=${S3_PUBLIC_URL:-https://blog.camtech.cam/media}
     depends_on:
       postgres:
         condition: service_healthy
@@ -108,15 +158,16 @@ services:
     container_name: daily_discovery_postgres
     restart: unless-stopped
     environment:
-      - POSTGRES_DB=daily_discovery
-      - POSTGRES_USER=discovery_user
-      - POSTGRES_PASSWORD=discovery_secret
+      - POSTGRES_DB=${POSTGRES_DB:-daily_discovery}
+      - POSTGRES_USER=${POSTGRES_USER:-discovery_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is missing from the server .env}
     ports:
-      - "5435:5432"
+      # Loopback only. The published 5432 the API uses is on the docker network, not here.
+      - "127.0.0.1:5435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U discovery_user -d daily_discovery"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-discovery_user} -d ${POSTGRES_DB:-daily_discovery}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -127,15 +178,21 @@ services:
     image: redis:7-alpine
     container_name: daily_discovery_redis
     restart: unless-stopped
+    # An open Redis on a public port is a known instant-pwn: it needs no password, no exploit,
+    # just a client. Authentication plus a loopback binding means neither the internet nor a
+    # noisy neighbour container can FLUSHALL or use it as an SSRF stepping stone.
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is missing from the server .env}", "--protected-mode", "yes"]
     ports:
-      - "6389:6379"
+      - "127.0.0.1:6389:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is missing from the server .env}
     networks:
       - daily_discovery_net
 
@@ -145,11 +202,15 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      # Reach the console through an SSH tunnel (`ssh -L 9001:127.0.0.1:9001 <host>`) instead of
+      # a root login page on a public port. Public media, if MinIO serves it, should be proxied
+      # under a normal 443 path by the host's nginx rather than exposed on :9000 - Cloudflare
+      # does not proxy 9000 at all, so `https://cms.camtech.cam:9000/...` never worked.
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
-      - MINIO_ROOT_USER=minio_admin
-      - MINIO_ROOT_PASSWORD=minio_secret_key
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:?MINIO_ROOT_USER is missing from the server .env}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is missing from the server .env}
     volumes:
       - minio_data:/data
     networks:

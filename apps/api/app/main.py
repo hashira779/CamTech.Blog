@@ -1,7 +1,15 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.common.config import settings
+
+# `is_live_environment` is defined in app.common.config so that the CORS policy in
+# app.middleware.security_headers can use the same answer without a circular import. It is
+# imported here as well because tests and readers look for it on app.main.
+from app.common.config import is_live_environment, settings
+
+# Swagger is a development tool. Anything named like a live environment loses the interactive
+# docs and the schema that describes every admin route to whoever finds it first.
+_DOCS_ALLOWED = not is_live_environment(settings.APP_ENV)
 from app.common.database import Base, engine
 from app.middleware import (
     RateLimitMiddleware,
@@ -107,7 +115,13 @@ app = FastAPI(
     title="Daily Discovery API",
     description="Production-grade News, Discovery, and Utility Platform API with Zero-Trust Security",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    # /openapi.json hands an attacker the complete shape of every admin route - the payload of
+    # /admin/database/migrate, the field names of the credential endpoints - before they have a
+    # token. Swagger is a development tool, so it only exists where development happens.
+    docs_url="/docs" if _DOCS_ALLOWED else None,
+    redoc_url="/redoc" if _DOCS_ALLOWED else None,
+    openapi_url="/openapi.json" if _DOCS_ALLOWED else None,
 )
 
 # 1. Rate Limiting Middleware (innermost security middleware)
@@ -120,10 +134,17 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggerMiddleware)
 
 # 4. CORS configuration (outermost so preflight OPTIONS requests are handled cleanly)
+#
+# allow_credentials is deliberately False. It governs whether a browser may attach *cookies* to
+# a cross-origin call - it has nothing to do with the Authorization header, which the admin SPA
+# keeps sending as normal. Nothing in this API ever sets a cookie (grep for set_cookie returns
+# nothing), so turning it on bought no functionality and only meant that any origin accidentally
+# left in the list could make authenticated requests with a logged-in admin's cookies. With it
+# off, a stale or wildcard origin cannot ride on a session at all.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=[
         "Authorization", "Content-Type", "Accept", "Origin", "User-Agent",

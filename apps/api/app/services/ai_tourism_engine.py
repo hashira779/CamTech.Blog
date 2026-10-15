@@ -22,6 +22,7 @@ except ImportError:
     types = None
 from app.common.config import settings
 from app.common.database import SessionLocal
+from app.common.ssrf import guarded_get, is_prohibited
 from app.models.location import Country, Destination
 from app.models.place import Place
 from app.models.audit import SiteSetting
@@ -600,6 +601,12 @@ async def filter_live_images(urls: list[str], timeout: float = 6.0, concurrency:
     async def _check(client: httpx.AsyncClient, url: str) -> Optional[bool]:
         """True = loads, False = provably gone, None = inconclusive (keep the image)."""
         async with sem:
+            if is_prohibited(url):
+                # A candidate that points at a private address is not a photo we lost, it is a
+                # payload we refuse to fetch. This is the only verdict here that is reached without
+                # asking the network, so a DNS outage still cannot delete a gallery.
+                logger.info(f"[PlaceImages] refused non-public URL: {url}")
+                return False
             try:
                 async with client.stream("GET", url, headers=headers, timeout=timeout) as res:
                     if res.status_code in (404, 410):
@@ -618,7 +625,10 @@ async def filter_live_images(urls: list[str], timeout: float = 6.0, concurrency:
 
     outcome: list[Optional[bool]] = [None] * len(urls)
     try:
-        async with httpx.AsyncClient(follow_redirects=True) as client:
+        # `follow_redirects=False` on purpose: the first URL is the one this function can vouch for,
+        # and a CDN's 302 would otherwise carry the check to an address nobody validated. A redirect
+        # answer is inconclusive, so the photo is kept rather than deleted.
+        async with httpx.AsyncClient(follow_redirects=False) as client:
             results = await asyncio.wait_for(
                 asyncio.gather(*[_check(client, u) for u in urls], return_exceptions=True),
                 timeout=overall_budget,
@@ -1553,6 +1563,11 @@ Return a JSON object with these keys ONLY:
         """
         if not img_url or not img_url.startswith("http"):
             return None
+        if is_prohibited(img_url):
+            # Re-hosting copies the response body into our own storage, so an internal target here
+            # would be published as if it were a photograph of a temple.
+            logger.info(f"[PlaceImages] refused non-public URL for re-hosting: {img_url}")
+            return None
 
         has_gdrive = storage_service.is_configured()
         has_r2 = s3_service.is_configured()
@@ -1569,8 +1584,8 @@ Return a JSON object with these keys ONLY:
                 "User-Agent": "CamTechBlogDiscovery/2.0 (https://blog.camtech.cam; contact@camtech.cam) python-httpx/0.28.1",
                 "Accept": "image/*,*/*;q=0.8"
             }
-            async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
-                res = await client.get(img_url, headers=headers)
+            async with httpx.AsyncClient(follow_redirects=False, timeout=10.0) as client:
+                res = await guarded_get(client, img_url, headers=headers)
                 if res.status_code in (404, 410) or (res.status_code == 200 and not res.content):
                     logger.info(f"[PlaceImages] dropped dead URL ({res.status_code}): {img_url}")
                     return None

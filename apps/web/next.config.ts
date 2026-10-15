@@ -1,5 +1,20 @@
 import type { NextConfig } from "next";
 
+/**
+ * `/_next/image?url=…` is an unauthenticated proxy: whatever host is listed here can be
+ * fetched by the web server and returned to the caller. `localhost` belongs in that list only
+ * while the API is actually on localhost, otherwise a visitor can ask the production box to
+ * probe its own internal ports (8000, 5432, 6379, 9000) and read the differences back.
+ */
+const isProduction = process.env.NODE_ENV === "production";
+
+const developmentPatterns = isProduction
+  ? []
+  : [
+      { protocol: "http" as const, hostname: "localhost" },
+      { protocol: "http" as const, hostname: "127.0.0.1" },
+    ];
+
 const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
@@ -20,9 +35,10 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
       { protocol: "https", hostname: "avatars.githubusercontent.com" },
       { protocol: "https", hostname: "res.cloudinary.com" },
-      { protocol: "https", hostname: "placehold.co" },
-      { protocol: "http", hostname: "localhost" },
-      { protocol: "http", hostname: "127.0.0.1" },
+      // `placehold.co` and `assets.example.com` were listed here and are gone: this site
+      // stores only photographs it can attribute, so a placeholder host in the allow-list was
+      // an invitation to break that rule, and nothing referenced either one.
+      ...developmentPatterns,
     ],
   },
   async headers() {

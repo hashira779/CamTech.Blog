@@ -29,6 +29,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
+from app.common.ssrf import validate_provider_endpoint
+
 logger = logging.getLogger("AIGateway")
 
 PROVIDERS_SETTING_KEY = "AI_PROVIDERS_JSON"
@@ -176,6 +178,13 @@ def save_providers(db, providers: List[Dict[str, Any]]) -> None:
             d["api_key"] = stored_keys.get(pid, "")
         else:
             d["api_key"] = str(submitted).strip()
+        # Validated on the way in rather than on the way out, because the request this value
+        # produces carries the provider's API key in its headers: an endpoint that points at the
+        # instance metadata service would be handed our credentials before the first token arrived.
+        endpoint = str(d.get("base_url") or "").strip()
+        if endpoint:
+            validate_provider_endpoint(endpoint)
+            d["base_url"] = endpoint
         merged.append(d)
     payload = json.dumps(merged, ensure_ascii=False)
     row = db.query(SiteSetting).filter(SiteSetting.key == PROVIDERS_SETTING_KEY).first()

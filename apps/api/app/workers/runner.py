@@ -17,6 +17,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 
 from app.common.database import SessionLocal
+from app.common.html_hygiene import safe_link, sanitize_stored_html
 from app.services.trending_service import TrendingService
 from app.services.article_service import ArticleService
 from app.models.source import Source, SourceFetchLog
@@ -249,9 +250,9 @@ async def ingest_rss_feeds_job():
                         title=title,
                         slug=slug,
                         summary=draft.get("summary", title),
-                        content=draft.get("summary", "") + "\n\n" + "\n".join(
+                        content=sanitize_stored_html(draft.get("summary", "") + "\n\n" + "\n".join(
                             f"- {kp}" for kp in draft.get("key_points", [])
-                        ),
+                        )),
                         key_points=json.dumps(draft.get("key_points", [])),
                         why_it_matters=draft.get("why_it_matters", ""),
                         country=country,

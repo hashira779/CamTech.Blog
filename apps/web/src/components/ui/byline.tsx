@@ -2,6 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ExternalLink, Eye, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { safeHref } from "@/lib/sanitize";
 import { formatDate, formatCount, toIsoString, type DateStyle } from "@/lib/format";
 
 /**
@@ -83,11 +84,14 @@ export function Byline({
   }
 
   if (source) {
+    // `sourceUrl` is the publisher's own link, taken from the feed. Five components pass it here,
+    // so the scheme is checked once, at the place it becomes an `href`.
+    const link = safeHref(sourceUrl);
     parts.push(
-      sourceUrl ? (
+      link ? (
         <a
           key="source"
-          href={sourceUrl}
+          href={link}
           target="_blank"
           rel="noopener noreferrer nofollow"
           className="inline-flex items-center gap-1 transition-colors hover:text-accent"
@@ -175,11 +179,13 @@ export function SourceChip({
 }) {
   if (!source) return null;
 
+  const link = safeHref(sourceUrl);
+
   const inner = (
     <>
       <span className="section-label text-muted-foreground">Source</span>
       <span className="font-medium text-foreground">{source}</span>
-      {sourceUrl && <ExternalLink size={12} strokeWidth={2} aria-hidden="true" />}
+      {link && <ExternalLink size={12} strokeWidth={2} aria-hidden="true" />}
     </>
   );
 
@@ -188,9 +194,9 @@ export function SourceChip({
     className
   );
 
-  return sourceUrl ? (
+  return link ? (
     <a
-      href={sourceUrl}
+      href={link}
       target="_blank"
       rel="noopener noreferrer nofollow"
       className={cn(classes, "transition-colors hover:border-border-strong hover:bg-surface-muted")}

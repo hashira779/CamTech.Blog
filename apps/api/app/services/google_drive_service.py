@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from app.common.config import settings
 
 from app.common.database import SessionLocal
+from app.common.ssrf import guarded_get
 from app.models.storage import StorageProvider
 
 logger = logging.getLogger(__name__)
@@ -283,14 +284,17 @@ class GoogleDriveService:
         if not file_url or not file_url.startswith("http"):
             return file_url
             
-        async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+        # Same rule as the R2 re-host: this URL comes from a search result, the bytes it returns are
+        # stored in the Drive folder, and an internal address would be filed there as if it were a
+        # photograph. Every hop is validated before the request is made.
+        async with httpx.AsyncClient(follow_redirects=False, timeout=30.0) as client:
             try:
                 # Disguise as a standard browser to avoid hotlinking protection
                 headers = {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                     "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
                 }
-                res = await client.get(file_url, headers=headers)
+                res = await guarded_get(client, file_url, headers=headers)
                 if res.status_code != 200:
                     return None
                     

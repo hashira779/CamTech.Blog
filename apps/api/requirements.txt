@@ -18,6 +18,9 @@ google-genai>=0.2.0
 apscheduler>=3.10.0
 boto3>=1.34.0
 alembic>=1.13.0
+# tests/test_deploy_hygiene.py reads docker-compose.yml as data, so that a port published on
+# every interface or a credential left in the deploy file fails the suite instead of the site.
+pyyaml>=6.0
 
 # Development Dependencies
 # pre-commit>=3.7.0

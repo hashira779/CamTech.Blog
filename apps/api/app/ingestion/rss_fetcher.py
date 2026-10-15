@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 from app.common.ssrf import validate_url_safe
 from app.common.circuit_breaker import get_circuit_breaker, CircuitBreakerOpenException
+from app.common.html_hygiene import safe_link, sanitize_stored_html, strip_for_text
 
 MAX_FEED_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB payload limit to prevent resource exhaustion
 
@@ -89,22 +90,32 @@ async def fetch_rss_feed(feed_url: str, timeout_seconds: int = 12) -> List[Dict[
             source_href = source_obj.get("href")
             source_name = source_obj.get("title")
 
-        if title and link:
+        # Every one of these values is stored and later re-read by a renderer, an RSS export or a
+        # generator, so the pipeline is where they stop being somebody else's markup. An Atom
+        # `<title type="html">` arrives with tags in it, and a feed item's `link` ends up as an
+        # article's `primary_source_url` — i.e. in an `href` a reader clicks.
+        if "<" in title:
+            title = strip_for_text(title)
+        safe_url = safe_link(link, allow_relative=False)
+        safe_source_href = safe_link(source_href, allow_relative=False)
+        image_url = extract_entry_image(entry, summary)
+
+        if title and safe_url:
             # If link is a syndicated redirect (e.g. news.google.com), prefer source_href as primary url
-            article_url = link
-            if source_href and "news.google.com" in link:
-                article_url = source_href
+            article_url = safe_url
+            if safe_source_href and "news.google.com" in safe_url:
+                article_url = safe_source_href
 
             items.append({
                 "title": title,
                 "url": article_url,
-                "feed_item_link": link,
-                "source_href": source_href,
+                "feed_item_link": safe_url,
+                "source_href": safe_source_href,
                 "source_name": source_name,
-                "raw_summary": summary,
+                "raw_summary": sanitize_stored_html(summary),
                 "author": author,
                 "published_raw": pub_date,
-                "image_url": extract_entry_image(entry, summary),
+                "image_url": image_url,
             })
 
     return items

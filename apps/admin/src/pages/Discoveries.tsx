@@ -8,6 +8,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { api } from '../lib/api';
+import { safeImageSrc } from '../lib/sanitize';
 import { useToast } from '../components/ui/Toast';
 
 export interface DiscoveryItem {
@@ -135,7 +136,7 @@ export default function DiscoveriesPage() {
             {/* Thumbnail */}
             <div className="relative aspect-video bg-zinc-950 overflow-hidden">
               <img 
-                src={item.hero_image_url} 
+                src={safeImageSrc(item.hero_image_url) || undefined}
                 alt={item.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 onError={(e) => {

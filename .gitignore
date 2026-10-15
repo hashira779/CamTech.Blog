@@ -39,6 +39,11 @@ apps/api/scratch/
 
 
 # Environment Variables & Secrets
+# `.env` itself, not just the *.local variants: apps/api/.env held a real JWT signing key,
+# a database URL and an AI key, and was tracked in two commits.
+.env
+.env.*
+!.env.example
 .env*.local
 .env.local
 .env.development.local

@@ -28,6 +28,7 @@ except ImportError:  # SDK optional at import time
     types = None
 
 from app.common.database import SessionLocal
+from app.common.html_hygiene import sanitize_stored_html
 from app.models.audit import AuditLog
 from app.models.discovery import Discovery
 from app.models.guide_event import Event, TravelGuide
@@ -205,7 +206,7 @@ Return a JSON array of {count} objects, each with:
                     hero_image_alt=hero_alt or title[:255],
                     category=str(item.get("category") or "Science")[:100],
                     intro=str(item.get("intro") or title)[:2000],
-                    main_explanation=str(item.get("main_explanation") or item.get("intro") or "")[:20000],
+                    main_explanation=sanitize_stored_html(str(item.get("main_explanation") or item.get("intro") or ""))[:20000],
                     visual_sections=json.dumps(visual_sections),
                     important_facts=json.dumps([str(f) for f in (item.get("important_facts") or [])][:8]),
                     timeline=json.dumps([t for t in (item.get("timeline") or []) if isinstance(t, dict)][:8]),
@@ -358,7 +359,7 @@ Return JSON with:
                             title=g_title,
                             slug=f"{_slugify(g_title)}-{uuid.uuid4().hex[:6]}",
                             summary=str(guide.get("summary") or g_title)[:4000],
-                            content=str(guide.get("content") or guide.get("summary") or "")[:30000],
+                            content=sanitize_stored_html(str(guide.get("content") or guide.get("summary") or ""))[:30000],
                             hero_image_url=img_url,
                             read_time_minutes=str(guide.get("read_time_minutes") or "6 min")[:20],
                             status="AI_DRAFT",  # autopilot publishes after the review window

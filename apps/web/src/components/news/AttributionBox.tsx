@@ -5,6 +5,7 @@ import { ExternalLink, ShieldCheck } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { cleanText } from "@/lib/format";
+import { safeHref } from "@/lib/sanitize";
 
 interface AttributionBoxProps {
   sourceName?: string;
@@ -21,16 +22,6 @@ function humanizeLicense(value?: string | null): string {
   if (!cleaned) return "";
   const spaced = cleaned.replace(/[_/]+/g, " ").replace(/\s+/g, " ").toLowerCase();
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-}
-
-function isHttpUrl(value?: string | null): boolean {
-  if (!value) return false;
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -58,7 +49,7 @@ export function AttributionBox({
   const author = cleanText(authorName);
   const role = cleanText(authorRole);
   const licence = humanizeLicense(license);
-  const url = isHttpUrl(sourceUrl) ? sourceUrl.trim() : "";
+  const url = safeHref(sourceUrl);
 
   if (!source && !author && !url) return null;
 

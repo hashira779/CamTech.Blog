@@ -11,6 +11,7 @@ import { Photo } from "@/components/ui/photo";
 import { Byline } from "@/components/ui/byline";
 import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
 import { cleanText, formatDate, formatReadingTime } from "@/lib/format";
+import { safeHref, sanitizeHtml } from "@/lib/sanitize";
 
 export const revalidate = 60;
 
@@ -89,9 +90,13 @@ export default async function DiscoveryDetailPage({
   const views = disc.views_count > 0 ? disc.views_count : null;
   const hasMeta = Boolean(dateLabel) || Boolean(readingTime) || views !== null;
 
+  /* Each paragraph is printed with `dangerouslySetInnerHTML`, because the generators write real
+     `<strong>`/`<a>` markup. That makes this the one place on the page where stored HTML becomes a
+     document, so it goes through the allowlist first — unlabelled, an AI paragraph containing an
+     `<img onerror>` ran as written. */
   const paragraphs = (disc.main_explanation || "")
     .split(/\n\s*\n/)
-    .map((p) => p.trim())
+    .map((p) => sanitizeHtml(p.trim()))
     .filter(Boolean);
 
   return (
@@ -241,7 +246,9 @@ export default async function DiscoveryDetailPage({
               <h2 className="section-label">Sources</h2>
               <ul className="mt-3 space-y-2.5">
                 {sourcesList.map((src, idx) => {
-                  const href = typeof src === "string" ? src : src?.url;
+                  // `sources` is a JSON blob the generators wrote, so the URL inside it is data,
+                  // not a trusted link target.
+                  const href = safeHref(typeof src === "string" ? src : src?.url);
                   const label = cleanText(typeof src === "string" ? src : src?.name || src?.url);
                   if (!label && !href) return null;
 

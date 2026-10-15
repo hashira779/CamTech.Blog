@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { SuperSearch } from "@/components/shared/SuperSearch";
 import { Container } from "@/components/ui/container";
+import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils";
 
 /**
@@ -92,14 +93,8 @@ export function Header() {
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
 
-          <Link href="/" className="group block">
-            <span className="block font-display text-2xl font-semibold leading-none tracking-tight text-foreground sm:text-[1.75rem]">
-              CamTech<span className="text-accent">.Blog</span>
-            </span>
-            {/* Only below `lg` — the utility rail carries the tagline on desktop. */}
-            <span className="mt-1.5 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground lg:hidden">
-              {t("brand.tagline")}
-            </span>
+          <Link href="/" className="group inline-flex items-center">
+            <Logo size="md" />
           </Link>
         </div>
 

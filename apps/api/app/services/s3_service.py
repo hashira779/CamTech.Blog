@@ -12,6 +12,7 @@ except ImportError:
     Config = None
 
 from app.common.database import SessionLocal
+from app.common.ssrf import guarded_get
 from app.models.storage import StorageProvider
 
 class S3Service:
@@ -126,14 +127,18 @@ class S3Service:
         s3_client, _ = self._get_client_and_config()
         if not file_url or not file_url.startswith("http") or not s3_client:
             return None
-            
-        async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+
+        # The URL is a search result or a value another editor saved, and whatever this fetch
+        # returns is re-hosted on our own bucket and served to readers — so an internal target here
+        # would not just be probed, it would be published. `guarded_get` checks the address and
+        # every redirect hop before a socket is opened.
+        async with httpx.AsyncClient(follow_redirects=False, timeout=30.0) as client:
             try:
                 headers = {
                     "User-Agent": "CamTechBlogDiscovery/2.0 (https://blog.camtech.cam; contact@camtech.cam) python-httpx/0.28.1",
                     "Accept": "image/*,*/*;q=0.8"
                 }
-                res = await client.get(file_url, headers=headers)
+                res = await guarded_get(client, file_url, headers=headers)
                 if res.status_code != 200:
                     return None
                     

@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Optional, List
 
 from app.common.database import SessionLocal
+from app.common.html_hygiene import safe_link, sanitize_stored_html
 from app.models.article import Article
 from app.models.category import Category
 from app.models.author import Author
@@ -228,7 +229,10 @@ Return a JSON array of {articles_count} article objects. Each object must have:
                     continue
 
                 # Deduplication check
-                source_url = data.get("source_url", "https://news.google.com")
+                # `source_url` is whatever the model returned, and it lands in an `href` a reader
+                # clicks. Anything a browser would not navigate to safely falls back to the
+                # generator's own attribution default rather than being stored.
+                source_url = safe_link(data.get("source_url"), allow_relative=False) or "https://news.google.com"
                 dupes = detect_duplicates(title, source_url, existing_titles, similarity_threshold=0.55)
                 if dupes:
                     skipped.append({"title": title, "reason": f"Duplicate of: {dupes[0]['title']}"})
@@ -275,7 +279,7 @@ Return a JSON array of {articles_count} article objects. Each object must have:
                     title=title,
                     slug=slug,
                     summary=data.get("summary", title),
-                    content=data.get("content", ""),
+                    content=sanitize_stored_html(data.get("content", "")),
                     country=story_country,
                     primary_source_id=matched_source_id,
                     primary_source_url=source_url,

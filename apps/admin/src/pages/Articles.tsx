@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import type { ApiArticle } from '../lib/api';
+import { safeHref, safeImageSrc } from '../lib/sanitize';
 import { useToast } from '../components/ui/Toast';
 
 type FilterTab = 'All' | 'PUBLISHED' | 'DRAFT' | 'ARCHIVED';
@@ -475,9 +476,9 @@ export default function Articles() {
                   <tr key={article.id} className="hover:bg-zinc-800/30 transition-colors group">
                     <td className="py-3.5 px-5">
                       <div className="flex items-center gap-3">
-                        {article.hero_image_url ? (
+                        {safeImageSrc(article.hero_image_url) ? (
                           <img 
-                            src={article.hero_image_url} 
+                            src={safeImageSrc(article.hero_image_url)} 
                             alt={article.title} 
                             className="w-10 h-8 rounded-md object-cover border border-zinc-800 shrink-0 shadow-2xs" 
                           />
@@ -550,9 +551,9 @@ export default function Articles() {
                     <td className="py-3.5 px-4 text-zinc-400 font-mono text-[11px] truncate max-w-[160px]">
                       {article.primary_source_url ? (
                         <a 
-                          href={article.primary_source_url} 
+                          href={safeHref(article.primary_source_url) || undefined}
                           target="_blank" 
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                           className="hover:text-zinc-200 hover:underline flex items-center gap-1"
                           title={article.source_attribution_text || article.primary_source_url}
                         >

@@ -27,6 +27,7 @@ import {
   Palette
 } from 'lucide-react';
 import { api } from '../lib/api';
+import { safeHref, safeImageSrc } from '../lib/sanitize';
 import { useToast } from '../components/ui/Toast';
 
 export interface DestinationDetail {
@@ -52,12 +53,15 @@ export interface DestinationDetail {
   symbol_image_url?: string;
 }
 
+/* Photos here come from the AI discovery pipeline, so the URL is somebody else's string. It is
+   rendered in the newsroom's own page, where a `javascript:` or `data:` value in a `src` is not a
+   broken image but an active payload. */
 const resolveImageUrl = (url?: string) => {
   if (!url) return '';
   if (url.startsWith('/images/')) {
     return `https://blog.camtech.cam${url}`;
   }
-  return url;
+  return safeImageSrc(url);
 };
 
 interface Place {
@@ -985,7 +989,7 @@ export default function ProvinceDetails() {
                           <Globe size={14} className="text-zinc-500 mt-0.5 shrink-0" />
                           <div>
                             <span className="text-zinc-500 block mb-0.5 text-[11px]">Website</span>
-                            <a href={place.website} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline flex items-center gap-1">
+                            <a href={safeHref(place.website) || undefined} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline flex items-center gap-1">
                               Visit URL <ExternalLink size={11} />
                             </a>
                           </div>
@@ -1025,8 +1029,8 @@ export default function ProvinceDetails() {
                               <span className="text-zinc-500 text-[11px] mb-2 block font-medium">Verified gallery ({gallery.length} image{gallery.length === 1 ? "" : "s"})</span>
                               <div className="flex gap-2.5 overflow-x-auto pb-2">
                                 {gallery.map((img: string, i: number) => (
-                                  <a key={i} href={img} target="_blank" rel="noreferrer" className="shrink-0 block w-24 h-16 rounded-lg overflow-hidden border border-zinc-700/60 hover:border-zinc-500 transition-colors">
-                                    <img src={img} alt={`Gallery ${i}`} className="w-full h-full object-cover" />
+                                  <a key={i} href={safeHref(img) || undefined} target="_blank" rel="noopener noreferrer" className="shrink-0 block w-24 h-16 rounded-lg overflow-hidden border border-zinc-700/60 hover:border-zinc-500 transition-colors">
+                                    <img src={safeImageSrc(img) || undefined} alt={`Gallery ${i}`} className="w-full h-full object-cover" />
                                   </a>
                                 ))}
                               </div>

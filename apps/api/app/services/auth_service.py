@@ -63,3 +63,20 @@ def require_admin(current_user: Optional[User] = Depends(get_current_user)) -> U
             detail="Insufficient permissions for this action"
         )
     return current_user
+
+
+def require_infra_admin(current_user: User = Depends(require_admin)) -> User:
+    """Guard the endpoints that hold the keys to the platform rather than to a story.
+
+    ``require_admin`` has always admitted EDITOR, JOURNALIST and REVIEWER, which is right for
+    publishing and wrong for the routes that read or replace storage credentials, register an
+    AI provider (and then be told to connect to it), or copy every table - including password
+    hashes - into a database the caller names. Those are operator actions, so they now need an
+    actual administrator. Editorial work keeps using ``require_admin``.
+    """
+    if current_user.role not in ("SUPER_ADMIN", "ADMIN") and not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator role required for infrastructure and credential changes",
+        )
+    return current_user

@@ -2,6 +2,10 @@
 # Docker Compose Development Override Configuration
 # Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Credentials come from the same `${VAR}` substitution as production so that the two files
+# cannot drift into asking Postgres for one password and the API for another. Put them in the
+# `.env` next to docker-compose.yml (see docs/deployment.md); nothing here needs a real value.
 # ==============================================================================
 services:
   web:
@@ -34,20 +38,25 @@ services:
   api:
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "app"]
     environment:
+      # The base file pins APP_ENV=production so a deploy cannot inherit `development` from the
+      # repo's .env; a dev box asks for the other answer explicitly.
+      - APP_ENV=development
       - DEBUG=true
       - ENVIRONMENT=development
       - LOG_LEVEL=debug
       - RELOAD=true
       - PORT=8000
       - FRONTEND_URL=http://localhost:3000
-      - DATABASE_URL=postgresql+psycopg2://discovery_user:discovery_secret@postgres:5432/daily_discovery
-      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is missing from the server .env next to docker-compose.yml}
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET is missing from the server .env next to docker-compose.yml}
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-discovery_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is missing from the server .env}@postgres:5432/${POSTGRES_DB:-daily_discovery}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is missing from the server .env}@redis:6379/0
       - STORAGE_PROVIDER=minio
       - S3_ENDPOINT_URL=http://minio:9000
-      - S3_ACCESS_KEY=minio_admin
-      - S3_SECRET_KEY=minio_secret_key
-      - S3_BUCKET=dailydiscovery-media
-      - S3_PUBLIC_URL=http://localhost:9000/dailydiscovery-media
+      - S3_ACCESS_KEY=${MINIO_ROOT_USER:?MINIO_ROOT_USER is missing from the server .env}
+      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is missing from the server .env}
+      - S3_BUCKET=${S3_BUCKET:-dailydiscovery-media}
+      - S3_PUBLIC_URL=http://localhost:9000/${S3_BUCKET:-dailydiscovery-media}
     volumes:
       - ./apps/api:/app
       - ./database:/app/database
@@ -57,16 +66,19 @@ services:
 
   worker:
     environment:
+      - APP_ENV=development
       - DEBUG=true
       - ENVIRONMENT=development
       - LOG_LEVEL=debug
-      - DATABASE_URL=postgresql+psycopg2://discovery_user:discovery_secret@postgres:5432/daily_discovery
-      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is missing from the server .env next to docker-compose.yml}
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET is missing from the server .env next to docker-compose.yml}
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-discovery_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is missing from the server .env}@postgres:5432/${POSTGRES_DB:-daily_discovery}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is missing from the server .env}@redis:6379/0
       - STORAGE_PROVIDER=minio
       - S3_ENDPOINT_URL=http://minio:9000
-      - S3_ACCESS_KEY=minio_admin
-      - S3_SECRET_KEY=minio_secret_key
-      - S3_BUCKET=dailydiscovery-media
-      - S3_PUBLIC_URL=http://localhost:9000/dailydiscovery-media
+      - S3_ACCESS_KEY=${MINIO_ROOT_USER:?MINIO_ROOT_USER is missing from the server .env}
+      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is missing from the server .env}
+      - S3_BUCKET=${S3_BUCKET:-dailydiscovery-media}
+      - S3_PUBLIC_URL=http://localhost:9000/${S3_BUCKET:-dailydiscovery-media}
     volumes:
       - ./apps/api:/app

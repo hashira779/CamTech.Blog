@@ -3,6 +3,7 @@ import { Fraunces, Inter, Kantumruy_Pro } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme";
+import { escapeJsonForScript } from "@/lib/sanitize";
 import { I18nProvider } from "@/lib/i18n";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -93,6 +94,15 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/logo.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/logo.png" },
+    ],
+  },
 };
 
 export default function RootLayout({
@@ -110,7 +120,7 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
+            __html: escapeJsonForScript({
               "@context": "https://schema.org",
               "@type": "WebSite",
               name: siteName,

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Rss, ArrowUpRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { Container } from "@/components/ui/container";
+import { Logo } from "@/components/ui/Logo";
 
 /**
  * Footer.
@@ -101,9 +102,9 @@ export function Footer() {
           <div className="max-w-xl">
             <Link
               href="/"
-              className="font-display text-2xl font-semibold tracking-tight text-foreground"
+              className="inline-flex items-center"
             >
-              CamTech<span className="text-accent">.Blog</span>
+              <Logo size="lg" />
             </Link>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               {t("footer.tagline")}

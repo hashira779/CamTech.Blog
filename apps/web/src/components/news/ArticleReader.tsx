@@ -6,6 +6,7 @@ import { Bookmark, Check, Compass, Send, Share2, Wrench } from "lucide-react";
 import type { Article } from "@/types";
 import { cn } from "@/lib/utils";
 import { cleanText, formatDate, formatReadingTime } from "@/lib/format";
+import { safeHref, sanitizeHtml } from "@/lib/sanitize";
 import { useI18n } from "@/lib/i18n";
 import { Container } from "@/components/ui/container";
 import { Photo } from "@/components/ui/photo";
@@ -51,16 +52,16 @@ function kindOfPlainText(chunk: string): BlockKind {
   return "paragraph";
 }
 
-/** Keeps inline `<a>`, `<strong>` and `<em>` while dropping script and handlers. */
-function sanitizeHtml(value: string): string {
-  return value
-    .replace(/<\s*(script|style|iframe|object|embed)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, "")
-    .replace(/<\s*\/?\s*(script|style|iframe|object|embed)[^>]*>/gi, "")
-    .replace(/\son\w+\s*=\s*"[^"]*"/gi, "")
-    .replace(/\son\w+\s*=\s*'[^']*'/gi, "")
-    .replace(/\son\w+\s*=\s*[^\s>]+/gi, "")
-    .replace(/(href|src)\s*=\s*("|')?\s*javascript:/gi, "$1=$2about:blank");
-}
+/**
+ * Inline markup inside a body block.
+ *
+ * This used to be a blacklist: drop `script`, `style`, `iframe`, `object`, `embed` and any `on*`
+ * attribute, and rewrite a `href="javascript:` prefix. Everything else was printed as received, so
+ * `<img src=x onerror=...>`, `<svg onload=...>`, `<form action>`, `<base href>` and
+ * `<a href="&#106;avascript:...">` all survived it. `sanitizeHtml` from `@/lib/sanitize` is an
+ * allowlist over the same text, and `scripts/security-checks.mjs` proves those payloads come out
+ * inert.
+ */
 
 function toBlocks(content?: string | null): Block[] {
   const raw = (content || "").replace(/\r/g, "").trim();
@@ -134,17 +135,21 @@ function stripSourceLabel(value?: string | null): string {
   return cleanText(value).replace(/^(?:source|reported by|original reporting)\s*:\s*/i, "");
 }
 
-/** Syndicated links carry `?at_medium=RSS&utm_source=…`. Keep the article URL. */
+/**
+ * Syndicated links carry `?at_medium=RSS&utm_source=…`. Keep the article URL, and keep it only
+ * if it is a web URL: this value comes from the feed and ends up in an `href`.
+ */
 function cleanUrl(value?: string | null): string {
-  if (!value) return "";
+  const safe = safeHref(value);
+  if (!safe || !/^https?:/i.test(safe)) return "";
   try {
-    const url = new URL(value.trim());
+    const url = new URL(safe);
     for (const key of [...url.searchParams.keys()]) {
       if (/^(?:utm_|at_|pk_|mc_|ref)/i.test(key)) url.searchParams.delete(key);
     }
     return `${url.origin}${url.pathname}${url.search}`;
   } catch {
-    return value.trim();
+    return safe;
   }
 }
 
