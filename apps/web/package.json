@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "security": "node scripts/security-checks.mjs",
+    "ads": "node scripts/ads-checks.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

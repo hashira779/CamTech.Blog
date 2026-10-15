@@ -36,8 +36,17 @@ services:
         # client-side call leaves the visitor to find an API on their own machine.
         - NEXT_PUBLIC_API_URL=${PUBLIC_API_URL:-https://cms.camtech.cam/api/v1}
         - INTERNAL_API_URL=http://api:8000/api/v1
-        - NEXT_PUBLIC_ADSENSE_PUBLISHER_ID=${NEXT_PUBLIC_ADSENSE_PUBLISHER_ID:-ca-pub-1311307969887065}
-        - NEXT_PUBLIC_ADSENSE_ENABLED=${NEXT_PUBLIC_ADSENSE_ENABLED:-true}
+        - NEXT_PUBLIC_SITE_URL=${PUBLIC_WEB_URL:-https://blog.camtech.cam}
+        # The AdSense account number lives here and nowhere else in the tree. Override it from the
+        # server's .env (ADSENSE_PUBLISHER_ID=...) without editing this file; leaving it unset makes
+        # src/lib/ads.ts disable every slot and the loader script rather than ship an invalid account.
+        # NEXT_PUBLIC_ADSENSE_SLOTS maps each placement to the numeric ad unit ID from the AdSense
+        # dashboard, e.g. "HOME_TOP=1234567890,ARTICLE_TOP=2345678901". A placement that is absent
+        # renders nothing at all - see docs/monetization.md before adding units.
+        - NEXT_PUBLIC_ADSENSE_PUBLISHER_ID=${ADSENSE_PUBLISHER_ID:-ca-pub-1311307969887065}
+        - NEXT_PUBLIC_ADSENSE_ENABLED=${ADSENSE_ENABLED:-true}
+        - NEXT_PUBLIC_ADSENSE_SLOTS=${ADSENSE_SLOTS:-}
+        - NEXT_PUBLIC_ADSENSE_CHANNEL=${ADSENSE_CHANNEL:-}
     container_name: daily_discovery_web
     restart: unless-stopped
     ports:

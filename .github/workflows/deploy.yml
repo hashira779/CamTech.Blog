@@ -65,8 +65,15 @@ jobs:
           grep -q "^MINIO_ROOT_PASSWORD=" .env || echo "MINIO_ROOT_PASSWORD=minio_secret_key" >> .env
           grep -q "^PUBLIC_API_URL=" .env || echo "PUBLIC_API_URL=https://cms.camtech.cam/api/v1" >> .env
           grep -q "^PUBLIC_WEB_URL=" .env || echo "PUBLIC_WEB_URL=https://blog.camtech.cam" >> .env
-          grep -q "^NEXT_PUBLIC_ADSENSE_PUBLISHER_ID=" .env || echo "NEXT_PUBLIC_ADSENSE_PUBLISHER_ID=ca-pub-1311307969887065" >> .env
-          grep -q "^NEXT_PUBLIC_ADSENSE_ENABLED=" .env || echo "NEXT_PUBLIC_ADSENSE_ENABLED=true" >> .env
+          # AdSense. The publisher id is public once a page serves ads, so it is safe to seed here;
+          # the names match what docker-compose.yml interpolates (ADSENSE_*, not NEXT_PUBLIC_ADSENSE_*
+          # - the NEXT_PUBLIC_ prefix is added by the build args, and only exists at build time).
+          # ADSENSE_SLOTS maps each placement to the numeric ad unit id from the AdSense dashboard;
+          # it is intentionally empty, because a placement with no id renders nothing rather than an
+          # invalid request. See docs/monetization.md.
+          grep -q "^ADSENSE_PUBLISHER_ID=" .env || echo "ADSENSE_PUBLISHER_ID=ca-pub-1311307969887065" >> .env
+          grep -q "^ADSENSE_ENABLED=" .env || echo "ADSENSE_ENABLED=true" >> .env
+          grep -q "^ADSENSE_SLOTS=" .env || echo "ADSENSE_SLOTS=" >> .env
           chmod 600 .env
 
       # ------------------------------------------------------------------------

@@ -32,6 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...except the documented template. It holds only placeholders and Google's all-zeros sample
+# account, and without it a fresh clone has no list of the build-time variables that exist.
+!.env.example
 
 # vercel
 .vercel

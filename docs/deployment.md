@@ -32,7 +32,15 @@ MINIO_ROOT_PASSWORD=<generate, at least 8 characters>
 PUBLIC_API_URL=https://cms.camtech.cam/api/v1
 PUBLIC_WEB_URL=https://blog.camtech.cam
 STORAGE_PROVIDER=minio
+ADSENSE_PUBLISHER_ID=ca-pub-XXXXXXXXXXXXXXXX
+ADSENSE_ENABLED=true
+ADSENSE_SLOTS=
 ```
+
+The three `ADSENSE_*` names are not secrets — the publisher id is in every page that serves an ad —
+but they belong in the same file so one place describes the deployment. `ADSENSE_SLOTS` maps
+placements to numeric ad unit ids and is documented in
+[monetization.md](monetization.md); leaving it empty is safe, it simply means no manual slots render.
 
 `database/seed_data.py` runs on every deploy and creates the first administrator. It only does so
 when `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` are in that file, and it prints the

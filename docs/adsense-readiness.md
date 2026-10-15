@@ -1,30 +1,30 @@
-# Google AdSense Readiness & Monetization Architecture
+# AdSense readiness
 
-Section 62 Guidelines: The entire platform is architected to comply with Google Publisher Policies and monetization readiness requirements.
+> **This file used to describe an activation procedure that does not exist** — an `AdProvider`
+> abstraction, an `ADSENSE_ENABLED` flag in `apps/api/.env` (the API has no part in serving ads), and
+> a claim of "zero layout shift" that the old component did not deliver. It is now a pointer plus the
+> one list that is still accurate.
+>
+> **The real guide is [docs/monetization.md](monetization.md).**
 
----
+## What AdSense looks at, and whether the site has it
 
-## 1. Compliance Checklist Verified
+These pages exist and are reachable; an application reviewer will look for them.
 
-- [x] **Original Content**: Every news article contains original editorial summaries, key points, and why-it-matters context rather than copied text.
-- [x] **Clear Navigation**: Top bar, breadcrumbs, search, and comprehensive categorized footer.
-- [x] **Required Policy Pages**:
-  - `/about`: Who operates the site and its purpose.
-  - `/editorial-policy`: Sourcing, AI rules, verification standards.
-  - `/corrections-policy`: Transparent error reporting mechanism.
-  - `/privacy`: Data handling and user consent.
-  - `/terms`: Terms of service.
-  - `/cookie-policy`: Cookie disclosures.
-  - `/advertising`: Monetization transparency.
-  - `/contact`: Dedicated press and newsroom contact channels.
-- [x] **Author Bylines**: Clear author profiles on every story.
-- [x] **Working Tools**: Calculators and utilities work 100% client-side with zero deceptive buttons or fake download traps.
-- [x] **Dormant AdSlot Abstraction**: Ad slots are managed via `AdSlot` with `AdProvider`. Ads are initially disabled until formal account approval is completed.
+| Requirement | Where |
+| --- | --- |
+| About / who operates the site | `/about` |
+| Editorial standards and AI rules | `/editorial-policy`, `/content-standards` |
+| Corrections process | `/corrections-policy`, `/corrections` |
+| Privacy policy | `/privacy` |
+| Cookie disclosure, names advertising providers | `/cookie-policy` |
+| Advertising disclosure | `/advertising` |
+| Contact / newsroom | `/contact` |
+| Navigation, search, category structure | header, footer, `/search`, per-section indexes |
+| Source attribution on every story | byline and attribution block on each article |
 
----
-
-## 2. Activating AdSense in Production
-
-1. Set `ADSENSE_ENABLED=true` in `apps/api/.env` and `apps/web/.env.local`.
-2. Insert your approved Google Publisher ID into `NEXT_PUBLIC_ADSENSE_PUBLISHER_ID="ca-pub-XXXXXXXXXXXXXXXX"`.
-3. AdSlots (`HOME_TOP`, `ARTICLE_MID`, `DISCOVERY_MID`, etc.) will render Google Ads tags with zero layout shift.
+Two of those are editorial facts rather than pages, and they are the ones that actually decide
+approval: content must be yours or attributed, and the site must be reachable at the domain you
+register. The second one is currently an open question — `blog.camtech.cam` does not resolve in
+public DNS while `camtech.cam` serves the site. See "Pick the domain" in
+[monetization.md](monetization.md).
