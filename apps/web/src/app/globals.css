@@ -365,6 +365,31 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+
+  /* Content that waits for a transition must still be visible when transitions are off. */
+  .reveal,
+  .photo-in {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  /* Reveal-on-scroll becomes no motion at all: nothing is ever held back for an observer.
+     `!important` because this block sits above the reveal rules it has to beat. */
+  html.js .dd-reveal:not([data-revealed="true"]) {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .animate-ken-burns {
+    animation: none;
+  }
+  /* Hover zoom and press feedback are motion too: hold the picture still. */
+  .group:hover .photo-zoom,
+  .group:focus-visible .photo-zoom,
+  .group:hover .link-nudge,
+  .group:focus-visible .link-nudge,
+  .pressable:active:not(:disabled) {
+    transform: none !important;
+  }
 }
 
 /* ─── Layout containers ────────────────────────────────────────────────── */
@@ -627,6 +652,23 @@
   animation: spin-slow 14s linear infinite;
 }
 
+/* Slow push-in for full-bleed hero photography. Long enough to read as calm, not as a trick. */
+@keyframes ken-burns {
+  0% {
+    transform: scale(1.05) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: scale(1.12) translate3d(-1.5%, -1.2%, 0);
+  }
+  100% {
+    transform: scale(1.05) translate3d(0, 0, 0);
+  }
+}
+
+.animate-ken-burns {
+  animation: ken-burns 26s ease-in-out infinite;
+}
+
 .stagger-1 {
   animation-delay: 0.04s;
 }
@@ -664,6 +706,94 @@
 .img-reveal:not([data-loaded]) {
   opacity: 1;
   transform: scale(1);
+}
+
+/* ─── Scroll reveal ────────────────────────────────────────────────────── */
+
+/*
+ * Reveal-on-scroll lives on data attributes so <Reveal> can set the visible flag and
+ * nothing else has to know about it. Transform + opacity only, so it stays on the
+ * compositor. `--reveal-delay` staggers siblings inside one grid.
+ *
+ * The hidden start state is gated on `html.js` (set by a one-line script in the document
+ * head, before paint). Server HTML therefore reaches the reader and the crawler already
+ * positioned, and only a browser that will run the observer gets the motion. Without the
+ * gate, a hydration failure would leave whole sections at opacity 0.
+ */
+.dd-reveal {
+  transition:
+    opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+html.js .dd-reveal:not([data-revealed="true"]) {
+  opacity: 0;
+  transform: translateY(var(--reveal-offset, 18px)) scale(var(--reveal-scale, 1));
+}
+
+/* Directional variants. Keep these four; anything more becomes a gimmick. */
+html.js .dd-reveal-left:not([data-revealed="true"]) {
+  --reveal-offset: 0;
+  transform: translateX(-20px);
+}
+html.js .dd-reveal-right:not([data-revealed="true"]) {
+  --reveal-offset: 0;
+  transform: translateX(20px);
+}
+html.js .dd-reveal-zoom:not([data-revealed="true"]) {
+  --reveal-offset: 0;
+  transform: scale(0.96);
+}
+
+/* Newly mounted photography fades up into place. Wrapper-level, so it never fights the
+   inner `group-hover` zoom on the image itself. */
+@starting-style {
+  .photo-in {
+    opacity: 0;
+    transform: scale(0.985) translateY(8px);
+  }
+}
+.photo-in {
+  transition:
+    opacity 0.6s ease,
+    transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Press feedback for controls - a push, not a glow. */
+.pressable {
+  transition:
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+.pressable:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Photo zoom inside a card. `<Photo zoom>` adds this class and the card carries `group`;
+   the scale lives in CSS so no page needs an arbitrary duration or scale value. */
+.photo-zoom {
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.group:hover .photo-zoom,
+.group:focus-visible .photo-zoom {
+  transform: scale(1.045);
+}
+
+/* The arrow inside a row or card link: a 2px nudge on hover, triggered by the same `group`
+   as the photo zoom. Pages used to write `transition-transform duration-300
+   group-hover:translate-x-0.5` inline in 27 files, so every arrow on the site arrived with a
+   slightly different timing. One class, one curve. The colour transition rides along because
+   those same rows wanted `group-hover:text-accent` to ease with the arrow. */
+.link-nudge {
+  transition:
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    color 0.2s ease;
+}
+.group:hover .link-nudge,
+.group:focus-visible .link-nudge {
+  transform: translateX(2px);
 }
 
 /* Reading progress bar for long-form articles. */

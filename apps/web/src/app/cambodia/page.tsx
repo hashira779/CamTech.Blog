@@ -7,6 +7,7 @@ import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { Container, Section } from "@/components/ui/container";
 import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
 import { NewsCard } from "@/components/shared/news-card";
+import { Reveal } from "@/components/ui/reveal";
 import { SectionHeader } from "@/components/ui/section-header";
 import { getArticles, getTrending } from "@/lib/api";
 import { cleanText, formatCount, formatDate } from "@/lib/format";
@@ -74,7 +75,7 @@ export default async function CambodiaNewsPage() {
               <ArrowRight
                 size={14}
                 aria-hidden="true"
-                className="transition-transform duration-300 group-hover:translate-x-0.5"
+                className="link-nudge"
               />
             </Link>
           </div>
@@ -106,8 +107,10 @@ export default async function CambodiaNewsPage() {
                   <div className="mt-10">
                     <SectionHeader label="In this issue" title="More from Cambodia" />
                     <div className="grid gap-6 sm:grid-cols-2">
-                      {secondary.map((article) => (
-                        <NewsCard key={article.id} article={article} variant="standard" />
+                      {secondary.map((article, index) => (
+                        <Reveal key={article.id} index={index} className="h-full">
+                          <NewsCard article={article} variant="standard" />
+                        </Reveal>
                       ))}
                     </div>
                   </div>
@@ -118,12 +121,13 @@ export default async function CambodiaNewsPage() {
                     <SectionHeader label="Latest" title="Lately from the provinces" />
                     <div>
                       {latest.map((article, index) => (
-                        <NewsCard
-                          key={article.id}
-                          article={article}
-                          variant="list"
-                          rank={index + 1}
-                        />
+                        <Reveal key={article.id} index={index}>
+                          <NewsCard
+                            article={article}
+                            variant="list"
+                            rank={index + 1}
+                          />
+                        </Reveal>
                       ))}
                     </div>
                   </div>
@@ -137,11 +141,11 @@ export default async function CambodiaNewsPage() {
                     <SectionHeader label="Most read" title="Opened most often" />
 
                     {mostRead.length > 0 ? (
-                      <ol className="divide-y divide-border">
+                      <Reveal as="ol" variant="left" className="divide-y divide-border">
                         {mostRead.map((item, index) => (
                           <RailRow key={`${item.id}-${index}`} item={item} rank={index + 1} />
                         ))}
-                      </ol>
+                      </Reveal>
                     ) : (
                       <p className="text-sm leading-relaxed text-muted-foreground">
                         Reading figures appear once stories have been opened.
@@ -163,7 +167,7 @@ export default async function CambodiaNewsPage() {
                       <ArrowRight
                         size={14}
                         aria-hidden="true"
-                        className="transition-transform duration-300 group-hover:translate-x-0.5"
+                        className="link-nudge"
                       />
                     </Link>
                   </div>

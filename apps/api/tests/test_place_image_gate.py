@@ -4,6 +4,7 @@ Guards against the bug where a place card showed unrelated stock photos (a butte
 on the Angkor Centre for Conservation of Biodiversity card) and broken "Gallery N" tiles.
 """
 import asyncio
+import json
 
 import pytest
 
@@ -330,3 +331,240 @@ def test_sync_keeps_original_url_when_rehost_is_rate_limited(monkeypatch):
 
     url = "https://upload.wikimedia.org/wikipedia/commons/9/9d/ta_prohm.jpg"
     assert asyncio.run(eng.ai_tourism_engine._sync_single_image(url, "Siem Reap", "Ta Prohm")) == url
+
+
+# ----------------------------------------------------------------------------------
+# Re-verifying images that are ALREADY stored.
+#
+# The scan used to select only places whose hero was empty, so a place showing the wrong
+# photograph was never a candidate and pressing the button "succeeded" while the wrong
+# picture stayed on the card. 8 of 31 stored heroes failed the engine's own verifier when
+# this was found (a big cat on the Elephant Valley card, a French-captioned Kinnari statue
+# on Royal Palace).
+# ----------------------------------------------------------------------------------
+
+TEST_PLACE = "Kbal Spean Test Pavilion"
+MATCHED_HERO = "https://upload.wikimedia.org/wikipedia/commons/1/11/Kbal_Spean_Test_Pavilion.jpg"
+MATCHED_GALLERY = "https://upload.wikimedia.org/wikipedia/commons/1/11/Kbal_Spean_Test_Pavilion_reliefs.jpg"
+UNRELATED_HERO = "https://upload.wikimedia.org/wikipedia/commons/3/31/Morpho_didius_butterfly.jpg"
+
+
+def test_same_image_ignores_the_tracking_query_that_makes_one_photo_look_like_two():
+    """Commons returns the same file with and without ``?utm_source=``; comparing raw strings
+    would report a replacement that the reader cannot see."""
+    assert eng.same_image(MATCHED_HERO, MATCHED_HERO + "?utm_source=en.wikipedia.org")
+    assert not eng.same_image(MATCHED_HERO, UNRELATED_HERO)
+    assert not eng.same_image(None, MATCHED_HERO)
+
+    assert eng.image_set_changed([MATCHED_HERO], [MATCHED_HERO, UNRELATED_HERO]) is True
+    assert eng.image_set_changed([UNRELATED_HERO], []) is True
+    assert eng.image_set_changed(
+        [MATCHED_HERO + "?a=1", UNRELATED_HERO], [UNRELATED_HERO, MATCHED_HERO]
+    ) is False, "order and query strings are not a content change"
+
+
+def test_audit_flags_a_hero_the_old_missing_only_filter_would_have_skipped():
+    audit = eng.place_image_audit(UNRELATED_HERO, "[]", TEST_PLACE, None)
+    assert audit["needs_work"] is True
+    assert any("not place-matched" in r for r in audit["reasons"])
+
+
+def test_audit_trusts_a_place_matched_hero_so_good_rows_cost_no_network():
+    audit = eng.place_image_audit(MATCHED_HERO, json.dumps([MATCHED_HERO]), TEST_PLACE, None)
+    assert audit["needs_work"] is False, audit["reasons"]
+
+
+def test_audit_names_provably_unusable_heroes_separately_from_suspicious_ones():
+    """Only these may be deleted without a replacement; a low score alone is not proof."""
+    placeholder = eng.place_image_audit("/images/destinations/kep.jpg", "[]", TEST_PLACE, None)
+    assert any("not a loadable URL" in r for r in placeholder["reasons"])
+
+    from app.services import image_search_service as pools
+    stock = next(u for pool in pools.PLACE_CATEGORY_POOLS.values() for u in pool)
+    generic = eng.place_image_audit(stock, "[]", TEST_PLACE, None)
+    assert any("generic stock pool" in r for r in generic["reasons"])
+
+    suspect = eng.place_image_audit(UNRELATED_HERO, "[]", TEST_PLACE, None)
+    assert suspect["hero_score"] is not None  # scored, i.e. a suspicion, not a proven defect
+
+
+@pytest.fixture()
+def temp_places():
+    """Throwaway place rows under a real destination, deleted again afterwards."""
+    from app.common.database import SessionLocal
+    from app.models.location import Destination
+    from app.models.place import Place
+
+    db = SessionLocal()
+    created = []
+    try:
+        dest = db.query(Destination).filter(Destination.slug == "siem-reap").first()
+        assert dest, "siem-reap destination row is expected in the test database"
+
+        def _make(tag, hero, gallery="[]"):
+            place = Place(
+                destination_id=dest.id,
+                name=f"{TEST_PLACE} {tag}",
+                slug=f"kbal-spean-test-pavilion-{tag}",
+                place_type="TEMPLE",
+                description="Temporary row used by the place image re-verification test.",
+                hero_image_url=hero,
+                gallery_json=gallery,
+            )
+            db.add(place)
+            db.commit()
+            db.refresh(place)
+            created.append(place.id)
+            return place
+
+        yield _make
+    finally:
+        for pid in created:
+            row = db.query(Place).filter(Place.id == pid).first()
+            if row:
+                db.delete(row)
+        db.commit()
+        db.close()
+
+
+def _stub_resolve(monkeypatch, hero, gallery):
+    async def _fake(**kwargs):
+        return hero, list(gallery)
+    monkeypatch.setattr(eng.ai_tourism_engine, "_resolve_place_images", _fake)
+
+
+@pytest.fixture()
+def admin_client():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.services.auth_service import require_admin
+    from app.models.user import User
+
+    app.dependency_overrides[require_admin] = lambda: User(
+        id="admin-id", email="admin@example.com", role="ADMIN", is_superuser=True
+    )
+    client = TestClient(app)
+    try:
+        yield client
+    finally:
+        app.dependency_overrides.pop(require_admin, None)
+
+
+def test_enhance_endpoint_replaces_a_wrong_photo(admin_client, temp_places, monkeypatch):
+    """The regression: a place that already has a hero must still be fixable by the scan."""
+    wrong = temp_places("wrong-hero", UNRELATED_HERO)
+    _stub_resolve(monkeypatch, MATCHED_HERO, [MATCHED_HERO])
+
+    response = admin_client.post(f"/api/v1/admin/ai/enhance-place-images?place_ids={wrong.id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["replaced_count"] == 1
+    assert body["places"][0]["hero_before"] == UNRELATED_HERO
+    assert body["places"][0]["hero_image_url"] == MATCHED_HERO
+    assert wrong.id and body["places"][0]["id"] == wrong.id
+
+
+def test_enhance_endpoint_clears_a_stock_hero_it_cannot_replace(admin_client, temp_places, monkeypatch):
+    from app.services import image_search_service as pools
+    stock = next(u for pool in pools.PLACE_CATEGORY_POOLS.values() for u in pool)
+    bad = temp_places("stock-hero", stock)
+    _stub_resolve(monkeypatch, "", [])
+
+    body = admin_client.post(f"/api/v1/admin/ai/enhance-place-images?place_ids={bad.id}").json()
+
+    assert body["cleared_count"] == 1
+    assert body["no_verified_image"][0]["id"] == bad.id
+    from app.common.database import SessionLocal
+    from app.models.place import Place
+    db = SessionLocal()
+    try:
+        row = db.query(Place).filter(Place.id == bad.id).first()
+        assert row.hero_image_url is None          # no photo, rather than a wrong one
+        assert row.gallery_json == "[]"
+    finally:
+        db.close()
+
+
+def test_enhance_endpoint_keeps_a_merely_suspect_photo_and_reports_it(admin_client, temp_places, monkeypatch):
+    """A filename that does not echo the place is not evidence of wrongness - Wikimedia
+    filenames are often opaque, so deleting on that alone would destroy good photographs."""
+    suspect = temp_places("suspect-hero", UNRELATED_HERO)
+    _stub_resolve(monkeypatch, "", [])
+
+    body = admin_client.post(f"/api/v1/admin/ai/enhance-place-images?place_ids={suspect.id}").json()
+
+    assert body["cleared_count"] == 0 and body["replaced_count"] == 0
+    assert body["unconfirmed_count"] == 1
+    assert body["needs_editorial_attention"][0]["id"] == suspect.id
+    assert body["needs_editorial_attention"][0]["hero"] == UNRELATED_HERO
+
+
+def test_enhance_endpoint_does_not_rescan_trusted_rows(admin_client, temp_places, monkeypatch):
+    good = temp_places("trusted", MATCHED_HERO, json.dumps([MATCHED_HERO]))
+    called = []
+
+    async def _spy(**kwargs):
+        called.append(kwargs["name"])
+        return MATCHED_HERO, [MATCHED_HERO]
+    monkeypatch.setattr(eng.ai_tourism_engine, "_resolve_place_images", _spy)
+
+    body = admin_client.post(f"/api/v1/admin/ai/enhance-place-images?place_ids={good.id}").json()
+
+    assert called == []
+    assert body["already_trusted"] == 1 and body["places_selected"] == 0
+
+
+def test_enhance_endpoint_separates_no_photo_from_a_suspect_photo(admin_client, temp_places, monkeypatch):
+    """A place that never had a picture is a different problem from one holding a wrong picture.
+    Both are honest, but only the second is editorially suspicious."""
+    empty = temp_places("no-photo", None)
+    _stub_resolve(monkeypatch, "", [])
+
+    body = admin_client.post(f"/api/v1/admin/ai/enhance-place-images?place_ids={empty.id}").json()
+
+    assert body["no_photo_found_count"] == 1
+    assert body["unconfirmed_count"] == 0
+    assert body["needs_editorial_attention"] == []
+    assert body["no_photo_found"][0]["name"].endswith("no-photo")
+
+
+def test_enhance_endpoint_tells_a_fixed_album_apart_from_a_replaced_cover(admin_client, temp_places, monkeypatch):
+    """The cover the reader sees is the claim. A gallery-only fix must not be reported as one."""
+    from app.common.database import SessionLocal
+    from app.models.place import Place
+
+    place = temp_places("gallery-fix", MATCHED_HERO, json.dumps([MATCHED_HERO, UNRELATED_HERO]))
+    _stub_resolve(monkeypatch, MATCHED_HERO, [MATCHED_HERO, MATCHED_GALLERY])
+
+    body = admin_client.post(f"/api/v1/admin/ai/enhance-place-images?place_ids={place.id}").json()
+
+    assert body["replaced_count"] == 1
+    assert body["hero_replaced_count"] == 0, "the same photograph is still on the card"
+    assert body["gallery_only_count"] == 1
+    assert body["places"][0]["hero_changed"] is False
+    assert body["places"][0]["gallery_changed"] is True
+
+    db = SessionLocal()
+    try:
+        row = db.query(Place).filter(Place.id == place.id).first()
+        assert row.hero_image_url == MATCHED_HERO
+        assert json.loads(row.gallery_json) == [MATCHED_HERO, MATCHED_GALLERY]
+    finally:
+        db.close()
+
+
+def test_enhance_endpoint_reports_a_rescan_that_changed_nothing_as_confirmation(admin_client, temp_places, monkeypatch):
+    """Force mode re-searches good rows. When research agrees with what is stored, the honest
+    answer is "confirmed", not "replaced" - nothing the reader sees actually moved."""
+    place = temp_places("identical", MATCHED_HERO, json.dumps([MATCHED_HERO]))
+    _stub_resolve(monkeypatch, MATCHED_HERO, [MATCHED_HERO])
+
+    body = admin_client.post(
+        f"/api/v1/admin/ai/enhance-place-images?place_ids={place.id}&force=true"
+    ).json()
+
+    assert body["places_selected"] == 1, "force mode did re-search it"
+    assert body["replaced_count"] == 0 and body["updated_count"] == 0
+    assert body["confirmed_ok_count"] == 1
+    assert body["images_confirmed_ok"][0]["id"] == place.id

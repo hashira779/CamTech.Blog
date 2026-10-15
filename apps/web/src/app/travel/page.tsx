@@ -19,6 +19,7 @@ import { HeroDestinationSlider } from "@/components/travel/HeroDestinationSlider
 import { Container, Section } from "@/components/ui/container";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Photo } from "@/components/ui/photo";
+import { Reveal } from "@/components/ui/reveal";
 import { cleanText } from "@/lib/format";
 
 export const metadata: Metadata = {
@@ -109,11 +110,13 @@ export default async function TravelHubPage() {
             />
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              {trips.map((trip) => {
+              {trips.map((trip, index) => {
                 const stopCount = trip.days?.length ?? 0;
                 return (
-                  <article
+                  <Reveal
+                    as="article"
                     key={trip.id}
+                    index={index}
                     className="group flex overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong sm:flex-row"
                   >
                     <Link
@@ -173,7 +176,7 @@ export default async function TravelHubPage() {
                         </Link>
                       </div>
                     </div>
-                  </article>
+                  </Reveal>
                 );
               })}
             </div>
@@ -193,11 +196,13 @@ export default async function TravelHubPage() {
               actionLabel="All routes"
             />
 
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              {routes.slice(0, 4).map((route) => (
-                <TransportRouteCard key={route.id} route={route} />
-              ))}
-            </div>
+            <Reveal>
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                {routes.slice(0, 4).map((route) => (
+                  <TransportRouteCard key={route.id} route={route} />
+                ))}
+              </div>
+            </Reveal>
           </Container>
         </Section>
       )}
@@ -213,8 +218,10 @@ export default async function TravelHubPage() {
             />
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {guides.map((guide) => (
-                <TravelGuideCard key={guide.id} guide={guide} />
+              {guides.map((guide, index) => (
+                <Reveal key={guide.id} index={index} className="h-full">
+                  <TravelGuideCard guide={guide} />
+                </Reveal>
               ))}
             </div>
           </Container>
@@ -232,8 +239,10 @@ export default async function TravelHubPage() {
             />
 
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              {events.map((event) => (
-                <TravelEventCard key={event.id} event={event} />
+              {events.map((event, index) => (
+                <Reveal key={event.id} index={index} className="h-full">
+                  <TravelEventCard event={event} />
+                </Reveal>
               ))}
             </div>
           </Container>
@@ -262,14 +271,14 @@ export default async function TravelHubPage() {
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/travel/planner"
-                className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground shadow-xs transition-all hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="pressable inline-flex h-10 items-center gap-2 rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 <Navigation size={15} aria-hidden="true" />
                 Start planning
               </Link>
               <Link
                 href="/travel/suggest"
-                className="inline-flex h-10 items-center gap-2 rounded-md border border-border-strong bg-card px-5 text-sm font-medium text-foreground transition-colors hover:border-foreground/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="pressable inline-flex h-10 items-center gap-2 rounded-md border border-border-strong bg-card px-5 text-sm font-medium text-foreground hover:border-foreground/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 <PlusCircle size={15} aria-hidden="true" />
                 Suggest a place

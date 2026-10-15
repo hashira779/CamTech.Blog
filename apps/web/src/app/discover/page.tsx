@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { getDiscoveries } from "@/lib/api";
 import type { Discovery } from "@/types";
 import { Photo } from "@/components/ui/photo";
+import { Reveal } from "@/components/ui/reveal";
 import { SectionHeader } from "@/components/ui/section-header";
 import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
 import { Byline } from "@/components/ui/byline";
@@ -65,7 +66,7 @@ function ExplainerCard({ item }: { item: Discovery }) {
             <ArrowRight
               size={14}
               aria-hidden="true"
-              className="transition-transform duration-300 group-hover:translate-x-0.5"
+              className="link-nudge"
             />
           </span>
         </div>
@@ -123,7 +124,7 @@ function LeadExplainer({ item }: { item: Discovery }) {
           <ArrowRight
             size={15}
             aria-hidden="true"
-            className="transition-transform duration-300 group-hover:translate-x-0.5"
+            className="link-nudge"
           />
         </Link>
       </div>
@@ -208,8 +209,10 @@ export default async function DiscoverHubPage({
 
           {rest.length > 0 && (
             <div className="grid gap-6 pt-10 sm:grid-cols-2 lg:grid-cols-3">
-              {rest.map((disc) => (
-                <ExplainerCard key={disc.id} item={disc} />
+              {rest.map((disc, index) => (
+                <Reveal key={disc.id} index={index} className="h-full">
+                  <ExplainerCard item={disc} />
+                </Reveal>
               ))}
             </div>
           )}

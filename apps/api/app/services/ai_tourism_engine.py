@@ -472,6 +472,81 @@ def is_generic_place_image(url: str) -> bool:
     return _url_key(url) in generic_pool_image_keys()
 
 
+def same_image(a, b) -> bool:
+    """Whether two stored/discovered URLs point at the same picture.
+
+    Comparison ignores the query string because the same Commons file comes back as
+    ``.../Grand_Hotel_dAngkor_SiemReap.jpg`` and ``...jpg?utm_source=en.wikipedia.org``. Without
+    this, a rescan that found the identical photograph looks like a replacement in the report.
+    """
+    ka, kb = _url_key(a), _url_key(b)
+    return bool(ka) and ka == kb
+
+
+def image_set_changed(before: list[str], after: list[str]) -> bool:
+    """True when a gallery really holds a different collection of pictures (order ignored)."""
+    return {k for k in (_url_key(u) for u in before) if k} != {k for k in (_url_key(u) for u in after) if k}
+
+
+def parse_gallery_urls(raw) -> list[str]:
+    """A stored gallery_json value as a list of URL strings, tolerating junk."""
+    if isinstance(raw, list):
+        return [u for u in raw if isinstance(u, str)]
+    try:
+        data = json.loads(raw or "[]")
+    except (TypeError, ValueError):
+        return []
+    return [u for u in data if isinstance(u, str)] if isinstance(data, list) else []
+
+
+def place_image_audit(hero_url: Optional[str], gallery_json, place_name: str,
+                      local_name: Optional[str] = None) -> dict:
+    """Judge the images a place ALREADY has, with the same verifier that judged them on entry.
+
+    This is the question the scan never used to ask. ``/admin/ai/enhance-place-images``
+    selected only places whose hero was empty or a ``/images/destinations/`` placeholder, so
+    every place that already carried an http hero was skipped permanently - including the ones
+    holding a photograph of something else entirely (a big cat on the Elephant Valley card, a
+    French-captioned Kinnari statue on Royal Palace). A wrong image is invisible to a rule that
+    only looks for missing ones.
+
+    Returns ``{"needs_work": bool, "reasons": [...], "hero_score": float|None,
+    "unverified_gallery": [...]}``. Verification here is filename/source-URL only, because no
+    capture context is stored, and an opaque but legitimate Wikimedia filename scores 0.0 - so
+    an unverified hero is a *suspicion to re-research*, never proof, and callers must not
+    delete a hero on this alone.
+    """
+    hero = (hero_url or "").strip()
+    reasons: list[str] = []
+    hero_score: Optional[float] = None
+    gallery = parse_gallery_urls(gallery_json)
+
+    if not hero:
+        reasons.append("no hero image")
+    elif not hero.startswith("http"):
+        reasons.append(f"hero is not a loadable URL ({hero[:48]})")
+    elif is_generic_place_image(hero):
+        reasons.append("hero comes from the generic stock pool")
+    else:
+        ok, hero_score = verify_place_image(hero, "", place_name, local_name)
+        if not ok:
+            reasons.append(f"hero is not place-matched (confidence {hero_score:.2f})")
+
+    unverified = [u for u in gallery if not (u.startswith("http")
+                  and not is_generic_place_image(u)
+                  and verify_place_image(u, "", place_name, local_name)[0])]
+    if unverified:
+        reasons.append(f"{len(unverified)} gallery image(s) not place-matched")
+
+    return {
+        "needs_work": bool(reasons),
+        "reasons": reasons,
+        "hero_score": hero_score,
+        "unverified_gallery": unverified,
+        "gallery_count": len(gallery),
+    }
+
+
 def subject_context_matches(haystack: str, subject: str = "", destination: str = "") -> bool:
     """Does this text (an image filename, page title, or file name) name the subject or its province?"""
     normalized = _norm_text(haystack)
@@ -1432,8 +1507,22 @@ Return a JSON object with these keys ONLY:
 
                 if hero_url:
                     place.hero_image_url = hero_url
+                elif place.hero_image_url and (
+                    not str(place.hero_image_url).startswith("http")
+                    or is_generic_place_image(place.hero_image_url)
+                ):
+                    # The re-search came back empty. Keep a suspect photo (no proof it is wrong),
+                    # but never keep one that is provably unusable - that is the case where the
+                    # admin pressed "update this place" and the wrong picture stayed anyway.
+                    place.hero_image_url = None
                 if synced_gallery_json:
                     place.gallery_json = synced_gallery_json
+                else:
+                    stored_gallery = parse_gallery_urls(place.gallery_json)
+                    usable = [u for u in stored_gallery
+                              if u.startswith("http") and not is_generic_place_image(u)]
+                    if len(usable) != len(stored_gallery):
+                        place.gallery_json = json.dumps(usable)
 
                 place.verification_status = "AI_UPDATED"
                 db.commit()

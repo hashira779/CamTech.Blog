@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { getTrending } from "@/lib/api";
 import type { TrendingResponse } from "@/types";
 import { Photo } from "@/components/ui/photo";
+import { Reveal } from "@/components/ui/reveal";
 import { SectionHeader } from "@/components/ui/section-header";
 import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
 import { cleanText, formatCount, formatDate } from "@/lib/format";
@@ -57,7 +58,7 @@ function RankedRail({ heading, region, items }: { heading: string; region: strin
             const title = cleanText(item.title);
 
             return (
-              <li key={item.id}>
+              <Reveal as="li" key={item.id} index={index} variant="left">
                 <Link
                   href={item.url}
                   className="group flex items-start gap-4 py-4 transition-colors hover:bg-surface-muted/60"
@@ -92,7 +93,7 @@ function RankedRail({ heading, region, items }: { heading: string; region: strin
                     />
                   )}
                 </Link>
-              </li>
+              </Reveal>
             );
           })}
         </ol>
@@ -178,7 +179,7 @@ export default async function TrendingPage() {
               {follow.map((item, index) => {
                 const views = item.views_count > 0 ? formatCount(item.views_count) : "";
                 return (
-                  <li key={item.id}>
+                  <Reveal as="li" key={item.id} index={index}>
                     <Link
                       href={item.url}
                       className="group flex items-baseline gap-4 py-3.5"
@@ -195,7 +196,7 @@ export default async function TrendingPage() {
                         </span>
                       )}
                     </Link>
-                  </li>
+                  </Reveal>
                 );
               })}
             </ol>
@@ -218,8 +219,8 @@ export default async function TrendingPage() {
             description="Stories put forward by hand, outside the engagement ranking."
           />
           <ul className="divide-y divide-border border-y border-border">
-            {editorPicks.map((item) => (
-              <li key={item.id}>
+            {editorPicks.map((item, index) => (
+              <Reveal as="li" key={item.id} index={index}>
                 <Link href={item.url} className="group flex items-baseline gap-4 py-4">
                   <span className="min-w-0 flex-1">
                     <CategoryMark category={categoryKey(item.category)}>
@@ -235,7 +236,7 @@ export default async function TrendingPage() {
                     </span>
                   )}
                 </Link>
-              </li>
+              </Reveal>
             ))}
           </ul>
         </section>

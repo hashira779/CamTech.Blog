@@ -11,6 +11,7 @@ import {
 import type { Article } from "@/types";
 import { AdSlot } from "@/components/ads/AdSlot";
 import { Container, Section } from "@/components/ui/container";
+import { Reveal } from "@/components/ui/reveal";
 import { SectionHeader } from "@/components/ui/section-header";
 import { NewsCard } from "@/components/shared/news-card";
 import { Photo } from "@/components/ui/photo";
@@ -94,8 +95,10 @@ export default async function HomePage() {
 
               <div className="flex flex-col gap-6 lg:col-span-4">
                 <p className="section-label text-muted-foreground">Also today</p>
-                {features.map((article) => (
-                  <NewsCard key={article.id} article={article} variant="compact" />
+                {features.map((article, index) => (
+                  <Reveal key={article.id} index={index} variant="right" immediate>
+                    <NewsCard article={article} variant="compact" />
+                  </Reveal>
                 ))}
                 <Link
                   href="/trending"
@@ -104,7 +107,7 @@ export default async function HomePage() {
                   Today&rsquo;s full briefing
                   <ArrowRight
                     size={15}
-                    className="transition-transform duration-300 group-hover:translate-x-0.5"
+                    className="link-nudge"
                     aria-hidden="true"
                   />
                 </Link>
@@ -131,8 +134,10 @@ export default async function HomePage() {
               />
 
               <div className="grid gap-6 sm:grid-cols-2">
-                {latest.map((article) => (
-                  <NewsCard key={article.id} article={article} variant="standard" />
+                {latest.map((article, index) => (
+                  <Reveal key={article.id} index={index}>
+                    <NewsCard article={article} variant="standard" />
+                  </Reveal>
                 ))}
               </div>
 
@@ -151,7 +156,7 @@ export default async function HomePage() {
                   const views = item.views_count > 0 ? formatCount(item.views_count) : null;
                   const published = formatDate(item.published_at, "medium");
                   return (
-                    <li key={`${item.id}-${index}`}>
+                    <Reveal as="li" key={`${item.id}-${index}`} index={index} variant="left">
                       <Link
                         href={item.url || articleHref({ slug: item.slug, country: "KH" })}
                         className="group flex items-start gap-4 py-4"
@@ -175,7 +180,7 @@ export default async function HomePage() {
                           )}
                         </span>
                       </Link>
-                    </li>
+                    </Reveal>
                   );
                 })}
               </ol>
@@ -206,31 +211,32 @@ export default async function HomePage() {
               />
 
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                {places.map((place) => (
-                  <Link
-                    key={place.id}
-                    href={`/travel/place/${place.slug}`}
-                    className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
-                  >
-                    <Photo
-                      src={place.hero_image_url}
-                      alt={place.name}
-                      ratio="4/3"
-                      radius="none"
-                      showCredit={false}
-                    />
-                    <div className="flex flex-1 flex-col gap-1.5 p-4">
-                      <CategoryMark category="travel" tone="dot">
-                        {place.place_type.toLowerCase().replace(/_/g, " ")}
-                      </CategoryMark>
-                      <h3 className="font-display text-lg leading-snug text-foreground transition-colors group-hover:text-accent">
-                        {place.name}
-                      </h3>
-                      {place.destination?.name && (
-                        <p className="text-xs text-muted-foreground">{place.destination.name}</p>
-                      )}
-                    </div>
-                  </Link>
+                {places.map((place, index) => (
+                  <Reveal key={place.id} index={index} className="h-full">
+                    <Link
+                      href={`/travel/place/${place.slug}`}
+                      className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
+                    >
+                      <Photo
+                        src={place.hero_image_url}
+                        alt={place.name}
+                        ratio="4/3"
+                        radius="none"
+                        showCredit={false}
+                      />
+                      <div className="flex flex-1 flex-col gap-1.5 p-4">
+                        <CategoryMark category="travel" tone="dot">
+                          {place.place_type.toLowerCase().replace(/_/g, " ")}
+                        </CategoryMark>
+                        <h3 className="font-display text-lg leading-snug text-foreground transition-colors group-hover:text-accent">
+                          {place.name}
+                        </h3>
+                        {place.destination?.name && (
+                          <p className="text-xs text-muted-foreground">{place.destination.name}</p>
+                        )}
+                      </div>
+                    </Link>
+                  </Reveal>
                 ))}
               </div>
             </Container>
@@ -250,29 +256,30 @@ export default async function HomePage() {
             />
 
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {discoveries.map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/discover/${item.slug}`}
-                  className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
-                >
-                  <Photo
-                    src={item.hero_image_url}
-                    alt={item.hero_image_alt || item.title}
-                    credit={item.hero_image_credit}
-                    ratio="16/9"
-                    radius="none"
-                  />
-                  <div className="flex flex-1 flex-col gap-2.5 p-5">
-                    <CategoryMark category={categoryKey(item.category)}>{item.category}</CategoryMark>
-                    <h3 className="font-display text-xl leading-snug text-foreground transition-colors group-hover:text-accent">
-                      {cleanText(item.title)}
-                    </h3>
-                    <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                      {cleanText(item.intro)}
-                    </p>
-                  </div>
-                </Link>
+              {discoveries.map((item, index) => (
+                <Reveal key={item.id} index={index} className="h-full">
+                  <Link
+                    href={`/discover/${item.slug}`}
+                    className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
+                  >
+                    <Photo
+                      src={item.hero_image_url}
+                      alt={item.hero_image_alt || item.title}
+                      credit={item.hero_image_credit}
+                      ratio="16/9"
+                      radius="none"
+                    />
+                    <div className="flex flex-1 flex-col gap-2.5 p-5">
+                      <CategoryMark category={categoryKey(item.category)}>{item.category}</CategoryMark>
+                      <h3 className="font-display text-xl leading-snug text-foreground transition-colors group-hover:text-accent">
+                        {cleanText(item.title)}
+                      </h3>
+                      <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                        {cleanText(item.intro)}
+                      </p>
+                    </div>
+                  </Link>
+                </Reveal>
               ))}
             </div>
           </Container>
@@ -312,7 +319,7 @@ export default async function HomePage() {
                         Start
                         <ArrowRight
                           size={15}
-                          className="transition-transform duration-300 group-hover:translate-x-0.5"
+                          className="link-nudge"
                           aria-hidden="true"
                         />
                       </span>

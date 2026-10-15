@@ -33,6 +33,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .system_generated/
+scratch/
+apps/api/scratch/
+*cleanup*.json
+
 
 # Environment Variables & Secrets
 .env*.local

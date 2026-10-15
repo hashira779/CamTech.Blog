@@ -65,7 +65,7 @@ export function Photo({
   return (
     <div
       className={cn(
-        "relative overflow-hidden bg-surface-muted",
+        "photo-in relative overflow-hidden bg-surface-muted",
         RATIO_CLASS[ratio],
         RADIUS_CLASS[radius],
         "shadow-[inset_0_0_0_1px_rgba(28,25,23,0.06)]",
@@ -78,11 +78,7 @@ export function Photo({
         priority={priority}
         compact={compact}
         label={placeholderLabel}
-        className={cn(
-          "h-full w-full object-cover",
-          zoom && "transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]",
-          imgClassName
-        )}
+        className={cn("h-full w-full object-cover", zoom && "photo-zoom", imgClassName)}
       />
 
       {showCredit && attribution && (

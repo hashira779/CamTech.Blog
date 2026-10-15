@@ -48,7 +48,7 @@ export function SectionHeader({
       <ArrowRight
         size={15}
         strokeWidth={2}
-        className="transition-transform duration-300 group-hover:translate-x-0.5"
+        className="link-nudge"
         aria-hidden="true"
       />
     </Link>

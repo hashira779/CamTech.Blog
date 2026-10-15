@@ -12,6 +12,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { Destination } from "@/types";
+import { Reveal } from "@/components/ui/reveal";
 import { Photo } from "@/components/ui/photo";
 import regionData from "@/data/region_categories.json";
 import { getProvinceSymbol } from "@/data/province_symbols";
@@ -110,11 +111,13 @@ export function ProvinceHubGrid({ destinations }: ProvinceHubGridProps) {
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredDestinations.map((dest) => {
+          {filteredDestinations.map((dest, index) => {
             const symbol = getProvinceSymbol(dest.slug, dest);
             return (
-              <article
+              <Reveal
+                as="article"
                 key={`${activeCategory}-${dest.id || dest.slug}`}
+                index={index}
                 className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
               >
                 <Link href={`/travel/${dest.slug}`} aria-label={dest.name} className="block">
@@ -174,12 +177,12 @@ export function ProvinceHubGrid({ destinations }: ProvinceHubGridProps) {
                       <ArrowRight
                         size={14}
                         aria-hidden="true"
-                        className="transition-transform duration-300 group-hover:translate-x-0.5"
+                        className="link-nudge"
                       />
                     </Link>
                   </div>
                 </div>
-              </article>
+              </Reveal>
             );
           })}
         </div>

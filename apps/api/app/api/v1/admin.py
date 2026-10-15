@@ -417,28 +417,61 @@ async def enhance_news_images(
 @router.post("/ai/enhance-place-images")
 async def enhance_place_images(
     limit: int = Query(50, description="Max number of places to process"),
+    force: bool = Query(False, description="Re-scan selected places even when their images already pass verification"),
+    place_ids: Optional[str] = Query(None, description="Comma-separated place ids; targets one place from the admin row menu"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    """
-    Scans places that are missing a hero image or using destination placeholders,
-    searches for high-resolution relevant imagery, and updates them in the database.
+    """Give places a photograph that actually shows them, and name the ones that could not be fixed.
+
+    Selection used to be "the hero is empty", which made a wrong photograph invisible to the
+    scan: a place that already carried a hero was never a candidate, so pressing the button
+    reported success while the wrong picture stayed on the card. A place is now a candidate
+    whenever its stored images fail the same verifier that admits new ones
+    (``place_image_audit``), and every outcome is reported by name instead of as one count:
+
+    ``replaced``    verified photos were found and written over the old ones. Each row says
+                    which half changed: ``hero_changed`` is the picture on the card, the one a
+                    reader sees; ``gallery_changed`` is only the album behind it
+    ``cleared``     nothing was found and the old image was provably unusable (stock pool,
+                    local placeholder, not a URL) - the card now shows no photo, not a wrong one
+    ``unconfirmed`` a photo is on the card, nothing better was found, and the old image is only
+                    *suspect* (an opaque Wikimedia filename scores 0.0 without proof), so it is
+                    kept and listed for a human
+    ``no_photo``    the place never had a photo and Commons/Wikipedia have none of it; the card
+                    shows the honest "not verified yet" tile instead of a stand-in
+    ``confirmed_ok`` the filename-only audit was suspicious but researching the photo with its
+                    article / Commons title proved it right - nothing was rewritten
     """
     import json
     from app.models.place import Place
 
-    places_to_fix = db.query(Place).filter(
-        (Place.hero_image_url.is_(None)) |
-        (Place.hero_image_url == "") |
-        (Place.hero_image_url.like("/images/destinations/%"))
-    ).order_by(Place.created_at.desc()).limit(limit).all()
+    query = db.query(Place)
+    ids = [i.strip() for i in (place_ids or "").split(",") if i.strip()]
+    if ids:
+        query = query.filter(Place.id.in_(ids))
+    rows = query.order_by(Place.created_at.desc()).all()
 
-    updated_count = 0
-    updated_items = []
-    skipped = []
+    targets = []
+    already_trusted = 0
+    for p in rows:
+        audit = place_image_audit(p.hero_image_url, p.gallery_json, p.name, p.local_name)
+        if audit["needs_work"] or force:
+            targets.append((p, audit))
+        else:
+            already_trusted += 1
+    places_to_fix = targets[:limit]
 
-    for p in places_to_fix:
+    replaced: list[dict] = []
+    cleared: list[dict] = []
+    unconfirmed: list[dict] = []
+    no_photo: list[dict] = []
+    confirmed_ok: list[dict] = []
+
+    for p, audit in places_to_fix:
         dest_name = p.destination.name if p.destination else "Cambodia"
+        hero_before = p.hero_image_url
+        gallery_before = parse_gallery_urls(p.gallery_json)
         hero, gallery = await ai_tourism_engine._resolve_place_images(
             name=p.name,
             dest_name=dest_name,
@@ -446,29 +479,83 @@ async def enhance_place_images(
             local_name=p.local_name,
             target_count=12
         )
-        # Only verified, loadable images are written back - nothing is padded with stock photos.
-        if not hero and not gallery:
-            p.hero_image_url = None
-            p.gallery_json = "[]"
-            skipped.append({"id": p.id, "name": p.name, "reason": "no verified image found for this place"})
-            updated_count += 1
+
+        if hero or gallery:
+            new_hero = hero or (gallery[0] if gallery else None)
+            # The audit only had a filename to judge; this resolver had the article / Commons
+            # title. When both land on the same pictures the photographs were right all along,
+            # and saying "replaced" would invent a change the reader will not see.
+            hero_changed = bool(new_hero) and not same_image(new_hero, hero_before)
+            gallery_changed = image_set_changed(gallery_before, gallery)
+            if not hero_changed and not gallery_changed:
+                confirmed_ok.append({
+                    "id": p.id, "name": p.name, "province": dest_name,
+                    "hero_image_url": new_hero, "verified_images": len(gallery),
+                    "reasons": audit["reasons"],
+                })
+                continue
+            p.hero_image_url = new_hero
+            p.gallery_json = json.dumps(gallery)
+            replaced.append({
+                "id": p.id, "name": p.name, "province": dest_name,
+                "hero_before": hero_before, "hero_image_url": p.hero_image_url,
+                "hero_changed": hero_changed, "gallery_changed": gallery_changed,
+                "verified_images": len(gallery), "reasons": audit["reasons"],
+            })
             continue
-        p.hero_image_url = hero or (gallery[0] if gallery else None)
-        p.gallery_json = json.dumps(gallery)
-        updated_count += 1
-        updated_items.append({
-            "id": p.id,
-            "name": p.name,
-            "hero_image_url": p.hero_image_url,
-            "verified_images": len(gallery),
-        })
+
+        # Nothing verified was found. Only an image that is provably unusable may be removed
+        # here - a low filename score is a suspicion, and deleting on a suspicion would discard
+        # legitimate Wikimedia photos whose filenames simply do not repeat the place name.
+        provably_unusable = [
+            u for u in ([hero_before] if hero_before else []) + gallery_before
+            if not u.startswith("http") or is_generic_place_image(u)
+        ]
+        if provably_unusable:
+            keep_gallery = [u for u in gallery_before if u not in provably_unusable]
+            p.hero_image_url = None if (hero_before in provably_unusable) else hero_before
+            p.gallery_json = json.dumps(keep_gallery)
+            cleared.append({
+                "id": p.id, "name": p.name, "province": dest_name,
+                "hero_before": hero_before, "removed": len(provably_unusable),
+                "reasons": audit["reasons"],
+            })
+        elif hero_before and audit["needs_work"]:
+            # A picture is on the card and we could not prove it right - keep it, flag it.
+            unconfirmed.append({
+                "id": p.id, "name": p.name, "province": dest_name,
+                "hero": hero_before, "hero_score": audit["hero_score"],
+                "reasons": audit["reasons"],
+            })
+        elif not hero_before:
+            # Nothing stored and nothing found: Wikipedia and Commons simply have no photo of
+            # this place. The card shows the honest "not verified yet" tile, not a stand-in.
+            no_photo.append({
+                "id": p.id, "name": p.name, "province": dest_name,
+                "reasons": audit["reasons"],
+            })
 
     db.commit()
     return {
         "status": "success",
-        "updated_count": updated_count,
-        "no_verified_image": skipped,
-        "places": updated_items
+        # Kept so older admin builds still read a number; it is replaced + cleared.
+        "updated_count": len(replaced) + len(cleared),
+        "replaced_count": len(replaced),
+        "hero_replaced_count": sum(1 for r in replaced if r["hero_changed"]),
+        "gallery_only_count": sum(1 for r in replaced if r["gallery_changed"] and not r["hero_changed"]),
+        "cleared_count": len(cleared),
+        "unconfirmed_count": len(unconfirmed),
+        "no_photo_found_count": len(no_photo),
+        "confirmed_ok_count": len(confirmed_ok),
+        "places_examined": len(rows),
+        "places_selected": len(places_to_fix),
+        "already_trusted": already_trusted,
+        "more_pending": max(0, len(targets) - len(places_to_fix)),
+        "places": replaced,
+        "no_verified_image": cleared,
+        "needs_editorial_attention": unconfirmed,
+        "no_photo_found": no_photo,
+        "images_confirmed_ok": confirmed_ok,
     }
 
 # ----------------------------------------------------------------- News Autopilot
@@ -598,7 +685,14 @@ def test_ai_provider(
     from app.services import ai_gateway
     return ai_gateway.test_provider(payload.provider_id)
 
-from app.services.ai_tourism_engine import ai_tourism_engine
+from app.services.ai_tourism_engine import (                       # noqa: E402
+    ai_tourism_engine,
+    image_set_changed,
+    is_generic_place_image,
+    parse_gallery_urls,
+    place_image_audit,
+    same_image,
+)
 
 @router.post("/ai/tourism-scan")
 async def run_tourism_full_scan(

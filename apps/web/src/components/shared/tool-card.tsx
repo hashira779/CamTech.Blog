@@ -84,7 +84,7 @@ export function ToolCard({ slug, name, category, description, usageCount, popula
           <ArrowRight
             size={DESIGN_TOKENS.iconSize.xs}
             aria-hidden="true"
-            className="transition-transform duration-300 group-hover:translate-x-0.5"
+            className="link-nudge"
           />
         </Link>
       </div>

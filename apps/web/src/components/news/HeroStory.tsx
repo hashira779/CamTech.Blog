@@ -104,7 +104,7 @@ export function HeroStory({ article }: { article: Article }) {
             Read the story
             <ArrowRight
               size={15}
-              className="transition-transform duration-300 group-hover:translate-x-0.5"
+              className="link-nudge"
               aria-hidden="true"
             />
           </Link>

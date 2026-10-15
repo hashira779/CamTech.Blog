@@ -9,6 +9,7 @@ import {
   Star,
   MapPin,
   AlertTriangle,
+  Check,
   Image as ImageIcon
 } from 'lucide-react';
 import { api } from '../lib/api';
@@ -37,6 +38,39 @@ interface TourismScanStatus {
     discovery_source?: string;
     error_count?: number;
   } | null;
+}
+
+/**
+ * Response of POST /admin/ai/enhance-place-images.
+ *
+ * The old build only read `updated_count`, so a scan that skipped every place carrying a
+ * wrong photograph still toasted "Enhanced 0 places" - indistinguishable from success. The
+ * server now names every outcome instead of merging them into one number, including the two
+ * that used to be reported as one: a replaced cover (what the reader sees) and a re-verified
+ * album behind it. `needs_editorial_attention` is the honest remainder - photos the scan could
+ * not prove right or wrong, so it left them alone and told someone.
+ */
+interface PlaceImageReport {
+  status: string;
+  updated_count: number;
+  replaced_count: number;
+  /** The picture on the card really is a different picture now. */
+  hero_replaced_count?: number;
+  /** Cover unchanged; only the album behind it was re-verified. */
+  gallery_only_count?: number;
+  cleared_count: number;
+  unconfirmed_count: number;
+  no_photo_found_count?: number;
+  confirmed_ok_count?: number;
+  places_examined: number;
+  places_selected: number;
+  already_trusted: number;
+  more_pending: number;
+  places: { id: string; name: string; province?: string; hero_before?: string | null; hero_image_url?: string | null; hero_changed?: boolean; gallery_changed?: boolean; verified_images?: number }[];
+  no_verified_image: { id: string; name: string; province?: string; hero_before?: string | null }[];
+  needs_editorial_attention: { id: string; name: string; province?: string; hero?: string | null; hero_score?: number | null; reasons?: string[] }[];
+  no_photo_found?: { id: string; name: string; province?: string; reasons?: string[] }[];
+  images_confirmed_ok?: { id: string; name: string; province?: string; hero_image_url?: string | null; reasons?: string[] }[];
 }
 
 export interface DestinationItem {
@@ -283,21 +317,41 @@ export default function Tourism() {
   }, []);
 
   const [enhancingImages, setEnhancingImages] = useState(false);
+  const [rescanTrusted, setRescanTrusted] = useState(false);
+  const [imageReport, setImageReport] = useState<PlaceImageReport | null>(null);
 
   const handleEnhancePlaceImages = async () => {
     setEnhancingImages(true);
-    toastInfo('Scanning places and fetching high-resolution 1600px HD photos...', 'AI HD Image Search');
+    toastInfo(
+      rescanTrusted
+        ? 'Re-searching every place photograph, including the ones that already pass…'
+        : 'Re-checking place photographs and replacing the ones that do not show the place…',
+      'Place photo scan'
+    );
     try {
-      const res = await api.post<{ status: string; updated_count: number }>('/admin/ai/enhance-place-images');
-      if (res.data?.status === 'success') {
-        toastSuccess(`Enhanced ${res.data.updated_count} places with authentic HD images!`, 'HD Images Ready');
-        fetchDestinations();
+      const res = await api.post<PlaceImageReport>(
+        `/admin/ai/enhance-place-images?force=${rescanTrusted ? 'true' : 'false'}`
+      );
+      const d = res.data;
+      setImageReport(d);
+      const parts = [
+        d.hero_replaced_count ? `${d.hero_replaced_count} cover photo(s) replaced` : null,
+        d.gallery_only_count ? `${d.gallery_only_count} album(s) re-verified` : null,
+        d.cleared_count ? `${d.cleared_count} unusable photo removed` : null,
+        d.unconfirmed_count ? `${d.unconfirmed_count} kept but unproven` : null,
+        d.no_photo_found_count ? `${d.no_photo_found_count} with no photo anywhere yet` : null,
+        d.confirmed_ok_count ? `${d.confirmed_ok_count} re-checked and already right` : null,
+        `${d.already_trusted ?? 0} already matched`,
+      ].filter(Boolean).join(' - ');
+      if (d.replaced_count || d.cleared_count) {
+        toastSuccess(`Photo scan done: ${parts}.`, 'Place photos updated');
       } else {
-        toastInfo('All places already have verified high-resolution images.', 'Up to date');
+        toastInfo(`Photo scan done: ${parts}.`, 'Nothing to replace');
       }
+      fetchDestinations();
     } catch (err: any) {
       console.error(err);
-      toastError(err.response?.data?.detail || 'Failed to enhance place images.');
+      toastError(err.response?.data?.detail || 'Failed to scan place photos.');
     } finally {
       setEnhancingImages(false);
     }
@@ -339,13 +393,28 @@ export default function Tourism() {
             <span>Sync</span>
           </button>
           <button 
+            onClick={() => setRescanTrusted((v) => !v)}
+            aria-pressed={rescanTrusted}
+            title="Also re-search places whose current photo already passes verification (slower, more network calls)"
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs border transition-colors cursor-pointer ${
+              rescanTrusted
+                ? 'bg-blue-950/60 border-blue-700 text-blue-200'
+                : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <span className={`inline-flex h-3 w-3 items-center justify-center rounded-[3px] border ${rescanTrusted ? 'border-blue-400 bg-blue-500' : 'border-zinc-700'}`}>
+              {rescanTrusted && <Check size={9} className="text-white" />}
+            </span>
+            <span>Re-scan good photos too</span>
+          </button>
+          <button 
             onClick={handleEnhancePlaceImages}
             disabled={enhancingImages}
             className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-3.5 py-2 rounded-lg text-xs transition-all shadow-md hover:shadow-blue-950/40 disabled:opacity-50 cursor-pointer"
-            title="Search and assign 1600px HD cultural photos and galleries for places"
+            title="Re-check every place photograph and replace the ones that do not show that place"
           >
             {enhancingImages ? <RefreshCw size={13} className="animate-spin" /> : <ImageIcon size={13} />}
-            <span>{enhancingImages ? 'Enhancing Places...' : 'Enhance Places HD'}</span>
+            <span>{enhancingImages ? 'Checking photos...' : 'Fix Place Photos'}</span>
           </button>
           <button 
             onClick={handleFullScan}
@@ -361,6 +430,79 @@ export default function Tourism() {
           </button>
         </div>
       </div>
+
+      {/* 1a. What the last photo scan actually did. Counts come from the server, and the two
+              lists are the honest part: photos that could not be proven right (so they stayed,
+              with a flag) and places no free source has a photo of at all. Fields are defaulted
+              because an older API build answers with only `updated_count`. */}
+      {imageReport && (() => {
+        const unproven = imageReport.needs_editorial_attention || [];
+        const photoless = imageReport.no_photo_found || [];
+        const repaired = (imageReport.places || []).filter((r) => r.hero_changed || r.gallery_changed);
+        return (
+        <div className="p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800/80 space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <span className="flex items-center gap-2 text-xs font-medium text-zinc-200">
+              <ImageIcon size={12} className="text-blue-400" />
+              Photo scan of {imageReport.places_examined} place(s) - {imageReport.places_selected} needed work
+            </span>
+            <button onClick={() => setImageReport(null)} className="text-zinc-500 hover:text-zinc-300" aria-label="Dismiss photo report">
+              <X size={13} />
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-mono">
+            <span className="text-emerald-400">{imageReport.hero_replaced_count ?? 0} cover photo(s) replaced</span>
+            <span className="text-sky-400">{imageReport.gallery_only_count ?? 0} album(s) re-verified</span>
+            <span className="text-amber-400">{imageReport.cleared_count ?? 0} unusable photo removed</span>
+            <span className="text-orange-400/80">{imageReport.unconfirmed_count ?? 0} kept, not proven</span>
+            <span className="text-zinc-500">{imageReport.no_photo_found_count ?? 0} no photo exists to find</span>
+            <span className="text-zinc-400">{imageReport.confirmed_ok_count ?? 0} re-checked, already right</span>
+            <span className="text-zinc-400">{imageReport.already_trusted ?? 0} passed, not re-scanned</span>
+            {imageReport.more_pending > 0 && (
+              <span className="text-zinc-500">{imageReport.more_pending} more pending, run again</span>
+            )}
+          </div>
+          {repaired.length > 0 && (
+            <ul className="space-y-1 pt-1 border-t border-zinc-800/60">
+              <li className="text-[10px] uppercase tracking-wider text-zinc-500">Photos written over the old ones</li>
+              {repaired.slice(0, 6).map((p) => (
+                <li key={p.id} className="flex flex-wrap items-baseline gap-x-2 text-[11px] text-zinc-400">
+                  <span className="text-zinc-200">{p.name}</span>
+                  <span className="text-zinc-500">{p.province}</span>
+                  <span className={p.hero_changed ? 'text-emerald-400' : 'text-sky-400/80'}>
+                    {p.hero_changed ? 'new cover' : 'cover already matched'} · {p.verified_images ?? 0} verified
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {unproven.length > 0 && (
+            <ul className="space-y-1 pt-1 border-t border-zinc-800/60">
+              <li className="text-[10px] uppercase tracking-wider text-zinc-500">Photo still on the card, but unproven - check it yourself</li>
+              {unproven.slice(0, 6).map((p) => (
+                <li key={p.id} className="flex flex-wrap items-baseline gap-x-2 text-[11px] text-zinc-400">
+                  <span className="text-zinc-200">{p.name}</span>
+                  <span className="text-zinc-500">{p.province}</span>
+                  <span className="text-amber-400/80">{(p.reasons || []).join('; ')}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {photoless.length > 0 && (
+            <ul className="space-y-1 pt-1 border-t border-zinc-800/60">
+              <li className="text-[10px] uppercase tracking-wider text-zinc-500">Wikipedia and Commons have no photo of these - upload one or drop in your own</li>
+              {photoless.slice(0, 6).map((p) => (
+                <li key={p.id} className="flex flex-wrap items-baseline gap-x-2 text-[11px] text-zinc-400">
+                  <span className="text-zinc-200">{p.name}</span>
+                  <span className="text-zinc-500">{p.province}</span>
+                  <span className="text-zinc-500">{(p.reasons || []).join('; ')}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        );
+      })()}
 
       {/* 1b. Discovery progress - the scan runs server-side, so this is the real state */}
       {scan && (scan.running || scan.last_summary) && (() => {

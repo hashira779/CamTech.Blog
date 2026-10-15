@@ -23,6 +23,7 @@ import { CategoryMark } from "@/components/ui/category-mark";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Photo } from "@/components/ui/photo";
 import { PhotoFill } from "@/components/ui/photo-image";
+import { Reveal } from "@/components/ui/reveal";
 import { cleanText, humanize } from "@/lib/format";
 
 interface PageProps {
@@ -261,7 +262,7 @@ export default async function PlaceDetailPage({ params }: PageProps) {
                           src={img}
                           alt={`${place.name} — verified photograph ${idx + 2}`}
                           compact
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          className="photo-zoom h-full w-full object-cover"
                         />
                       </span>
                     </a>
@@ -404,14 +405,14 @@ export default async function PlaceDetailPage({ params }: PageProps) {
                 <ArrowRight
                   size={14}
                   aria-hidden="true"
-                  className="transition-transform duration-300 group-hover:translate-x-0.5"
+                  className="link-nudge"
                 />
               </Link>
             </div>
           </div>
 
           {/* ── Facts: the value, or plainly nothing ─────────────────────────── */}
-          <aside className="lg:col-span-5">
+          <Reveal as="aside" variant="right" className="lg:col-span-5">
             <div className="rounded-lg border border-border bg-card shadow-xs">
               <h2 className="border-b border-border px-6 py-4 font-display text-lg leading-snug tracking-tight text-foreground">
                 Key information
@@ -491,13 +492,13 @@ export default async function PlaceDetailPage({ params }: PageProps) {
                     <ArrowRight
                       size={14}
                       aria-hidden="true"
-                      className="transition-transform duration-300 group-hover:translate-x-0.5"
+                      className="link-nudge"
                     />
                   </Link>
                 </div>
               )}
             </div>
-          </aside>
+          </Reveal>
         </div>
 
         {/* ── 4. More places in the directory ──────────────────────────────── */}
@@ -510,8 +511,8 @@ export default async function PlaceDetailPage({ params }: PageProps) {
             />
 
             <ul className="divide-y divide-border border-y border-border">
-              {relatedPlaces.map((rel) => (
-                <li key={rel.id}>
+              {relatedPlaces.map((rel, i) => (
+                <Reveal as="li" key={rel.id} variant="left" index={i}>
                   <Link
                     href={`/travel/place/${rel.slug}`}
                     className="group flex items-center gap-4 py-4"
@@ -520,7 +521,7 @@ export default async function PlaceDetailPage({ params }: PageProps) {
                       <PlaceImage
                         src={rel.hero_image_url}
                         alt={rel.name}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="h-full w-full object-cover photo-zoom"
                         compact
                       />
                     </span>
@@ -540,10 +541,10 @@ export default async function PlaceDetailPage({ params }: PageProps) {
                     <ArrowRight
                       size={15}
                       aria-hidden="true"
-                      className="shrink-0 text-border-strong transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-accent"
+                      className="shrink-0 text-border-strong link-nudge group-hover:text-accent"
                     />
                   </Link>
-                </li>
+                </Reveal>
               ))}
             </ul>
           </section>

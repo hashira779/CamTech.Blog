@@ -489,7 +489,7 @@ export default function TripPlannerPage() {
                         <ArrowRight
                           size={15}
                           aria-hidden="true"
-                          className="transition-transform duration-300 group-hover:translate-x-0.5"
+                          className="link-nudge"
                         />
                       </Link>
                     </div>
@@ -650,7 +650,7 @@ export default function TripPlannerPage() {
                                       <ArrowRight
                                         size={14}
                                         aria-hidden="true"
-                                        className="transition-transform duration-300 group-hover:translate-x-0.5"
+                                        className="link-nudge"
                                       />
                                     </Link>
                                   ) : (

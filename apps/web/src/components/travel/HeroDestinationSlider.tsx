@@ -203,7 +203,7 @@ export function HeroDestinationSlider({ destinations }: HeroDestinationSliderPro
                 <ArrowRight
                   size={15}
                   aria-hidden="true"
-                  className="transition-transform duration-300 group-hover:translate-x-0.5"
+                  className="link-nudge"
                 />
               </Link>
               <Link
@@ -306,7 +306,7 @@ export function HeroDestinationSlider({ destinations }: HeroDestinationSliderPro
                       src={dest.hero_image_url}
                       alt={dest.name}
                       compact
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      className="h-full w-full object-cover photo-zoom"
                     />
                   </span>
                   <span

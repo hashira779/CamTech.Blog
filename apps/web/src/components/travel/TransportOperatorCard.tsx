@@ -68,7 +68,7 @@ export function TransportOperatorCard({ operator }: TransportOperatorCardProps) 
             Routes
             <ArrowRight
               size={14}
-              className="transition-transform duration-300 group-hover:translate-x-0.5"
+              className="link-nudge"
               aria-hidden="true"
             />
           </Link>

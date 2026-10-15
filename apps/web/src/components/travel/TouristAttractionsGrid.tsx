@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { ArrowRight, Compass, Landmark, Waves, Mountain, ShieldCheck } from "lucide-react";
 import { Place } from "@/types";
+import { Reveal } from "@/components/ui/reveal";
 import { Photo } from "@/components/ui/photo";
 import { CategoryMark } from "@/components/ui/category-mark";
 import { humanize } from "@/lib/format";
@@ -89,9 +90,11 @@ export function TouristAttractionsGrid({ places }: TouristAttractionsGridProps) 
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {filteredPlaces.map((place) => (
-            <article
+          {filteredPlaces.map((place, index) => (
+            <Reveal
+              as="article"
               key={`${activeFilter}-${place.id || place.slug}`}
+              index={index}
               className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
             >
               <Link href={`/travel/place/${place.slug}`} aria-label={place.name} className="block">
@@ -153,12 +156,12 @@ export function TouristAttractionsGrid({ places }: TouristAttractionsGridProps) 
                     <ArrowRight
                       size={14}
                       aria-hidden="true"
-                      className="transition-transform duration-300 group-hover:translate-x-0.5"
+                      className="link-nudge"
                     />
                   </Link>
                 </div>
               </div>
-            </article>
+            </Reveal>
           ))}
         </div>
       )}

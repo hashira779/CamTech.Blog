@@ -202,7 +202,7 @@ export function PlaceFilterGrid({ places, destinationSlug }: Props) {
                       <ArrowRight
                         size={14}
                         aria-hidden="true"
-                        className="transition-transform duration-300 group-hover:translate-x-0.5"
+                        className="link-nudge"
                       />
                     </Link>
                   </span>

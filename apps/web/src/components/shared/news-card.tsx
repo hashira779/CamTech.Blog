@@ -103,8 +103,9 @@ export function NewsCard({
           radius="none"
           priority={priority}
           showCredit={false}
+          zoom={false}
           className="absolute inset-0 h-full w-full"
-          imgClassName="sm:scale-100"
+          imgClassName="animate-ken-burns"
         />
         <span
           aria-hidden="true"

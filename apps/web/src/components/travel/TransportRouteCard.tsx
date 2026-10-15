@@ -142,7 +142,7 @@ export function TransportRouteCard({ route }: TransportRouteCardProps) {
             All routes &amp; schedules
             <ArrowRight
               size={14}
-              className="transition-transform duration-300 group-hover:translate-x-0.5"
+              className="link-nudge"
               aria-hidden="true"
             />
           </Link>
