@@ -55,6 +55,18 @@ jobs:
           git reset --hard origin/main
           echo "Current deployment commit: $(git rev-parse HEAD)"
 
+          # Ensure root .env exists and has required secrets so compose build never aborts
+          touch .env
+          grep -q "^JWT_SECRET=" .env || echo "JWT_SECRET=PHUy_ZjYJuAp-F6vKQHrfAkZf399BUO30mozt06rZboiy4633IRo08azSOBGVQrJ" >> .env
+          grep -q "^SESSION_SECRET=" .env || echo "SESSION_SECRET=GFFVc37GwwESXETKLsbUW0MYMU3Sna6ZIBDB0V_Sq3UCN9SpQ01Bu_61SsmkIK0h" >> .env
+          grep -q "^POSTGRES_PASSWORD=" .env || echo "POSTGRES_PASSWORD=discovery_secret" >> .env
+          grep -q "^REDIS_PASSWORD=" .env || echo "REDIS_PASSWORD=discovery_redis_secure" >> .env
+          grep -q "^MINIO_ROOT_USER=" .env || echo "MINIO_ROOT_USER=minio_admin" >> .env
+          grep -q "^MINIO_ROOT_PASSWORD=" .env || echo "MINIO_ROOT_PASSWORD=minio_secret_key" >> .env
+          grep -q "^PUBLIC_API_URL=" .env || echo "PUBLIC_API_URL=https://cms.camtech.cam/api/v1" >> .env
+          grep -q "^PUBLIC_WEB_URL=" .env || echo "PUBLIC_WEB_URL=https://blog.camtech.cam" >> .env
+          chmod 600 .env
+
       # ------------------------------------------------------------------------
       # Stage 2: Build
       # ------------------------------------------------------------------------
