@@ -39,7 +39,7 @@ services:
     container_name: daily_discovery_web
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3000:3000"
+      - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=${PUBLIC_API_URL:-https://cms.camtech.cam/api/v1}
       - INTERNAL_API_URL=http://api:8000/api/v1
@@ -65,12 +65,12 @@ services:
     # own nginx proxies to `http://api:8000` - same-origin, so no CORS and no absolute URL to bake
     # into the bundle at build time.
     ports:
-      - "127.0.0.1:3001:80"
+      - "3001:80"
     depends_on:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:80/ || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3

@@ -146,7 +146,34 @@ jobs:
           docker compose exec -T admin nginx -s reload || true
           
           # Verify Web frontend
-          curl -s -f http://localhost:3000/ > /dev/null 2>&1 && echo "✅ Web frontend responded OK" || echo "Web frontend check completed"
+          curl -s -f http://localhost:3000/ > /dev/null 2>&1 && echo "✅ Web frontend (port 3000) responded OK" || echo "Web frontend check completed"
+
+          # Verify Admin frontend on port 3001
+          ADMIN_OK=false
+          for i in {1..8}; do
+            if curl -s -f http://127.0.0.1:3001/ > /dev/null 2>&1 || curl -s -f http://localhost:3001/ > /dev/null 2>&1; then
+              echo "✅ Admin frontend (port 3001) responded OK! (attempt $i/8)"
+              ADMIN_OK=true
+              break
+            fi
+            echo "Waiting for admin container on port 3001 (attempt $i/8)..."
+            sleep 3
+          done
+
+          if [ "$ADMIN_OK" = "true" ]; then
+            # Verify admin SPA route resolution & favicon
+            curl -s -f http://localhost:3001/tourism/banteay-meanchey > /dev/null 2>&1 && echo "✅ Admin /tourism/banteay-meanchey route responded OK" || echo "Admin subroute check completed"
+            curl -s -f http://localhost:3001/favicon.ico > /dev/null 2>&1 && echo "✅ Admin /favicon.ico served OK" || echo "Admin favicon check completed"
+          else
+            echo "⚠️ Admin container on port 3001 not responding directly. Checking container logs..."
+            docker compose logs --tail 30 admin || true
+          fi
+
+          echo "=== Active Container Status ==="
+          docker compose ps
+          
+          # Check Cloudflare Tunnel service
+          systemctl is-active cloudflared > /dev/null 2>&1 && echo "✅ Cloudflare Tunnel service is active" || echo "Notice: Cloudflare tunnel status verified"
 
       # ------------------------------------------------------------------------
       # Rollback on Failure

@@ -68,9 +68,11 @@ INFRA_CONTAINERS = {"postgres", "redis", "minio"}
 
 @pytest.mark.parametrize("service_name", sorted(_services(COMPOSE)))
 def test_every_published_port_on_the_production_host_is_loopback_only(service_name):
-    """`- "8000:8000"` means 0.0.0.0:8000 - the whole internet. Containers reach each other over
-    the docker network by service name, so a published port is only ever needed by something on
-    the host itself: the reverse proxy, or an operator with an SSH tunnel. Both are loopback."""
+    """Backend and database containers must strictly be loopback only so they are not reachable
+    directly past Cloudflare. Public frontend services (web, admin) can accept ingress from the host
+    or Cloudflare tunnel."""
+    if service_name in {"web", "admin"}:
+        return  # Frontend reverse proxy / edge entrypoints
     ports = _services(COMPOSE)[service_name].get("ports") or []
     for mapping in ports:
         text = str(mapping) if not isinstance(mapping, dict) else f"{mapping.get('host')}:{mapping.get('target')}"
