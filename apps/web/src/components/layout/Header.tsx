@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, Sun, Moon, Laptop } from "lucide-react";
@@ -14,14 +14,19 @@ import { cn } from "@/lib/utils";
 /**
  * Masthead.
  *
- * The old header stacked three bars of teal gradients, glass blur, a neon
- * underline and a pulsing rose pill, so nothing read as the brand. This is one
- * quiet paper masthead: serif wordmark, hairline rules, a single accent for the
- * active section. Same routes, same controls, no invented colour.
+ * One paper masthead that folds away as you read. The utility rail, the wordmark and the search
+ * field are the front door, and they are the first thing to go: past a short scroll the header
+ * collapses to the section nav alone, with a compact mark of the brand beside it, so the bar that
+ * stays pinned is the one that tells you where you are. The fold is the grid-row accordion in
+ * globals.css, which needs no fixed heights and no JS measuring.
  *
- * Labels come from the `nav.*` dictionary keys rather than a second inline copy
- * table — the header used to carry its own translations that drifted from the
- * ones every other page used.
+ * The active-section mark is a single element that slides between links rather than a border on
+ * each one. It follows the pointer while you hover and returns to the current page — the reason
+ * the nav reads as built rather than styled. Movement is a transform on a 2px rule, so it never
+ * touches layout.
+ *
+ * Labels come from the `nav.*` dictionary keys rather than a second inline copy table — the header
+ * used to carry its own translations that drifted from the ones every other page used.
  */
 const navLinks = [
   { href: "/", labelKey: "nav.home" },
@@ -39,12 +44,41 @@ function isActivePath(pathname: string | null, href: string) {
   return pathname === href || Boolean(pathname?.startsWith(href + "/"));
 }
 
+/** True once the reader has scrolled past the masthead. rAF-batched, passive, no layout thrash. */
+function useFolded(threshold = 96) {
+  const [folded, setFolded] = useState(false);
+
+  useEffect(() => {
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      setFolded((window.scrollY || document.documentElement.scrollTop || 0) > threshold);
+    };
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(measure);
+    };
+    measure();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [threshold]);
+
+  return folded;
+}
+
 export function Header() {
   const pathname = usePathname();
   const { lang, setLang, t } = useI18n();
   const { theme, setTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const folded = useFolded();
+
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const itemRefs = useRef(new Map<string, HTMLLIElement>());
+  const [indicator, setIndicator] = useState<{ x: number; w: number; href: string } | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -55,88 +89,171 @@ export function Header() {
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  const today = new Date().toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const place = useCallback((href: string) => {
+    const list = listRef.current;
+    const item = itemRefs.current.get(href);
+    if (!list || !item) return;
+    const listBox = list.getBoundingClientRect();
+    const box = item.getBoundingClientRect();
+    if (box.width <= 0) return;
+    setIndicator({ x: box.left - listBox.left, w: box.width, href });
+  }, []);
+
+  const activeHref =
+    navLinks.find((link) => isActivePath(pathname, link.href))?.href ?? navLinks[0].href;
+
+  // Re-place after layout, after a route change, and whenever the row reflows.
+  useLayoutEffect(() => {
+    place(activeHref);
+  }, [activeHref, place, lang]);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || typeof ResizeObserver === "undefined") {
+      const onResize = () => place(activeHref);
+      window.addEventListener("resize", onResize);
+      return () => window.removeEventListener("resize", onResize);
+    }
+    const observer = new ResizeObserver(() => place(activeHref));
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [activeHref, place]);
+
+  /* A webfont that lands after first paint changes every link's width. The observer above only
+     watches the row, and the row's width does not change — its children do. */
+  useEffect(() => {
+    if (typeof document === "undefined" || !document.fonts?.ready) return;
+    let cancelled = false;
+    document.fonts.ready.then(() => {
+      if (!cancelled) place(activeHref);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeHref, place]);
 
   return (
-    <header className="sticky top-0 z-50 select-none border-b border-border bg-background/90 backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
-      {/* Utility rail — date, theme, language. Quiet, small, hairline-separated. */}
-      <div className="hidden border-b border-border/70 lg:block">
-        <Container className="flex h-9 items-center justify-between gap-4 text-xs text-muted-foreground">
-          <div className="flex items-center gap-3">
-            <span className="font-medium text-foreground/80 tabular-nums">{today}</span>
-            <span aria-hidden="true" className="text-border-strong">/</span>
-            <span>{t("brand.tagline")}</span>
+    <header
+      data-scrolled={folded ? "true" : "false"}
+      className="sticky top-0 z-50 select-none border-b border-border bg-background/92 backdrop-blur-md supports-[backdrop-filter]:bg-background/75"
+    >
+      {/* Everything above the section nav folds away together. */}
+      <div className="masthead-fold">
+        <div>
+          {/* Utility rail — date, theme, language. Quiet, small, hairline-separated. */}
+          <div className="hidden border-b border-border/70 lg:block">
+            <Container className="flex h-9 items-center justify-between gap-4 text-xs text-muted-foreground">
+              <div className="flex items-center gap-3">
+                <span className="font-medium text-foreground/80 tabular-nums">{formatDateline()}</span>
+                <span aria-hidden="true" className="text-border-strong">/</span>
+                <span>{t("brand.tagline")}</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <ThemeToggle mounted={mounted} theme={theme} setTheme={setTheme} />
+                <LangToggle lang={lang} setLang={setLang} />
+              </div>
+            </Container>
           </div>
 
-          <div className="flex items-center gap-2">
-            <ThemeToggle mounted={mounted} theme={theme} setTheme={setTheme} />
-            <LangToggle lang={lang} setLang={setLang} />
-          </div>
-        </Container>
+          {/* Masthead */}
+          <Container className="flex items-center justify-between gap-4 py-4 sm:py-5">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen((open) => !open)}
+                aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+                aria-expanded={mobileMenuOpen}
+                className="-ml-2 rounded-md p-2 text-foreground transition-colors hover:bg-muted lg:hidden"
+              >
+                {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
+
+              <Link href="/" className="group inline-flex items-center" aria-label="CamTech.Blog home">
+                <Logo size="md" showPopupOnHover={true} />
+              </Link>
+            </div>
+
+            {/* Mobile-only controls; the desktop utility rail already carries them. The search
+                field lives in the pinned nav row so it stays reachable after this bar folds. */}
+            <div className="flex items-center gap-2 lg:hidden">
+              <ThemeToggle mounted={mounted} theme={theme} setTheme={setTheme} compact />
+              <LangToggle lang={lang} setLang={setLang} compact />
+            </div>
+          </Container>
+        </div>
       </div>
 
-      {/* Masthead */}
-      <Container className="flex items-center justify-between gap-4 py-4 sm:py-5">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((open) => !open)}
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileMenuOpen}
-            className="-ml-2 rounded-md p-2 text-foreground transition-colors hover:bg-muted lg:hidden"
+      {/* Section nav — the part that stays. */}
+      <nav
+        aria-label="Sections"
+        className={cn(
+          "border-t transition-colors",
+          folded ? "border-t-transparent" : "border-t-border/70"
+        )}
+      >
+        <Container className="flex items-center gap-1">
+          {/* Compact identity, for when the masthead has folded away. Fixed width so nothing
+              reflows as it crossfades, and out of the tab order and the accessibility tree while
+              the full masthead above still carries the brand. */}
+          <span
+            aria-hidden={!folded || undefined}
+            className={cn(
+              "grid h-9 w-9 shrink-0 place-items-center transition-opacity duration-200 lg:mr-1",
+              folded ? "opacity-100" : "pointer-events-none opacity-0"
+            )}
           >
-            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
+            <Link href="/" tabIndex={folded ? undefined : -1} aria-label="CamTech.Blog home" className="contents">
+              <Logo size="sm" />
+            </Link>
+          </span>
 
-          <Link href="/" className="group inline-flex items-center">
-            <Logo size="md" showPopupOnHover={true} />
-          </Link>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <SuperSearch />
-          {/* Mobile-only controls; the desktop rail already carries them. */}
-          <div className="flex items-center gap-2 lg:hidden">
-            <ThemeToggle mounted={mounted} theme={theme} setTheme={setTheme} compact />
-            <LangToggle lang={lang} setLang={setLang} compact />
-          </div>
-        </div>
-      </Container>
-
-      {/* Section nav */}
-      <nav className="hidden border-t border-border/70 lg:block">
-        <Container>
-          <ul className="flex items-center gap-1">
+          <ul ref={listRef} className="relative flex min-w-0 items-stretch overflow-x-auto no-scrollbar">
             {navLinks.map((link) => {
               const active = isActivePath(pathname, link.href);
               return (
-                <li key={link.href}>
+                <li
+                  key={link.href}
+                  ref={(node) => {
+                    if (node) itemRefs.current.set(link.href, node);
+                    else itemRefs.current.delete(link.href);
+                  }}
+                  onMouseEnter={() => place(link.href)}
+                  onMouseLeave={() => place(activeHref)}
+                  className="shrink-0"
+                >
                   <Link
                     href={link.href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "relative block px-3 py-3 text-sm font-medium transition-colors",
-                      active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                      "block whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors lg:py-3",
+                      active
+                        ? "text-accent lg:text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     {t(link.labelKey)}
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "absolute inset-x-3 bottom-0 h-px transition-colors",
-                        active ? "bg-accent" : "bg-transparent"
-                      )}
-                    />
                   </Link>
                 </li>
               );
             })}
+
+            {/* One rule that travels; the link owns the meaning, this owns the eye. */}
+            <span
+              aria-hidden="true"
+              className="nav-indicator hidden lg:block"
+              style={{
+                transform: indicator
+                  ? `translate3d(${indicator.x}px, 0, 0) scaleX(${indicator.w})`
+                  : "translate3d(0, 0, 0) scaleX(0)",
+                opacity: indicator ? 1 : 0,
+              }}
+            />
           </ul>
+
+          <div className="ml-auto flex shrink-0 items-center gap-2 pl-1">
+            <SuperSearch />
+          </div>
         </Container>
       </nav>
 
@@ -177,6 +294,16 @@ export function Header() {
   );
 }
 
+/** "Wednesday 15 October 2026" — the dateline is print's, and it tells the reader which edition this is. */
+function formatDateline() {
+  return new Date().toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 type ThemeMode = "light" | "dark" | "system";
 
 function ThemeToggle({
@@ -209,7 +336,7 @@ function ThemeToggle({
             aria-pressed={active}
             onClick={() => setTheme(value)}
             className={cn(
-              "flex items-center justify-center rounded-xs transition-colors",
+              "pressable flex items-center justify-center rounded-xs transition-colors",
               compact ? "h-7 w-7" : "px-2 py-1",
               active
                 ? "bg-surface text-foreground shadow-xs"
@@ -250,7 +377,7 @@ function LangToggle({
             onClick={() => setLang(value)}
             aria-pressed={active}
             className={cn(
-              "rounded-xs text-xs transition-colors",
+              "pressable rounded-xs text-xs transition-colors",
               compact ? "h-7 min-w-9 px-1" : "px-2.5 py-1",
               active
                 ? "bg-surface font-semibold text-accent shadow-xs"

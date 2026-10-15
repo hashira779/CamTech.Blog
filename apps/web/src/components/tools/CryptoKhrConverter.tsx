@@ -27,11 +27,11 @@ interface CryptoAsset {
 }
 
 const SUPPORTED_ASSETS: CryptoAsset[] = [
-  { id: "tether", symbol: "USDT", name: "Tether (TRC-20/ERC-20)", iconColor: "text-emerald-500" },
-  { id: "bitcoin", symbol: "BTC", name: "Bitcoin", iconColor: "text-amber-500" },
-  { id: "ethereum", symbol: "ETH", name: "Ethereum", iconColor: "text-indigo-500" },
+  { id: "tether", symbol: "USDT", name: "Tether (TRC-20/ERC-20)", iconColor: "text-success" },
+  { id: "bitcoin", symbol: "BTC", name: "Bitcoin", iconColor: "text-warning" },
+  { id: "ethereum", symbol: "ETH", name: "Ethereum", iconColor: "text-category-world" },
   { id: "binancecoin", symbol: "BNB", name: "BNB (Binance Chain)", iconColor: "text-yellow-500" },
-  { id: "solana", symbol: "SOL", name: "Solana", iconColor: "text-purple-500" },
+  { id: "solana", symbol: "SOL", name: "Solana", iconColor: "text-category-discover" },
 ];
 
 interface PriceMap {
@@ -221,8 +221,8 @@ export function CryptoKhrConverter() {
               <div className="flex items-center justify-between">
                 <span className="font-bold text-xs text-foreground">{asset.symbol}</span>
                 <span
-                  className={`text-[10px] font-medium flex items-center gap-0.5 ${
-                    change >= 0 ? "text-emerald-500" : "text-rose-500"
+                  className={`text-xs font-medium flex items-center gap-0.5 ${
+                    change >= 0 ? "text-success" : "text-destructive"
                   }`}
                 >
                   {change >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
@@ -289,7 +289,7 @@ export function CryptoKhrConverter() {
               </button>
             ))}
           </div>
-          <span className="text-[11px] text-muted-foreground block">
+          <span className="text-xs text-muted-foreground block">
             Typical Cambodian OTC shops charge 0.5% - 1.2% to cash out USDT to paper dollars or Riel.
           </span>
         </div>
@@ -317,7 +317,7 @@ export function CryptoKhrConverter() {
               </span>
               <span className="text-xs text-muted-foreground uppercase font-medium">USD</span>
             </div>
-            <span className="text-[11px] text-muted-foreground block">
+            <span className="text-xs text-muted-foreground block">
               Gross: ${stats.grossUsd.toFixed(2)} USD
             </span>
           </div>
@@ -331,7 +331,7 @@ export function CryptoKhrConverter() {
               </span>
               <span className="text-xs font-bold text-accent">៛</span>
             </div>
-            <span className="text-[11px] text-muted-foreground block">
+            <span className="text-xs text-muted-foreground block">
               Based on live FX: 1$ = {liveRateHook.rate.toLocaleString()} ៛
             </span>
           </div>
@@ -345,19 +345,19 @@ export function CryptoKhrConverter() {
           </div>
           <div className="grid grid-cols-4 gap-2 text-center text-xs">
             <div className="p-1.5 rounded bg-surface border border-border/40">
-              <span className="text-[10px] text-muted-foreground block">50,000 ៛</span>
+              <span className="text-xs text-muted-foreground block">50,000 ៛</span>
               <span className="font-bold text-foreground">{stats.banknotes.note50k} bills</span>
             </div>
             <div className="p-1.5 rounded bg-surface border border-border/40">
-              <span className="text-[10px] text-muted-foreground block">20,000 ៛</span>
+              <span className="text-xs text-muted-foreground block">20,000 ៛</span>
               <span className="font-bold text-foreground">{stats.banknotes.note20k} bills</span>
             </div>
             <div className="p-1.5 rounded bg-surface border border-border/40">
-              <span className="text-[10px] text-muted-foreground block">10,000 ៛</span>
+              <span className="text-xs text-muted-foreground block">10,000 ៛</span>
               <span className="font-bold text-foreground">{stats.banknotes.note10k} bills</span>
             </div>
             <div className="p-1.5 rounded bg-surface border border-border/40">
-              <span className="text-[10px] text-muted-foreground block">5,000 ៛</span>
+              <span className="text-xs text-muted-foreground block">5,000 ៛</span>
               <span className="font-bold text-foreground">{stats.banknotes.note5k} bills</span>
             </div>
           </div>

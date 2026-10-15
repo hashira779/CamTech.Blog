@@ -2,13 +2,19 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Bookmark, Check, Compass, Send, Share2, Wrench } from "lucide-react";
+import { Bookmark, Check, Compass, Link2, Send, Share2, Wrench } from "lucide-react";
 import type { Article } from "@/types";
 import { cn } from "@/lib/utils";
-import { cleanText, formatDate, formatReadingTime } from "@/lib/format";
+import {
+  cleanText,
+  estimateReadingMinutes,
+  formatDate,
+  formatReadingTime,
+} from "@/lib/format";
 import { safeHref, sanitizeHtml } from "@/lib/sanitize";
 import { useI18n } from "@/lib/i18n";
 import { Container } from "@/components/ui/container";
+import { Reveal } from "@/components/ui/reveal";
 import { Photo } from "@/components/ui/photo";
 import { Byline } from "@/components/ui/byline";
 import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
@@ -211,6 +217,9 @@ function useReadingProgress(): number {
 export function ArticleReader({ article }: { article: Article }) {
   const { lang, t } = useI18n();
   const progress = useReadingProgress();
+  /* An estimate of where the reader is, derived from the same word count the byline
+     publishes. It is a countdown of position, not a claim about the story. */
+  const readingMinutes = estimateReadingMinutes(article.content);
 
   const [copied, setCopied] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
@@ -228,6 +237,13 @@ export function ArticleReader({ article }: { article: Article }) {
   const bodyText = blocks
     .flatMap((block) => (block.kind === "list" ? block.items || [] : [block.text]))
     .join(" ");
+
+  /* Ad density. Google's rule is that ads must not exceed or crowd the content, and a 250-word
+     wire brief wearing three units reads as an ad page with a paragraph in it — which is also how
+     accounts get limited. The second in-body unit therefore only appears on a real article: 1,800
+     characters is roughly 300 words, about where a reader starts noticing a break rather than
+     resenting one. */
+  const isLongRead = bodyText.length >= 1800;
 
   /* Khmer stacks taller and takes no Latin drop cap, so the body's own script —
      not the interface language — decides the reading typography. */
@@ -303,25 +319,32 @@ export function ArticleReader({ article }: { article: Article }) {
         />
 
         <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="kicker section-label text-accent">{sectionName}</span>
+          <span
+            aria-hidden="true"
+            className="h-px min-w-8 flex-1 bg-border"
+          />
           {article.is_breaking && (
             <CategoryMark category="breaking" tone="chip">
               Breaking
             </CategoryMark>
           )}
-          <CategoryMark
-            category={categoryKey(article.category?.name || sectionName)}
-            tone="dot"
-          >
-            {sectionName}
-          </CategoryMark>
+          {article.category?.name && (
+            <CategoryMark
+              category={categoryKey(article.category.name)}
+              tone="dot"
+            >
+              {cleanText(article.category.name)}
+            </CategoryMark>
+          )}
         </div>
 
-        <h1 className="mt-4 font-display text-3xl leading-[1.14] tracking-tight text-foreground sm:text-5xl sm:leading-[1.08]">
+        <h1 className="page-enter mt-4 font-display text-[32px] leading-[1.1] tracking-tight text-foreground sm:text-5xl sm:leading-[1.04] lg:text-6xl lg:leading-[1.02]">
           {title}
         </h1>
 
         {deck && (
-          <p className="mt-4 font-display text-lg leading-snug text-muted-foreground sm:text-xl">
+          <p className="mt-4 max-w-2xl font-display text-lg leading-snug text-muted-foreground sm:text-xl">
             {deck}
           </p>
         )}
@@ -377,12 +400,15 @@ export function ArticleReader({ article }: { article: Article }) {
       {(showSummary || showKeyPoints) && (
         <Container width="reading" className="flex flex-col gap-5 pt-4 pb-2">
           {showSummary && (
-            <section className="rounded-lg border border-border bg-surface-muted p-5 sm:p-6">
+            <Reveal
+              as="section"
+              className="rounded-lg border border-border bg-surface-muted p-5 sm:p-6"
+            >
               <h2 className="section-label text-accent">{cleanText(t("article.what_happened"))}</h2>
               <p className="mt-2.5 text-sm leading-[1.8] text-card-foreground sm:text-base">
                 {summary}
               </p>
-            </section>
+            </Reveal>
           )}
 
           {showKeyPoints && <KeyPoints points={keyPoints} />}
@@ -391,9 +417,65 @@ export function ArticleReader({ article }: { article: Article }) {
 
       {/* ── Body ─────────────────────────────────────────────────────────── */}
       <Container width="reading" className="pt-6 pb-12">
-        <div
-          className={cn("space-y-6 text-foreground", khmerCopy ? "leading-[2]" : "leading-[1.85]")}
-        >
+        <div className="lg:grid lg:grid-cols-[44px_minmax(0,1fr)] lg:gap-6">
+          {/* The share rail rides alongside the copy on a desktop, where the reading measure
+              has room for it, and the same actions appear as a labelled band under the copy
+              everywhere else. One set of controls, two shapes — never both. */}
+          <aside
+            aria-label={cleanText(t("article.share_article"))}
+            className="hidden lg:block"
+          >
+            <div className="sticky top-28 flex flex-col items-center gap-1.5">
+              <RailButton
+                label="Share on Facebook"
+                onClick={() => handleShareSocial("fb")}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                </svg>
+              </RailButton>
+              <RailButton label="Share on Telegram" onClick={() => handleShareSocial("tg")}>
+                <Send className="h-4 w-4" aria-hidden="true" />
+              </RailButton>
+              <RailButton label="Share on X" onClick={() => handleShareSocial("x")}>
+                <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                </svg>
+              </RailButton>
+              <RailButton
+                label={copied ? "Link copied" : "Copy link"}
+                onClick={handleCopyLink}
+                active={copied}
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 text-success" aria-hidden="true" />
+                ) : (
+                  <Link2 className="h-4 w-4" aria-hidden="true" />
+                )}
+              </RailButton>
+              <RailButton
+                label={saved ? "Saved" : "Save"}
+                onClick={() => setSaved(!saved)}
+                pressed={saved}
+              >
+                <Bookmark
+                  className={cn("h-4 w-4", saved && "fill-current")}
+                  aria-hidden="true"
+                />
+              </RailButton>
+
+              {readingMinutes !== null && (
+                <span className="section-label mt-2 whitespace-nowrap text-center leading-tight">
+                  {Math.max(1, Math.ceil(readingMinutes * (1 - progress)))}
+                  <span className="block">min left</span>
+                </span>
+              )}
+            </div>
+          </aside>
+
+          <div
+            className={cn("space-y-6 text-foreground", khmerCopy ? "leading-[2]" : "leading-[1.85]")}
+          >
           {blocks.map((block, index) => {
             if (block.kind === "list") {
               return (
@@ -460,6 +542,7 @@ export function ArticleReader({ article }: { article: Article }) {
               The full text of this story is still being filed.
             </p>
           )}
+          </div>
         </div>
       </Container>
 
@@ -467,21 +550,26 @@ export function ArticleReader({ article }: { article: Article }) {
       {(whyItMatters || timeline.length > 0) && (
         <Container width="reading" className="flex flex-col gap-5 pb-12">
           {whyItMatters && (
-            <section className="rounded-lg border border-border bg-surface-muted p-5 sm:p-6">
+            <Reveal
+              as="section"
+              className="rounded-lg border border-border bg-surface-muted p-5 sm:p-6"
+            >
               <h2 className="section-label text-accent">{cleanText(t("article.why_it_matters"))}</h2>
               <p className="mt-2.5 text-sm leading-[1.8] text-card-foreground sm:text-base">
                 {whyItMatters}
               </p>
-            </section>
+            </Reveal>
           )}
 
           <TimelineView items={timeline} />
         </Container>
       )}
 
-      <Container width="reading">
-        <AdSlot slot="ARTICLE_MID" />
-      </Container>
+      {isLongRead && (
+        <Container width="reading">
+          <AdSlot slot="ARTICLE_MID" />
+        </Container>
+      )}
 
       {/* ── Attribution ──────────────────────────────────────────────────── */}
       <Container width="reading" className="pt-2 pb-10">
@@ -494,8 +582,8 @@ export function ArticleReader({ article }: { article: Article }) {
         />
       </Container>
 
-      {/* ── Share ────────────────────────────────────────────────────────── */}
-      <Container width="reading" className="pb-12">
+      {/* ── Share (narrow: the desktop rail above replaces this) ──────────── */}
+      <Container width="reading" className="pb-12 lg:hidden">
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5">
           <span className="section-label">{cleanText(t("article.share_article"))}</span>
 
@@ -580,6 +668,37 @@ export function ArticleReader({ article }: { article: Article }) {
         <AdSlot slot="ARTICLE_BOTTOM" />
       </Container>
     </div>
+  );
+}
+
+/** A single icon in the desktop share rail. Labelled, square, keyboard-reachable. */
+function RailButton({
+  label,
+  onClick,
+  pressed,
+  active,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  pressed?: boolean;
+  active?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      aria-pressed={pressed}
+      className={cn(
+        "pressable grid h-9 w-9 place-items-center rounded-full border bg-surface text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground",
+        active || pressed ? "border-accent text-accent" : "border-border"
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

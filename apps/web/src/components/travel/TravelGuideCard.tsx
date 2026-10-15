@@ -26,7 +26,7 @@ export function TravelGuideCard({ guide }: TravelGuideCardProps) {
       href={`/travel/guides/${guide.slug}`}
       className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs transition-colors hover-lift hover:border-border-strong"
     >
-      <Photo
+      <Photo zoom
         src={guide.hero_image_url}
         alt={cleanText(guide.title)}
         ratio="16/9"

@@ -121,7 +121,7 @@ export function ProvinceHubGrid({ destinations }: ProvinceHubGridProps) {
                 className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
               >
                 <Link href={`/travel/${dest.slug}`} aria-label={dest.name} className="block">
-                  <Photo
+                  <Photo zoom
                     src={dest.hero_image_url}
                     alt={dest.name}
                     ratio="3/2"

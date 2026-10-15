@@ -291,7 +291,7 @@ export function KhqrGenerator() {
             {/* Bakong KHQR Header Banner */}
             <div className="mb-3 flex items-center justify-between w-full border-b border-red-200 pb-2 px-1">
               <span className="text-xs font-black tracking-widest text-red-600">KHQR</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
                 Bakong NBC
               </span>
             </div>

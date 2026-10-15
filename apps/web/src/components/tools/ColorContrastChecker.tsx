@@ -302,7 +302,7 @@ export function ColorContrastChecker() {
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Applies to borders, toggles, form fields, and status icons.
               </p>
             </div>

@@ -42,7 +42,7 @@ export function PlaceCard({
   return (
     <Card hoverEffect className="group h-full overflow-hidden">
       <Link href={href} aria-label={name} className="block">
-        <Photo
+        <Photo zoom
           src={heroImage}
           alt={name}
           ratio="4/3"

@@ -1,24 +1,16 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { categoryKey, type CategoryKey } from "@/lib/category-key";
 
 /**
  * Section marks.
  *
- * Category colour used to be chosen per page (teal on news, rose on breaking,
- * amber on quiz, emerald on travel), so the same concept looked different on
- * every route. There is now one restrained hue per section, defined as a token,
- * and it is only ever used for small marks and chips — never as a large fill.
+ * The name→hue lookup lives in `@/lib/category-key` so the design gate can run it
+ * against the real category names without importing React. This file only owns the
+ * three class tables. Re-exported because every route already imports it from here.
  */
-export type CategoryKey =
-  | "news"
-  | "world"
-  | "travel"
-  | "discover"
-  | "quiz"
-  | "tools"
-  | "transport"
-  | "breaking"
-  | "neutral";
+export { categoryKey };
+export type { CategoryKey };
 
 const TEXT_CLASS: Record<CategoryKey, string> = {
   news: "text-category-news",
@@ -28,6 +20,7 @@ const TEXT_CLASS: Record<CategoryKey, string> = {
   quiz: "text-category-quiz",
   tools: "text-category-tools",
   transport: "text-category-transport",
+  tech: "text-category-tech",
   breaking: "text-category-breaking",
   neutral: "text-muted-foreground",
 };
@@ -40,6 +33,7 @@ const DOT_CLASS: Record<CategoryKey, string> = {
   quiz: "bg-category-quiz",
   tools: "bg-category-tools",
   transport: "bg-category-transport",
+  tech: "bg-category-tech",
   breaking: "bg-category-breaking",
   neutral: "bg-muted-foreground",
 };
@@ -52,24 +46,10 @@ const CHIP_CLASS: Record<CategoryKey, string> = {
   quiz: "bg-category-quiz/10 text-category-quiz",
   tools: "bg-category-tools/10 text-category-tools",
   transport: "bg-category-transport/10 text-category-transport",
+  tech: "bg-category-tech/10 text-category-tech",
   breaking: "bg-category-breaking/10 text-category-breaking",
   neutral: "bg-muted text-muted-foreground",
 };
-
-/** Normalises the many spellings the API and page props use into one key. */
-export function categoryKey(value?: string | null): CategoryKey {
-  const v = String(value ?? "").trim().toLowerCase();
-  if (!v) return "neutral";
-  if (v.includes("break")) return "breaking";
-  if (v.includes("travel") || v.includes("tourism")) return "travel";
-  if (v.includes("world") || v.includes("international") || v.includes("global")) return "world";
-  if (v.includes("discover") || v.includes("science") || v.includes("explainer")) return "discover";
-  if (v.includes("quiz")) return "quiz";
-  if (v.includes("tool") || v.includes("utility")) return "tools";
-  if (v.includes("transport") || v.includes("transit")) return "transport";
-  if (v.includes("cambodia") || v.includes("khmer") || v.includes("news") || v.includes("national")) return "news";
-  return "neutral";
-}
 
 export interface CategoryMarkProps {
   category?: string | null;

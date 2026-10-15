@@ -345,7 +345,7 @@ Source: ${result.url || result.source}`;
 
       {/* Privacy Notice */}
       <div className="pt-1">
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           Queries are sent directly from your browser to public endpoints (DuckDuckGo & Wikimedia). No search history is retained.
         </span>
       </div>

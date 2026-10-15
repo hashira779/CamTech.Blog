@@ -218,7 +218,7 @@ export function KhmerHolidayCalculator() {
               <span className="font-display text-3xl font-black tabular-nums text-accent">
                 {nextHolidayInfo.diffDays}
               </span>
-              <span className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <span className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Days Away
               </span>
             </div>
@@ -290,7 +290,7 @@ export function KhmerHolidayCalculator() {
                     {h.nameKm}
                   </span>
                   {h.note && (
-                    <span className="block text-[11px] text-accent/80 font-medium">
+                    <span className="block text-xs text-accent/80 font-medium">
                       {h.note}
                     </span>
                   )}

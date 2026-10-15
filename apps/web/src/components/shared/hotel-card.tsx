@@ -47,7 +47,7 @@ export function HotelCard({
   return (
     <Card hoverEffect className="group h-full overflow-hidden">
       <Link href={`/travel/place/${slug}`} className="block">
-        <Photo
+        <Photo zoom
           src={heroImage}
           alt={cleanText(name)}
           ratio="4/3"

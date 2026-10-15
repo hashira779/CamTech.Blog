@@ -89,9 +89,9 @@ function getAqiCategory(aqi: number): {
     return {
       label: "Good (Clean Air)",
       labelKm: "ល្អប្រសើរ - ខ្យល់បរិសុទ្ធ",
-      colorClass: "text-emerald-500",
-      bgClass: "bg-emerald-500/10",
-      borderClass: "border-emerald-500/30",
+      colorClass: "text-success",
+      bgClass: "bg-success/10",
+      borderClass: "border-success/30",
       recommendation: "Air quality is satisfactory. Ideal for all outdoor exercises and motorbike rides.",
       recommendationKm: "គុណភាពខ្យល់ល្អប្រសើរខ្លាំង សមស្របសម្រាប់ការធ្វើដំណើរ និងហាត់ប្រាណខាងក្រៅ។",
     };
@@ -100,9 +100,9 @@ function getAqiCategory(aqi: number): {
     return {
       label: "Moderate",
       labelKm: "មធ្យម - អាចទទួលយកបាន",
-      colorClass: "text-amber-500",
-      bgClass: "bg-amber-500/10",
-      borderClass: "border-amber-500/30",
+      colorClass: "text-warning",
+      bgClass: "bg-warning/10",
+      borderClass: "border-warning/30",
       recommendation: "Acceptable quality. Sensitive individuals should consider wearing a mask during high traffic.",
       recommendationKm: "គុណភាពខ្យល់ស្ថិតក្នុងកម្រិតមធ្យម។ អ្នកដែលមានបញ្ហាផ្លូវដង្ហើមគួរពាក់ម៉ាស់ពេលជិះកាត់ផ្លូវធំៗ។",
     };
@@ -111,9 +111,9 @@ function getAqiCategory(aqi: number): {
     return {
       label: "Unhealthy for Sensitive Groups",
       labelKm: "មិនល្អសម្រាប់អ្នកងាយប្រតិកម្ម",
-      colorClass: "text-orange-500",
-      bgClass: "bg-orange-500/10",
-      borderClass: "border-orange-500/30",
+      colorClass: "text-category-discover",
+      bgClass: "bg-warning/10",
+      borderClass: "border-warning/30",
       recommendation: "Children, elderly, and those with asthma should wear PM2.5/N95 masks and limit outdoor sports.",
       recommendationKm: "កុមារ មនុស្សចាស់ និងអ្នកហឺត គួរពាក់ម៉ាស់ N95 ឬការពារធូលី និងកាត់បន្ថយការនៅក្រៅផ្ទះ។",
     };
@@ -122,9 +122,9 @@ function getAqiCategory(aqi: number): {
     return {
       label: "Unhealthy (High Dust)",
       labelKm: "មិនល្អចំពោះសុខភាព - ធូលីខ្ពស់",
-      colorClass: "text-rose-500",
-      bgClass: "bg-rose-500/10",
-      borderClass: "border-rose-500/30",
+      colorClass: "text-destructive",
+      bgClass: "bg-destructive/10",
+      borderClass: "border-destructive/30",
       recommendation: "Everyone may begin to experience health effects. Wear protective masks outdoors.",
       recommendationKm: "កម្រិតធូលី PM2.5 ខ្ពស់ប៉ះពាល់ដល់មនុស្សទូទៅ។ សូមពាក់ម៉ាស់ការពារធូលី និងបិទបង្អួចផ្ទះ។",
     };
@@ -132,9 +132,9 @@ function getAqiCategory(aqi: number): {
   return {
     label: "Hazardous / Very Unhealthy",
     labelKm: "គ្រោះថ្នាក់ខ្លាំង",
-    colorClass: "text-purple-500",
-    bgClass: "bg-purple-500/10",
-    borderClass: "border-purple-500/30",
+    colorClass: "text-category-discover",
+    bgClass: "bg-category-world/10",
+    borderClass: "border-category-world/30",
     recommendation: "Health alert: Serious risk of respiratory irritation. Avoid all unnecessary outdoor activities.",
     recommendationKm: "ការប្រកាសអាសន្នសុខភាព៖ សូមជៀសវាងការចេញក្រៅ និងបើកម៉ាស៊ីនបន្សុទ្ធខ្យល់ក្នុងបន្ទប់។",
   };
@@ -340,7 +340,7 @@ export function CambodiaWeatherAirQuality() {
                 }`}
               >
                 <div className="font-medium text-xs text-foreground truncate">{loc.nameEn}</div>
-                <div className="text-[11px] text-muted-foreground truncate">{loc.nameKm}</div>
+                <div className="text-xs text-muted-foreground truncate">{loc.nameKm}</div>
               </button>
             );
           })}
@@ -353,7 +353,7 @@ export function CambodiaWeatherAirQuality() {
         <div className="p-4 rounded-xl border border-border bg-surface space-y-4">
           <div className="flex items-center justify-between border-b border-border/50 pb-2.5">
             <div className="flex items-center gap-2">
-              <CloudSun size={18} className="text-amber-500" />
+              <CloudSun size={18} className="text-warning" />
               <h3 className="font-semibold text-sm text-foreground">Current Weather</h3>
             </div>
             <span className="text-xs text-muted-foreground">{activeLocation.nameEn}</span>
@@ -381,18 +381,18 @@ export function CambodiaWeatherAirQuality() {
 
           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/50 text-xs">
             <div className="p-2 rounded-lg bg-surface-muted flex flex-col items-center text-center">
-              <Droplets size={14} className="text-sky-500 mb-1" />
-              <span className="text-muted-foreground text-[10px]">Humidity</span>
+              <Droplets size={14} className="text-category-news mb-1" />
+              <span className="text-muted-foreground text-xs">Humidity</span>
               <span className="font-semibold text-foreground">{weather?.humidity ?? "--"}%</span>
             </div>
             <div className="p-2 rounded-lg bg-surface-muted flex flex-col items-center text-center">
-              <Wind size={14} className="text-teal-500 mb-1" />
-              <span className="text-muted-foreground text-[10px]">Wind Speed</span>
+              <Wind size={14} className="text-info mb-1" />
+              <span className="text-muted-foreground text-xs">Wind Speed</span>
               <span className="font-semibold text-foreground">{weather?.windSpeed.toFixed(1) ?? "--"} km/h</span>
             </div>
             <div className="p-2 rounded-lg bg-surface-muted flex flex-col items-center text-center">
-              <Sun size={14} className="text-amber-500 mb-1" />
-              <span className="text-muted-foreground text-[10px]">UV Index</span>
+              <Sun size={14} className="text-warning mb-1" />
+              <span className="text-muted-foreground text-xs">UV Index</span>
               <span className="font-semibold text-foreground">{weather?.uvIndex ?? "--"}</span>
             </div>
           </div>
@@ -400,13 +400,13 @@ export function CambodiaWeatherAirQuality() {
           {/* Hourly Mini Cards */}
           {weather?.hourly && weather.hourly.length > 0 && (
             <div className="pt-2">
-              <span className="text-[11px] font-medium text-muted-foreground">Upcoming Hours:</span>
+              <span className="text-xs font-medium text-muted-foreground">Upcoming Hours:</span>
               <div className="mt-1.5 grid grid-cols-4 gap-1.5">
                 {weather.hourly.slice(0, 4).map((h, i) => (
                   <div key={i} className="p-1.5 rounded border border-border/50 bg-surface-muted/60 text-center">
-                    <span className="text-[10px] text-muted-foreground block">{h.time}</span>
+                    <span className="text-xs text-muted-foreground block">{h.time}</span>
                     <span className="font-semibold text-xs text-foreground block">{Math.round(h.temp)}°C</span>
-                    <span className="text-[9px] text-sky-500 block">{h.pop}% rain</span>
+                    <span className="text-xs text-category-news block">{h.pop}% rain</span>
                   </div>
                 ))}
               </div>
@@ -435,20 +435,20 @@ export function CambodiaWeatherAirQuality() {
                 <span className="text-xs text-muted-foreground uppercase font-medium">US AQI</span>
               </div>
               <div className="mt-1 font-semibold text-xs text-foreground">{aqiCategory.label}</div>
-              <div className="text-[11px] text-muted-foreground">{aqiCategory.labelKm}</div>
+              <div className="text-xs text-muted-foreground">{aqiCategory.labelKm}</div>
             </div>
 
             <div className="text-right space-y-1">
               <div className="p-2 rounded-lg bg-surface/80 border border-border/40 text-left">
-                <div className="text-[10px] text-muted-foreground">PM2.5 Dust Density</div>
+                <div className="text-xs text-muted-foreground">PM2.5 Dust Density</div>
                 <div className="font-bold text-sm text-foreground">
                   {airQuality?.pm2_5 ?? "--"} <span className="text-xs font-normal text-muted-foreground">µg/m³</span>
                 </div>
               </div>
               <div className="p-1.5 rounded-lg bg-surface/80 border border-border/40 text-left">
-                <div className="text-[10px] text-muted-foreground">PM10 Coarse Dust</div>
+                <div className="text-xs text-muted-foreground">PM10 Coarse Dust</div>
                 <div className="font-medium text-xs text-foreground">
-                  {airQuality?.pm10 ?? "--"} <span className="text-[10px] font-normal text-muted-foreground">µg/m³</span>
+                  {airQuality?.pm10 ?? "--"} <span className="text-xs font-normal text-muted-foreground">µg/m³</span>
                 </div>
               </div>
             </div>
@@ -461,7 +461,7 @@ export function CambodiaWeatherAirQuality() {
               <span>Health & Mask Recommendation</span>
             </div>
             <p className="text-muted-foreground leading-relaxed">{aqiCategory.recommendation}</p>
-            <p className="text-[11px] text-muted-foreground/90 font-khmer">{aqiCategory.recommendationKm}</p>
+            <p className="text-xs text-muted-foreground/90 font-khmer">{aqiCategory.recommendationKm}</p>
           </div>
         </div>
       </div>

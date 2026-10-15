@@ -98,7 +98,7 @@ export function TouristAttractionsGrid({ places }: TouristAttractionsGridProps) 
               className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
             >
               <Link href={`/travel/place/${place.slug}`} aria-label={place.name} className="block">
-                <Photo
+                <Photo zoom
                   src={place.hero_image_url}
                   alt={place.name}
                   ratio="4/3"

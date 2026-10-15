@@ -24,7 +24,7 @@ export function TravelEventCard({ event }: TravelEventCardProps) {
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs transition-colors hover:border-border-strong">
-      <Photo
+      <Photo zoom
         src={event.hero_image_url}
         alt={cleanText(event.name)}
         ratio="3/2"

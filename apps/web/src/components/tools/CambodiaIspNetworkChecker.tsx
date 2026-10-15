@@ -42,13 +42,13 @@ interface PingTarget {
 }
 
 const CAMBODIA_ISPS = [
-  { match: "smart", name: "Smart Axiata", tag: "Smart 4G / 5G Mobile & Fiber", color: "text-emerald-500", hotline: "888" },
-  { match: "camgsm", name: "Cellcard", tag: "Cellcard / CamGSM", color: "text-orange-500", hotline: "812" },
-  { match: "viettel", name: "Metfone", tag: "Metfone / Viettel Cambodia", color: "text-red-500", hotline: "1204" },
-  { match: "ezecom", name: "Ezecom", tag: "Ezecom Premium Fiber", color: "text-sky-500", hotline: "023 888 181" },
-  { match: "sinet", name: "SINET", tag: "SINET Enterprise Internet", color: "text-indigo-500", hotline: "023 888 880" },
-  { match: "telecom", name: "Telecom Cambodia", tag: "Telecom Cambodia (State-Owned)", color: "text-blue-500", hotline: "023 724 812" },
-  { match: "opennet", name: "Opennet / King Tech", tag: "Opennet Broadband", color: "text-amber-500", hotline: "023 868 586" },
+  { match: "smart", name: "Smart Axiata", tag: "Smart 4G / 5G Mobile & Fiber", color: "text-success", hotline: "888" },
+  { match: "camgsm", name: "Cellcard", tag: "Cellcard / CamGSM", color: "text-category-discover", hotline: "812" },
+  { match: "viettel", name: "Metfone", tag: "Metfone / Viettel Cambodia", color: "text-destructive", hotline: "1204" },
+  { match: "ezecom", name: "Ezecom", tag: "Ezecom Premium Fiber", color: "text-category-news", hotline: "023 888 181" },
+  { match: "sinet", name: "SINET", tag: "SINET Enterprise Internet", color: "text-category-world", hotline: "023 888 880" },
+  { match: "telecom", name: "Telecom Cambodia", tag: "Telecom Cambodia (State-Owned)", color: "text-category-transport", hotline: "023 724 812" },
+  { match: "opennet", name: "Opennet / King Tech", tag: "Opennet Broadband", color: "text-warning", hotline: "023 868 586" },
 ];
 
 export function CambodiaIspNetworkChecker() {
@@ -199,9 +199,9 @@ export function CambodiaIspNetworkChecker() {
       return {
         grade: "A+ (Excellent)",
         avg,
-        color: "text-emerald-500",
-        bg: "bg-emerald-500/10",
-        border: "border-emerald-500/30",
+        color: "text-success",
+        bg: "bg-success/10",
+        border: "border-success/30",
         desc: "Ultra-low latency. Superb for competitive gaming, 4K streaming, and Zoom calls.",
       };
     }
@@ -209,9 +209,9 @@ export function CambodiaIspNetworkChecker() {
       return {
         grade: "A (Great)",
         avg,
-        color: "text-teal-500",
-        bg: "bg-teal-500/10",
-        border: "border-teal-500/30",
+        color: "text-info",
+        bg: "bg-info/10",
+        border: "border-info/30",
         desc: "Fast and stable connection. Great for HD video calls and browsing.",
       };
     }
@@ -219,18 +219,18 @@ export function CambodiaIspNetworkChecker() {
       return {
         grade: "B (Moderate)",
         avg,
-        color: "text-amber-500",
-        bg: "bg-amber-500/10",
-        border: "border-amber-500/30",
+        color: "text-warning",
+        bg: "bg-warning/10",
+        border: "border-warning/30",
         desc: "Standard residential speed. Acceptable for web work, mild delay for real-time gaming.",
       };
     }
     return {
       grade: "C (High Latency)",
       avg,
-      color: "text-rose-500",
-      bg: "bg-rose-500/10",
-      border: "border-rose-500/30",
+      color: "text-destructive",
+      bg: "bg-destructive/10",
+      border: "border-destructive/30",
       desc: "High delay detected. Check fiber cables, Wi-Fi distance, or contact your ISP.",
     };
   }, [targets]);
@@ -309,7 +309,7 @@ ${targets.map((t) => `  - ${t.name}: ${t.latencyMs !== null ? `${t.latencyMs} ms
             <div className="text-xs text-muted-foreground flex items-center gap-2">
               <span>{detectedIsp?.tag}</span>
               {detectedIsp?.hotline && detectedIsp.hotline !== "N/A" && (
-                <span className="text-[11px] px-1.5 py-0.5 rounded bg-surface-muted text-foreground/80 font-mono">
+                <span className="text-xs px-1.5 py-0.5 rounded bg-surface-muted text-foreground/80 font-mono">
                   Support: {detectedIsp.hotline}
                 </span>
               )}
@@ -318,11 +318,11 @@ ${targets.map((t) => `  - ${t.name}: ${t.latencyMs !== null ? `${t.latencyMs} ms
 
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/50 text-xs">
             <div className="p-2 rounded-lg bg-surface-muted">
-              <span className="text-[10px] text-muted-foreground block">Public IP Address</span>
+              <span className="text-xs text-muted-foreground block">Public IP Address</span>
               <span className="font-mono font-semibold text-foreground text-xs">{ipData?.ip ?? "--"}</span>
             </div>
             <div className="p-2 rounded-lg bg-surface-muted">
-              <span className="text-[10px] text-muted-foreground block">IP Protocol</span>
+              <span className="text-xs text-muted-foreground block">IP Protocol</span>
               <span className="font-semibold text-foreground text-xs">{ipData?.type ?? "IPv4"}</span>
             </div>
           </div>
@@ -332,7 +332,7 @@ ${targets.map((t) => `  - ${t.name}: ${t.latencyMs !== null ? `${t.latencyMs} ms
         <div className="p-4 rounded-xl border border-border bg-surface space-y-4">
           <div className="flex items-center justify-between border-b border-border/50 pb-2.5">
             <div className="flex items-center gap-2">
-              <Globe size={18} className="text-teal-500" />
+              <Globe size={18} className="text-info" />
               <h3 className="font-semibold text-sm text-foreground">Location & Gateway Routing</h3>
             </div>
             <Badge variant="secondary" size="sm">
@@ -351,12 +351,12 @@ ${targets.map((t) => `  - ${t.name}: ${t.latencyMs !== null ? `${t.latencyMs} ms
 
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/50 text-xs">
             <div className="p-2 rounded-lg bg-surface-muted">
-              <span className="text-[10px] text-muted-foreground block">Network Organization</span>
+              <span className="text-xs text-muted-foreground block">Network Organization</span>
               <span className="font-medium text-foreground text-xs truncate block">{ipData?.org || "Smart Axiata"}</span>
             </div>
             <div className="p-2 rounded-lg bg-surface-muted">
-              <span className="text-[10px] text-muted-foreground block">Security & DNS</span>
-              <span className="font-medium text-foreground text-xs flex items-center gap-1 text-emerald-500">
+              <span className="text-xs text-muted-foreground block">Security & DNS</span>
+              <span className="font-medium text-foreground text-xs flex items-center gap-1 text-success">
                 <ShieldCheck size={12} /> Standard Gateway
               </span>
             </div>
@@ -388,16 +388,16 @@ ${targets.map((t) => `  - ${t.name}: ${t.latencyMs !== null ? `${t.latencyMs} ms
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-xs text-foreground">{tgt.name}</span>
                 {tgt.status === "testing" ? (
-                  <span className="text-[10px] text-amber-500 animate-pulse">Pinging...</span>
+                  <span className="text-xs text-warning animate-pulse">Pinging...</span>
                 ) : tgt.latencyMs !== null ? (
-                  <Badge variant="outline" size="sm" className="font-mono text-[11px] text-foreground">
+                  <Badge variant="outline" size="sm" className="font-mono text-xs text-foreground">
                     {tgt.latencyMs} ms
                   </Badge>
                 ) : (
-                  <span className="text-[10px] text-muted-foreground">Ready</span>
+                  <span className="text-xs text-muted-foreground">Ready</span>
                 )}
               </div>
-              <p className="text-[11px] text-muted-foreground">{tgt.description}</p>
+              <p className="text-xs text-muted-foreground">{tgt.description}</p>
             </div>
           ))}
         </div>

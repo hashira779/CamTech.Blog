@@ -139,4 +139,10 @@ export const CATEGORY_TOKENS: Record<
     borderClass: "border-category-transport/30",
     textClass: "text-category-transport",
   },
+  tech: {
+    label: "Technology",
+    badgeClass: "bg-category-tech/10 text-category-tech",
+    borderClass: "border-category-tech/30",
+    textClass: "text-category-tech",
+  },
 };

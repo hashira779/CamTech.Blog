@@ -10,6 +10,7 @@ import { Reveal } from "@/components/ui/reveal";
 import { SectionHeader } from "@/components/ui/section-header";
 import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
 import { cleanText, formatCount, formatDate } from "@/lib/format";
+import { AdSlot } from "@/components/ads/AdSlot";
 
 export const metadata: Metadata = {
   title: "Trending",
@@ -210,6 +211,10 @@ export default async function TrendingPage() {
           <RankedRail heading="Worldwide" region="worldwide" items={world} />
         </section>
       )}
+
+      {/* Trending is a list people scroll, so the unit sits between two rails rather than inside
+          one, where a visitor cannot tell the ad from a ranked story. */}
+      <AdSlot slot="TRENDING_MID" className="pt-12" />
 
       {editorPicks.length > 0 && (
         <section className="pt-12">

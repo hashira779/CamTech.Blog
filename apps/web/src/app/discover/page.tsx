@@ -41,7 +41,7 @@ function ExplainerCard({ item }: { item: Discovery }) {
       className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
       aria-label={title}
     >
-      <Photo
+      <Photo zoom
         src={item.hero_image_url}
         alt={item.hero_image_alt || title}
         credit={item.hero_image_credit}
@@ -82,7 +82,7 @@ function LeadExplainer({ item }: { item: Discovery }) {
   return (
     <article className="group grid gap-6 border-b border-border pb-10 sm:grid-cols-2 sm:gap-8">
       <Link href={`/discover/${item.slug}`} aria-label={title} className="block">
-        <Photo
+        <Photo zoom
           src={item.hero_image_url}
           alt={item.hero_image_alt || title}
           credit={item.hero_image_credit}

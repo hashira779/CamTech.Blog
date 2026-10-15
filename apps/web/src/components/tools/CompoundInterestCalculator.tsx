@@ -308,7 +308,7 @@ export function CompoundInterestCalculator() {
                     <span className="inline-flex items-center gap-1.5">
                       <span>{row.calendarYear}</span>
                       {row.calendarYear <= 2029 && (
-                        <Badge variant="outline" size="sm" className="text-[10px]">
+                        <Badge variant="outline" size="sm" className="text-xs">
                           Target
                         </Badge>
                       )}

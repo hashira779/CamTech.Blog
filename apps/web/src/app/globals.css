@@ -40,7 +40,12 @@
   --muted: #f3eee6;
   --muted-foreground: #6f675e;
 
-  --accent: #b4552d;
+  /* One accent, one hue, deep enough to carry body-size text.
+     #b4552d measured 4.36:1 on a tinted band, which is under AA — links and section
+     labels sit on bands constantly. #ab4d26 is the same terracotta, one step deeper:
+     5.23:1 on paper, 4.88:1 on the muted band, and white text on it reaches 5.50:1.
+     `scripts/design-checks.mjs` recomputes all of it from these hex values. */
+  --accent: #ab4d26;
   --accent-foreground: #ffffff;
   --accent-soft: #f7ebe3;
 
@@ -50,7 +55,9 @@
   --success: #3f6b4a;
   --success-foreground: #ffffff;
 
-  --warning: #a8762a;
+  /* #a8762a was 3.78:1 as text and 3.97:1 under white. #96691f clears both (4.60 / 4.84)
+     while staying amber rather than going brown. */
+  --warning: #96691f;
   --warning-foreground: #ffffff;
 
   --info: #3a6073;
@@ -60,7 +67,14 @@
   --border: #e7e1d8;
   --border-strong: #d8d0c4;
   --input: #d9d2c7;
-  --ring: #b4552d;
+  --ring: #ab4d26;
+
+  /* Elevation. Paper throws a visible shadow; a dark surface does not — there it is
+     carried by the surface steps and a 1px top highlight instead. Same shadow tokens,
+     so no page ever hardcodes one. */
+  --shadow-rgb: 28 25 23;
+  --elev: 1;
+  --surface-edge: inset 0 0 0 0 rgba(0, 0, 0, 0);
 
   /* Section marks. The soft tint is mixed from the hue so it tracks the theme
      without a second hand-maintained table. */
@@ -71,9 +85,28 @@
   --category-quiz: #a2543f;
   --category-tools: #6b6252;
   --category-transport: #4f6b7a;
+  /* Technology is the largest category on the site and had no hue of its own, so most
+     cards rendered an unmarked grey dot. #2d5b8c is 5.88:1 on the deepest tinted band;
+     it sits in the same cool family as news but far more saturated, so the two marks
+     read differently at 12px. */
+  --category-tech: #2d5b8c;
   --category-breaking: #a93226;
 
   --radius: 14px;
+
+  /* Motion scale. Four stops, one curve family — pages used to invent a duration per
+     hover, which is why nothing on the site moved together.
+       fast   — press feedback, colour, an indicator tick
+       base   — a control that changes shape or reveals something
+       slow   — a card lifting, a rule drawing in
+       calm   — scroll reveals and anything that should read as atmosphere */
+  --dur-fast: 140ms;
+  --dur-base: 240ms;
+  --dur-slow: 360ms;
+  --dur-calm: 620ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-glide: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 :root.dark,
@@ -124,6 +157,12 @@
   --input: #3a332c;
   --ring: #e08a5a;
 
+  /* Dark: shadows barely register against a near-black page, so elevation is carried by
+     the surface steps plus a hairline top highlight. Keep the tokens, drop the weight. */
+  --shadow-rgb: 0 0 0;
+  --elev: 0.55;
+  --surface-edge: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+
   --category-news: #8fb4c9;
   --category-world: #a99bd4;
   --category-travel: #86b796;
@@ -131,6 +170,7 @@
   --category-quiz: #d99a80;
   --category-tools: #b3a894;
   --category-transport: #93b3c4;
+  --category-tech: #8fb4de;
   --category-breaking: #e0705f;
 }
 
@@ -188,6 +228,7 @@
     --category-quiz: #d99a80;
     --category-tools: #b3a894;
     --category-transport: #93b3c4;
+    --category-tech: #8fb4de;
     --category-breaking: #e0705f;
   }
 }
@@ -246,6 +287,7 @@
   --color-category-quiz: var(--category-quiz);
   --color-category-tools: var(--category-tools);
   --color-category-transport: var(--category-transport);
+  --color-category-tech: var(--category-tech);
   --color-category-breaking: var(--category-breaking);
 
   /* Fonts. The Khmer face sits in the same stack as a per-glyph fallback, so
@@ -264,12 +306,18 @@
   --radius-2xl: 24px;
   --radius-3xl: 28px;
 
-  /* Warm-tinted elevation. Shadows carry the ink colour, not pure black. */
-  --shadow-xs: 0 1px 2px rgba(28, 25, 23, 0.05);
-  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.04), 0 4px 12px -6px rgba(28, 25, 23, 0.1);
-  --shadow-md: 0 2px 4px rgba(28, 25, 23, 0.04), 0 12px 28px -12px rgba(28, 25, 23, 0.16);
-  --shadow-lg: 0 4px 8px rgba(28, 25, 23, 0.05), 0 24px 48px -20px rgba(28, 25, 23, 0.22);
-  --shadow-xl: 0 8px 16px rgba(28, 25, 23, 0.06), 0 40px 80px -32px rgba(28, 25, 23, 0.28);
+  /* Warm-tinted elevation. Shadows carry the ink colour, not pure black, and both the
+     colour and the weight come from theme tokens so the dark theme can flatten them. */
+  --shadow-xs: 0 1px 2px rgb(var(--shadow-rgb) / calc(var(--elev) * 0.05));
+  --shadow-sm: 0 1px 2px rgb(var(--shadow-rgb) / calc(var(--elev) * 0.04)),
+    0 4px 12px -6px rgb(var(--shadow-rgb) / calc(var(--elev) * 0.1));
+  --shadow-md: 0 2px 4px rgb(var(--shadow-rgb) / calc(var(--elev) * 0.04)),
+    0 12px 28px -12px rgb(var(--shadow-rgb) / calc(var(--elev) * 0.16)),
+    var(--surface-edge);
+  --shadow-lg: 0 4px 8px rgb(var(--shadow-rgb) / calc(var(--elev) * 0.05)),
+    0 24px 48px -20px rgb(var(--shadow-rgb) / calc(var(--elev) * 0.22)), var(--surface-edge);
+  --shadow-xl: 0 8px 16px rgb(var(--shadow-rgb) / calc(var(--elev) * 0.06)),
+    0 40px 80px -32px rgb(var(--shadow-rgb) / calc(var(--elev) * 0.28)), var(--surface-edge);
 
   /* One type ladder with a 12px floor — nothing on the site is smaller. */
   --text-xs: 12px;
@@ -290,6 +338,12 @@
   --text-4xl--line-height: 42px;
   --text-5xl: 46px;
   --text-5xl--line-height: 50px;
+  /* Two rungs above 46px exist for one reason: a front-page lead and an article headline
+     should be able to set the page's tone the way print does. Tighter leading as it grows. */
+  --text-6xl: 56px;
+  --text-6xl--line-height: 56px;
+  --text-7xl: 68px;
+  --text-7xl--line-height: 66px;
 
   --container-page: 78rem;
   --container-reading: 46rem;
@@ -390,6 +444,43 @@
   .pressable:active:not(:disabled) {
     transform: none !important;
   }
+
+  /* The live rail stops travelling. Its content must not disappear with the motion, so the
+     strip turns into an ordinary horizontal scroll — every headline stays reachable. */
+  .marquee-track {
+    animation: none !important;
+  }
+  .ticker-rail {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ticker-rail .marquee-track {
+    width: max-content;
+  }
+  /* Edge fades imply "there is more off-screen", which a scroll strip is, so keep them. */
+  .rule-fill {
+    transform: scaleX(1) !important;
+    transition: none !important;
+  }
+  /* The nav indicator still marks the active section; it simply arrives instead of sliding. */
+  .nav-indicator {
+    transition: none !important;
+  }
+  /* Sweep-underlined titles keep the underline, drawn at once on hover rather than wiped in. */
+  .title-sweep::after {
+    transition: none !important;
+  }
+  .hover-sheen::after {
+    display: none;
+  }
+  .edge-tick::before {
+    transition: none !important;
+  }
+  .page-enter {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* ─── Layout containers ────────────────────────────────────────────────── */
@@ -482,9 +573,14 @@
     border: 1px solid var(--border);
   }
 
-  /* Single accent gradient. The old one ran teal → sky → violet. */
+  /* Single accent gradient. The old one ran teal → sky → violet. The far stop is mixed from
+     --accent rather than a second hex, so it tracks both themes. */
   .text-gradient {
-    background: linear-gradient(100deg, var(--accent) 0%, #c9793f 100%);
+    background: linear-gradient(
+      100deg,
+      var(--accent) 0%,
+      color-mix(in oklab, var(--accent) 62%, var(--foreground)) 100%
+    );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -806,3 +902,196 @@ html.js .dd-reveal-zoom:not([data-revealed="true"]) {
   background: var(--accent);
   z-index: 60;
 }
+
+/* ─── Motion primitives added by the front-page pass ─────────────────────
+   Each one is a single idea: something travels, something draws in, something
+   wipes on. They live here instead of in components so no page invents its own
+   duration, and `prefers-reduced-motion` above neutralises all of them.       */
+
+/* Live rail. The track holds the same list twice and travels exactly half its width,
+   which is what makes the loop seamless. Pausing on hover and focus is not a nicety —
+   a moving line of headlines that you cannot stop to read is a trap. */
+@keyframes marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.ticker-rail {
+  position: relative;
+  overflow: hidden;
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee var(--marquee-duration, 54s) linear infinite;
+}
+
+.ticker-rail:hover .marquee-track,
+.ticker-rail:focus-within .marquee-track,
+.marquee-track[data-paused="true"] {
+  animation-play-state: paused;
+}
+
+/* Softly fade both ends of a horizontal strip so it reads as continuous. */
+.edge-fade {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 2.5rem, #000 calc(100% - 2.5rem), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 2.5rem, #000 calc(100% - 2.5rem), transparent 100%);
+}
+
+/* A hairline that draws itself across when its block is revealed. It rides the same
+   `data-revealed` flag <Reveal> already sets, so it costs no extra observer. */
+.rule-fill {
+  transform-origin: left center;
+  transition: transform var(--dur-calm) var(--ease-out) 90ms;
+}
+html.js .dd-reveal:not([data-revealed="true"]) .rule-fill {
+  transform: scaleX(0);
+}
+
+/* Card and row titles: a rule wipes in under the title on hover, from the left, in the
+   title's own colour. Cards used to change text colour only, which reads as a flicker
+   rather than an affordance on a dense grid. */
+.title-sweep {
+  position: relative;
+}
+.title-sweep::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+.group:hover .title-sweep::after,
+.group:focus-visible .title-sweep::after,
+.title-sweep:hover::after,
+.title-sweep:focus-visible::after {
+  transform: scaleX(1);
+}
+
+/* Left edge mark that grows downward when its row is hovered. Gives a numbered index a
+   physical place for the accent instead of another colour splash. */
+.edge-tick {
+  position: relative;
+}
+.edge-tick::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--tick-color, var(--accent));
+  transform: scaleY(0);
+  transform-origin: top center;
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+.group:hover .edge-tick::before,
+.edge-tick:hover::before {
+  transform: scaleY(1);
+}
+
+/* One restrained sheen for featured panels. Warm, single-pass, never looping. */
+.hover-sheen {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.hover-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 32%,
+    color-mix(in oklab, var(--accent) 14%, transparent) 48%,
+    transparent 64%
+  );
+  transform: translateX(-110%);
+  transition: transform 900ms var(--ease-glide);
+}
+.group:hover .hover-sheen::after,
+.hover-sheen:hover::after {
+  transform: translateX(110%);
+}
+
+/* Route entry. PageTransition still owns the app shell; this is for a page's own first
+   block arriving rather than snapping. */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.page-enter {
+  animation: page-enter var(--dur-calm) var(--ease-out) both;
+}
+
+/* Masthead fold. The utility rail and full masthead collapse into the pinned section nav
+   once the reader scrolls, using the grid-row accordion so nothing needs a fixed height. */
+.masthead-fold {
+  display: grid;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+  transition:
+    grid-template-rows var(--dur-slow) var(--ease-out),
+    opacity var(--dur-base) ease;
+}
+.masthead-fold > * {
+  min-height: 0;
+  overflow: hidden;
+}
+[data-scrolled="true"] .masthead-fold {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The pinned nav's active-section bar. One element, moved with a transform: a 1px rule
+   scaled to the width of the link and translated to its left edge, so the motion stays on
+   the compositor instead of animating left/width on every route change. */
+.nav-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  height: 2px;
+  border-radius: 9999px;
+  background: var(--accent);
+  transform-origin: 0 50%;
+  transition:
+    transform var(--dur-slow) var(--ease-out),
+    opacity var(--dur-base) ease;
+  will-change: transform;
+}
+
+/* Section labels set in small caps with a letter-space that reads as a mark, not as shouty.
+   The kicker rule in front of it keeps the line short on narrow screens. */
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.kicker::before {
+  content: "";
+  width: 1.25rem;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.5;
+}
+

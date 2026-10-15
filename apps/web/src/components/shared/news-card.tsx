@@ -1,5 +1,6 @@
 import * as React from "react";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import type { Article } from "@/types";
 import { cn } from "@/lib/utils";
 import { Photo } from "@/components/ui/photo";
@@ -125,7 +126,7 @@ export function NewsCard({
             )}
           </div>
 
-          <h2 className="max-w-3xl font-display text-3xl leading-[1.08] tracking-tight text-white sm:text-5xl">
+          <h2 className="max-w-3xl font-display text-3xl leading-[1.06] tracking-tight text-white sm:text-5xl sm:leading-[1.03] lg:text-6xl lg:leading-[1.02]">
             {title}
           </h2>
 
@@ -136,6 +137,13 @@ export function NewsCard({
           )}
 
           {meta("invert", "medium")}
+
+          {/* A lead this big needs to say it is clickable. The line is invisible until the
+              pointer is on the card, so it never competes with the headline. */}
+          <span className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-white/90 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
+            Read the story
+            <ArrowRight size={15} className="link-nudge" aria-hidden="true" />
+          </span>
         </div>
       </Link>
     );
@@ -169,7 +177,7 @@ export function NewsCard({
           </CategoryMark>
 
           <h3 className="font-display text-2xl leading-tight tracking-tight text-foreground sm:text-3xl">
-            <Link href={href} className="transition-colors hover:text-accent">
+            <Link href={href} className="title-sweep transition-colors hover:text-accent">
               {title}
             </Link>
           </h3>
@@ -212,7 +220,7 @@ export function NewsCard({
           </CategoryMark>
 
           <h3 className="text-lg font-semibold leading-snug tracking-tight text-foreground">
-            <Link href={href} className="line-clamp-3 transition-colors hover:text-accent">
+            <Link href={href} className="title-sweep line-clamp-3 transition-colors hover:text-accent">
               {title}
             </Link>
           </h3>
@@ -241,7 +249,7 @@ export function NewsCard({
         </CategoryMark>
 
         <h3 className="font-display text-xl leading-snug tracking-tight text-foreground sm:text-2xl">
-          <Link href={href} className="transition-colors hover:text-accent">
+          <Link href={href} className="title-sweep transition-colors hover:text-accent">
             {title}
           </Link>
         </h3>
@@ -265,12 +273,12 @@ export function NewsCard({
         )}
       >
         {typeof rank === "number" && (
-          <span className="w-6 shrink-0 pt-0.5 font-display text-xl leading-none text-border-strong tabular-nums">
+          <span className="w-6 shrink-0 pt-0.5 font-display text-xl leading-none text-border-strong tabular-nums transition-colors group-hover:text-accent">
             {String(rank).padStart(2, "0")}
           </span>
         )}
 
-        <Link href={href} className="flex flex-1 items-start gap-4" aria-label={title}>
+        <Link href={href} className="edge-tick flex flex-1 items-start gap-4" aria-label={title}>
           {image && (
             <Photo
               src={image}
@@ -285,7 +293,7 @@ export function NewsCard({
 
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <h3 className="text-sm font-semibold leading-snug text-foreground sm:text-base">
-              <span className="line-clamp-2 transition-colors group-hover:text-accent">{title}</span>
+              <span className="title-sweep line-clamp-2 transition-colors group-hover:text-accent">{title}</span>
             </h3>
             {meta()}
           </div>
@@ -309,7 +317,7 @@ export function NewsCard({
           </span>
         )}
         <h3 className="min-w-0 flex-1 text-sm font-semibold leading-snug text-foreground">
-          <Link href={href} className="line-clamp-2 transition-colors group-hover:text-accent">
+          <Link href={href} className="title-sweep line-clamp-2 transition-colors group-hover:text-accent">
             {title}
           </Link>
         </h3>

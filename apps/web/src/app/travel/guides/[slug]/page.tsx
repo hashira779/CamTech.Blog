@@ -12,6 +12,7 @@ import { Photo } from "@/components/ui/photo";
 import { CategoryMark } from "@/components/ui/category-mark";
 import { Byline, MetaDot } from "@/components/ui/byline";
 import { cleanText, estimateReadingMinutes } from "@/lib/format";
+import { AdSlot } from "@/components/ads/AdSlot";
 
 interface GuidePageProps {
   params: Promise<{ slug: string }>;
@@ -187,6 +188,13 @@ export default async function TravelGuideDetailPage({ params }: GuidePageProps) 
           {blocks.map((block, idx) => (
             <GuideBlock key={idx} block={block} isFirst={idx === 0} />
           ))}
+        </Container>
+
+        {/* Guide pages are the longest-dwell pages on the site, so this is the unit worth creating
+            first. It sits above the editorial note, not below it: the last thing a reader sees
+            should be how the guide was made, not an advert. */}
+        <Container width="reading">
+          <AdSlot slot="GUIDE_BOTTOM" />
         </Container>
 
         {/* Editorial note */}

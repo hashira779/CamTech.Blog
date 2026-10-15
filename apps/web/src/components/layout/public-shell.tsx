@@ -61,7 +61,7 @@ export function PublicPageShell({
               </div>
             )}
 
-            <h1 className="max-w-3xl font-display text-3xl leading-[1.1] tracking-tight text-foreground sm:text-4xl">
+            <h1 className="page-enter max-w-3xl font-display text-[32px] leading-[1.08] tracking-tight text-foreground sm:text-5xl sm:leading-[1.04]">
               {title}
             </h1>
 

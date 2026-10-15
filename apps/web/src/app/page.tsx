@@ -14,6 +14,7 @@ import { Container, Section } from "@/components/ui/container";
 import { Reveal } from "@/components/ui/reveal";
 import { SectionHeader } from "@/components/ui/section-header";
 import { NewsCard } from "@/components/shared/news-card";
+import { NewsTicker } from "@/components/layout/NewsTicker";
 import { Photo } from "@/components/ui/photo";
 import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
 import { formatCount, formatDate, cleanText } from "@/lib/format";
@@ -23,13 +24,19 @@ export const revalidate = 60;
 /**
  * Front page.
  *
- * Three things changed beyond the styling. The lead story used to be labelled
- * "Breaking" whatever it was; that mark now only appears when the article has
- * `is_breaking`. Both image slots used to fall back to a hardcoded Unsplash
- * photograph, so a story without a verified picture still showed one — those
- * fallbacks are gone, and the card drops to a typographic treatment instead.
- * And the "reads" figures are the real `views_count`, hidden when they are zero
- * rather than replaced with "Trending story".
+ * Built the way a printed front page is built: one story sets the tone, a numbered column beside
+ * it says what else is in the edition, and everything below earns its place by section. Three
+ * things changed beyond the styling in the earlier pass and still hold:
+ *
+ *   - "Breaking" only appears when the article actually has `is_breaking`.
+ *   - No stock photograph stands in for a story without a verified one; the card falls back to a
+ *     typographic treatment instead.
+ *   - Reading figures are the real `views_count`, hidden at zero rather than padded.
+ *
+ * What is new: the live rail above the lead, the edition strip that counts what is actually on the
+ * page, the "also today" column as an index rather than three more cards, and a travel bento where
+ * the strongest photograph gets twice the room. Every number in the edition strip is a length of
+ * an array fetched above, so it cannot drift from what renders below it.
  */
 function articleHref(article: Pick<Article, "slug" | "country">) {
   return article.country === "KH"
@@ -59,8 +66,8 @@ export default async function HomePage() {
 
   const feed = dedupe([...(cambodia.items || []), ...(world.items || [])]).slice(0, 10);
   const lead = feed[0];
-  const features = feed.slice(1, 3);
-  const latest = feed.slice(3, 9);
+  const alsoToday = feed.slice(1, 5);
+  const latest = feed.slice(5, 11);
 
   const mostRead = [
     ...(trending?.cambodia || []),
@@ -77,6 +84,22 @@ export default async function HomePage() {
 
   const hasContent = Boolean(lead);
 
+  const tickerItems = feed.slice(0, 8).map((article) => ({
+    id: article.id,
+    title: cleanText(article.title),
+    href: articleHref(article),
+    section: article.category?.name || (article.country === "KH" ? "Cambodia" : "World"),
+  }));
+
+  /* Real counts only. An edition strip that says "12 stories" has to mean there are twelve
+     stories below it, so the numbers are lengths of the arrays the page actually renders. */
+  const edition = [
+    { label: "Filed today", value: feed.length },
+    { label: "Most read", value: mostRead.length },
+    { label: "Explainers", value: discoveries.length },
+    { label: "Places with a photo", value: places.length },
+  ].filter((entry) => entry.value > 0);
+
   return (
     <div className="flex w-full flex-1 flex-col">
       {/* The masthead is the brand, not a page title; the document still needs one. */}
@@ -84,32 +107,70 @@ export default async function HomePage() {
         Today&rsquo;s briefing — Cambodia and world news, travel and discoveries
       </h1>
 
+      {/* ── Live rail ─────────────────────────────────────────────────────── */}
+      {tickerItems.length > 0 && <NewsTicker items={tickerItems} />}
+
       {/* ── Lead ──────────────────────────────────────────────────────────── */}
       {hasContent && (
         <Section className="pb-0 pt-8 sm:pt-10">
           <Container>
-            <div className="grid gap-6 lg:grid-cols-12 lg:gap-8">
+            {edition.length > 0 && (
+              <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-border pb-3 text-xs text-muted-foreground">
+                <span className="section-label text-accent">The edition</span>
+                {edition.map((entry) => (
+                  <span key={entry.label} className="tabular-nums">
+                    <span className="font-semibold text-foreground">{entry.value}</span>{" "}
+                    {entry.label.toLowerCase()}
+                  </span>
+                ))}
+                <span className="ml-auto hidden tabular-nums sm:inline">
+                  Updated {formatDate(lead.published_at || lead.created_at, "medium")}
+                </span>
+              </div>
+            )}
+
+            <div className="grid gap-8 lg:grid-cols-12 lg:gap-10">
               <div className="lg:col-span-8">
                 <NewsCard article={lead} variant="hero" priority showSummary />
               </div>
 
-              <div className="flex flex-col gap-6 lg:col-span-4">
-                <p className="section-label text-muted-foreground">Also today</p>
-                {features.map((article, index) => (
-                  <Reveal key={article.id} index={index} variant="right" immediate>
-                    <NewsCard article={article} variant="compact" />
-                  </Reveal>
-                ))}
+              {/* Also today, as an index. Three more cards in a sidebar reads as a grid; a
+                  numbered list with a growing edge tick reads as "the rest of the page". */}
+              <div className="flex flex-col lg:col-span-4">
+                <p className="section-label mb-3 text-muted-foreground">Also in this edition</p>
+                <ol className="divide-y divide-border border-y border-border">
+                  {alsoToday.map((article, index) => (
+                    <Reveal as="li" key={article.id} index={index} variant="left" immediate>
+                      <Link
+                        href={articleHref(article)}
+                        className="group flex items-start gap-4 py-4 pr-1 pl-4"
+                      >
+                        <span className="w-6 shrink-0 pt-0.5 font-display text-xl leading-none text-border-strong tabular-nums transition-colors group-hover:text-accent">
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <span className="edge-tick min-w-0 flex-1">
+                          <CategoryMark category={categoryKey(article.category?.name)}>
+                            {article.category?.name ||
+                              (article.country === "KH" ? "Cambodia" : "World")}
+                          </CategoryMark>
+                          <span className="title-sweep mt-1.5 block text-base font-semibold leading-snug text-foreground transition-colors group-hover:text-accent">
+                            {cleanText(article.title)}
+                          </span>
+                          <span className="mt-1.5 block text-xs text-muted-foreground">
+                            {formatDate(article.published_at || article.created_at, "short")}
+                          </span>
+                        </span>
+                      </Link>
+                    </Reveal>
+                  ))}
+                </ol>
+
                 <Link
                   href="/trending"
-                  className="group mt-auto inline-flex items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-foreground"
+                  className="group mt-5 inline-flex items-center gap-1.5 self-start text-sm font-medium text-accent transition-colors hover:text-foreground"
                 >
                   Today&rsquo;s full briefing
-                  <ArrowRight
-                    size={15}
-                    className="link-nudge"
-                    aria-hidden="true"
-                  />
+                  <ArrowRight size={15} className="link-nudge" aria-hidden="true" />
                 </Link>
               </div>
             </div>
@@ -128,6 +189,7 @@ export default async function HomePage() {
             <div className="lg:col-span-8">
               <SectionHeader
                 label="News"
+                category="news"
                 title="Latest reporting"
                 actionHref="/cambodia"
                 actionLabel="All Cambodia coverage"
@@ -149,9 +211,9 @@ export default async function HomePage() {
             </div>
 
             <aside className="lg:col-span-4">
-              <SectionHeader label="Most read" title="What readers opened" />
+              <SectionHeader label="Most read" category="trending" title="What readers opened" />
 
-              <ol className="divide-y divide-border">
+              <ol className="divide-y divide-border border-y border-border">
                 {mostRead.map((item, index) => {
                   const views = item.views_count > 0 ? formatCount(item.views_count) : null;
                   const published = formatDate(item.published_at, "medium");
@@ -159,16 +221,16 @@ export default async function HomePage() {
                     <Reveal as="li" key={`${item.id}-${index}`} index={index} variant="left">
                       <Link
                         href={item.url || articleHref({ slug: item.slug, country: "KH" })}
-                        className="group flex items-start gap-4 py-4"
+                        className="group flex items-start gap-4 py-4 pl-4"
                       >
-                        <span className="w-6 shrink-0 pt-0.5 font-display text-xl leading-none text-border-strong tabular-nums">
+                        <span className="w-6 shrink-0 pt-0.5 font-display text-xl leading-none text-border-strong tabular-nums transition-colors group-hover:text-accent">
                           {String(index + 1).padStart(2, "0")}
                         </span>
-                        <span className="min-w-0 flex-1">
+                        <span className="edge-tick min-w-0 flex-1">
                           <CategoryMark category={categoryKey(item.category)}>
                             {item.category}
                           </CategoryMark>
-                          <span className="mt-1.5 block text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-accent">
+                          <span className="title-sweep mt-1.5 block text-base font-semibold leading-snug text-foreground transition-colors group-hover:text-accent">
                             {cleanText(item.title)}
                           </span>
                           {(views || published) && (
@@ -204,40 +266,87 @@ export default async function HomePage() {
             <Container>
               <SectionHeader
                 label="Travel"
+                category="travel"
                 title="Places worth planning around"
                 description="Only places with a photograph we could attribute to the location itself appear here."
                 actionHref="/travel"
                 actionLabel="All guides"
               />
 
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                {places.map((place, index) => (
-                  <Reveal key={place.id} index={index} className="h-full">
+              {/* Not a row of four identical tiles. The place with the strongest photograph takes
+                  the wide slot and carries its name over the picture; the rest stack beside it as
+                  thumb-and-title rows. Same four places, one clear order. */}
+              <div className="grid gap-5 lg:grid-cols-12">
+                {places[0] && (
+                  <Reveal className="lg:col-span-7">
                     <Link
-                      href={`/travel/place/${place.slug}`}
-                      className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
+                      href={`/travel/place/${places[0].slug}`}
+                      className="group relative flex h-full min-h-[18rem] flex-col justify-end overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong lg:min-h-[24rem]"
                     >
                       <Photo
-                        src={place.hero_image_url}
-                        alt={place.name}
-                        ratio="4/3"
+                        src={places[0].hero_image_url}
+                        alt={places[0].name}
+                        ratio="none"
                         radius="none"
                         showCredit={false}
+                        className="absolute inset-0 h-full w-full"
                       />
-                      <div className="flex flex-1 flex-col gap-1.5 p-4">
-                        <CategoryMark category="travel" tone="dot">
-                          {place.place_type.toLowerCase().replace(/_/g, " ")}
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent"
+                      />
+                      <span className="relative flex flex-col gap-2 p-5 sm:p-6">
+                        <CategoryMark
+                          category="travel"
+                          tone="chip"
+                          className="self-start bg-white/90 text-neutral-900"
+                        >
+                          {places[0].place_type.toLowerCase().replace(/_/g, " ")}
                         </CategoryMark>
-                        <h3 className="font-display text-lg leading-snug text-foreground transition-colors group-hover:text-accent">
-                          {place.name}
-                        </h3>
-                        {place.destination?.name && (
-                          <p className="text-xs text-muted-foreground">{place.destination.name}</p>
+                        <span className="title-sweep max-w-lg font-display text-2xl leading-snug text-white sm:text-3xl">
+                          {places[0].name}
+                        </span>
+                        {places[0].destination?.name && (
+                          <span className="text-sm text-white/75">{places[0].destination.name}</span>
                         )}
-                      </div>
+                      </span>
                     </Link>
                   </Reveal>
-                ))}
+                )}
+
+                <div className="flex flex-col gap-5 lg:col-span-5">
+                  {places.slice(1).map((place, index) => (
+                    <Reveal key={place.id} index={index + 1} className="h-full">
+                      <Link
+                        href={`/travel/place/${place.slug}`}
+                        className="group flex h-full items-center gap-4 overflow-hidden rounded-lg border border-border bg-card p-3 shadow-xs hover-lift hover:border-border-strong"
+                      >
+                        <Photo
+                          src={place.hero_image_url}
+                          alt={place.name}
+                          ratio="4/3"
+                          radius="md"
+                          compact
+                          showCredit={false}
+                          className="h-20 w-24 shrink-0 sm:h-24 sm:w-32"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <CategoryMark category="travel" tone="dot">
+                            {place.place_type.toLowerCase().replace(/_/g, " ")}
+                          </CategoryMark>
+                          <span className="title-sweep mt-1 block font-display text-lg leading-snug text-foreground transition-colors group-hover:text-accent">
+                            {place.name}
+                          </span>
+                          {place.destination?.name && (
+                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                              {place.destination.name}
+                            </span>
+                          )}
+                        </span>
+                      </Link>
+                    </Reveal>
+                  ))}
+                </div>
               </div>
             </Container>
           </Section>
@@ -250,6 +359,7 @@ export default async function HomePage() {
           <Container>
             <SectionHeader
               label="Discover"
+              category="discover"
               title="Explained, not just reported"
               actionHref="/discover"
               actionLabel="All explainers"
@@ -271,7 +381,7 @@ export default async function HomePage() {
                     />
                     <div className="flex flex-1 flex-col gap-2.5 p-5">
                       <CategoryMark category={categoryKey(item.category)}>{item.category}</CategoryMark>
-                      <h3 className="font-display text-xl leading-snug text-foreground transition-colors group-hover:text-accent">
+                      <h3 className="title-sweep font-display text-xl leading-snug text-foreground transition-colors group-hover:text-accent">
                         {cleanText(item.title)}
                       </h3>
                       <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
@@ -295,7 +405,7 @@ export default async function HomePage() {
                 <div className="lg:col-span-7">
                   <Link
                     href={`/quiz/${quiz.slug}`}
-                    className="group flex h-full flex-col justify-between gap-6 rounded-lg border border-border bg-card p-6 shadow-xs hover-lift hover:border-border-strong sm:p-8"
+                    className="group hover-sheen flex h-full flex-col justify-between gap-6 rounded-lg border border-border bg-card p-6 shadow-xs hover-lift hover:border-border-strong sm:p-8"
                   >
                     <div>
                       <CategoryMark category="quiz" tone="dot">
@@ -317,11 +427,7 @@ export default async function HomePage() {
                       {quiz.estimated_minutes > 0 && <span>· about {quiz.estimated_minutes} min</span>}
                       <span className="ml-auto inline-flex items-center gap-1.5 font-medium text-accent">
                         Start
-                        <ArrowRight
-                          size={15}
-                          className="link-nudge"
-                          aria-hidden="true"
-                        />
+                        <ArrowRight size={15} className="link-nudge" aria-hidden="true" />
                       </span>
                     </div>
                   </Link>
@@ -342,10 +448,10 @@ export default async function HomePage() {
                         <li key={tool.id}>
                           <Link
                             href={`/tools/${tool.slug}`}
-                            className="group flex items-center justify-between gap-3 py-3 text-sm"
+                            className="group flex items-center justify-between gap-3 py-3 pl-4 text-sm"
                           >
-                            <span className="min-w-0">
-                              <span className="block truncate font-medium text-foreground transition-colors group-hover:text-accent">
+                            <span className="edge-tick min-w-0 py-0.5">
+                              <span className="title-sweep block truncate font-medium text-foreground transition-colors group-hover:text-accent">
                                 {tool.name}
                               </span>
                               <span className="block truncate text-xs text-muted-foreground">

@@ -181,12 +181,12 @@ export function SuperSearch() {
           aria-label={t("nav.search_placeholder")}
         >
           <div
-            className="fixed inset-0 bg-foreground/30 backdrop-blur-sm"
+            className="animate-fade-in fixed inset-0 bg-foreground/30 backdrop-blur-sm"
             onClick={() => setIsOpen(false)}
             aria-hidden="true"
           />
 
-          <div className="relative flex w-full max-w-xl flex-col overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
+          <div className="animate-scale-in relative flex w-full max-w-xl flex-col overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
             <div className="flex items-center gap-3 border-b border-border px-4">
               <Search size={17} className="shrink-0 text-muted-foreground" aria-hidden="true" />
               <input

@@ -135,7 +135,7 @@ export function Footer() {
         >
           {columns.map((column) => (
             <div key={column.heading}>
-              <h2 className="section-label text-muted-foreground">{column.heading}</h2>
+              <h2 className="kicker section-label text-accent">{column.heading}</h2>
               <ul className="mt-4 space-y-2.5 text-sm">
                 {column.links.map((link) => (
                   <li key={link.href}>
@@ -144,7 +144,7 @@ export function Footer() {
                         href={link.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-accent"
+                        className="title-sweep inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-accent"
                       >
                         {label(link)}
                         <ArrowUpRight size={13} aria-hidden="true" />
@@ -152,7 +152,7 @@ export function Footer() {
                     ) : (
                       <Link
                         href={link.href}
-                        className="text-muted-foreground transition-colors hover:text-accent"
+                        className="title-sweep text-muted-foreground transition-colors hover:text-accent"
                       >
                         {label(link)}
                       </Link>

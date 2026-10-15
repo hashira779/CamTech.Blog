@@ -124,7 +124,7 @@ export default async function TravelHubPage() {
                       aria-label={trip.title}
                       className="block sm:w-2/5"
                     >
-                      <Photo
+                      <Photo zoom
                         src={trip.hero_image_url}
                         alt={trip.title}
                         ratio="none"

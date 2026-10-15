@@ -4,9 +4,11 @@ import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme";
 import { escapeJsonForScript } from "@/lib/sanitize";
+import { getAdsenseClient, getAdsenseScriptUrl } from "@/lib/ads";
 import { I18nProvider } from "@/lib/i18n";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { BackToTop } from "@/components/layout/BackToTop";
 import { ConsentBanner } from "@/components/layout/ConsentBanner";
 import NextTopLoader from "nextjs-toploader";
 import { PageTransition } from "@/components/layout/PageTransition";
@@ -40,6 +42,11 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://blog.camtech.cam";
 const siteName = "CamTech.Blog";
 const siteDescription =
   "Cambodia and world news with source attribution, plus travel guides to all 25 provinces, daily quizzes and everyday web tools.";
+
+// Null on any build that has no valid publisher account, which is what stops the verification
+// meta tag and the adsbygoogle loader from being emitted at all. See src/lib/ads.ts.
+const adsenseClient = getAdsenseClient();
+const adsenseScriptUrl = getAdsenseScriptUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -103,9 +110,7 @@ export const metadata: Metadata = {
       { url: "/logo.png" },
     ],
   },
-  other: {
-    "google-adsense-account": "ca-pub-1311307969887065",
-  },
+  other: adsenseClient ? { "google-adsense-account": adsenseClient } : {},
 };
 
 export default function RootLayout({
@@ -120,18 +125,18 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* Google AdSense Account Verification */}
-        <meta
-          name="google-adsense-account"
-          content="ca-pub-1311307969887065"
-        />
-        {/* Google AdSense Script for Site Approval & Auto Ads */}
-        <Script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1311307969887065"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
+        {/* The adsbygoogle loader. It carries the account in its query string, which is also what
+            turns on Auto ads for the account, so it is emitted only when the publisher ID in this
+            build validates. The verification meta tag comes from `metadata.other` above rather than
+            being written twice. */}
+        {adsenseScriptUrl && (
+          <Script
+            async
+            src={adsenseScriptUrl}
+            crossOrigin="anonymous"
+            strategy="afterInteractive"
+          />
+        )}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -185,6 +190,7 @@ export default function RootLayout({
               </main>
             </PageTransition>
             <Footer />
+            <BackToTop />
             <ConsentBanner />
           </I18nProvider>
         </ThemeProvider>
