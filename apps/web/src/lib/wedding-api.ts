@@ -1,4 +1,4 @@
-import { WeddingAuthResponse, WeddingCard, WeddingWish } from "@/types/wedding";
+import { WeddingAuthResponse, WeddingCard, WeddingWish, YouTubeResolveResponse, CuratedSong } from "@/types/wedding";
 
 const API_BASE = typeof window === "undefined"
   ? (process.env.INTERNAL_WEDDING_API_URL || "http://127.0.0.1:8002/api/v1")
@@ -259,3 +259,126 @@ export async function postWeddingWish(slug: string, wish: {
     created_at: new Date().toISOString()
   };
 }
+
+export const DEFAULT_CURATED_SONGS: CuratedSong[] = [
+  {
+    id: "song-blessing-01",
+    title_km: "របាំជូនពរ (ភ្លេងការបុរាណខ្មែរ)",
+    title_en: "Robam Choun Por (Traditional Blessing Dance)",
+    category: "ជូនពរសិរីសួស្តី",
+    video_id: "Wj_P9cKzW2U",
+    youtube_url: "https://www.youtube.com/watch?v=Wj_P9cKzW2U",
+    thumbnail_url: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=400&q=80"
+  },
+  {
+    id: "song-procession-02",
+    title_km: "ពិធីហែកំណត់ / ហែជំនូនចូលរោងជ័យ",
+    title_en: "Hae Khnom (Traditional Groom Procession)",
+    category: "ពិធីហែជំនូន",
+    video_id: "8G-G4nC0GqY",
+    youtube_url: "https://www.youtube.com/watch?v=8G-G4nC0GqY",
+    thumbnail_url: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=400&q=80"
+  },
+  {
+    id: "song-katsok-03",
+    title_km: "ពិធីកាត់សក់បង្កក់សិរីមង្គល",
+    title_en: "Kat Sok Bangkork Serey (Hair Cutting Ceremony)",
+    category: "ពិធីកាត់សក់",
+    video_id: "7o3Fv64Bq0E",
+    youtube_url: "https://www.youtube.com/watch?v=7o3Fv64Bq0E",
+    thumbnail_url: "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=400&q=80"
+  },
+  {
+    id: "song-phtum-04",
+    title_km: "ពិធីសំពះផ្ទឹម ចងដៃសិរីសួស្តី",
+    title_en: "Sompeah Phtum (Sacred Knot Tying Ceremony)",
+    category: "ពិធីសំពះផ្ទឹម",
+    video_id: "4jS9XwLz7g0",
+    youtube_url: "https://www.youtube.com/watch?v=4jS9XwLz7g0",
+    thumbnail_url: "https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=400&q=80"
+  },
+  {
+    id: "song-pka-sla-05",
+    title_km: "ផ្កាស្លាបីទង (មរតកភ្លេងការបុរាណ)",
+    title_en: "Pka Sla Bei Torng (Heritage Wedding Melody)",
+    category: "បទបុរាណប្រពៃណី",
+    video_id: "m9Y1Z9w8Q2c",
+    youtube_url: "https://www.youtube.com/watch?v=m9Y1Z9w8Q2c",
+    thumbnail_url: "https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?auto=format&fit=crop&w=400&q=80"
+  },
+  {
+    id: "song-destiny-06",
+    title_km: "គូព្រេងនិស្ស័យ (ស្នេហ៍ស្មោះស័ក្តិសិទ្ធិ)",
+    title_en: "Destined Soulmates (Khmer Love Symphony)",
+    category: "មនោសញ្ចេតនា",
+    video_id: "2g811Eo7K8U",
+    youtube_url: "https://www.youtube.com/watch?v=2g811Eo7K8U",
+    thumbnail_url: "https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=400&q=80"
+  }
+];
+
+export function extractYouTubeVideoId(url: string): string | null {
+  if (!url) return null;
+  const trimmed = url.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+    return trimmed;
+  }
+  const patterns = [
+    /(?:v=|\/v\/|youtu\.be\/|\/embed\/|\/shorts\/)([a-zA-Z0-9_-]{11})/,
+    /[?&]v=([a-zA-Z0-9_-]{11})/
+  ];
+  for (const p of patterns) {
+    const m = trimmed.match(p);
+    if (m && m[1]) return m[1];
+  }
+  return null;
+}
+
+export async function resolveYouTubeAudio(url: string): Promise<YouTubeResolveResponse> {
+  if (!url || !url.trim()) {
+    return { valid: false, error: "សូមបញ្ចូល Link YouTube" };
+  }
+
+  const videoId = extractYouTubeVideoId(url);
+  if (!videoId) {
+    return { valid: false, error: "Link YouTube មិនត្រឹមត្រូវ (Invalid YouTube link)" };
+  }
+
+  const canonicalUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const embedUrl = `https://www.youtube.com/embed/${videoId}?enablejsapi=1&autoplay=1&loop=1`;
+  const thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+  try {
+    const res = await fetch(`${API_BASE}/wedding/youtube-resolve?url=${encodeURIComponent(canonicalUrl)}`);
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (err) {
+    console.warn("YouTube resolve network fallback:", err);
+  }
+
+  // Graceful in-browser fallback
+  return {
+    valid: true,
+    video_id: videoId,
+    title: `ភ្លេងការខ្មែរ (YouTube ID: ${videoId})`,
+    author_name: "YouTube Music",
+    thumbnail_url: thumbnailUrl,
+    music_url: canonicalUrl,
+    embed_url: embedUrl
+  };
+}
+
+export async function fetchCuratedSongs(): Promise<CuratedSong[]> {
+  try {
+    const res = await fetch(`${API_BASE}/wedding/curated-songs`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn("fetchCuratedSongs network fallback:", err);
+  }
+  return DEFAULT_CURATED_SONGS;
+}
+

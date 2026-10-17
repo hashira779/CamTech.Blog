@@ -66,3 +66,25 @@ export interface WeddingAuthResponse {
   user: WeddingUser;
   card: WeddingCard;
 }
+
+export interface YouTubeResolveResponse {
+  valid: boolean;
+  video_id?: string;
+  title?: string;
+  author_name?: string;
+  thumbnail_url?: string;
+  music_url?: string;
+  embed_url?: string;
+  error?: string;
+}
+
+export interface CuratedSong {
+  id: string;
+  title_km: string;
+  title_en: string;
+  category: string;
+  video_id: string;
+  youtube_url: string;
+  thumbnail_url: string;
+}
+

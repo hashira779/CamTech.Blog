@@ -1,8 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
-import { WeddingCard, WeddingAgendaItem, WeddingReception } from "@/types/wedding";
-import { updateMyWeddingCard } from "@/lib/wedding-api";
+import React, { useState, useEffect } from "react";
+import { WeddingCard, WeddingAgendaItem, WeddingReception, CuratedSong, YouTubeResolveResponse } from "@/types/wedding";
+import {
+  updateMyWeddingCard,
+  resolveYouTubeAudio,
+  fetchCuratedSongs,
+  DEFAULT_CURATED_SONGS,
+  extractYouTubeVideoId
+} from "@/lib/wedding-api";
 import { PremierRoyalKhmerCard } from "./PremierRoyalKhmerCard";
 import { WeddingShareModal } from "./WeddingShareModal";
 import {
@@ -21,7 +27,14 @@ import {
   Settings,
   Plus,
   Trash2,
-  CheckCircle2
+  CheckCircle2,
+  Music,
+  Search,
+  Play,
+  Pause,
+  Loader2,
+  Headphones,
+  Radio,
 } from "lucide-react";
 
 interface WeddingEditorProps {
@@ -34,11 +47,22 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
   const [card, setCard] = useState<WeddingCard>(initialCard);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<"details" | "schedule" | "venue" | "gift" | "settings">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "schedule" | "venue" | "music" | "gift" | "settings">("details");
   const [viewMode, setViewMode] = useState<"split" | "editor" | "preview">("split");
   const [lang, setLang] = useState<"km" | "en">("km");
   const [copiedLink, setCopiedLink] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+
+  // YouTube Music Scanner & Studio State
+  const [youtubeInput, setYoutubeInput] = useState(card.music_url || "");
+  const [isScanningYoutube, setIsScanningYoutube] = useState(false);
+  const [scannedSong, setScannedSong] = useState<YouTubeResolveResponse | null>(null);
+  const [curatedSongs, setCuratedSongs] = useState<CuratedSong[]>(DEFAULT_CURATED_SONGS);
+  const [previewAudioId, setPreviewAudioId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchCuratedSongs().then(setCuratedSongs).catch(() => {});
+  }, []);
 
   // Agenda items parse
   let parsedAgenda: WeddingAgendaItem[] = [];
@@ -106,6 +130,36 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  const handleScanYoutube = async () => {
+    if (!youtubeInput.trim()) return;
+    setIsScanningYoutube(true);
+    try {
+      const result = await resolveYouTubeAudio(youtubeInput.trim());
+      setScannedSong(result);
+      if (result.valid && result.music_url) {
+        setCard({ ...card, music_url: result.music_url });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsScanningYoutube(false);
+    }
+  };
+
+  const handleSelectCuratedSong = (song: CuratedSong) => {
+    setCard({ ...card, music_url: song.youtube_url });
+    setYoutubeInput(song.youtube_url);
+    setScannedSong({
+      valid: true,
+      video_id: song.video_id,
+      title: song.title_km,
+      author_name: song.category,
+      thumbnail_url: song.thumbnail_url,
+      music_url: song.youtube_url,
+      embed_url: `https://www.youtube.com/embed/${song.video_id}?enablejsapi=1&autoplay=1`
+    });
+  };
+
   const t = {
     km: {
       dashboardTitle: "ផ្ទាំងគ្រប់គ្រង និងកែប្រែធៀបការ",
@@ -118,6 +172,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
       tabDetails: "ព័ត៌មានកូនកំលោះ & ក្រមុំ",
       tabSchedule: "កាលវិភាគពិធី",
       tabVenue: "ទីកន្លែង & ផែនទី",
+      tabMusic: "បទភ្លេងការ & YouTube",
       tabGift: "ចងដៃ KHQR",
       tabSettings: "ការកំណត់ & Link",
       copyLink: "ចម្លង Link ធៀបការ",
@@ -136,6 +191,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
       tabDetails: "Bride & Groom",
       tabSchedule: "Schedule",
       tabVenue: "Venue & Map",
+      tabMusic: "Music & YouTube",
       tabGift: "KHQR Gift",
       tabSettings: "Settings & Link",
       copyLink: "Copy Link",
@@ -285,6 +341,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
                   { id: "details", label: t.tabDetails, icon: Heart },
                   { id: "schedule", label: t.tabSchedule, icon: Clock },
                   { id: "venue", label: t.tabVenue, icon: MapPin },
+                  { id: "music", label: t.tabMusic, icon: Music },
                   { id: "gift", label: t.tabGift, icon: QrCode },
                   { id: "settings", label: t.tabSettings, icon: Settings },
                 ].map((tab) => {
@@ -292,7 +349,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id as "details" | "schedule" | "venue" | "gift" | "settings")}
+                      onClick={() => setActiveTab(tab.id as "details" | "schedule" | "venue" | "music" | "gift" | "settings")}
                       className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-medium whitespace-nowrap transition cursor-pointer ${
                         activeTab === tab.id
                           ? "bg-amber-600 text-white shadow-xs"
@@ -540,7 +597,192 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
                 </div>
               )}
 
-              {/* TAB 4: DIGITAL GIFT KHQR */}
+              {/* TAB 4: WEDDING MUSIC & YOUTUBE SCANNER */}
+              {activeTab === "music" && (
+                <div className="p-5 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-6">
+                  <div>
+                    <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400 font-serif flex items-center gap-2">
+                      <Music className="w-4 h-4 text-amber-600" />
+                      <span>{lang === "km" ? "បទភ្លេងការ និងតន្ត្រីប្រពៃណី (Wedding Music Studio)" : "Wedding Music Studio & YouTube Scanner"}</span>
+                    </h3>
+                    <p className="text-xs text-stone-500 mt-1">
+                      {lang === "km"
+                        ? "អ្នកអាចស្កេនបទចម្រៀងពី YouTube ឬជ្រើសរើសបទភ្លេងការបុរាណខ្មែរពេញនិយមខាងក្រោម ដើម្បីចាក់អមជាមួយធៀបការឌីជីថលរបស់អ្នក។"
+                        : "Scan any YouTube video/song link or pick from curated traditional Khmer wedding classics below."}
+                    </p>
+                  </div>
+
+                  {/* YouTube Scanner Input */}
+                  <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-500/20 space-y-3">
+                    <label className="block text-xs font-bold text-stone-800 dark:text-stone-200">
+                      {lang === "km" ? "បញ្ចូល Link ចម្រៀង YouTube (YouTube URL)" : "Paste YouTube Song Link"}
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={youtubeInput}
+                        onChange={(e) => setYoutubeInput(e.target.value)}
+                        placeholder="https://www.youtube.com/watch?v=... ឬ https://youtu.be/..."
+                        className="flex-1 px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleScanYoutube}
+                        disabled={isScanningYoutube || !youtubeInput.trim()}
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50 shadow-sm"
+                      >
+                        {isScanningYoutube ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>{lang === "km" ? "កំពុងស្កេន..." : "Scanning..."}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Search className="w-3.5 h-3.5" />
+                            <span>{lang === "km" ? "ស្កេនបទចម្រៀង" : "Scan Song"}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Scanned YouTube Song Live Card */}
+                  {scannedSong && (
+                    <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-50/60 dark:bg-amber-950/40 space-y-3 animate-fade-in">
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-bold uppercase tracking-wider">
+                          <Radio className="w-3 h-3 animate-pulse" />
+                          {lang === "km" ? "បទចម្រៀងដែលបានស្កេន" : "Scanned YouTube Song"}
+                        </span>
+                        {card.music_url === scannedSong.music_url && (
+                          <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" />
+                            {lang === "km" ? "បានភ្ជាប់ក្នុងធៀបការ" : "Linked to Card"}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex gap-3 items-center">
+                        {scannedSong.thumbnail_url && (
+                          <img
+                            src={scannedSong.thumbnail_url}
+                            alt="YouTube Thumbnail"
+                            className="w-20 h-14 object-cover rounded-xl border border-amber-500/30 shadow-xs"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate">
+                            {scannedSong.title}
+                          </h4>
+                          <p className="text-[11px] text-stone-500 truncate">
+                            {scannedSong.author_name}
+                          </p>
+                          <p className="text-[10px] text-amber-600 font-mono truncate mt-0.5">
+                            {scannedSong.music_url}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Embedded Test Player */}
+                      {scannedSong.video_id && (
+                        <div className="pt-2 border-t border-amber-500/20">
+                          <iframe
+                            className="w-full h-32 rounded-xl border border-stone-200 dark:border-stone-800"
+                            src={`https://www.youtube.com/embed/${scannedSong.video_id}`}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            title="YouTube Preview"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Curated Traditional Khmer Wedding Classics */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center gap-1.5 font-serif">
+                        <Headphones className="w-3.5 h-3.5 text-amber-600" />
+                        <span>{lang === "km" ? "ភ្លេងការបុរាណខ្មែរពេញនិយម (Curated Classics)" : "Curated Khmer Wedding Classics"}</span>
+                      </h4>
+                      <span className="text-[10px] text-stone-400">
+                        {lang === "km" ? "ចុចជ្រើសរើសភ្លាមៗ" : "1-Click Select"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {curatedSongs.map((song) => {
+                        const isSelected = card.music_url?.includes(song.video_id);
+                        return (
+                          <div
+                            key={song.id}
+                            className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-2.5 ${
+                              isSelected
+                                ? "border-amber-500 bg-amber-500/10 shadow-xs"
+                                : "border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-800/40 hover:border-amber-400"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 border border-amber-500/30">
+                                <img
+                                  src={song.thumbnail_url}
+                                  alt={song.title_km}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-[10px] text-amber-600 font-semibold leading-tight">
+                                  {song.category}
+                                </div>
+                                <div className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate leading-tight mt-0.5">
+                                  {lang === "km" ? song.title_km : song.title_en}
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleSelectCuratedSong(song)}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold shrink-0 transition cursor-pointer ${
+                                isSelected
+                                  ? "bg-amber-600 text-white"
+                                  : "bg-white dark:bg-stone-700 text-stone-700 dark:text-stone-200 border border-stone-200 dark:border-stone-600 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                              }`}
+                            >
+                              {isSelected ? (
+                                <span className="flex items-center gap-1">
+                                  <Check className="w-3 h-3" />
+                                  <span>{lang === "km" ? "កំពុងប្រើ" : "Active"}</span>
+                                </span>
+                              ) : (
+                                <span>{lang === "km" ? "ជ្រើសរើស" : "Select"}</span>
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Manual Audio / MP3 Fallback */}
+                  <div className="pt-2 border-t border-stone-200 dark:border-stone-800">
+                    <label className="block text-[11px] font-semibold text-stone-500 mb-1">
+                      {lang === "km" ? "ឬបញ្ចូល URL Audio / MP3 ផ្ទាល់" : "Or Direct MP3 Audio URL"}
+                    </label>
+                    <input
+                      type="text"
+                      value={card.music_url || ""}
+                      onChange={(e) => {
+                        setCard({ ...card, music_url: e.target.value });
+                        setYoutubeInput(e.target.value);
+                      }}
+                      placeholder="https://.../wedding-audio.mp3"
+                      className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 5: DIGITAL GIFT KHQR */}
               {activeTab === "gift" && (
                 <div className="p-5 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
                   <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400 font-serif flex items-center gap-2">

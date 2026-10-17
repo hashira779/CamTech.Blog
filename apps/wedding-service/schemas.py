@@ -91,3 +91,23 @@ class WeddingAuthResponse(BaseModel):
     is_new: bool
     user: WeddingUserResponse
     card: Optional[WeddingCardResponse] = None
+
+class YouTubeResolveResponse(BaseModel):
+    valid: bool
+    video_id: Optional[str] = None
+    title: Optional[str] = None
+    author_name: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    music_url: Optional[str] = None
+    embed_url: Optional[str] = None
+    error: Optional[str] = None
+
+class CuratedSong(BaseModel):
+    id: str
+    title_km: str
+    title_en: str
+    category: str
+    video_id: str
+    youtube_url: str
+    thumbnail_url: str
+

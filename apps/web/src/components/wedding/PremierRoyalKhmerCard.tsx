@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { WeddingCard, WeddingAgendaItem, WeddingReception, WeddingWish } from "@/types/wedding";
-import { postWeddingWish } from "@/lib/wedding-api";
+import { postWeddingWish, extractYouTubeVideoId } from "@/lib/wedding-api";
 import { WeddingShareModal } from "./WeddingShareModal";
 import confetti from "canvas-confetti";
 import {
   Heart,
   Volume2,
   VolumeX,
+  Music,
   MapPin,
   Calendar,
   Clock,
@@ -65,9 +66,12 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   const [wishesList, setWishesList] = useState<WeddingWish[]>(card.wishes || []);
   const [wishSuccess, setWishSuccess] = useState(false);
 
-  // Audio Ref
+  // Audio Refs
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const ytIframeRef = useRef<HTMLIFrameElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const youtubeId = card.music_url ? extractYouTubeVideoId(card.music_url) : null;
 
   // Parse JSON data safely
   let morningAgendas: WeddingAgendaItem[] = [];
@@ -219,9 +223,19 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       setIsOpen(true);
       setIsOpeningAnim(false);
 
-      // Play music
-      if (card.music_url && audioRef.current) {
-        audioRef.current.play().then(() => setIsPlayingMusic(true)).catch(() => {});
+      // Play music (YouTube or MP3)
+      if (card.music_url) {
+        if (youtubeId && ytIframeRef.current?.contentWindow) {
+          try {
+            ytIframeRef.current.contentWindow.postMessage(
+              JSON.stringify({ event: "command", func: "playVideo", args: "" }),
+              "*"
+            );
+            setIsPlayingMusic(true);
+          } catch {}
+        } else if (audioRef.current) {
+          audioRef.current.play().then(() => setIsPlayingMusic(true)).catch(() => {});
+        }
       }
 
       // Royal Confetti celebration
@@ -237,12 +251,23 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   };
 
   const toggleMusic = () => {
-    if (!audioRef.current) return;
-    if (isPlayingMusic) {
-      audioRef.current.pause();
-      setIsPlayingMusic(false);
-    } else {
-      audioRef.current.play().then(() => setIsPlayingMusic(true)).catch(() => {});
+    if (youtubeId && ytIframeRef.current?.contentWindow) {
+      const nextPlay = !isPlayingMusic;
+      const cmd = nextPlay ? "playVideo" : "pauseVideo";
+      try {
+        ytIframeRef.current.contentWindow.postMessage(
+          JSON.stringify({ event: "command", func: cmd, args: "" }),
+          "*"
+        );
+        setIsPlayingMusic(nextPlay);
+      } catch {}
+    } else if (audioRef.current) {
+      if (isPlayingMusic) {
+        audioRef.current.pause();
+        setIsPlayingMusic(false);
+      } else {
+        audioRef.current.play().then(() => setIsPlayingMusic(true)).catch(() => {});
+      }
     }
   };
 
@@ -1169,6 +1194,63 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
       />
+
+      {/* Background Audio Source */}
+      {card.music_url && !youtubeId && (
+        <audio ref={audioRef} loop src={card.music_url} preload="auto" />
+      )}
+      {card.music_url && youtubeId && (
+        <div className="fixed -bottom-96 -left-96 pointer-events-none opacity-0 h-1 w-1 overflow-hidden" aria-hidden="true">
+          <iframe
+            ref={ytIframeRef}
+            id="wedding-youtube-audio"
+            src={`https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&autoplay=0&loop=1&playlist=${youtubeId}`}
+            allow="autoplay"
+            title="Wedding Audio Player"
+          />
+        </div>
+      )}
+
+      {/* Floating Luxury Gold Audio Player Widget */}
+      {card.music_url && (
+        <aside
+          aria-label="Wedding Music Player"
+          className="fixed bottom-6 left-6 z-40 flex items-center gap-2.5 px-3.5 py-2 rounded-full border border-amber-500/50 bg-[#1f0508]/85 backdrop-blur-md shadow-2xl shadow-amber-900/40 text-amber-200 transition-all hover:scale-105 select-none"
+        >
+          <button
+            onClick={toggleMusic}
+            aria-label={isPlayingMusic ? "ផ្អាកភ្លេងការ" : "ចាក់ភ្លេងការ"}
+            className="flex items-center gap-2.5 cursor-pointer group"
+          >
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-600 to-amber-400 text-stone-950 flex items-center justify-center shadow-md group-hover:from-amber-500 group-hover:to-amber-300 transition">
+              {isPlayingMusic ? (
+                <Volume2 className="w-4 h-4 animate-pulse" />
+              ) : (
+                <VolumeX className="w-4 h-4" />
+              )}
+            </div>
+
+            {/* Equalizer animation */}
+            <div className="flex items-end gap-0.5 h-3.5 px-0.5" aria-hidden="true">
+              <span className={`w-0.5 bg-amber-400 rounded-full transition-all ${isPlayingMusic ? 'h-3 animate-pulse' : 'h-1'}`} />
+              <span className={`w-0.5 bg-amber-400 rounded-full transition-all ${isPlayingMusic ? 'h-3.5 animate-bounce' : 'h-1.5'}`} style={{ animationDuration: '0.6s' }} />
+              <span className={`w-0.5 bg-amber-400 rounded-full transition-all ${isPlayingMusic ? 'h-2 animate-pulse' : 'h-1'}`} style={{ animationDuration: '0.8s' }} />
+              <span className={`w-0.5 bg-amber-400 rounded-full transition-all ${isPlayingMusic ? 'h-3.5 animate-bounce' : 'h-1.5'}`} style={{ animationDuration: '0.5s' }} />
+            </div>
+
+            <div className="text-left hidden sm:block">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400/90 leading-tight">
+                {youtubeId ? "YouTube Audio" : "Wedding Music"}
+              </div>
+              <div className="text-xs font-medium text-amber-100 max-w-[140px] truncate leading-tight">
+                {isPlayingMusic
+                  ? (lang === "km" ? "កំពុងចាក់ភ្លេងការ" : "Playing Music")
+                  : (lang === "km" ? "ចុចដើម្បីចាក់ភ្លេង" : "Tap to Play")}
+              </div>
+            </div>
+          </button>
+        </aside>
+      )}
 
     </div>
   );

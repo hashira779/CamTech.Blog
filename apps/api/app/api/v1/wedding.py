@@ -1,6 +1,8 @@
 import json
 import re
 import uuid
+import urllib.request
+import urllib.parse
 from datetime import timedelta, datetime, timezone
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -19,6 +21,8 @@ from app.schemas.wedding import (
     WeddingCardUpdate,
     WeddingWishCreate,
     WeddingWishResponse,
+    YouTubeResolveResponse,
+    CuratedSong,
 )
 from app.services.auth_service import verify_password, get_password_hash, create_access_token
 
@@ -322,3 +326,123 @@ def post_wedding_wish(
         blessing_message=wish.blessing_message,
         created_at=wish.created_at
     )
+
+CURATED_WEDDING_SONGS = [
+    {
+        "id": "song-blessing-01",
+        "title_km": "របាំជូនពរ (ភ្លេងការបុរាណខ្មែរ)",
+        "title_en": "Robam Choun Por (Traditional Blessing Dance)",
+        "category": "ជូនពរសិរីសួស្តី",
+        "video_id": "Wj_P9cKzW2U",
+        "youtube_url": "https://www.youtube.com/watch?v=Wj_P9cKzW2U",
+        "thumbnail_url": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=400&q=80"
+    },
+    {
+        "id": "song-procession-02",
+        "title_km": "ពិធីហែកំណត់ / ហែជំនូនចូលរោងជ័យ",
+        "title_en": "Hae Khnom (Traditional Groom Procession)",
+        "category": "ពិធីហែជំនូន",
+        "video_id": "8G-G4nC0GqY",
+        "youtube_url": "https://www.youtube.com/watch?v=8G-G4nC0GqY",
+        "thumbnail_url": "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=400&q=80"
+    },
+    {
+        "id": "song-katsok-03",
+        "title_km": "ពិធីកាត់សក់បង្កក់សិរីមង្គល",
+        "title_en": "Kat Sok Bangkork Serey (Hair Cutting Ceremony)",
+        "category": "ពិធីកាត់សក់",
+        "video_id": "7o3Fv64Bq0E",
+        "youtube_url": "https://www.youtube.com/watch?v=7o3Fv64Bq0E",
+        "thumbnail_url": "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=400&q=80"
+    },
+    {
+        "id": "song-phtum-04",
+        "title_km": "ពិធីសំពះផ្ទឹម ចងដៃសិរីសួស្តី",
+        "title_en": "Sompeah Phtum (Sacred Knot Tying Ceremony)",
+        "category": "ពិធីសំពះផ្ទឹម",
+        "video_id": "4jS9XwLz7g0",
+        "youtube_url": "https://www.youtube.com/watch?v=4jS9XwLz7g0",
+        "thumbnail_url": "https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=400&q=80"
+    },
+    {
+        "id": "song-pka-sla-05",
+        "title_km": "ផ្កាស្លាបីទង (មរតកភ្លេងការបុរាណ)",
+        "title_en": "Pka Sla Bei Torng (Heritage Wedding Melody)",
+        "category": "បទបុរាណប្រពៃណី",
+        "video_id": "m9Y1Z9w8Q2c",
+        "youtube_url": "https://www.youtube.com/watch?v=m9Y1Z9w8Q2c",
+        "thumbnail_url": "https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?auto=format&fit=crop&w=400&q=80"
+    },
+    {
+        "id": "song-destiny-06",
+        "title_km": "គូព្រេងនិស្ស័យ (ស្នេហ៍ស្មោះស័ក្តិសិទ្ធិ)",
+        "title_en": "Destined Soulmates (Khmer Love Symphony)",
+        "category": "មនោសញ្ចេតនា",
+        "video_id": "2g811Eo7K8U",
+        "youtube_url": "https://www.youtube.com/watch?v=2g811Eo7K8U",
+        "thumbnail_url": "https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=400&q=80"
+    }
+]
+
+def extract_youtube_video_id(url: str) -> Optional[str]:
+    url = url.strip()
+    if re.match(r"^[a-zA-Z0-9_-]{11}$", url):
+        return url
+    patterns = [
+        r"(?:v=|\/v\/|youtu\.be\/|\/embed\/|\/shorts\/)([a-zA-Z0-9_-]{11})",
+        r"(?:[?&]v=)([a-zA-Z0-9_-]{11})",
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, url)
+        if m:
+            return m.group(1)
+    return None
+
+@router.get("/youtube-resolve", response_model=YouTubeResolveResponse)
+def resolve_youtube_audio(url: str):
+    if not url or not url.strip():
+        return YouTubeResolveResponse(valid=False, error="សូមបញ្ចូល Link YouTube")
+
+    vid = extract_youtube_video_id(url)
+    if not vid:
+        return YouTubeResolveResponse(valid=False, error="Link YouTube មិនត្រឹមត្រូវ (Invalid YouTube URL)")
+
+    embed_url = f"https://www.youtube.com/embed/{vid}?enablejsapi=1&autoplay=1&loop=1"
+    thumbnail_url = f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg"
+    canonical_url = f"https://www.youtube.com/watch?v={vid}"
+
+    title = f"ភ្លេងការខ្មែរ (YouTube ID: {vid})"
+    author_name = "YouTube Music"
+
+    try:
+        oembed_url = f"https://www.youtube.com/oembed?url={urllib.parse.quote(canonical_url)}&format=json"
+        req = urllib.request.Request(
+            oembed_url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        )
+        with urllib.request.urlopen(req, timeout=4) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode("utf-8"))
+                if data.get("title"):
+                    title = data.get("title")
+                if data.get("author_name"):
+                    author_name = data.get("author_name")
+                if data.get("thumbnail_url"):
+                    thumbnail_url = data.get("thumbnail_url")
+    except Exception:
+        pass
+
+    return YouTubeResolveResponse(
+        valid=True,
+        video_id=vid,
+        title=title,
+        author_name=author_name,
+        thumbnail_url=thumbnail_url,
+        music_url=canonical_url,
+        embed_url=embed_url
+    )
+
+@router.get("/curated-songs", response_model=List[CuratedSong])
+def get_curated_songs():
+    return [CuratedSong(**s) for s in CURATED_WEDDING_SONGS]
+
