@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { WeddingCard, WeddingAgendaItem, WeddingReception, WeddingWish } from "@/types/wedding";
 import { postWeddingWish, extractYouTubeVideoId } from "@/lib/wedding-api";
 import { WeddingShareModal } from "./WeddingShareModal";
+import { getTemplateById } from "@/lib/wedding-templates";
+import { WeddingFlowerIcon } from "./WeddingFlowers";
 import confetti from "canvas-confetti";
 import {
   Heart,
@@ -26,45 +28,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Navigation,
-  Share2,
-  Users
+  Share2
 } from "lucide-react";
 
 interface PremierRoyalKhmerCardProps {
   card: WeddingCard;
   isPreview?: boolean;
-}
-
-/**
- * Traditional Khmer Kbach Pka Chan (ផ្កាច័ន្ទ) Auspicious Motif
- */
-function KhmerKbachFloral({ className = "w-8 h-8 text-amber-600" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 100 100" fill="currentColor" className={className} aria-hidden="true">
-      <circle cx="50" cy="50" r="7" />
-      <path d="M50 14 C54 28, 64 36, 75 36 C64 43, 58 50, 50 50 C42 50, 36 43, 25 36 C36 36, 46 28, 50 14 Z" />
-      <path d="M50 86 C54 72, 64 64, 75 64 C64 57, 58 50, 50 50 C42 50, 36 57, 25 64 C36 64, 46 72, 50 86 Z" />
-      <path d="M14 50 C28 46, 36 36, 36 25 C43 36, 50 42, 50 50 C50 58, 43 64, 36 75 C36 64, 28 54, 14 50 Z" />
-      <path d="M86 50 C72 46, 64 36, 64 25 C57 36, 50 42, 50 50 C50 58, 57 64, 64 75 C64 64, 72 54, 86 50 Z" />
-      <circle cx="50" cy="22" r="3" opacity="0.8" />
-      <circle cx="50" cy="78" r="3" opacity="0.8" />
-      <circle cx="22" cy="50" r="3" opacity="0.8" />
-      <circle cx="78" cy="50" r="3" opacity="0.8" />
-    </svg>
-  );
-}
-
-/**
- * Traditional Khmer Auspicious Divider with Floral Core
- */
-function KhmerKbachDivider({ className = "my-4" }: { className?: string }) {
-  return (
-    <div className={`flex items-center justify-center gap-2.5 ${className}`}>
-      <div className="h-[1.5px] w-12 sm:w-20 bg-gradient-to-r from-transparent via-[#d4af37] to-[#c59b27]" />
-      <KhmerKbachFloral className="w-4 h-4 text-[#c59b27]" />
-      <div className="h-[1.5px] w-12 sm:w-20 bg-gradient-to-l from-transparent via-[#d4af37] to-[#c59b27]" />
-    </div>
-  );
 }
 
 export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalKhmerCardProps) {
@@ -105,6 +74,10 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
 
   const youtubeId = card.music_url ? extractYouTubeVideoId(card.music_url) : null;
 
+  // Active Template & Dynamic Styles
+  const template = getTemplateById(card.theme);
+  const s = template.styles;
+
   // Agendas
   let morningAgendas: WeddingAgendaItem[] = [];
   try {
@@ -137,13 +110,10 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
     gallery = [];
   }
   if (gallery.length === 0) {
-    gallery = [
-      card.cover_image_url || "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80",
-      card.groom_image_url || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80",
-      card.bride_image_url || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=800&q=80"
-    ];
+    gallery = template.defaultGallery;
   }
+
+  const heroImage = card.cover_image_url || card.groom_image_url || template.defaultCoverImage;
 
   // Countdown timer logic
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number }>({
@@ -381,7 +351,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   }[lang];
 
   return (
-    <div className="relative min-h-screen bg-[#f7f3ed] text-[#3c2a21] font-sans overflow-x-hidden selection:bg-amber-200 selection:text-amber-950">
+    <div className={`relative min-h-screen ${s.pageBg} text-[#3c2a21] font-sans overflow-x-hidden selection:bg-amber-200 selection:text-amber-950`}>
       
       {/* Background audio elements */}
       {card.music_url && !youtubeId && (
@@ -421,14 +391,14 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       </div>
 
       {/* =========================================================================
-          SECTION 1: LUXURY ROYAL KHMER ENVELOPE (Human-Crafted & Culturally Authentic)
+          SECTION 1: LUXURY ROYAL KHMER ENVELOPE (Theme-Adaptive)
          ========================================================================= */}
       {!isOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4 bg-gradient-to-b from-[#2b1810]/70 via-[#1c0f0a]/85 to-[#120a06]/95 backdrop-blur-md">
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4 bg-gradient-to-b from-[#2b1810]/75 via-[#1c0f0a]/85 to-[#120a06]/95 backdrop-blur-md">
           
           {/* Envelope Mockup Container */}
           <div
-            className={`relative w-full max-w-[420px] aspect-[4/5] bg-gradient-to-b from-[#8f1d2c] via-[#751421] to-[#540d16] rounded-[32px] shadow-[0_25px_80px_rgba(0,0,0,0.8)] border-[3px] border-[#e6c268]/70 p-6 sm:p-8 flex flex-col items-center justify-between text-center overflow-hidden transition-all duration-700 ${
+            className={`relative w-full max-w-[420px] aspect-[4/5] ${s.envelopeBg} rounded-[32px] shadow-[0_25px_80px_rgba(0,0,0,0.85)] border-[3px] ${s.envelopeBorder} p-6 sm:p-8 flex flex-col items-center justify-between text-center overflow-hidden transition-all duration-700 ${
               isOpeningAnim ? "scale-90 opacity-0 -translate-y-16" : "scale-100 opacity-100"
             }`}
           >
@@ -443,7 +413,10 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
 
             {/* Header with Traditional Kbach Floral Crest */}
             <div className="w-full pt-2">
-              <KhmerKbachFloral className="w-10 h-10 mx-auto text-[#f5d06b] mb-2 animate-float-gentle" />
+              <WeddingFlowerIcon
+                type={template.flowerType}
+                className="w-10 h-10 mx-auto text-[#f5d06b] mb-2 animate-float-gentle"
+              />
               
               <h1 className="font-moul text-xl sm:text-2xl text-[#fae5a7] tracking-wider drop-shadow-md leading-relaxed">
                 {t.auspiciousTitle}
@@ -483,9 +456,9 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                 <div className="absolute -inset-2.5 rounded-full bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 blur-md opacity-50 group-hover:opacity-85 animate-pulse transition duration-500" />
 
                 {/* Royal Wax Seal Disc */}
-                <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-[#f7dc89] via-[#d4af37] to-[#8c5f11] border-2 border-[#fff3cf] shadow-xl flex flex-col items-center justify-center text-amber-950">
-                  <Sparkles className="w-5 h-5 text-amber-100 mb-0.5" />
-                  <span className="font-moul text-[10px] text-amber-950 drop-shadow-xs">
+                <div className={`relative w-20 h-20 rounded-full ${s.waxSealBg} border-2 ${s.waxSealRing} shadow-xl flex flex-col items-center justify-center ${s.waxSealTextColor}`}>
+                  <WeddingFlowerIcon type={template.flowerType} className="w-5 h-5 text-amber-100 mb-0.5" />
+                  <span className="font-moul text-[10px] drop-shadow-xs">
                     {lang === "km" ? "សិរីសួស្តី" : "Open"}
                   </span>
                 </div>
@@ -503,29 +476,37 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       {/* =========================================================================
           SECTION 2: MOBILE-FIRST HUMAN-CRAFTED KHMER WEDDING INVITATION CARD
          ========================================================================= */}
-      <main className="relative z-20 max-w-[440px] sm:max-w-[460px] mx-auto min-h-screen my-0 sm:my-8 bg-[#fffefb] rounded-none sm:rounded-[36px] shadow-[0_20px_60px_-15px_rgba(100,50,20,0.22)] border-0 sm:border-[5px] sm:border-[#d4af37]/40 overflow-hidden animate-fade-in">
+      <main className={`relative z-20 max-w-[440px] sm:max-w-[460px] mx-auto min-h-screen my-0 sm:my-8 ${s.cardBg} rounded-none sm:rounded-[36px] shadow-[0_20px_60px_-15px_rgba(100,50,20,0.22)] border-0 sm:border-[5px] ${s.borderColor} overflow-hidden animate-fade-in`}>
         
         {/* Inner Delicate Gold Hairline Border */}
-        <div className="absolute inset-2 sm:inset-3 border border-[#d4af37]/35 rounded-none sm:rounded-[28px] pointer-events-none" />
+        <div className={`absolute inset-2 sm:inset-3 border ${s.innerBorderColor} rounded-none sm:rounded-[28px] pointer-events-none`} />
 
         {/* =====================================================================
             1. TOP CALLIGRAPHIC HEADER & AUSPICIOUS BLESSING
            ===================================================================== */}
-        <header className="relative text-center pt-10 pb-6 px-6 bg-gradient-to-b from-[#faf4e8] via-[#fbf7f0] to-[#fffefb]">
+        <header className="relative text-center pt-10 pb-6 px-6 bg-gradient-to-b from-white/60 via-transparent to-transparent">
           
-          {/* Top Traditional Khmer Kbach Floral Crest */}
-          <KhmerKbachFloral className="w-11 h-11 mx-auto text-[#c59b27] mb-2 animate-float-gentle" />
+          {/* Top Traditional Khmer Flower Motif Crest */}
+          <WeddingFlowerIcon
+            type={template.flowerType}
+            className={`w-11 h-11 mx-auto ${s.flowerColor} mb-2 animate-float-gentle`}
+          />
 
           {/* Main Khmer Wedding Calligraphy Header (Moul Font) */}
-          <h1 className="font-moul text-2xl sm:text-3xl bg-gradient-to-r from-[#996515] via-[#d4af37] to-[#804e0a] bg-clip-text text-transparent leading-relaxed drop-shadow-xs">
+          <h1 className={`font-moul text-2xl sm:text-3xl ${s.headerGradientText} leading-relaxed drop-shadow-xs`}>
             {t.auspiciousTitle}
           </h1>
 
-          <p className="text-xs font-bold text-amber-800/90 mt-1 uppercase tracking-widest">
+          <p className={`text-xs font-bold ${s.subtitleColor} mt-1 uppercase tracking-widest`}>
             {t.auspiciousBlessing}
           </p>
 
-          <KhmerKbachDivider className="my-3" />
+          {/* Symmetrical divider with matching floral core */}
+          <div className="flex items-center justify-center gap-2.5 my-3">
+            <div className="h-[1.5px] w-12 sm:w-20 bg-gradient-to-r from-transparent via-[#d4af37] to-[#c59b27]" />
+            <WeddingFlowerIcon type={template.flowerType} className={`w-4 h-4 ${s.flowerColor}`} />
+            <div className="h-[1.5px] w-12 sm:w-20 bg-gradient-to-l from-transparent via-[#d4af37] to-[#c59b27]" />
+          </div>
 
           {/* Traditional Khmer Invitation Decree */}
           <p className="text-xs text-stone-700 leading-relaxed max-w-[360px] mx-auto font-serif italic px-2">
@@ -534,7 +515,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
 
           {/* Personalized VIP Guest Card */}
           {customGuestName && (
-            <div className="mt-4 py-2.5 px-4 rounded-2xl bg-gradient-to-r from-[#fdf7ea] via-[#faeed4] to-[#fdf7ea] border border-[#d4af37]/60 max-w-[340px] mx-auto text-center shadow-xs">
+            <div className={`mt-4 py-2.5 px-4 rounded-2xl bg-gradient-to-r from-amber-50 via-amber-100/70 to-amber-50 border ${s.innerBorderColor} max-w-[340px] mx-auto text-center shadow-xs`}>
               <span className="text-[10px] text-amber-900 font-bold block uppercase tracking-wider">
                 {t.invitedHonoredGuest}
               </span>
@@ -548,11 +529,11 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         {/* =====================================================================
             2. PARENTS HONOR & BLESSING SECTION (មាតាបិតាទាំងសងខាង)
            ===================================================================== */}
-        <section className="px-5 py-6 border-y border-[#d4af37]/25 bg-[#faf5ec]/50">
+        <section className={`px-5 py-6 border-y ${s.innerBorderColor} ${s.sectionBandBg}`}>
           <div className="grid grid-cols-2 gap-3 text-center">
             
             {/* Groom's Family */}
-            <div className="p-3.5 rounded-2xl bg-white/95 border border-[#d4af37]/25 shadow-xs">
+            <div className={`p-3.5 rounded-2xl bg-white/95 border ${s.innerBorderColor} shadow-xs`}>
               <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 block mb-1">
                 {t.groomParentsTitle}
               </span>
@@ -570,7 +551,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             </div>
 
             {/* Bride's Family */}
-            <div className="p-3.5 rounded-2xl bg-white/95 border border-[#d4af37]/25 shadow-xs">
+            <div className={`p-3.5 rounded-2xl bg-white/95 border ${s.innerBorderColor} shadow-xs`}>
               <span className="text-[10px] font-bold uppercase tracking-wider text-rose-900 block mb-1">
                 {t.brideParentsTitle}
               </span>
@@ -596,12 +577,13 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         <section className="py-8 px-6 text-center">
           
           {/* Arch Window Frame Container */}
-          <div className="relative max-w-[280px] sm:max-w-[300px] mx-auto aspect-[3/4] rounded-t-[140px] rounded-b-3xl overflow-hidden shadow-[0_15px_35px_rgba(110,60,30,0.18)] border-4 border-[#d4af37]/60 p-1.5 bg-gradient-to-b from-[#f3e3b5] via-[#faf5e8] to-[#eedba6] group cursor-pointer"
-            onClick={() => setSelectedImage(card.cover_image_url || card.groom_image_url || null)}
+          <div
+            className={`relative max-w-[280px] sm:max-w-[300px] mx-auto aspect-[3/4] rounded-t-[140px] rounded-b-3xl overflow-hidden shadow-[0_15px_35px_rgba(110,60,30,0.18)] border-4 ${s.archBorder} p-1.5 ${s.archBg} group cursor-pointer`}
+            onClick={() => setSelectedImage(heroImage)}
           >
             <div className="relative w-full h-full rounded-t-[132px] rounded-b-2xl overflow-hidden bg-stone-100">
               <img
-                src={card.cover_image_url || card.groom_image_url || "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80"}
+                src={heroImage}
                 alt={`${card.groom_name} & ${card.bride_name}`}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
@@ -617,9 +599,9 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
           </p>
 
           {/* Auspicious Wedding Dates Card */}
-          <div className="mt-6 p-4 rounded-2xl bg-gradient-to-r from-[#faf4e8] via-[#f5ebd7] to-[#faf4e8] border border-[#d4af37]/50 max-w-[340px] mx-auto text-center shadow-xs">
-            <div className="flex items-center justify-center gap-1.5 text-amber-950 font-serif text-sm font-bold">
-              <Calendar className="w-4 h-4 text-[#c59b27] shrink-0" />
+          <div className={`mt-6 p-4 rounded-2xl ${s.dateBannerBg} border ${s.dateBannerBorder} max-w-[340px] mx-auto text-center shadow-xs`}>
+            <div className={`flex items-center justify-center gap-1.5 ${s.dateTextColor} font-serif text-sm font-bold`}>
+              <Calendar className={`w-4 h-4 ${s.flowerColor} shrink-0`} />
               <span>{card.khmer_date}</span>
             </div>
             <p className="text-xs text-stone-700 font-semibold mt-1">
@@ -629,10 +611,10 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         </section>
 
         {/* =====================================================================
-            4. WEDDING COUNTDOWN TIMER (Elegant Champagne & Gold Pills)
+            4. WEDDING COUNTDOWN TIMER (Champagne & Gold Pills)
            ===================================================================== */}
-        <section className="px-5 py-7 bg-gradient-to-b from-[#faf5ec] via-[#f7efe1] to-[#faf5ec] border-y border-[#d4af37]/25 text-center">
-          <span className="text-[11px] uppercase tracking-widest font-bold text-amber-900 block mb-3 font-serif">
+        <section className={`px-5 py-7 ${s.sectionBandBg} border-y ${s.innerBorderColor} text-center`}>
+          <span className={`text-[11px] uppercase tracking-widest font-bold ${s.subtitleColor} block mb-3 font-serif`}>
             {t.countdownTitle}
           </span>
 
@@ -643,8 +625,8 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
               { label: t.minutes, val: timeLeft.minutes },
               { label: t.seconds, val: timeLeft.seconds },
             ].map((item, idx) => (
-              <div key={idx} className="bg-white rounded-2xl p-2 sm:p-2.5 border border-[#d4af37]/40 shadow-xs text-center">
-                <span className="text-xl sm:text-2xl font-black font-serif text-amber-950 block">
+              <div key={idx} className={`${s.countdownBoxBg} rounded-2xl p-2 sm:p-2.5 border ${s.countdownBoxBorder} shadow-xs text-center`}>
+                <span className={`text-xl sm:text-2xl font-black font-serif ${s.countdownTextColor} block`}>
                   {String(item.val).padStart(2, "0")}
                 </span>
                 <span className="text-[9px] sm:text-[10px] text-stone-600 font-semibold uppercase">
@@ -659,9 +641,9 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             5. MORNING CEREMONY TIMELINE (Traditional Khmer Rituals)
            ===================================================================== */}
         {morningAgendas.length > 0 && (
-          <section className="px-5 py-8 border-b border-[#d4af37]/20">
+          <section className={`px-5 py-8 border-b ${s.innerBorderColor}`}>
             <div className="text-center mb-6">
-              <span className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block">
+              <span className={`text-[10px] font-bold ${s.subtitleColor} uppercase tracking-widest block`}>
                 {lang === "km" ? "កម្មវិធីសិរីមង្គល" : "Ceremony Schedule"}
               </span>
               <h3 className="font-moul text-lg sm:text-xl text-stone-900 mt-0.5">
@@ -673,9 +655,9 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
               {morningAgendas.map((item, index) => (
                 <div
                   key={index}
-                  className="flex items-start gap-3 p-3.5 rounded-2xl bg-[#faf6ef] border border-amber-200/80 transition hover:bg-[#f6f0e4] hover:shadow-xs"
+                  className={`flex items-start gap-3 p-3.5 rounded-2xl bg-white border ${s.innerBorderColor} transition hover:shadow-xs`}
                 >
-                  <div className="shrink-0 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-[#b37a1e] to-[#996515] text-white font-bold text-[11px] flex items-center gap-1 shadow-xs">
+                  <div className={`shrink-0 px-2.5 py-1.5 rounded-xl ${s.primaryButtonBg} font-bold text-[11px] flex items-center gap-1 shadow-xs`}>
                     <Clock className="w-3 h-3" />
                     <span>{item.time}</span>
                   </div>
@@ -698,9 +680,9 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         {/* =====================================================================
             6. EVENING WEDDING BANQUET & 1-TAP GOOGLE MAPS NAVIGATION
            ===================================================================== */}
-        <section className="px-5 py-8 bg-gradient-to-b from-[#faf5ec]/40 to-white">
+        <section className={`px-5 py-8 ${s.sectionBandBg}`}>
           <div className="text-center mb-6">
-            <span className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block">
+            <span className={`text-[10px] font-bold ${s.subtitleColor} uppercase tracking-widest block`}>
               {lang === "km" ? "ពិធីពិសាភោជនាហារ" : "Grand Reception"}
             </span>
             <h3 className="font-moul text-lg sm:text-xl text-stone-900 mt-0.5">
@@ -708,18 +690,18 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             </h3>
           </div>
 
-          <div className="max-w-[360px] mx-auto bg-white rounded-3xl p-5 border border-[#d4af37]/40 shadow-md">
+          <div className={`max-w-[360px] mx-auto bg-white rounded-3xl p-5 border ${s.innerBorderColor} shadow-md`}>
             <div className="space-y-3 text-stone-800">
               <div className="flex items-start gap-3">
                 <div className="p-2 rounded-2xl bg-amber-100 text-amber-900 shrink-0 mt-0.5">
-                  <MapPin className="w-5 h-5 text-amber-800" />
+                  <MapPin className={`w-5 h-5 ${s.flowerColor}`} />
                 </div>
                 <div>
                   <h4 className="font-bold text-sm sm:text-base text-stone-900 font-serif">
                     {eveningReception.venue}
                   </h4>
                   {eveningReception.hall && (
-                    <p className="text-[11px] text-amber-900 font-bold mt-0.5">
+                    <p className={`text-[11px] font-bold mt-0.5 ${s.subtitleColor}`}>
                       {t.hall} {eveningReception.hall}
                     </p>
                   )}
@@ -730,7 +712,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
               </div>
 
               <div className="flex items-center gap-2 pt-1 text-xs text-stone-700 font-medium">
-                <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                <Clock className={`w-3.5 h-3.5 ${s.flowerColor} shrink-0`} />
                 <span>{t.time} <strong className="text-stone-900 font-bold">{eveningReception.time}</strong></span>
               </div>
             </div>
@@ -742,7 +724,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                   href={eveningReception.map_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#b37a1e] via-[#c59b27] to-[#996515] hover:brightness-105 text-white font-bold text-xs shadow-md transition transform hover:scale-[1.02] cursor-pointer"
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl ${s.primaryButtonBg} font-bold text-xs shadow-md transition transform hover:scale-[1.02] cursor-pointer`}
                 >
                   <Navigation className="w-3.5 h-3.5" />
                   <span>{t.openMap}</span>
@@ -765,9 +747,9 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             7. PRE-WEDDING LOVE STORY PHOTO GALLERY
            ===================================================================== */}
         {gallery.length > 0 && (
-          <section className="px-5 py-8 border-y border-[#d4af37]/20 bg-[#faf6ef]/30">
+          <section className={`px-5 py-8 border-y ${s.innerBorderColor} bg-white/40`}>
             <div className="text-center mb-5">
-              <span className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block">
+              <span className={`text-[10px] font-bold ${s.subtitleColor} uppercase tracking-widest block`}>
                 {t.galleryTitle}
               </span>
               <p className="text-[11px] text-stone-600 italic mt-0.5">
@@ -776,7 +758,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             </div>
 
             {/* Slider */}
-            <div className="relative max-w-[360px] mx-auto aspect-[16/11] rounded-2xl overflow-hidden shadow-md border border-[#d4af37]/50 group">
+            <div className={`relative max-w-[360px] mx-auto aspect-[16/11] rounded-2xl overflow-hidden shadow-md border ${s.innerBorderColor} group`}>
               <img
                 src={gallery[currentSlide]}
                 alt={`Photo ${currentSlide + 1}`}
@@ -819,7 +801,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                   type="button"
                   onClick={() => setCurrentSlide(idx)}
                   className={`relative w-12 h-12 rounded-lg overflow-hidden shrink-0 border transition cursor-pointer ${
-                    currentSlide === idx ? "border-[#c59b27] scale-105 shadow-sm" : "border-transparent opacity-60 hover:opacity-100"
+                    currentSlide === idx ? `border-2 ${s.borderColor} scale-105 shadow-sm` : "border-transparent opacity-60 hover:opacity-100"
                   }`}
                 >
                   <img src={imgUrl} alt="Thumbnail" className="w-full h-full object-cover" />
@@ -833,10 +815,10 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             8. DIGITAL CASHLESS WEDDING GIFT ENVELOPE (ABA / BAKONG KHQR)
            ===================================================================== */}
         {card.khqr_image_url && (
-          <section className="px-5 py-8 bg-gradient-to-b from-[#faf5ec] via-[#f7efe1] to-[#faf5ec] border-b border-[#d4af37]/25 text-center">
-            <div className="max-w-[340px] mx-auto p-5 rounded-3xl bg-white border border-[#d4af37]/50 shadow-md">
+          <section className={`px-5 py-8 ${s.sectionBandBg} border-b ${s.innerBorderColor} text-center`}>
+            <div className={`max-w-[340px] mx-auto p-5 rounded-3xl bg-white border ${s.innerBorderColor} shadow-md`}>
               <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto mb-2">
-                <Gift className="w-6 h-6" />
+                <Gift className={`w-6 h-6 ${s.flowerColor}`} />
               </div>
               <h3 className="font-moul text-sm sm:text-base text-stone-900">
                 {t.digitalGift}
@@ -848,7 +830,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
               <button
                 type="button"
                 onClick={() => setShowQrModal(true)}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#8f1d2c] via-[#751421] to-[#540d16] text-[#fae5a7] font-bold text-xs shadow-md hover:brightness-110 transition transform hover:scale-105 cursor-pointer"
+                className={`inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full ${s.secondaryButtonBg} font-bold text-xs shadow-md hover:brightness-110 transition transform hover:scale-105 cursor-pointer`}
               >
                 <QrCode className="w-3.5 h-3.5" />
                 <span>{t.viewKhqr}</span>
@@ -861,9 +843,9 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             9. GUESTBOOK & RSVP (Interactive Wishes with Confetti)
            ===================================================================== */}
         {card.enable_wishes && (
-          <section className="px-5 py-8 bg-gradient-to-b from-[#faf5ec]/30 to-white">
+          <section className="px-5 py-8 bg-gradient-to-b from-white/30 to-white">
             <div className="text-center mb-6">
-              <span className="text-[10px] font-bold text-amber-800 uppercase tracking-widest block">
+              <span className={`text-[10px] font-bold ${s.subtitleColor} uppercase tracking-widest block`}>
                 {lang === "km" ? "ពរជ័យមង្គល" : "Guest Wishes"}
               </span>
               <h3 className="font-moul text-lg sm:text-xl text-stone-900 mt-0.5">
@@ -871,7 +853,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
               </h3>
             </div>
 
-            <div className="max-w-[360px] mx-auto bg-white rounded-3xl p-5 border border-[#d4af37]/40 shadow-md">
+            <div className={`max-w-[360px] mx-auto bg-white rounded-3xl p-5 border ${s.innerBorderColor} shadow-md`}>
               {wishSuccess && (
                 <div className="mb-4 p-3 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-fade-in">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -891,7 +873,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                     value={guestName}
                     onChange={(e) => setGuestName(e.target.value)}
                     placeholder={lang === "km" ? "ឧ. ម៉ៅ សុខុម" : "e.g. John Doe"}
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#c59b27] text-xs shadow-xs"
+                    className={`w-full px-3 py-2 rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#c59b27] text-xs shadow-xs`}
                   />
                 </div>
 
@@ -907,7 +889,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                         onClick={() => setAttendance("attending")}
                         className={`py-2 px-2 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center justify-center gap-1 ${
                           attendance === "attending"
-                            ? "bg-[#c59b27] text-white border-[#c59b27] shadow-xs"
+                            ? `${s.primaryButtonBg} shadow-xs`
                             : "bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100"
                         }`}
                       >
@@ -966,7 +948,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                 <button
                   type="submit"
                   disabled={isSubmittingWish}
-                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#b37a1e] via-[#c59b27] to-[#996515] hover:brightness-105 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className={`w-full py-2.5 px-4 rounded-xl ${s.primaryButtonBg} hover:brightness-105 font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50`}
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{t.sendBlessing}</span>
@@ -976,13 +958,13 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
               {/* Wishes Wall */}
               {wishesList.length > 0 && (
                 <div className="mt-6 pt-5 border-t border-stone-200 space-y-2.5 max-h-72 overflow-y-auto pr-1">
-                  <h5 className="text-[11px] font-bold uppercase tracking-wider text-amber-900">
+                  <h5 className={`text-[11px] font-bold uppercase tracking-wider ${s.subtitleColor}`}>
                     {lang === "km" ? `ពាក្យជូនពរពីភ្ញៀវ (${wishesList.length})` : `Guest Blessings (${wishesList.length})`}
                   </h5>
                   {wishesList.map((wish) => (
                     <div
                       key={wish.id}
-                      className="p-3 rounded-2xl bg-[#faf5ec] border border-[#d4af37]/30 text-xs space-y-1 shadow-2xs"
+                      className={`p-3 rounded-2xl bg-[#faf5ec] border ${s.innerBorderColor} text-xs space-y-1 shadow-2xs`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-stone-900 font-serif">
@@ -1004,13 +986,13 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         )}
 
         {/* Footer Note */}
-        <footer className="py-8 text-center text-xs text-amber-950/70 border-t border-[#d4af37]/20 bg-[#faf5ec]/50">
-          <KhmerKbachFloral className="w-5 h-5 mx-auto text-[#c59b27] mb-1.5 opacity-70" />
+        <footer className={`py-8 text-center text-xs text-amber-950/70 border-t ${s.innerBorderColor} ${s.sectionBandBg}`}>
+          <WeddingFlowerIcon type={template.flowerType} className={`w-5 h-5 mx-auto ${s.flowerColor} mb-1.5 opacity-70`} />
           <p className="font-serif font-bold text-stone-800">
             {card.groom_name} &amp; {card.bride_name}
           </p>
           <p className="text-[11px] text-stone-600 mt-0.5">
-            {card.solar_date} • សូមថ្លែងអំណរគុណយ៉ាងជ្រាលជ្រៅ
+            {card.solar_date} • {template.nameKm}
           </p>
         </footer>
 
@@ -1029,7 +1011,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
               <X className="w-5 h-5" />
             </button>
 
-            <span className="text-xs font-bold text-amber-800 uppercase tracking-widest block mb-1">
+            <span className={`text-xs font-bold ${s.subtitleColor} uppercase tracking-widest block mb-1`}>
               {lang === "km" ? "ចំណងដៃតាមអេឡិចត្រូនិក" : "Digital Cashless Gift"}
             </span>
             <h4 className="text-base font-bold font-serif text-stone-900">

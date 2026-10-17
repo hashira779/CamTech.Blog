@@ -6,6 +6,8 @@ import { WeddingAuthResponse, WeddingCard } from "@/types/wedding";
 import { UnifiedAuthModal } from "@/components/wedding/UnifiedAuthModal";
 import { WeddingEditor } from "@/components/wedding/WeddingEditor";
 import { PremierRoyalKhmerCard } from "@/components/wedding/PremierRoyalKhmerCard";
+import { WEDDING_TEMPLATES, getTemplateById } from "@/lib/wedding-templates";
+import { WeddingFlowerIcon } from "@/components/wedding/WeddingFlowers";
 import {
   Sparkles,
   Globe,
@@ -14,7 +16,10 @@ import {
   ArrowRight,
   ShieldCheck,
   Gift,
-  UserCheck
+  UserCheck,
+  Palette,
+  Eye,
+  Check
 } from "lucide-react";
 
 export default function WeddingLandingPage() {
@@ -26,6 +31,7 @@ export default function WeddingLandingPage() {
   });
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [showDemoPreview, setShowDemoPreview] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("romduol_golden");
   const [lang, setLang] = useState<"km" | "en">("km");
 
   useEffect(() => {
@@ -192,23 +198,137 @@ export default function WeddingLandingPage() {
 
       {/* Live Demo Preview Drawer if toggled */}
       {showDemoPreview && (
-        <section className="max-w-2xl mx-auto px-4 pb-16 animate-fade-in">
-          <div className="p-3 bg-white dark:bg-stone-900 rounded-2xl border border-amber-500/40 shadow-sm mb-3 flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-800 dark:text-amber-400 font-serif">
-              ⚡ គំរូធៀបការផ្ទាល់ (Premier Royal Khmer Template Demo)
-            </span>
+        <section id="demo-preview-section" className="max-w-2xl mx-auto px-4 pb-16 animate-fade-in">
+          <div className="p-3.5 bg-white dark:bg-stone-900 rounded-2xl border border-amber-500/40 shadow-sm mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-600" />
+              <span className="text-xs font-bold text-amber-900 dark:text-amber-300 font-serif">
+                {lang === "km"
+                  ? `⚡ កំពុងមើលគំរូផ្ទាល់៖ ${getTemplateById(selectedTemplateId).nameKm}`
+                  : `⚡ Live Demo Preview: ${getTemplateById(selectedTemplateId).nameEn}`}
+              </span>
+            </div>
             <button
               onClick={() => setShowDemoPreview(false)}
-              className="text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 cursor-pointer"
+              className="text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 cursor-pointer font-medium"
             >
-              បិទការមើល
+              {lang === "km" ? "បិទការមើល" : "Close"}
             </button>
           </div>
           <div className="rounded-3xl border-4 border-amber-600/30 overflow-hidden shadow-2xl max-h-[85vh] overflow-y-auto">
-            <PremierRoyalKhmerCard card={DEFAULT_PREMIER_CARD} isPreview={false} />
+            <PremierRoyalKhmerCard
+              card={{
+                ...DEFAULT_PREMIER_CARD,
+                theme: selectedTemplateId,
+                cover_image_url: getTemplateById(selectedTemplateId).defaultCoverImage,
+                gallery_images: JSON.stringify(getTemplateById(selectedTemplateId).defaultGallery),
+              }}
+              isPreview={false}
+            />
           </div>
         </section>
       )}
+
+      {/* 10 Luxury Templates Showcase Section */}
+      <section className="py-12 md:py-16 px-4 max-w-6xl mx-auto">
+        <div className="text-center max-w-2xl mx-auto mb-10">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-xs font-bold mb-2">
+            <Palette className="w-3.5 h-3.5 text-amber-600" />
+            <span>{lang === "km" ? "១០ គំរូរចនាបថខ្មែរពិតៗ" : "10 Authentic Khmer Templates"}</span>
+          </div>
+          <h2 className="text-2xl sm:text-4xl font-black font-serif text-stone-900 dark:text-white">
+            {lang === "km" ? "គំរូធៀបការប្រណីត ល្អឥតខ្ចោះដោយផ្កាជាតិ និងរាជវាំង" : "Hand-Crafted Luxury Wedding Templates"}
+          </h2>
+          <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 mt-2 leading-relaxed">
+            {lang === "km"
+              ? "រចនាឡើងយ៉ាងផ្ចិតផ្ចង់ស្របតាមប្រពៃណីខ្មែរ មានរូបភាពពិតៗ ផ្កាតំណាងជាតិ (ផ្ការំដួល), ផ្កាឈូកមង្គល, ផ្កាម្លិះ, មាសរាជវាំងអង្គរ និងត្បូងមរកត"
+              : "Exquisitely crafted adhering to Khmer royal wedding traditions, featuring real pre-wedding photography and authentic botanical motifs."}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {WEDDING_TEMPLATES.map((tpl) => {
+            const isSelected = selectedTemplateId === tpl.id;
+            return (
+              <div
+                key={tpl.id}
+                className={`group rounded-3xl bg-white dark:bg-stone-900 border-2 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between ${
+                  isSelected ? "border-amber-600 ring-2 ring-amber-500/20" : "border-stone-200 dark:border-stone-800"
+                }`}
+              >
+                {/* Photo Preview Container with Real Photo */}
+                <div className="relative aspect-[16/11] overflow-hidden bg-stone-100 dark:bg-stone-800">
+                  <img
+                    src={tpl.thumbnailUrl}
+                    alt={tpl.nameKm}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                  
+                  {/* Category badge */}
+                  <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md text-white text-[11px] font-bold shadow-md">
+                    <WeddingFlowerIcon type={tpl.flowerType} className="w-3.5 h-3.5 text-amber-300" />
+                    <span>{tpl.badgeTextKm}</span>
+                  </div>
+
+                  {tpl.isNationalFlower && (
+                    <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-amber-500 text-stone-950 text-[10px] font-black uppercase tracking-wider shadow-md">
+                      ផ្កាតំណាងជាតិ
+                    </div>
+                  )}
+                </div>
+
+                {/* Card Content */}
+                <div className="p-5 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <h3 className="font-bold text-base text-stone-900 dark:text-white font-serif">
+                        {lang === "km" ? tpl.nameKm : tpl.nameEn}
+                      </h3>
+                      <div
+                        className="w-4 h-4 rounded-full shrink-0 border border-black/10 shadow-xs"
+                        style={{ backgroundColor: tpl.accentColor }}
+                        title="Accent Color"
+                      />
+                    </div>
+                    <p className="text-xs text-stone-600 dark:text-stone-300 line-clamp-2 leading-relaxed">
+                      {lang === "km" ? tpl.taglineKm : tpl.taglineEn}
+                    </p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="mt-5 pt-4 border-t border-stone-100 dark:border-stone-800 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTemplateId(tpl.id);
+                        setShowDemoPreview(true);
+                        const el = document.getElementById("demo-preview-section");
+                        if (el) el.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 text-xs font-bold transition cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>{lang === "km" ? "មើលគំរូផ្ទាល់" : "Live Demo"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTemplateId(tpl.id);
+                        setIsAuthModalOpen(true);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white text-xs font-bold shadow-md transition cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{lang === "km" ? "បង្កើតធៀប" : "Use This"}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* Feature Grid */}
       <section className="py-12 px-4 max-w-6xl mx-auto">

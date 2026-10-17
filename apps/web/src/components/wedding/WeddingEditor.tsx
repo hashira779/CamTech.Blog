@@ -9,8 +9,11 @@ import {
   DEFAULT_CURATED_SONGS,
   extractYouTubeVideoId
 } from "@/lib/wedding-api";
+import { WEDDING_TEMPLATES, getTemplateById, WeddingTemplateDefinition } from "@/lib/wedding-templates";
+import { WeddingFlowerIcon } from "./WeddingFlowers";
 import { PremierRoyalKhmerCard } from "./PremierRoyalKhmerCard";
 import { WeddingShareModal } from "./WeddingShareModal";
+import confetti from "canvas-confetti";
 import {
   Save,
   ExternalLink,
@@ -35,6 +38,7 @@ import {
   Loader2,
   Headphones,
   Radio,
+  Palette,
 } from "lucide-react";
 
 interface WeddingEditorProps {
@@ -47,7 +51,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
   const [card, setCard] = useState<WeddingCard>(initialCard);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<"details" | "schedule" | "venue" | "music" | "gift" | "settings">("details");
+  const [activeTab, setActiveTab] = useState<"templates" | "details" | "schedule" | "venue" | "music" | "gift" | "settings">("templates");
   const [viewMode, setViewMode] = useState<"split" | "editor" | "preview">("split");
   const [lang, setLang] = useState<"km" | "en">("km");
   const [copiedLink, setCopiedLink] = useState(false);
@@ -63,6 +67,24 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
   useEffect(() => {
     fetchCuratedSongs().then(setCuratedSongs).catch(() => {});
   }, []);
+
+  const handleSelectTemplate = (tpl: WeddingTemplateDefinition) => {
+    setCard((prev) => ({
+      ...prev,
+      theme: tpl.id,
+      cover_image_url: (!prev.cover_image_url || prev.cover_image_url.includes("photo-1519741497674"))
+        ? tpl.defaultCoverImage
+        : prev.cover_image_url,
+    }));
+    try {
+      confetti({
+        particleCount: 80,
+        spread: 60,
+        origin: { y: 0.6 },
+        colors: [tpl.accentColor, "#d4af37", "#ffffff"]
+      });
+    } catch {}
+  };
 
   // Agenda items parse
   let parsedAgenda: WeddingAgendaItem[] = [];
@@ -169,6 +191,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
       previewBtn: "មើលគំរូធៀបការ (Preview)",
       editorBtn: "ផ្ទាំងកែសម្រួល (Editor)",
       splitBtn: "មើលទន្ទឹមគ្នា (Split View)",
+      tabTemplates: "🎨 ១០ គំរូ Template",
       tabDetails: "ព័ត៌មានកូនកំលោះ & ក្រមុំ",
       tabSchedule: "កាលវិភាគពិធី",
       tabVenue: "ទីកន្លែង & ផែនទី",
@@ -188,6 +211,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
       previewBtn: "Preview",
       editorBtn: "Editor",
       splitBtn: "Split View",
+      tabTemplates: "🎨 10 Templates",
       tabDetails: "Bride & Groom",
       tabSchedule: "Schedule",
       tabVenue: "Venue & Map",
@@ -338,6 +362,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
               {/* Form Tab Navigation */}
               <div className="flex items-center gap-1 p-1 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 overflow-x-auto shadow-xs text-xs">
                 {[
+                  { id: "templates", label: t.tabTemplates, icon: Palette },
                   { id: "details", label: t.tabDetails, icon: Heart },
                   { id: "schedule", label: t.tabSchedule, icon: Clock },
                   { id: "venue", label: t.tabVenue, icon: MapPin },
@@ -349,7 +374,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id as "details" | "schedule" | "venue" | "music" | "gift" | "settings")}
+                      onClick={() => setActiveTab(tab.id as "templates" | "details" | "schedule" | "venue" | "music" | "gift" | "settings")}
                       className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-medium whitespace-nowrap transition cursor-pointer ${
                         activeTab === tab.id
                           ? "bg-amber-600 text-white shadow-xs"
@@ -362,6 +387,91 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
                   );
                 })}
               </div>
+
+              {/* TAB 0: 10 AUTHENTIC LUXURY TEMPLATES */}
+              {activeTab === "templates" && (
+                <div className="p-5 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400 font-serif flex items-center gap-2">
+                        <Palette className="w-4 h-4" />
+                        <span>ជ្រើសរើសទម្រង់រចនា (10 Authentic Khmer Templates)</span>
+                      </h3>
+                      <p className="text-xs text-stone-500 mt-0.5">
+                        ផ្កាតំណាងជាតិ (ផ្ការំដួល), ផ្កាឈូកមង្គល, ផ្កាម្លិះ, មាសអង្គរ និងរាជវាំងបុរាណ
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded-full border border-amber-300">
+                      10 Templates
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    {WEDDING_TEMPLATES.map((tpl) => {
+                      const isSelected = card.theme === tpl.id || (!card.theme && tpl.id === "romduol_golden");
+                      return (
+                        <div
+                          key={tpl.id}
+                          onClick={() => handleSelectTemplate(tpl)}
+                          className={`relative rounded-2xl p-3 border-2 transition cursor-pointer flex flex-col justify-between group overflow-hidden ${
+                            isSelected
+                              ? "border-amber-600 bg-amber-50/50 dark:bg-amber-950/30 shadow-md ring-2 ring-amber-500/20"
+                              : "border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-amber-400 hover:shadow-xs"
+                          }`}
+                        >
+                          {/* Thumbnail with Real Photo */}
+                          <div className="relative aspect-[16/10] rounded-xl overflow-hidden mb-2 bg-stone-100 dark:bg-stone-800">
+                            <img
+                              src={tpl.thumbnailUrl}
+                              alt={tpl.nameKm}
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                            
+                            {/* Flower Badge & Category */}
+                            <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/65 backdrop-blur-md text-white text-[10px] font-bold">
+                              <WeddingFlowerIcon type={tpl.flowerType} className="w-3.5 h-3.5 text-amber-300" />
+                              <span>{tpl.badgeTextKm}</span>
+                            </div>
+
+                            {isSelected && (
+                              <div className="absolute top-2 right-2 p-1 rounded-full bg-amber-600 text-white shadow-md">
+                                <Check className="w-3.5 h-3.5" />
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <h4 className="font-bold text-xs sm:text-sm text-stone-900 dark:text-white truncate">
+                                {lang === "km" ? tpl.nameKm : tpl.nameEn}
+                              </h4>
+                              <div className="w-3.5 h-3.5 rounded-full shrink-0 border border-black/10 shadow-xs" style={{ backgroundColor: tpl.accentColor }} />
+                            </div>
+                            <p className="text-[11px] text-stone-500 dark:text-stone-400 line-clamp-2 leading-relaxed">
+                              {lang === "km" ? tpl.taglineKm : tpl.taglineEn}
+                            </p>
+                          </div>
+
+                          <div className="mt-3 pt-2 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between">
+                            <span className="text-[10px] text-stone-400 font-mono">
+                              {tpl.id}
+                            </span>
+                            <span
+                              className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition ${
+                                isSelected
+                                  ? "bg-amber-600 text-white"
+                                  : "bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 group-hover:bg-amber-100 group-hover:text-amber-800"
+                              }`}
+                            >
+                              {isSelected ? (lang === "km" ? "✓ កំពុងប្រើ" : "Active") : (lang === "km" ? "ជ្រើសរើស" : "Select")}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* TAB 1: DETAILS */}
               {activeTab === "details" && (
