@@ -195,3 +195,43 @@ export function WeddingFlowerIcon({
       return <KbachPkaChanFlower className={className} />;
   }
 }
+
+/**
+ * Canva-Style Botanical Laurel Monogram Crest (ត្រាមង្គលអក្សរកាត់គូស្វាមីភរិយា)
+ */
+export function BotanicalMonogramCrest({
+  initials = "V & S",
+  className = "w-16 h-16 text-amber-600",
+}: {
+  initials?: string;
+  className?: string;
+}) {
+  return (
+    <div className={`relative inline-flex items-center justify-center ${className}`}>
+      {/* Botanical laurel ring SVG */}
+      <svg viewBox="0 0 120 120" fill="currentColor" className="absolute inset-0 w-full h-full text-current" aria-hidden="true">
+        {/* Fine circular hairline */}
+        <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="3 2" opacity="0.5" />
+        <circle cx="60" cy="60" r="46" fill="none" stroke="currentColor" strokeWidth="0.8" opacity="0.7" />
+        {/* Left Laurel Sprig */}
+        <path d="M60 108 C35 106 18 85 18 60 C18 42 28 26 44 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        {/* Right Laurel Sprig */}
+        <path d="M60 108 C85 106 102 85 102 60 C102 42 92 26 76 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        {/* Leaves */}
+        {[20, 38, 56, 74, 92].map((deg) => (
+          <ellipse key={`l-${deg}`} cx="20" cy="60" rx="3.5" ry="1.8" transform={`rotate(${deg - 56} 60 60) translate(-36 0)`} opacity="0.85" />
+        ))}
+        {[20, 38, 56, 74, 92].map((deg) => (
+          <ellipse key={`r-${deg}`} cx="100" cy="60" rx="3.5" ry="1.8" transform={`rotate(${56 - deg} 60 60) translate(36 0)`} opacity="0.85" />
+        ))}
+        {/* Bottom knot */}
+        <circle cx="60" cy="108" r="3" fill="currentColor" />
+      </svg>
+      {/* Monogram typography */}
+      <span className="font-serif font-black text-xs sm:text-sm tracking-wider text-current drop-shadow-xs z-10 select-none">
+        {initials}
+      </span>
+    </div>
+  );
+}
+

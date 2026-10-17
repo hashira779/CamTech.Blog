@@ -50,6 +50,7 @@ export interface WeddingTemplateDefinition {
   flowerType: FlowerType;
   accentColor: string;
   badgeTextKm: string;
+  palette: string[];
   isPopular?: boolean;
   isNationalFlower?: boolean;
   thumbnailUrl: string;
@@ -69,6 +70,7 @@ export const WEDDING_TEMPLATES: WeddingTemplateDefinition[] = [
     flowerType: "romduol",
     accentColor: "#c59b27",
     badgeTextKm: "ផ្កាតំណាងជាតិ",
+    palette: ["#c59b27", "#f5ebd7", "#78350f", "#ffffff"],
     isNationalFlower: true,
     isPopular: true,
     thumbnailUrl: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=80",
@@ -116,6 +118,7 @@ export const WEDDING_TEMPLATES: WeddingTemplateDefinition[] = [
     flowerType: "kbach",
     accentColor: "#9e1927",
     badgeTextKm: "រាជវាំងបុរាណ",
+    palette: ["#9e1927", "#d4af37", "#fdf6e7", "#3d0b11"],
     isPopular: true,
     thumbnailUrl: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=600&q=80",
     defaultCoverImage: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1200&q=80",
@@ -162,6 +165,7 @@ export const WEDDING_TEMPLATES: WeddingTemplateDefinition[] = [
     flowerType: "lotus",
     accentColor: "#d94e6b",
     badgeTextKm: "ផ្កាឈូកមង្គល",
+    palette: ["#d94e6b", "#fbcfe8", "#c59b27", "#ffffff"],
     isPopular: true,
     thumbnailUrl: "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=600&q=80",
     defaultCoverImage: "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=1200&q=80",
@@ -208,6 +212,7 @@ export const WEDDING_TEMPLATES: WeddingTemplateDefinition[] = [
     flowerType: "kbach",
     accentColor: "#1b6b52",
     badgeTextKm: "ត្បូងមរកតអង្គរ",
+    palette: ["#1b6b52", "#a7f3d0", "#c59b27", "#f0fdf4"],
     thumbnailUrl: "https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?auto=format&fit=crop&w=600&q=80",
     defaultCoverImage: "https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?auto=format&fit=crop&w=1200&q=80",
     defaultGallery: [
@@ -253,6 +258,7 @@ export const WEDDING_TEMPLATES: WeddingTemplateDefinition[] = [
     flowerType: "jasmine",
     accentColor: "#a38234",
     badgeTextKm: "ទំនើប Luxury",
+    palette: ["#bfa054", "#fef3c7", "#78350f", "#faf8f2"],
     thumbnailUrl: "https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=600&q=80",
     defaultCoverImage: "https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=1200&q=80",
     defaultGallery: [
@@ -298,6 +304,7 @@ export const WEDDING_TEMPLATES: WeddingTemplateDefinition[] = [
     flowerType: "jasmine",
     accentColor: "#bfa134",
     badgeTextKm: "ផ្កាម្លិះពរជ័យ",
+    palette: ["#cfb655", "#fef9c3", "#c59b27", "#ffffff"],
     thumbnailUrl: "https://images.unsplash.com/photo-1532712938310-34cb3982ef74?auto=format&fit=crop&w=600&q=80",
     defaultCoverImage: "https://images.unsplash.com/photo-1532712938310-34cb3982ef74?auto=format&fit=crop&w=1200&q=80",
     defaultGallery: [
@@ -343,6 +350,7 @@ export const WEDDING_TEMPLATES: WeddingTemplateDefinition[] = [
     flowerType: "romduol",
     accentColor: "#b45309",
     badgeTextKm: "ក្បាច់ទេពអប្សរា",
+    palette: ["#b45309", "#fed7aa", "#c59b27", "#fffbeb"],
     thumbnailUrl: "https://images.unsplash.com/photo-1529636798458-92182e662485?auto=format&fit=crop&w=600&q=80",
     defaultCoverImage: "https://images.unsplash.com/photo-1529636798458-92182e662485?auto=format&fit=crop&w=1200&q=80",
     defaultGallery: [
@@ -388,6 +396,7 @@ export const WEDDING_TEMPLATES: WeddingTemplateDefinition[] = [
     flowerType: "lotus",
     accentColor: "#c2410c",
     badgeTextKm: "សូរិយារ៉ូមែនទិក",
+    palette: ["#c2410c", "#fdba74", "#b45309", "#fff7ed"],
     thumbnailUrl: "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?auto=format&fit=crop&w=600&q=80",
     defaultCoverImage: "https://images.unsplash.com/photo-1522673607200-164d1b6ce486?auto=format&fit=crop&w=1200&q=80",
     defaultGallery: [
@@ -433,6 +442,7 @@ export const WEDDING_TEMPLATES: WeddingTemplateDefinition[] = [
     flowerType: "jasmine",
     accentColor: "#1e3a8a",
     badgeTextKm: "រាត្រីជប់លៀង",
+    palette: ["#1e3a8a", "#93c5fd", "#d4af37", "#ffffff"],
     thumbnailUrl: "https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=600&q=80",
     defaultCoverImage: "https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=1200&q=80",
     defaultGallery: [
@@ -478,6 +488,7 @@ export const WEDDING_TEMPLATES: WeddingTemplateDefinition[] = [
     flowerType: "orchid",
     accentColor: "#7e22ce",
     badgeTextKm: "អ័រគីដេវាំង",
+    palette: ["#7e22ce", "#e9d5ff", "#c59b27", "#faf5ff"],
     thumbnailUrl: "https://images.unsplash.com/photo-1591604466107-ec97de577aff?auto=format&fit=crop&w=600&q=80",
     defaultCoverImage: "https://images.unsplash.com/photo-1591604466107-ec97de577aff?auto=format&fit=crop&w=1200&q=80",
     defaultGallery: [

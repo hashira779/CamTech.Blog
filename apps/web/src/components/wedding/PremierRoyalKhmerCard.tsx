@@ -5,7 +5,7 @@ import { WeddingCard, WeddingAgendaItem, WeddingReception, WeddingWish } from "@
 import { postWeddingWish, extractYouTubeVideoId } from "@/lib/wedding-api";
 import { WeddingShareModal } from "./WeddingShareModal";
 import { getTemplateById } from "@/lib/wedding-templates";
-import { WeddingFlowerIcon } from "./WeddingFlowers";
+import { WeddingFlowerIcon, BotanicalMonogramCrest } from "./WeddingFlowers";
 import confetti from "canvas-confetti";
 import {
   Heart,
@@ -14,6 +14,7 @@ import {
   Music,
   MapPin,
   Calendar,
+  CalendarPlus,
   Clock,
   Sparkles,
   QrCode,
@@ -28,7 +29,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Navigation,
-  Share2
+  Share2,
+  Palette
 } from "lucide-react";
 
 interface PremierRoyalKhmerCardProps {
@@ -259,6 +261,37 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
     setCurrentSlide((prev) => (prev - 1 + gallery.length) % gallery.length);
   };
 
+  // Monogram initials calculation (e.g. វ & ស or V & S)
+  const getMonogramInitials = () => {
+    const g = card.groom_name?.trim() || "";
+    const b = card.bride_name?.trim() || "";
+    const gChar = Array.from(g)[0] || "វ";
+    const bChar = Array.from(b)[0] || "ស";
+    return `${gChar} & ${bChar}`;
+  };
+  const monogramInitials = getMonogramInitials();
+
+  // Google Calendar Event Link
+  const buildGoogleCalendarUrl = () => {
+    const title = encodeURIComponent(`ពិធីអាពាហ៍ពិពាហ៍៖ ${card.groom_name} & ${card.bride_name}`);
+    const location = encodeURIComponent(`${eveningReception.venue}, ${eveningReception.address}`);
+    const details = encodeURIComponent(
+      `សូមគោរពអញ្ជើញចូលរួមពិធីសិរីសួស្តីអាពាហ៍ពិពាហ៍ ${card.groom_name} & ${card.bride_name}\n\nសាលពិធី៖ ${eveningReception.venue} (${eveningReception.hall})\nវេលាម៉ោង៖ ${eveningReception.time}\nទីតាំង៖ ${eveningReception.address}`
+    );
+    let datesParam = "";
+    try {
+      const d = new Date(`${card.solar_date || "2026-11-28"}T${card.solar_time || "17:00"}:00`);
+      if (!isNaN(d.getTime())) {
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const start = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+        const endD = new Date(d.getTime() + 4 * 3600 * 1000);
+        const end = `${endD.getFullYear()}${pad(endD.getMonth() + 1)}${pad(endD.getDate())}T${pad(endD.getHours())}${pad(endD.getMinutes())}00`;
+        datesParam = `&dates=${start}/${end}`;
+      }
+    } catch {}
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}&location=${location}${datesParam}`;
+  };
+
   const t = {
     km: {
       auspiciousTitle: "សិរីសួស្តី អាពាហ៍ពិពាហ៍",
@@ -280,6 +313,10 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       openMap: "បើក Google Maps នាំផ្លូវ",
       copyAddress: "ចម្លងអាសយដ្ឋាន",
       copied: "បានចម្លង!",
+      addToCalendar: "កត់ត្រាក្នុងប្រតិទិន (Add to Calendar)",
+      dressCodeTitle: "សម្លៀកបំពាក់កិត្តិយស (Dress Code)",
+      dressCodeSub: "សូមស្វាគមន៍ការស្លៀកពាក់ប្រពៃណីខ្មែរ ឬពណ៌តាមប្រធានបទមង្គល",
+      dressCodeTheme: "ក្ដារពណ៌ប្រធានបទ (Theme Palette)",
       hall: "សាលពិធី៖",
       time: "វេលាម៉ោង៖",
       address: "ទីតាំង៖",
@@ -324,6 +361,10 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       openMap: "Open Google Maps Navigation",
       copyAddress: "Copy Venue Address",
       copied: "Copied!",
+      addToCalendar: "Add to Google Calendar",
+      dressCodeTitle: "Dress Code & Attire",
+      dressCodeSub: "Traditional Khmer formal attire or colors harmonizing with our wedding theme",
+      dressCodeTheme: "Theme Palette",
       hall: "Hall/Building:",
       time: "Time:",
       address: "Venue:",
@@ -500,6 +541,14 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
           <p className={`text-xs font-bold ${s.subtitleColor} mt-1 uppercase tracking-widest`}>
             {t.auspiciousBlessing}
           </p>
+
+          {/* Canva-Style Botanical Laurel Monogram Crest */}
+          <div className="my-2.5 flex justify-center">
+            <BotanicalMonogramCrest
+              initials={monogramInitials}
+              className={`w-16 h-16 ${s.flowerColor} opacity-90`}
+            />
+          </div>
 
           {/* Symmetrical divider with matching floral core */}
           <div className="flex items-center justify-center gap-2.5 my-3">
@@ -717,28 +766,63 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
               </div>
             </div>
 
-            {/* Action Buttons: 1-Tap Google Maps GPS + Copy Address */}
-            <div className="mt-5 pt-4 border-t border-stone-200 flex flex-col sm:flex-row gap-2">
-              {eveningReception.map_url && (
-                <a
-                  href={eveningReception.map_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl ${s.primaryButtonBg} font-bold text-xs shadow-md transition transform hover:scale-[1.02] cursor-pointer`}
-                >
-                  <Navigation className="w-3.5 h-3.5" />
-                  <span>{t.openMap}</span>
-                </a>
-              )}
+            {/* Action Buttons: 1-Tap Google Maps GPS + Copy Address + Add to Google Calendar */}
+            <div className="mt-5 pt-4 border-t border-stone-200 flex flex-col gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
+                {eveningReception.map_url && (
+                  <a
+                    href={eveningReception.map_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl ${s.primaryButtonBg} font-bold text-xs shadow-md transition transform hover:scale-[1.02] cursor-pointer`}
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>{t.openMap}</span>
+                  </a>
+                )}
 
-              <button
-                type="button"
-                onClick={handleCopyAddress}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-stone-300 bg-stone-50 hover:bg-stone-100 text-stone-800 font-semibold text-xs transition cursor-pointer"
+                <button
+                  type="button"
+                  onClick={handleCopyAddress}
+                  className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-stone-300 bg-stone-50 hover:bg-stone-100 text-stone-800 font-semibold text-xs transition cursor-pointer"
+                >
+                  {copiedAddress ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedAddress ? t.copied : t.copyAddress}</span>
+                </button>
+              </div>
+
+              {/* 1-Tap Add to Google Calendar (Canva Pro Feature) */}
+              <a
+                href={buildGoogleCalendarUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-amber-300/80 bg-gradient-to-r from-amber-50 to-amber-100/60 hover:from-amber-100 hover:to-amber-200/80 text-amber-950 font-bold text-xs shadow-xs transition transform hover:scale-[1.01] cursor-pointer"
               >
-                {copiedAddress ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedAddress ? t.copied : t.copyAddress}</span>
-              </button>
+                <CalendarPlus className="w-3.5 h-3.5 text-amber-700" />
+                <span>{t.addToCalendar}</span>
+              </a>
+            </div>
+
+            {/* Canva-Style Dress Code & Theme Palette (សម្លៀកបំពាក់កិត្តិយស) */}
+            <div className="mt-4 pt-3.5 border-t border-amber-200/70 text-center">
+              <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-amber-900 mb-1">
+                <Palette className="w-3.5 h-3.5 text-amber-700" />
+                <span>{t.dressCodeTitle}</span>
+              </div>
+              <p className="text-[11px] text-stone-600 leading-snug px-1 mb-2.5">
+                {t.dressCodeSub}
+              </p>
+              {/* Theme Palette Swatch Dots */}
+              <div className="flex items-center justify-center gap-2">
+                {(template.palette || []).map((color: string, idx: number) => (
+                  <span
+                    key={idx}
+                    className="w-5 h-5 rounded-full border-2 border-white shadow-sm ring-1 ring-black/10 inline-block transition transform hover:scale-125"
+                    style={{ backgroundColor: color }}
+                    title={color}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </section>
