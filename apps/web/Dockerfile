@@ -64,6 +64,7 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/public ./public
+RUN mkdir -p /app/public/uploads/wedding && chown -R nextjs:nodejs /app/public
 COPY --from=builder /app/package.json ./package.json
 
 # Copy production build outputs

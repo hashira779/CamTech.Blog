@@ -25,7 +25,9 @@ export async function POST(request: Request) {
     }
 
     const uploadDir = path.join(process.cwd(), "public", "uploads", "wedding");
-    await mkdir(uploadDir, { recursive: true });
+    try {
+      await mkdir(uploadDir, { recursive: true });
+    } catch {}
 
     const uploadedUrls: string[] = [];
 
@@ -38,8 +40,14 @@ export async function POST(request: Request) {
       const filename = `wedding_${Date.now()}_${crypto.randomBytes(4).toString("hex")}${validExt}`;
       const filePath = path.join(uploadDir, filename);
 
-      await writeFile(filePath, buffer);
-      uploadedUrls.push(`/uploads/wedding/${filename}`);
+      try {
+        await writeFile(filePath, buffer);
+        uploadedUrls.push(`/uploads/wedding/${filename}`);
+      } catch {
+        const mime = file.type || "image/jpeg";
+        const b64 = `data:${mime};base64,${buffer.toString("base64")}`;
+        uploadedUrls.push(b64);
+      }
     }
 
     return NextResponse.json({

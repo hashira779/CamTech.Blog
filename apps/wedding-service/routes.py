@@ -416,36 +416,61 @@ async def upload_image(file: UploadFile = File(...)):
         ext = ".jpg"
     filename = f"wedding_{uuid.uuid4().hex[:12]}{ext}"
     upload_dir = os.path.join(os.path.dirname(__file__), "uploads")
-    os.makedirs(upload_dir, exist_ok=True)
-    file_path = os.path.join(upload_dir, filename)
     content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
-    return {
-        "success": True,
-        "url": f"/uploads/{filename}",
-        "filename": filename,
-        "size": len(content)
-    }
+    try:
+        os.makedirs(upload_dir, exist_ok=True)
+        file_path = os.path.join(upload_dir, filename)
+        with open(file_path, "wb") as f:
+            f.write(content)
+        return {
+            "success": True,
+            "url": f"/uploads/{filename}",
+            "filename": filename,
+            "size": len(content)
+        }
+    except Exception:
+        import base64
+        mime = "image/png" if ext == ".png" else "image/webp" if ext == ".webp" else "image/jpeg"
+        b64 = f"data:{mime};base64,{base64.b64encode(content).decode('utf-8')}"
+        return {
+            "success": True,
+            "url": b64,
+            "filename": filename,
+            "size": len(content)
+        }
 
 @router.post("/upload-multiple")
 async def upload_multiple_images(files: List[UploadFile] = File(...)):
     results = []
     upload_dir = os.path.join(os.path.dirname(__file__), "uploads")
-    os.makedirs(upload_dir, exist_ok=True)
+    try:
+        os.makedirs(upload_dir, exist_ok=True)
+    except Exception:
+        pass
+
     for file in files:
         ext = os.path.splitext(file.filename or "")[1].lower()
         if ext not in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
             ext = ".jpg"
         filename = f"wedding_{uuid.uuid4().hex[:12]}{ext}"
-        file_path = os.path.join(upload_dir, filename)
         content = await file.read()
-        with open(file_path, "wb") as f:
-            f.write(content)
-        results.append({
-            "url": f"/uploads/{filename}",
-            "filename": filename,
-            "size": len(content)
-        })
+        try:
+            file_path = os.path.join(upload_dir, filename)
+            with open(file_path, "wb") as f:
+                f.write(content)
+            results.append({
+                "url": f"/uploads/{filename}",
+                "filename": filename,
+                "size": len(content)
+            })
+        except Exception:
+            import base64
+            mime = "image/png" if ext == ".png" else "image/webp" if ext == ".webp" else "image/jpeg"
+            b64 = f"data:{mime};base64,{base64.b64encode(content).decode('utf-8')}"
+            results.append({
+                "url": b64,
+                "filename": filename,
+                "size": len(content)
+            })
     return {"success": True, "files": results, "count": len(results)}
 
