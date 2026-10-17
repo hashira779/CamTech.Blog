@@ -1099,22 +1099,27 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                   </div>
                 </div>
 
-                {/* Filmstrip Thumbnails Row */}
-                <div className="flex items-center justify-center gap-2 mt-4 overflow-x-auto py-1 px-2">
-                  {gallery.map((imgUrl, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setCurrentSlide(idx)}
-                      className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all duration-300 cursor-pointer ${
-                        currentSlide === idx
-                          ? `${s.borderColor} scale-110 shadow-lg ring-2 ring-amber-400/50`
-                          : "border-transparent opacity-50 hover:opacity-100 hover:scale-105"
-                      }`}
-                    >
-                      <img src={imgUrl} alt="Thumbnail" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
+                {/* Filmstrip Thumbnails Row (Smooth horizontal scrolling for 10-20+ images) */}
+                <div className="relative mt-4">
+                  <div className="flex items-center gap-2 overflow-x-auto py-2 px-2 scroll-smooth">
+                    {gallery.map((imgUrl, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setCurrentSlide(idx)}
+                        className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all duration-300 cursor-pointer ${
+                          currentSlide === idx
+                            ? `${s.borderColor} scale-110 shadow-lg ring-2 ring-amber-400/60 z-10`
+                            : "border-transparent opacity-50 hover:opacity-100 hover:scale-105"
+                        }`}
+                      >
+                        <img src={imgUrl} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                        <span className="absolute bottom-0 right-0 bg-black/70 text-[8px] font-mono text-white px-1 rounded-tl">
+                          {idx + 1}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -1395,22 +1400,69 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       )}
 
       {/* =========================================================================
-          MODAL: FULLSCREEN IMAGE LIGHTBOX
+          MODAL: FULLSCREEN IMAGE LIGHTBOX WITH SLIDER NAVIGATION
          ========================================================================= */}
       {selectedImage && (
         <div
           onClick={() => setSelectedImage(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md cursor-pointer animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/92 backdrop-blur-md cursor-pointer animate-fade-in"
         >
-          <div className="relative max-w-3xl max-h-[90vh]">
-            <img
-              src={selectedImage}
-              alt="Enlarged photo"
-              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl"
-            />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-3xl max-h-[90vh] flex flex-col items-center cursor-default"
+          >
+            {/* Image Frame */}
+            <div className="relative rounded-2xl overflow-hidden border-2 border-amber-300/40 shadow-[0_20px_60px_rgba(0,0,0,0.8)] bg-stone-950">
+              <img
+                src={selectedImage}
+                alt="Enlarged photo"
+                className="max-w-full max-h-[80vh] object-contain"
+              />
+
+              {/* Prev / Next controls if image is inside gallery */}
+              {gallery.includes(selectedImage) && gallery.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const curIdx = gallery.indexOf(selectedImage);
+                      const nextIdx = (curIdx - 1 + gallery.length) % gallery.length;
+                      setSelectedImage(gallery[nextIdx]);
+                    }}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/60 hover:bg-black/90 text-white backdrop-blur-md border border-white/20 transition cursor-pointer shadow-lg"
+                    aria-label="Previous photo"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const curIdx = gallery.indexOf(selectedImage);
+                      const nextIdx = (curIdx + 1) % gallery.length;
+                      setSelectedImage(gallery[nextIdx]);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/60 hover:bg-black/90 text-white backdrop-blur-md border border-white/20 transition cursor-pointer shadow-lg"
+                    aria-label="Next photo"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+
+                  {/* Counter Badge */}
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md text-amber-200 text-xs font-mono border border-amber-300/40">
+                    {String(gallery.indexOf(selectedImage) + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Close Button */}
             <button
               onClick={() => setSelectedImage(null)}
-              className="absolute -top-10 right-0 text-white/80 hover:text-white"
+              className="absolute -top-11 right-0 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+              title="Close"
             >
               <X className="w-6 h-6" />
             </button>

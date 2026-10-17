@@ -382,3 +382,130 @@ export async function fetchCuratedSongs(): Promise<CuratedSong[]> {
   return DEFAULT_CURATED_SONGS;
 }
 
+/**
+ * Automatically compress and optimize high-resolution phone/camera photos
+ * to max 1600px width at 85% quality to ensure fast upload of 10-20+ images.
+ */
+export async function optimizeImageFile(file: File, maxWidth = 1600, quality = 0.85): Promise<File> {
+  if (typeof window === "undefined" || !file.type.startsWith("image/")) {
+    return file;
+  }
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (blob && blob.size < file.size) {
+              const optimizedFile = new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), {
+                type: "image/webp",
+                lastModified: Date.now()
+              });
+              resolve(optimizedFile);
+            } else {
+              resolve(file);
+            }
+          },
+          "image/webp",
+          quality
+        );
+      };
+      img.onerror = () => resolve(file);
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Upload one or multiple wedding images directly to the database/filesystem.
+ * Tries Next.js API route first, then FastAPI microservice, and falls back to optimized Base64 data URL.
+ */
+export async function uploadWeddingImages(
+  files: File[],
+  token?: string,
+  onProgress?: (current: number, total: number) => void
+): Promise<string[]> {
+  const uploadedUrls: string[] = [];
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (onProgress) onProgress(i + 1, files.length);
+
+    // Optimize image first
+    const optimized = await optimizeImageFile(file);
+
+    let uploadedUrl: string | null = null;
+
+    // 1. Try Next.js upload API route
+    try {
+      const fd = new FormData();
+      fd.append("file", optimized);
+      const res = await fetch("/api/wedding/upload", {
+        method: "POST",
+        body: fd
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) uploadedUrl = data.url;
+      }
+    } catch {}
+
+    // 2. Try FastAPI microservice upload route
+    if (!uploadedUrl) {
+      try {
+        const fd = new FormData();
+        fd.append("file", optimized);
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const res = await fetch(`${API_BASE}/wedding/upload`, {
+          method: "POST",
+          headers,
+          body: fd
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.url) uploadedUrl = data.url;
+        }
+      } catch {}
+    }
+
+    // 3. Resilient Base64 Fallback
+    if (!uploadedUrl) {
+      uploadedUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => resolve("");
+        reader.readAsDataURL(optimized);
+      });
+    }
+
+    if (uploadedUrl) {
+      uploadedUrls.push(uploadedUrl);
+    }
+  }
+
+  return uploadedUrls;
+}
+
+

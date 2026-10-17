@@ -1,3 +1,4 @@
+import os
 import json
 import re
 import uuid
@@ -5,7 +6,7 @@ import urllib.request
 import urllib.parse
 from datetime import timedelta, datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -407,4 +408,44 @@ def resolve_youtube_audio(url: str):
 @router.get("/curated-songs", response_model=List[CuratedSong])
 def get_curated_songs():
     return [CuratedSong(**s) for s in CURATED_WEDDING_SONGS]
+
+@router.post("/upload")
+async def upload_image(file: UploadFile = File(...)):
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
+        ext = ".jpg"
+    filename = f"wedding_{uuid.uuid4().hex[:12]}{ext}"
+    upload_dir = os.path.join(os.path.dirname(__file__), "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, filename)
+    content = await file.read()
+    with open(file_path, "wb") as f:
+        f.write(content)
+    return {
+        "success": True,
+        "url": f"/uploads/{filename}",
+        "filename": filename,
+        "size": len(content)
+    }
+
+@router.post("/upload-multiple")
+async def upload_multiple_images(files: List[UploadFile] = File(...)):
+    results = []
+    upload_dir = os.path.join(os.path.dirname(__file__), "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+    for file in files:
+        ext = os.path.splitext(file.filename or "")[1].lower()
+        if ext not in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
+            ext = ".jpg"
+        filename = f"wedding_{uuid.uuid4().hex[:12]}{ext}"
+        file_path = os.path.join(upload_dir, filename)
+        content = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(content)
+        results.append({
+            "url": f"/uploads/{filename}",
+            "filename": filename,
+            "size": len(content)
+        })
+    return {"success": True, "files": results, "count": len(results)}
 

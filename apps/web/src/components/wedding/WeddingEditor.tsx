@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { WeddingCard, WeddingAgendaItem, WeddingReception, CuratedSong, YouTubeResolveResponse } from "@/types/wedding";
 import {
   updateMyWeddingCard,
   resolveYouTubeAudio,
   fetchCuratedSongs,
   DEFAULT_CURATED_SONGS,
-  extractYouTubeVideoId
+  extractYouTubeVideoId,
+  uploadWeddingImages
 } from "@/lib/wedding-api";
 import { WEDDING_TEMPLATES, getTemplateById, WeddingTemplateDefinition } from "@/lib/wedding-templates";
 import { WeddingFlowerIcon } from "./WeddingFlowers";
@@ -39,6 +40,12 @@ import {
   Headphones,
   Radio,
   Palette,
+  Image as ImageIcon,
+  UploadCloud,
+  ArrowLeft,
+  ArrowRight,
+  Camera,
+  Star
 } from "lucide-react";
 
 interface WeddingEditorProps {
@@ -51,11 +58,21 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
   const [card, setCard] = useState<WeddingCard>(initialCard);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<"templates" | "details" | "schedule" | "venue" | "music" | "gift" | "settings">("templates");
+  const [activeTab, setActiveTab] = useState<"templates" | "details" | "photos" | "schedule" | "venue" | "music" | "gift" | "settings">("templates");
   const [viewMode, setViewMode] = useState<"split" | "editor" | "preview">("split");
   const [lang, setLang] = useState<"km" | "en">("km");
   const [copiedLink, setCopiedLink] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+
+  // Photos & Multi-image Gallery State (Supports 5-20+ images)
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  const [newGalleryUrl, setNewGalleryUrl] = useState("");
+  const multiFileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const groomInputRef = useRef<HTMLInputElement>(null);
+  const brideInputRef = useRef<HTMLInputElement>(null);
+  const khqrInputRef = useRef<HTMLInputElement>(null);
 
   // YouTube Music Scanner & Studio State
   const [youtubeInput, setYoutubeInput] = useState(card.music_url || "");
@@ -105,6 +122,123 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
   try {
     if (card.evening_reception) parsedEvening = JSON.parse(card.evening_reception);
   } catch {}
+
+  // Gallery List parse (Supports 5-20+ images)
+  let galleryList: string[] = [];
+  try {
+    galleryList = card.gallery_images ? JSON.parse(card.gallery_images) : [];
+  } catch {
+    galleryList = [];
+  }
+
+  const handleUploadMultipleGallery = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setUploadProgress({ current: 1, total: files.length });
+    try {
+      const urls = await uploadWeddingImages(Array.from(files), token, (cur, tot) => {
+        setUploadProgress({ current: cur, total: tot });
+      });
+      if (urls.length > 0) {
+        const nextGallery = [...galleryList, ...urls];
+        setCard((prev) => ({
+          ...prev,
+          gallery_images: JSON.stringify(nextGallery),
+          cover_image_url: prev.cover_image_url || urls[0],
+        }));
+        try {
+          confetti({
+            particleCount: 70,
+            spread: 60,
+            origin: { y: 0.6 },
+            colors: ["#d4af37", "#f3e5ab", "#ffffff"]
+          });
+        } catch {}
+      }
+    } catch (err) {
+      console.error("Gallery upload error:", err);
+      alert("បរាជ័យក្នុងការផ្ទុករូបភាព សូមព្យាយាមម្តងទៀត");
+    } finally {
+      setUploading(false);
+      if (multiFileInputRef.current) multiFileInputRef.current.value = "";
+    }
+  };
+
+  const handleUploadSingleField = async (
+    field: "cover_image_url" | "groom_image_url" | "bride_image_url" | "khqr_image_url",
+    file: File
+  ) => {
+    setUploading(true);
+    try {
+      const urls = await uploadWeddingImages([file], token);
+      if (urls[0]) {
+        setCard((prev) => ({ ...prev, [field]: urls[0] }));
+      }
+    } catch (err) {
+      console.error(`Upload error for ${field}:`, err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleAddGalleryUrl = () => {
+    if (!newGalleryUrl.trim()) return;
+    const nextGallery = [...galleryList, newGalleryUrl.trim()];
+    setCard((prev) => ({
+      ...prev,
+      gallery_images: JSON.stringify(nextGallery),
+      cover_image_url: prev.cover_image_url || newGalleryUrl.trim(),
+    }));
+    setNewGalleryUrl("");
+  };
+
+  const handleRemoveGalleryImage = (index: number) => {
+    const nextGallery = galleryList.filter((_, i) => i !== index);
+    setCard((prev) => ({
+      ...prev,
+      gallery_images: JSON.stringify(nextGallery),
+    }));
+  };
+
+  const handleMoveGalleryImage = (index: number, direction: "left" | "right") => {
+    if (direction === "left" && index === 0) return;
+    if (direction === "right" && index === galleryList.length - 1) return;
+    const targetIndex = direction === "left" ? index - 1 : index + 1;
+    const nextGallery = [...galleryList];
+    const temp = nextGallery[index];
+    nextGallery[index] = nextGallery[targetIndex];
+    nextGallery[targetIndex] = temp;
+    setCard((prev) => ({
+      ...prev,
+      gallery_images: JSON.stringify(nextGallery),
+    }));
+  };
+
+  const handleSetGalleryImageAs = (url: string, target: "cover" | "groom" | "bride") => {
+    if (target === "cover") setCard((prev) => ({ ...prev, cover_image_url: url }));
+    if (target === "groom") setCard((prev) => ({ ...prev, groom_image_url: url }));
+    if (target === "bride") setCard((prev) => ({ ...prev, bride_image_url: url }));
+  };
+
+  const handleLoadPresetStudioPhotos = () => {
+    const presets = [
+      "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1537633552985-df8429e8048b?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1591604466107-ec97de577aff?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1544077960-604201fe74bc?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?auto=format&fit=crop&w=1200&q=80"
+    ];
+    setCard((prev) => ({
+      ...prev,
+      gallery_images: JSON.stringify(presets),
+      cover_image_url: prev.cover_image_url || presets[0],
+    }));
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -193,6 +327,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
       splitBtn: "មើលទន្ទឹមគ្នា (Split View)",
       tabTemplates: "🎨 ១០ គំរូ Template",
       tabDetails: "ព័ត៌មានកូនកំលោះ & ក្រមុំ",
+      tabPhotos: "📸 រូបថត & Gallery (10-20+)",
       tabSchedule: "កាលវិភាគពិធី",
       tabVenue: "ទីកន្លែង & ផែនទី",
       tabMusic: "បទភ្លេងការ & YouTube",
@@ -213,6 +348,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
       splitBtn: "Split View",
       tabTemplates: "🎨 10 Templates",
       tabDetails: "Bride & Groom",
+      tabPhotos: "📸 Photos & Gallery (10-20+)",
       tabSchedule: "Schedule",
       tabVenue: "Venue & Map",
       tabMusic: "Music & YouTube",
@@ -364,6 +500,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
                 {[
                   { id: "templates", label: t.tabTemplates, icon: Palette },
                   { id: "details", label: t.tabDetails, icon: Heart },
+                  { id: "photos", label: t.tabPhotos, icon: ImageIcon },
                   { id: "schedule", label: t.tabSchedule, icon: Clock },
                   { id: "venue", label: t.tabVenue, icon: MapPin },
                   { id: "music", label: t.tabMusic, icon: Music },
@@ -374,7 +511,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id as "templates" | "details" | "schedule" | "venue" | "music" | "gift" | "settings")}
+                      onClick={() => setActiveTab(tab.id as "templates" | "details" | "photos" | "schedule" | "venue" | "music" | "gift" | "settings")}
                       className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-medium whitespace-nowrap transition cursor-pointer ${
                         activeTab === tab.id
                           ? "bg-amber-600 text-white shadow-xs"
@@ -594,6 +731,315 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
                         />
                       </div>
                     </div>
+                  </div>
+
+                </div>
+              )}
+
+              {/* TAB: PHOTOS & MULTI-IMAGE GALLERY (Supports 5 to 20+ Photos) */}
+              {activeTab === "photos" && (
+                <div className="p-5 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-6">
+                  {/* Section Title */}
+                  <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-stone-800">
+                    <div>
+                      <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400 font-serif flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4 text-amber-600" />
+                        <span>📸 គ្រប់គ្រងរូបថត &amp; Love Story Gallery</span>
+                      </h3>
+                      <p className="text-xs text-stone-500 mt-0.5">
+                        ផ្ទុករូបថតផ្ទាល់ចូលប្រព័ន្ធពី ៥ ទៅ ២០+ រូប ដោយស្វ័យប្រវត្តិកែសម្រួលគុណភាព (Direct Database &amp; System Storage)
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 border border-amber-300">
+                      សរុប {galleryList.length} រូប
+                    </span>
+                  </div>
+
+                  {/* 1. VIP Key Portraits (Cover, Groom, Bride) */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                      រូបថតសំខាន់ៗលើធៀបការ (Key Wedding Portraits)
+                    </h4>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* Cover Photo */}
+                      <div className="p-3 rounded-2xl bg-amber-50/60 dark:bg-stone-800/40 border border-amber-200/70 text-center flex flex-col justify-between">
+                        <div>
+                          <span className="text-[11px] font-bold text-amber-900 dark:text-amber-200 block mb-2">
+                            ✨ រូបក្របទំព័រមុខ (Cover Arch)
+                          </span>
+                          <div className="relative aspect-[3/4] max-w-[140px] mx-auto rounded-t-full rounded-b-xl overflow-hidden border-2 border-amber-300 shadow-md mb-2 bg-stone-100">
+                            {card.cover_image_url ? (
+                              <img src={card.cover_image_url} alt="Cover" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs">គ្មានរូប</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <input
+                            type="file"
+                            ref={coverInputRef}
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) handleUploadSingleField("cover_image_url", e.target.files[0]);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => coverInputRef.current?.click()}
+                            disabled={uploading}
+                            className="w-full py-1.5 px-2 rounded-lg bg-amber-700 hover:bg-amber-800 text-white text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                          >
+                            <Camera className="w-3 h-3" />
+                            <span>ផ្លាស់ប្តូររូបភាព</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Groom Photo */}
+                      <div className="p-3 rounded-2xl bg-amber-50/60 dark:bg-stone-800/40 border border-amber-200/70 text-center flex flex-col justify-between">
+                        <div>
+                          <span className="text-[11px] font-bold text-amber-900 dark:text-amber-200 block mb-2">
+                            🤵 លោកកូនកំលោះ (Groom)
+                          </span>
+                          <div className="relative aspect-[3/4] max-w-[140px] mx-auto rounded-t-full rounded-b-xl overflow-hidden border-2 border-amber-300 shadow-md mb-2 bg-stone-100">
+                            {card.groom_image_url ? (
+                              <img src={card.groom_image_url} alt="Groom" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs">គ្មានរូប</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <input
+                            type="file"
+                            ref={groomInputRef}
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) handleUploadSingleField("groom_image_url", e.target.files[0]);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => groomInputRef.current?.click()}
+                            disabled={uploading}
+                            className="w-full py-1.5 px-2 rounded-lg bg-amber-700 hover:bg-amber-800 text-white text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                          >
+                            <Camera className="w-3 h-3" />
+                            <span>រូបកូនកំលោះ</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Bride Photo */}
+                      <div className="p-3 rounded-2xl bg-rose-50/60 dark:bg-stone-800/40 border border-rose-200/70 text-center flex flex-col justify-between">
+                        <div>
+                          <span className="text-[11px] font-bold text-rose-900 dark:text-rose-200 block mb-2">
+                            👰 អ្នកកូនក្រមុំ (Bride)
+                          </span>
+                          <div className="relative aspect-[3/4] max-w-[140px] mx-auto rounded-t-full rounded-b-xl overflow-hidden border-2 border-rose-300 shadow-md mb-2 bg-stone-100">
+                            {card.bride_image_url ? (
+                              <img src={card.bride_image_url} alt="Bride" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs">គ្មានរូប</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <input
+                            type="file"
+                            ref={brideInputRef}
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) handleUploadSingleField("bride_image_url", e.target.files[0]);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => brideInputRef.current?.click()}
+                            disabled={uploading}
+                            className="w-full py-1.5 px-2 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                          >
+                            <Camera className="w-3 h-3" />
+                            <span>រូបកូនក្រមុំ</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Multi-Image Direct Upload Area */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                        អាល់ប៊ុមរូបថតស្នេហា (Love Story Gallery: 5 ទៅ 20+ រូប)
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={handleLoadPresetStudioPhotos}
+                        className="text-[11px] text-amber-700 hover:text-amber-900 font-semibold underline cursor-pointer"
+                      >
+                        + ដាក់រូបគំរូ Studio ១០ សន្លឹក
+                      </button>
+                    </div>
+
+                    {/* Drag & Drop File Picker */}
+                    <div
+                      onClick={() => multiFileInputRef.current?.click()}
+                      className="border-2 border-dashed border-amber-300 dark:border-amber-700/60 rounded-3xl p-6 text-center bg-amber-50/40 dark:bg-stone-800/30 hover:bg-amber-100/40 transition cursor-pointer group"
+                    >
+                      <input
+                        type="file"
+                        ref={multiFileInputRef}
+                        multiple
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleUploadMultipleGallery(e.target.files)}
+                      />
+                      <UploadCloud className="w-10 h-10 mx-auto text-amber-600 mb-2 transition transform group-hover:scale-110" />
+                      <h5 className="font-bold text-sm text-stone-900 dark:text-white mb-1">
+                        {uploading
+                          ? `កំពុងផ្ទុករូបភាព... (${uploadProgress.current}/${uploadProgress.total})`
+                          : "ចុចទីនេះដើម្បីជ្រើសរើសរូបថតច្រើនសន្លឹក (Multiple Photos)"}
+                      </h5>
+                      <p className="text-xs text-stone-500">
+                        ជ្រើសរើសបានពី ៥, ១០ រហូតដល់ ២០+ រូបក្នុងពេលតែមួយ (JPG, PNG, WebP)
+                      </p>
+                      {uploading && (
+                        <div className="w-48 mx-auto mt-3 h-2 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-amber-600 transition-all duration-300"
+                            style={{ width: `${(uploadProgress.current / Math.max(1, uploadProgress.total)) * 100}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Or Add by URL */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <input
+                        type="text"
+                        value={newGalleryUrl}
+                        onChange={(e) => setNewGalleryUrl(e.target.value)}
+                        placeholder="ឬបិទភ្ជាប់តំណរូបភាព (Paste Image URL here)..."
+                        className="flex-1 px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddGalleryUrl}
+                        className="px-3.5 py-2 rounded-xl bg-stone-800 hover:bg-stone-900 text-white text-xs font-bold transition cursor-pointer"
+                      >
+                        + បន្ថែម URL
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3. Image Grid Management (Order, Delete, Set As) */}
+                  <div className="space-y-3 pt-2">
+                    <span className="text-xs font-semibold text-stone-700 dark:text-stone-300 block">
+                      បញ្ជីរូបថតបច្ចុប្បន្ន ({galleryList.length} រូប) — អាចរុញសណ្តាប់ធ្នាប់ (Reorder) ឬកំណត់ជារូបសំខាន់៖
+                    </span>
+
+                    {galleryList.length === 0 ? (
+                      <div className="p-6 text-center rounded-2xl bg-stone-50 dark:bg-stone-800/40 text-xs text-stone-500">
+                        មិនទាន់មានរូបថតក្នុង Gallery នៅឡើយទេ។ សូមចុចផ្ទុករូបភាពខាងលើ!
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {galleryList.map((url, idx) => {
+                          const isCover = card.cover_image_url === url;
+                          return (
+                            <div
+                              key={idx}
+                              className="group relative rounded-2xl overflow-hidden border-2 border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 shadow-xs flex flex-col justify-between"
+                            >
+                              {/* Thumbnail */}
+                              <div className="relative aspect-[3/4] w-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+                                <img src={url} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                                
+                                {/* Badge Number */}
+                                <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs text-[10px] font-mono text-white font-bold">
+                                  #{idx + 1}
+                                </div>
+
+                                {isCover && (
+                                  <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-amber-600 text-white text-[9px] font-bold">
+                                    Cover
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Controls */}
+                              <div className="p-2 space-y-1.5 bg-stone-50 dark:bg-stone-800/60">
+                                {/* Reorder left / right & Delete */}
+                                <div className="flex items-center justify-between gap-1">
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      disabled={idx === 0}
+                                      onClick={() => handleMoveGalleryImage(idx, "left")}
+                                      className="p-1 rounded bg-white dark:bg-stone-700 border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300 disabled:opacity-30 cursor-pointer"
+                                      title="រំកិលទៅមុខ"
+                                    >
+                                      <ArrowLeft className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={idx === galleryList.length - 1}
+                                      onClick={() => handleMoveGalleryImage(idx, "right")}
+                                      className="p-1 rounded bg-white dark:bg-stone-700 border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300 disabled:opacity-30 cursor-pointer"
+                                      title="រំកិលទៅក្រោយ"
+                                    >
+                                      <ArrowRight className="w-3 h-3" />
+                                    </button>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveGalleryImage(idx)}
+                                    className="p-1 text-rose-500 hover:text-rose-700 cursor-pointer"
+                                    title="លុបរូបនេះចេញ"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+
+                                {/* Set as Quick Action */}
+                                <div className="flex items-center gap-1 pt-1 border-t border-stone-200 dark:border-stone-700 text-[10px]">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSetGalleryImageAs(url, "cover")}
+                                    className="flex-1 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold transition text-center cursor-pointer"
+                                  >
+                                    ដាក់ Cover
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSetGalleryImageAs(url, "groom")}
+                                    className="py-0.5 px-1.5 rounded bg-stone-200 hover:bg-stone-300 text-stone-800 font-medium transition cursor-pointer"
+                                    title="ដាក់ជារូបកូនកំលោះ"
+                                  >
+                                    កំលោះ
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSetGalleryImageAs(url, "bride")}
+                                    className="py-0.5 px-1.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-900 font-medium transition cursor-pointer"
+                                    title="ដាក់ជារូបកូនក្រមុំ"
+                                  >
+                                    ក្រមុំ
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                 </div>
