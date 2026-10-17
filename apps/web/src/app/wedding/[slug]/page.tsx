@@ -37,7 +37,7 @@ export default async function WeddingCardPage({ params }: WeddingCardPageProps) 
   const card = await fetchPublicWeddingCard(slug);
 
   return (
-    <div className="min-h-screen bg-[#2a080c]">
+    <div className="min-h-screen bg-[#f7f3ed]">
       <PremierRoyalKhmerCard card={card} isPreview={false} />
     </div>
   );

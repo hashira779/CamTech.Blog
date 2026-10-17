@@ -1095,3 +1095,37 @@ html.js .dd-reveal:not([data-revealed="true"]) .rule-fill {
   opacity: 0.5;
 }
 
+/* ============================================================================
+   Traditional Khmer Wedding Typography & Ornaments
+   ========================================================================== */
+.font-moul {
+  font-family: 'Moul', var(--font-khmer), serif;
+}
+.font-koulen {
+  font-family: 'Koulen', var(--font-khmer), sans-serif;
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-spin-slow {
+  animation: spin-slow 14s linear infinite;
+}
+
+@keyframes float-gentle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.animate-float-gentle {
+  animation: float-gentle 4s ease-in-out infinite;
+}
+
