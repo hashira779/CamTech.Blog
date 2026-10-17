@@ -235,3 +235,103 @@ export function BotanicalMonogramCrest({
   );
 }
 
+/**
+ * Traditional Khmer Gold Filigree Corner (ក្បាច់ភ្ញីទេសជ្រុងមាស)
+ */
+export function KhmerCornerFiligree({
+  className = "w-6 h-6 text-amber-500",
+  position = "top-left",
+}: {
+  className?: string;
+  position?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+}) {
+  const transform = {
+    "top-left": "",
+    "top-right": "scaleX(-1)",
+    "bottom-left": "scaleY(-1)",
+    "bottom-right": "scale(-1)",
+  }[position];
+
+  return (
+    <svg viewBox="0 0 60 60" fill="currentColor" className={className} style={{ transform }} aria-hidden="true">
+      <path d="M4 4 L40 4 C28 8 18 18 14 30 C10 18 6 12 4 4 Z" opacity="0.95" />
+      <path d="M4 4 L4 40 C8 28 18 18 30 14 C18 10 12 6 4 4 Z" opacity="0.95" />
+      <circle cx="10" cy="10" r="3.5" fill="#fef08a" />
+      <circle cx="22" cy="8" r="2" opacity="0.85" />
+      <circle cx="8" cy="22" r="2" opacity="0.85" />
+      <path d="M14 30 C18 42 28 50 44 56 C32 52 22 42 18 30 Z" opacity="0.75" />
+      <circle cx="28" cy="28" r="2.5" fill="#fef08a" />
+    </svg>
+  );
+}
+
+/**
+ * Khmer Royal Archway Apex Crown (ក្បាច់កំពូលរាជវាំង)
+ */
+export function KhmerArchCrown({ className = "w-20 h-8 text-amber-500" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 120 40" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M60 4 C64 14 74 18 84 18 C76 24 70 28 68 36 C64 28 56 28 52 36 C50 28 44 24 36 18 C46 18 56 14 60 4 Z" />
+      <circle cx="60" cy="4" r="3.5" fill="#fef08a" />
+      <path d="M60 18 L60 36" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="46" cy="22" r="2" opacity="0.85" />
+      <circle cx="74" cy="22" r="2" opacity="0.85" />
+      <circle cx="60" cy="26" r="3" fill="#fef08a" />
+    </svg>
+  );
+}
+
+/**
+ * Live Floating Wedding Petals & Gold Sparkles (ផ្កាធ្លាក់រំភើយៗ)
+ */
+export function FloatingWeddingPetals({
+  flowerType = "romduol",
+  count = 14,
+}: {
+  flowerType?: FlowerType;
+  count?: number;
+}) {
+  const petals = Array.from({ length: count }, (_, i) => ({
+    id: i,
+    left: `${(i * 100) / count + ((i * 7) % 8)}%`,
+    animationDelay: `${(i * 0.6) % 7}s`,
+    animationDuration: `${7 + (i % 5) * 2.5}s`,
+    size: 16 + (i % 4) * 4,
+    opacity: 0.65 + (i % 3) * 0.12,
+  }));
+
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden z-30" aria-hidden="true">
+      {petals.map((p) => (
+        <div
+          key={p.id}
+          className="absolute animate-petal-drift"
+          style={{
+            left: p.left,
+            top: "-40px",
+            animationDelay: p.animationDelay,
+            animationDuration: p.animationDuration,
+            opacity: p.opacity,
+          }}
+        >
+          <div
+            style={{ width: p.size, height: p.size }}
+            className={flowerType === "lotus" ? "text-rose-400/80 drop-shadow-xs" : "text-amber-400/75 drop-shadow-xs"}
+          >
+            {flowerType === "lotus" ? (
+              <svg viewBox="0 0 30 30" fill="currentColor">
+                <path d="M15 2 C20 10 24 18 15 28 C6 18 10 10 15 2 Z" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 30 30" fill="currentColor">
+                <path d="M15 4 C22 10 24 20 15 26 C6 20 8 10 15 4 Z" />
+                <circle cx="15" cy="15" r="2.5" fill="#fef08a" />
+              </svg>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+

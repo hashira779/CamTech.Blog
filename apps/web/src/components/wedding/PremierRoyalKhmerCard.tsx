@@ -5,7 +5,13 @@ import { WeddingCard, WeddingAgendaItem, WeddingReception, WeddingWish } from "@
 import { postWeddingWish, extractYouTubeVideoId } from "@/lib/wedding-api";
 import { WeddingShareModal } from "./WeddingShareModal";
 import { getTemplateById } from "@/lib/wedding-templates";
-import { WeddingFlowerIcon, BotanicalMonogramCrest } from "./WeddingFlowers";
+import {
+  WeddingFlowerIcon,
+  BotanicalMonogramCrest,
+  KhmerCornerFiligree,
+  KhmerArchCrown,
+  FloatingWeddingPetals
+} from "./WeddingFlowers";
 import confetti from "canvas-confetti";
 import {
   Heart,
@@ -30,7 +36,9 @@ import {
   ChevronRight,
   Navigation,
   Share2,
-  Palette
+  Palette,
+  Film,
+  LayoutGrid
 } from "lucide-react";
 
 interface PremierRoyalKhmerCardProps {
@@ -45,6 +53,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   const [lang, setLang] = useState<"km" | "en">("km");
   const [showQrModal, setShowQrModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showPetals, setShowPetals] = useState(true);
   const [customGuestName] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
@@ -57,8 +66,9 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  // Gallery slider state
+  // Gallery view mode & slide state
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [galleryViewMode, setGalleryViewMode] = useState<"slider" | "grid">("slider");
 
   // RSVP & Wish State
   const [guestName, setGuestName] = useState("");
@@ -116,6 +126,8 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   }
 
   const heroImage = card.cover_image_url || card.groom_image_url || template.defaultCoverImage;
+  const groomImage = card.groom_image_url || gallery[0] || heroImage;
+  const brideImage = card.bride_image_url || gallery[1] || gallery[0] || heroImage;
 
   // Countdown timer logic
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number }>({
@@ -175,7 +187,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
           colors: ["#d4af37", "#f3e5ab", "#c59b27", "#b8324f", "#e63946", "#ffffff"]
         });
       } catch {}
-    }, 600);
+    }, 750);
   };
 
   const toggleMusic = () => {
@@ -327,6 +339,11 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       copyAccount: "ចម្លងលេខគណនី",
       galleryTitle: "កម្រងរូបភាពអនុស្សាវរីយ៍",
       gallerySub: "ពេលវេលាដ៏ផ្អែមល្ហែម និងអត្ថន័យនៃសេចក្តីស្រឡាញ់",
+      cinematicView: "ស្លាយភាពយន្ត",
+      polaroidView: "អាល់ប៊ុមរូបថត",
+      theGroom: "លោកកូនកំលោះ",
+      theBride: "អ្នកកូនក្រមុំ",
+      petalsToggle: "ផ្កាធ្លាក់",
       wishesTitle: "សៀវភៅជូនពរ និងឆ្លើយតប (RSVP)",
       yourName: "ឈ្មោះភ្ញៀវកិត្តិយស",
       yourPhone: "លេខទូរស័ព្ទ (មិនបង្ខំ)",
@@ -375,6 +392,11 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       copyAccount: "Copy Account Number",
       galleryTitle: "Our Love Story Gallery",
       gallerySub: "Cherished moments, timeless love, and memories",
+      cinematicView: "Cinematic Slide",
+      polaroidView: "Polaroid Album",
+      theGroom: "The Groom",
+      theBride: "The Bride",
+      petalsToggle: "Petals",
       wishesTitle: "Guestbook & RSVP",
       yourName: "Your Full Name",
       yourPhone: "Phone Number (Optional)",
@@ -410,7 +432,12 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         </div>
       )}
 
-      {/* Floating Controls Bar (Language + Music + Share) */}
+      {/* Floating Ambient Falling Petals */}
+      {isOpen && showPetals && (
+        <FloatingWeddingPetals flowerType={template.flowerType} />
+      )}
+
+      {/* Floating Controls Bar (Language + Petals + Share) */}
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
         {/* Language switch */}
         <button
@@ -420,6 +447,22 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
           <Globe className="w-3.5 h-3.5 text-amber-600" />
           <span>{lang === "km" ? "English" : "ភាសាខ្មែរ"}</span>
         </button>
+
+        {/* Falling Petals Toggle */}
+        {isOpen && (
+          <button
+            onClick={() => setShowPetals(!showPetals)}
+            className={`p-2 rounded-full border shadow-lg backdrop-blur-md cursor-pointer transition transform hover:scale-110 ${
+              showPetals
+                ? "bg-amber-100/90 text-amber-900 border-amber-400"
+                : "bg-white/90 text-stone-500 border-stone-300"
+            }`}
+            title={t.petalsToggle}
+            aria-label={t.petalsToggle}
+          >
+            <Sparkles className="w-4 h-4 text-amber-600" />
+          </button>
+        )}
 
         {/* Share Button */}
         <button
@@ -432,84 +475,135 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       </div>
 
       {/* =========================================================================
-          SECTION 1: LUXURY ROYAL KHMER ENVELOPE (Theme-Adaptive)
+          SECTION 1: LUXURY ROYAL KHMER 3D ORIGAMI ENVELOPE (Theme-Adaptive)
          ========================================================================= */}
       {!isOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4 bg-gradient-to-b from-[#2b1810]/75 via-[#1c0f0a]/85 to-[#120a06]/95 backdrop-blur-md">
-          
-          {/* Envelope Mockup Container */}
-          <div
-            className={`relative w-full max-w-[420px] aspect-[4/5] ${s.envelopeBg} rounded-[32px] shadow-[0_25px_80px_rgba(0,0,0,0.85)] border-[3px] ${s.envelopeBorder} p-6 sm:p-8 flex flex-col items-center justify-between text-center overflow-hidden transition-all duration-700 ${
-              isOpeningAnim ? "scale-90 opacity-0 -translate-y-16" : "scale-100 opacity-100"
-            }`}
-          >
-            {/* Corner Ornaments */}
-            <div className="absolute top-3 left-3 text-[#f3d994]/60 text-xs font-serif select-none">✤ ❖ ✤</div>
-            <div className="absolute top-3 right-3 text-[#f3d994]/60 text-xs font-serif select-none">✤ ❖ ✤</div>
-            <div className="absolute bottom-3 left-3 text-[#f3d994]/60 text-xs font-serif select-none">✤ ❖ ✤</div>
-            <div className="absolute bottom-3 right-3 text-[#f3d994]/60 text-xs font-serif select-none">✤ ❖ ✤</div>
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4 bg-gradient-to-b from-[#1e0f09]/90 via-[#130804]/95 to-[#0b0402]/98 backdrop-blur-md overflow-hidden">
+          {/* Subtle ambient light glow behind envelope */}
+          <div className="absolute w-[360px] h-[360px] rounded-full bg-amber-500/15 blur-3xl pointer-events-none animate-pulse" />
 
-            {/* Inner Gold Foil Hairline */}
-            <div className="absolute inset-3 border border-[#f3d994]/30 rounded-[26px] pointer-events-none" />
-
-            {/* Header with Traditional Kbach Floral Crest */}
-            <div className="w-full pt-2">
-              <WeddingFlowerIcon
-                type={template.flowerType}
-                className="w-10 h-10 mx-auto text-[#f5d06b] mb-2 animate-float-gentle"
-              />
-              
-              <h1 className="font-moul text-xl sm:text-2xl text-[#fae5a7] tracking-wider drop-shadow-md leading-relaxed">
-                {t.auspiciousTitle}
-              </h1>
-
-              <div className="h-[1px] w-28 mx-auto my-3 bg-gradient-to-r from-transparent via-[#f5d06b] to-transparent" />
-
-              <h2 className="text-xl sm:text-2xl font-bold font-serif text-white tracking-wide">
-                {card.groom_name} &amp; {card.bride_name}
-              </h2>
-
-              <p className="text-[#f7e7be]/80 text-xs mt-1.5 font-medium">
+          {/* 3D Perspective Stage */}
+          <div className="relative w-full max-w-[420px] aspect-[4/5] [perspective:1200px] flex items-center justify-center">
+            
+            {/* Inner Gliding Letterpress Card (revealed on open) */}
+            <div
+              className={`absolute inset-4 z-10 rounded-[28px] ${s.cardBg} border-2 ${s.borderColor} shadow-2xl p-6 flex flex-col items-center justify-between text-center transition-all duration-700 ${
+                isOpeningAnim
+                  ? "animate-card-glide-up opacity-100"
+                  : "opacity-0 scale-95 pointer-events-none"
+              }`}
+            >
+              <div className="pt-2">
+                <WeddingFlowerIcon type={template.flowerType} className={`w-8 h-8 mx-auto ${s.flowerColor} mb-2`} />
+                <h3 className="font-moul text-lg text-amber-900">{t.auspiciousTitle}</h3>
+                <p className="font-serif font-bold text-stone-900 mt-1">{card.groom_name} &amp; {card.bride_name}</p>
+              </div>
+              <p className="text-xs text-amber-800 italic font-serif">« {t.invitationHonor} »</p>
+              <div className="text-[11px] font-bold text-stone-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
                 {card.khmer_date}
-              </p>
-            </div>
-
-            {/* VIP Guest Invitation Slip */}
-            <div className="w-full my-auto py-2">
-              <div className="py-2.5 px-4 rounded-2xl bg-[#fffdf9]/95 border border-[#e6c268] shadow-md max-w-[320px] mx-auto text-center transform transition hover:scale-102">
-                <span className="text-[11px] font-bold text-amber-900/80 block uppercase tracking-wider mb-0.5">
-                  {t.invitedHonoredGuest}
-                </span>
-                <span className="text-sm sm:text-base font-bold font-serif text-stone-900 block truncate">
-                  {customGuestName || (lang === "km" ? "ឯកឧត្តម លោកជំទាវ លោក លោកស្រី" : "Honored Guest")}
-                </span>
               </div>
             </div>
 
-            {/* Auspicious Golden Wax Seal Disc */}
-            <div className="w-full pb-2">
-              <button
-                type="button"
-                onClick={handleOpenEnvelope}
-                className="group relative inline-flex flex-col items-center justify-center cursor-pointer transition transform hover:scale-105 active:scale-95"
-              >
-                {/* Glowing Aura Ring */}
-                <div className="absolute -inset-2.5 rounded-full bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 blur-md opacity-50 group-hover:opacity-85 animate-pulse transition duration-500" />
+            {/* Main Envelope Body */}
+            <div
+              className={`relative w-full h-full ${s.envelopeBg} rounded-[32px] shadow-[0_30px_90px_rgba(0,0,0,0.85)] border-[3px] ${s.envelopeBorder} p-6 sm:p-8 flex flex-col items-center justify-between text-center overflow-hidden transition-all duration-700 ${
+                isOpeningAnim ? "scale-95 opacity-80" : "scale-100 opacity-100"
+              }`}
+            >
+              {/* Authentic Khmer Corner Filigrees */}
+              <KhmerCornerFiligree position="top-left" className="text-[#f5d06b]/70" />
+              <KhmerCornerFiligree position="top-right" className="text-[#f5d06b]/70" />
+              <KhmerCornerFiligree position="bottom-left" className="text-[#f5d06b]/70" />
+              <KhmerCornerFiligree position="bottom-right" className="text-[#f5d06b]/70" />
 
-                {/* Royal Wax Seal Disc */}
-                <div className={`relative w-20 h-20 rounded-full ${s.waxSealBg} border-2 ${s.waxSealRing} shadow-xl flex flex-col items-center justify-center ${s.waxSealTextColor}`}>
-                  <WeddingFlowerIcon type={template.flowerType} className="w-5 h-5 text-amber-100 mb-0.5" />
-                  <span className="font-moul text-[10px] drop-shadow-xs">
-                    {lang === "km" ? "សិរីសួស្តី" : "Open"}
+              {/* Multi-layered Gold Foil Hairline Borders */}
+              <div className="absolute inset-3 border border-[#f3d994]/30 rounded-[26px] pointer-events-none" />
+              <div className="absolute inset-4 border border-[#f3d994]/15 rounded-[22px] pointer-events-none" />
+
+              {/* 3D Folded Origami Flap Geometry */}
+              <div
+                className={`absolute top-0 left-0 right-0 h-[48%] [transform-origin:top_center] transition-transform duration-700 z-20 pointer-events-none ${
+                  isOpeningAnim ? "animate-envelope-open-3d" : ""
+                }`}
+                style={{
+                  background: "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.22) 100%)",
+                  clipPath: "polygon(0 0, 100% 0, 50% 100%)",
+                  boxShadow: "0 8px 20px rgba(0,0,0,0.4)"
+                }}
+              >
+                {/* Gold filigree trim along the triangular flap edge */}
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    borderBottom: "2px solid rgba(245, 208, 107, 0.4)"
+                  }}
+                />
+              </div>
+
+              {/* Header with Traditional Kbach Floral Crest */}
+              <div className="w-full pt-2 relative z-10">
+                <WeddingFlowerIcon
+                  type={template.flowerType}
+                  className="w-10 h-10 mx-auto text-[#f5d06b] mb-2 animate-float-gentle filter drop-shadow-[0_2px_8px_rgba(245,208,107,0.4)]"
+                />
+                
+                <h1 className="font-moul text-xl sm:text-2xl text-[#fae5a7] tracking-wider drop-shadow-md leading-relaxed">
+                  {t.auspiciousTitle}
+                </h1>
+
+                <div className="h-[1px] w-28 mx-auto my-3 bg-gradient-to-r from-transparent via-[#f5d06b] to-transparent" />
+
+                <h2 className="text-xl sm:text-2xl font-bold font-serif text-white tracking-wide">
+                  {card.groom_name} &amp; {card.bride_name}
+                </h2>
+
+                <p className="text-[#f7e7be]/85 text-xs mt-1.5 font-medium tracking-wide">
+                  {card.khmer_date}
+                </p>
+              </div>
+
+              {/* VIP Guest Invitation Slip with Gold Border and Luxury Studio Typography */}
+              <div className="w-full my-auto py-2 relative z-10">
+                <div className="relative py-3 px-5 rounded-2xl bg-gradient-to-b from-[#fffefc] to-[#fbf7ed] border-2 border-[#e6c268] shadow-[0_4px_20px_rgba(0,0,0,0.25)] max-w-[320px] mx-auto text-center transform transition hover:scale-102">
+                  <div className="absolute inset-0.5 border border-amber-300/40 rounded-[14px] pointer-events-none" />
+                  <span className="text-[10px] font-bold text-amber-900/90 block uppercase tracking-widest mb-0.5">
+                    {t.invitedHonoredGuest}
+                  </span>
+                  <span className="text-sm sm:text-base font-bold font-serif text-stone-900 block truncate">
+                    {customGuestName || (lang === "km" ? "ឯកឧត្តម លោកជំទាវ លោក លោកស្រី" : "Honored Guest")}
                   </span>
                 </div>
+              </div>
 
-                <span className="mt-3 text-xs font-semibold text-[#fae5a7] tracking-wide bg-black/50 px-4 py-1.5 rounded-full border border-[#f5d06b]/40 shadow-md">
-                  {t.tapToOpen}
-                </span>
-              </button>
+              {/* Auspicious Golden Wax Seal Disc with Shimmer & Radiant Halo */}
+              <div className="w-full pb-2 relative z-30">
+                <button
+                  type="button"
+                  onClick={handleOpenEnvelope}
+                  disabled={isOpeningAnim}
+                  className="group relative inline-flex flex-col items-center justify-center cursor-pointer transition transform hover:scale-105 active:scale-95 focus:outline-hidden"
+                >
+                  {/* Glowing Aura Ring */}
+                  <div className="absolute -inset-3 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 blur-md opacity-60 group-hover:opacity-95 animate-gold-halo transition duration-500" />
+
+                  {/* Royal Wax Seal Disc with Shimmer Sweep */}
+                  <div className={`relative w-20 h-20 rounded-full ${s.waxSealBg} border-[2.5px] ${s.waxSealRing} shadow-2xl flex flex-col items-center justify-center ${s.waxSealTextColor} overflow-hidden`}>
+                    {/* Metallic specular sweep */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full animate-shimmer-sweep pointer-events-none" />
+                    
+                    <WeddingFlowerIcon type={template.flowerType} className="w-5 h-5 text-amber-100 mb-0.5 drop-shadow-xs" />
+                    <span className="font-moul text-[10px] drop-shadow-xs tracking-wide">
+                      {lang === "km" ? "សិរីសួស្តី" : "Open"}
+                    </span>
+                  </div>
+
+                  <span className="mt-3 text-xs font-semibold text-[#fae5a7] tracking-wider bg-black/60 backdrop-blur-xs px-4 py-1.5 rounded-full border border-[#f5d06b]/50 shadow-lg group-hover:border-[#f5d06b]">
+                    {t.tapToOpen}
+                  </span>
+                </button>
+              </div>
+
             </div>
-
           </div>
         </div>
       )}
@@ -621,22 +715,40 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         </section>
 
         {/* =====================================================================
-            3. STAR COUPLE HERO PORTRAIT IN ROMAN ARCH FRAME (ChungDoi / CraftyZia Style)
+            3. STAR COUPLE HERO PORTRAIT IN ARCH FRAME WITH KHMER ARCH CROWN & KEN BURNS
            ===================================================================== */}
-        <section className="py-8 px-6 text-center">
+        <section className="py-8 px-6 text-center relative">
           
+          {/* Royal Khmer Arch Crown Over Arch Top */}
+          <KhmerArchCrown className={`w-28 h-7 mx-auto mb-[-8px] relative z-10 ${s.flowerColor} filter drop-shadow-[0_2px_4px_rgba(212,175,55,0.3)]`} />
+
           {/* Arch Window Frame Container */}
           <div
-            className={`relative max-w-[280px] sm:max-w-[300px] mx-auto aspect-[3/4] rounded-t-[140px] rounded-b-3xl overflow-hidden shadow-[0_15px_35px_rgba(110,60,30,0.18)] border-4 ${s.archBorder} p-1.5 ${s.archBg} group cursor-pointer`}
+            className={`relative max-w-[280px] sm:max-w-[300px] mx-auto aspect-[3/4] rounded-t-[140px] rounded-b-3xl overflow-hidden shadow-[0_20px_45px_rgba(110,60,30,0.22)] border-4 ${s.archBorder} p-1.5 ${s.archBg} group cursor-pointer transition-transform duration-500 hover:scale-[1.02]`}
             onClick={() => setSelectedImage(heroImage)}
           >
+            {/* Shimmer light sweep across the gold arch frame */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full animate-shimmer-sweep pointer-events-none z-20" />
+
+            {/* Inner Photo Wrapper */}
             <div className="relative w-full h-full rounded-t-[132px] rounded-b-2xl overflow-hidden bg-stone-100">
+              {/* Ken Burns Animated Image */}
               <img
                 src={heroImage}
                 alt={`${card.groom_name} & ${card.bride_name}`}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                className="w-full h-full object-cover animate-ken-burns transition-transform duration-700"
               />
-              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+
+              {/* Soft Vignette Overlay to frame the subjects luxuriously */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/15 pointer-events-none" />
+
+              {/* Floating Auspicious Couple Badge */}
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-amber-300/40 text-[10px] text-amber-200 font-medium whitespace-nowrap shadow-md">
+                ✦ {lang === "km" ? "គូស្វាមីភរិយាថ្មី" : "The Blessed Couple"} ✦
+              </div>
+
+              {/* Expand Hint */}
+              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white z-10">
                 <Maximize2 className="w-5 h-5 drop-shadow-md" />
               </div>
             </div>
@@ -654,8 +766,73 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
               <span>{card.khmer_date}</span>
             </div>
             <p className="text-xs text-stone-700 font-semibold mt-1">
-              ត្រូវនឹងថ្ងៃទី {card.solar_date} • វេលាម៉ោង {card.solar_time}
+              {lang === "km"
+                ? `ត្រូវនឹងថ្ងៃទី ${card.solar_date} • វេលាម៉ោង ${card.solar_time}`
+                : `Solar Date: ${card.solar_date} • Time: ${card.solar_time}`}
             </p>
+          </div>
+        </section>
+
+        {/* =====================================================================
+            3.5 DUAL GROOM & BRIDE SPOTLIGHT CAMEOS (Canva Pro / Studio Tier)
+           ===================================================================== */}
+        <section className={`px-5 py-6 border-y ${s.innerBorderColor} ${s.sectionBandBg}`}>
+          <div className="flex items-center justify-center gap-3 max-w-[380px] mx-auto">
+            {/* Groom Cameo */}
+            <div className="flex-1 flex flex-col items-center text-center">
+              <div
+                className={`relative w-28 h-36 sm:w-32 sm:h-40 rounded-t-full rounded-b-2xl overflow-hidden border-2 ${s.archBorder} p-1 ${s.archBg} shadow-md group cursor-pointer transition transform hover:-translate-y-1`}
+                onClick={() => setSelectedImage(groomImage)}
+              >
+                <div className="relative w-full h-full rounded-t-full rounded-b-xl overflow-hidden bg-stone-100">
+                  <img
+                    src={groomImage}
+                    alt={card.groom_name}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                </div>
+              </div>
+              <span className="mt-2 text-[10px] font-bold uppercase tracking-wider text-amber-900 block">
+                {t.theGroom}
+              </span>
+              <span className="text-xs sm:text-sm font-bold font-serif text-stone-900">
+                {card.groom_name}
+              </span>
+            </div>
+
+            {/* Center Monogram Crest & Interlocking Rings */}
+            <div className="flex flex-col items-center justify-center shrink-0 px-1">
+              <BotanicalMonogramCrest
+                initials={monogramInitials}
+                className={`w-12 h-12 ${s.flowerColor} opacity-85`}
+              />
+              <span className="text-base font-serif italic text-amber-700 my-0.5">&amp;</span>
+              <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/30 animate-pulse" />
+            </div>
+
+            {/* Bride Cameo */}
+            <div className="flex-1 flex flex-col items-center text-center">
+              <div
+                className={`relative w-28 h-36 sm:w-32 sm:h-40 rounded-t-full rounded-b-2xl overflow-hidden border-2 ${s.archBorder} p-1 ${s.archBg} shadow-md group cursor-pointer transition transform hover:-translate-y-1`}
+                onClick={() => setSelectedImage(brideImage)}
+              >
+                <div className="relative w-full h-full rounded-t-full rounded-b-xl overflow-hidden bg-stone-100">
+                  <img
+                    src={brideImage}
+                    alt={card.bride_name}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                </div>
+              </div>
+              <span className="mt-2 text-[10px] font-bold uppercase tracking-wider text-rose-900 block">
+                {t.theBride}
+              </span>
+              <span className="text-xs sm:text-sm font-bold font-serif text-stone-900">
+                {card.bride_name}
+              </span>
+            </div>
           </div>
         </section>
 
@@ -828,11 +1005,11 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         </section>
 
         {/* =====================================================================
-            7. PRE-WEDDING LOVE STORY PHOTO GALLERY
+            7. PRE-WEDDING LOVE STORY PHOTO GALLERY (Multi-Mode Studio Tier)
            ===================================================================== */}
         {gallery.length > 0 && (
           <section className={`px-5 py-8 border-y ${s.innerBorderColor} bg-white/40`}>
-            <div className="text-center mb-5">
+            <div className="text-center mb-4">
               <span className={`text-[10px] font-bold ${s.subtitleColor} uppercase tracking-widest block`}>
                 {t.galleryTitle}
               </span>
@@ -841,57 +1018,139 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
               </p>
             </div>
 
-            {/* Slider */}
-            <div className={`relative max-w-[360px] mx-auto aspect-[16/11] rounded-2xl overflow-hidden shadow-md border ${s.innerBorderColor} group`}>
-              <img
-                src={gallery[currentSlide]}
-                alt={`Photo ${currentSlide + 1}`}
-                className="w-full h-full object-cover transition-all duration-500"
-              />
-
-              {/* Prev / Next controls */}
+            {/* View Mode Switcher: Cinematic vs Polaroid */}
+            <div className="flex items-center justify-center gap-1.5 p-1 max-w-[260px] mx-auto mb-5 rounded-full bg-stone-100 border border-amber-200/80 shadow-xs">
               <button
                 type="button"
-                onClick={prevSlide}
-                className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 text-white hover:bg-black/70 backdrop-blur-xs transition cursor-pointer"
-                aria-label="Previous"
+                onClick={() => setGalleryViewMode("slider")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-semibold transition cursor-pointer ${
+                  galleryViewMode === "slider"
+                    ? "bg-amber-800 text-white shadow-xs"
+                    : "text-stone-600 hover:text-stone-900"
+                }`}
               >
-                <ChevronLeft className="w-4 h-4" />
+                <Film className="w-3.5 h-3.5" />
+                <span>{t.cinematicView}</span>
               </button>
               <button
                 type="button"
-                onClick={nextSlide}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 text-white hover:bg-black/70 backdrop-blur-xs transition cursor-pointer"
-                aria-label="Next"
+                onClick={() => setGalleryViewMode("grid")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-semibold transition cursor-pointer ${
+                  galleryViewMode === "grid"
+                    ? "bg-amber-800 text-white shadow-xs"
+                    : "text-stone-600 hover:text-stone-900"
+                }`}
               >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedImage(gallery[currentSlide])}
-                className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/50 text-white hover:bg-black/80 backdrop-blur-xs transition cursor-pointer"
-                title="Fullscreen"
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>{t.polaroidView}</span>
               </button>
             </div>
 
-            {/* Thumbnails */}
-            <div className="flex items-center justify-center gap-1.5 mt-3 overflow-x-auto py-1">
-              {gallery.map((imgUrl, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setCurrentSlide(idx)}
-                  className={`relative w-12 h-12 rounded-lg overflow-hidden shrink-0 border transition cursor-pointer ${
-                    currentSlide === idx ? `border-2 ${s.borderColor} scale-105 shadow-sm` : "border-transparent opacity-60 hover:opacity-100"
-                  }`}
-                >
-                  <img src={imgUrl} alt="Thumbnail" className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
+            {galleryViewMode === "slider" ? (
+              <div>
+                {/* Cinematic Large Screen Stage */}
+                <div className={`relative max-w-[380px] mx-auto aspect-[4/3] rounded-2xl overflow-hidden shadow-xl border-2 ${s.borderColor} p-1 bg-gradient-to-b from-amber-100/50 to-white group`}>
+                  <div className="relative w-full h-full rounded-xl overflow-hidden bg-stone-900">
+                    <img
+                      key={currentSlide}
+                      src={gallery[currentSlide]}
+                      alt={`Photo ${currentSlide + 1}`}
+                      className="w-full h-full object-cover animate-ken-burns transition-all duration-700"
+                    />
+
+                    {/* Specular shimmer across the gold frame */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-shimmer-sweep pointer-events-none" />
+
+                    {/* Gradient vignette */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20 pointer-events-none" />
+
+                    {/* Slide Counter Badge */}
+                    <div className="absolute top-2.5 right-2.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-xs text-[10px] font-mono text-amber-200 border border-amber-300/40">
+                      {String(currentSlide + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
+                    </div>
+
+                    {/* Prev / Next controls */}
+                    <button
+                      type="button"
+                      onClick={prevSlide}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-xs transition transform hover:scale-110 border border-white/20 cursor-pointer shadow-md"
+                      aria-label="Previous"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={nextSlide}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-xs transition transform hover:scale-110 border border-white/20 cursor-pointer shadow-md"
+                      aria-label="Next"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+
+                    {/* Fullscreen Button */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedImage(gallery[currentSlide])}
+                      className="absolute bottom-2.5 right-2.5 p-2 rounded-xl bg-black/60 hover:bg-black/85 text-white backdrop-blur-xs transition border border-white/20 cursor-pointer shadow-md"
+                      title="Fullscreen"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filmstrip Thumbnails Row */}
+                <div className="flex items-center justify-center gap-2 mt-4 overflow-x-auto py-1 px-2">
+                  {gallery.map((imgUrl, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setCurrentSlide(idx)}
+                      className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all duration-300 cursor-pointer ${
+                        currentSlide === idx
+                          ? `${s.borderColor} scale-110 shadow-lg ring-2 ring-amber-400/50`
+                          : "border-transparent opacity-50 hover:opacity-100 hover:scale-105"
+                      }`}
+                    >
+                      <img src={imgUrl} alt="Thumbnail" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* Polaroid Collage Grid Mode */
+              <div className="grid grid-cols-2 gap-3.5 max-w-[390px] mx-auto pt-2 pb-4">
+                {gallery.map((imgUrl, idx) => {
+                  const rotations = ["-rotate-1", "rotate-2", "rotate-1", "-rotate-2", "-rotate-1.5", "rotate-1.5"];
+                  const rotClass = rotations[idx % rotations.length];
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => setSelectedImage(imgUrl)}
+                      className={`group relative bg-[#fffdf9] p-2 pb-3.5 rounded-xl border border-amber-200/70 shadow-md cursor-pointer transition-all duration-500 transform ${rotClass} hover:rotate-0 hover:scale-105 hover:shadow-2xl hover:z-20`}
+                    >
+                      {/* Polaroid Image Container */}
+                      <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden bg-stone-100">
+                        <img
+                          src={imgUrl}
+                          alt={`Memory ${idx + 1}`}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        />
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+                          <Maximize2 className="w-4 h-4 drop-shadow-md" />
+                        </div>
+                      </div>
+                      {/* Handwritten Studio Caption */}
+                      <div className="mt-2 text-center">
+                        <span className="text-[10px] font-serif italic text-stone-600 block truncate px-1">
+                          {idx % 2 === 0 ? "✨ Sweet Moment" : "❤️ Forever & Always"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
         )}
 
