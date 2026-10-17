@@ -70,6 +70,19 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    const rawTarget =
+      process.env.INTERNAL_WEDDING_API_URL ||
+      process.env.NEXT_PUBLIC_WEDDING_API_URL ||
+      "http://127.0.0.1:8002";
+    const baseTarget = rawTarget.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
+    return [
+      {
+        source: "/api/v1/wedding/:path*",
+        destination: `${baseTarget}/api/v1/wedding/:path*`,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

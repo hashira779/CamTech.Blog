@@ -54,11 +54,14 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=${PUBLIC_API_URL:-https://cms.camtech.cam/api/v1}
       - INTERNAL_API_URL=http://api:8000/api/v1
+      - INTERNAL_WEDDING_API_URL=http://wedding-service:8000/api/v1
       - NEXT_PUBLIC_ADSENSE_PUBLISHER_ID=${NEXT_PUBLIC_ADSENSE_PUBLISHER_ID:-ca-pub-1311307969887065}
       - NEXT_PUBLIC_ADSENSE_ENABLED=${NEXT_PUBLIC_ADSENSE_ENABLED:-true}
       - NODE_ENV=production
     depends_on:
       api:
+        condition: service_healthy
+      wedding-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/ || exit 1"]
@@ -163,6 +166,32 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
+    networks:
+      - daily_discovery_net
+
+  wedding-service:
+    build:
+      context: ./apps/wedding-service
+      dockerfile: Dockerfile
+    container_name: daily_discovery_wedding
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8002:8000"
+    environment:
+      - PORT=8000
+      - APP_ENV=production
+      - FRONTEND_URL=${PUBLIC_WEB_URL:-https://blog.camtech.cam}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is missing from the server .env next to docker-compose.yml}
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-discovery_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is missing from the server .env}@postgres:5432/${POSTGRES_DB:-daily_discovery}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/wedding/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     networks:
       - daily_discovery_net
 

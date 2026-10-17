@@ -24,8 +24,12 @@ from app.models.transport import (
 )
 from app.models.guide_event import TravelGuide, Event
 from app.models.storage import StorageProvider, StoragePolicy
+from app.models.wedding import WeddingUser, WeddingCard, WeddingWish
 
 __all__ = [
+    "WeddingUser",
+    "WeddingCard",
+    "WeddingWish",
     "User",
     "Author",
     "Source",
