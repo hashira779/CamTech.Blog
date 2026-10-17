@@ -29,6 +29,7 @@ const columns: { heading: string; links: FooterLink[] }[] = [
       { href: "/world", label: "World" },
       { href: "/discover", label: "Discover" },
       { href: "/trending", label: "Trending" },
+      { href: "/wedding", label: "Wedding Invitation" },
     ],
   },
   {
@@ -74,6 +75,7 @@ const TRANSLATED: Record<string, string> = {
   "/world": "nav.world",
   "/discover": "nav.discover",
   "/trending": "nav.trending",
+  "/wedding": "nav.wedding",
   "/travel": "nav.travel",
   "/quiz": "nav.quiz",
   "/tools": "nav.tools",

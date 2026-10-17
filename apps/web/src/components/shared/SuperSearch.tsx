@@ -15,6 +15,7 @@ import {
   BookOpen,
   User,
   Sparkles,
+  Heart,
 } from "lucide-react";
 import { searchGlobal } from "@/lib/api";
 import { SearchResultItem } from "@/types";
@@ -32,6 +33,7 @@ import { cleanText } from "@/lib/format";
  * category hues as the rest of the site.
  */
 const QUICK_LINKS: { href: string; key: string; Icon: typeof Compass }[] = [
+  { href: "/wedding", key: "nav.wedding", Icon: Heart },
   { href: "/travel", key: "nav.travel", Icon: Compass },
   { href: "/quiz", key: "nav.quiz", Icon: HelpCircle },
   { href: "/tools", key: "nav.tools", Icon: Wrench },

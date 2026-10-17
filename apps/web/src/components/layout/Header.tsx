@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
  * Labels come from the `nav.*` dictionary keys rather than a second inline copy table — the header
  * used to carry its own translations that drifted from the ones every other page used.
  */
-const navLinks = [
+const navLinks: { href: string; labelKey: string; highlight?: boolean }[] = [
   { href: "/", labelKey: "nav.home" },
   { href: "/cambodia", labelKey: "nav.cambodia" },
   { href: "/world", labelKey: "nav.world" },
@@ -37,6 +37,7 @@ const navLinks = [
   { href: "/quiz", labelKey: "nav.quiz" },
   { href: "/tools", labelKey: "nav.tools" },
   { href: "/trending", labelKey: "nav.trending" },
+  { href: "/wedding", labelKey: "nav.wedding", highlight: true },
 ];
 
 function isActivePath(pathname: string | null, href: string) {
@@ -226,13 +227,20 @@ export function Header() {
                     href={link.href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "block whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors lg:py-3",
+                      "flex items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors lg:py-3",
                       active
                         ? "text-accent lg:text-foreground"
+                        : link.highlight
+                        ? "text-amber-500 hover:text-amber-400 font-semibold"
                         : "text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    {t(link.labelKey)}
+                    <span>{t(link.labelKey)}</span>
+                    {link.highlight && (
+                      <span className="inline-flex items-center rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-500 border border-amber-500/30">
+                        NEW
+                      </span>
+                    )}
                   </Link>
                 </li>
               );
@@ -273,10 +281,19 @@ export function Header() {
                         "flex items-center justify-between py-3 text-sm transition-colors",
                         active
                           ? "font-semibold text-accent"
+                          : link.highlight
+                          ? "font-semibold text-amber-500"
                           : "font-medium text-foreground hover:text-accent"
                       )}
                     >
-                      {t(link.labelKey)}
+                      <span className="flex items-center gap-2">
+                        {t(link.labelKey)}
+                        {link.highlight && (
+                          <span className="inline-flex items-center rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-500 border border-amber-500/30">
+                            NEW
+                          </span>
+                        )}
+                      </span>
                       {active && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />}
                     </Link>
                   </li>

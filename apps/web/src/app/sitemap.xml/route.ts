@@ -49,6 +49,11 @@ export async function GET(request: Request) {
     <changefreq>hourly</changefreq>
     <priority>0.8</priority>
   </url>
+  <url>
+    <loc>${baseUrl}/wedding</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.85</priority>
+  </url>
   <url><loc>${baseUrl}/about</loc></url>
   <url><loc>${baseUrl}/editorial-policy</loc></url>
   <url><loc>${baseUrl}/corrections-policy</loc></url>
