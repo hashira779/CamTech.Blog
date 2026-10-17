@@ -11,23 +11,38 @@ export async function generateMetadata({ params }: WeddingCardPageProps): Promis
   const { slug } = await params;
   const card = await fetchPublicWeddingCard(slug);
 
-  const title = `${card.title} - ${card.groom_name} & ${card.bride_name}`;
+  const coupleNames = `${card.groom_name} & ${card.bride_name}`;
+  const weddingTitle = card.title || "សិរីសួស្តី អាពាហ៍ពិពាហ៍";
+  const title = `${weddingTitle}៖ ${coupleNames}`;
   const description = `លិខិតអញ្ជើញអាពាហ៍ពិពាហ៍ប្រពៃណីខ្មែរ រវាងកូនប្រុស ${card.groom_name} និងកូនស្រី ${card.bride_name} នៅថ្ងៃទី ${card.solar_date}`;
+  const imageUrl = card.cover_image_url || card.groom_image_url || "";
 
   return {
-    title,
+    title: {
+      absolute: title, // Prevents template append "| CamTech Blog" so the shared card has 100% clean title
+    },
     description,
     openGraph: {
       title,
       description,
-      images: [
-        {
-          url: card.cover_image_url || card.groom_image_url || "",
-          width: 1200,
-          height: 630,
-          alt: `${card.groom_name} & ${card.bride_name} Wedding`,
-        },
-      ],
+      siteName: "លិខិតអញ្ជើញអាពាហ៍ពិពាហ៍", // Pure wedding title instead of blog site name
+      type: "website",
+      images: imageUrl
+        ? [
+            {
+              url: imageUrl,
+              width: 1200,
+              height: 630,
+              alt: `${coupleNames} Wedding Invitation`,
+            },
+          ]
+        : [],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: imageUrl ? [imageUrl] : [],
     },
   };
 }

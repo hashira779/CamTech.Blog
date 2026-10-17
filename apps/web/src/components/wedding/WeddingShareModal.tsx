@@ -29,6 +29,7 @@ export function WeddingShareModal({ card, isOpen, onClose }: WeddingShareModalPr
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copiedGeneral, setCopiedGeneral] = useState(false);
   const [copiedPersonal, setCopiedPersonal] = useState(false);
+  const [copiedFullText, setCopiedFullText] = useState(false);
   const [guestName, setGuestName] = useState("");
 
   const baseUrl = typeof window !== "undefined"
@@ -38,6 +39,15 @@ export function WeddingShareModal({ card, isOpen, onClose }: WeddingShareModalPr
   const personalUrl = guestName.trim()
     ? `${baseUrl}?guest=${encodeURIComponent(guestName.trim())}`
     : baseUrl;
+
+  // Build clean, formal Khmer invitation text without any website branding
+  const buildInvitationMessage = (name?: string) => {
+    const honored = name?.trim() ? name.trim() : "ភ្ញៀវកិត្តិយសដ៏ខ្ពង់ខ្ពស់";
+    if (lang === "en") {
+      return `💒 Wedding Invitation\n\nCordially inviting ${honored} to celebrate the wedding ceremony of\n🤵 ${card.groom_name} & 👰 ${card.bride_name}\n\n📅 Date: ${card.solar_date} at ${card.solar_time}\n💌 Tap the link below to open your digital wedding invitation:\n${personalUrl}`;
+    }
+    return `💒 សិរីសួស្តី អាពាហ៍ពិពាហ៍\n\nសូមគោរពអញ្ជើញ ${honored} ចូលរួមជាអធិបតី និងជាភ្ញៀវកិត្តិយស ក្នុងពិធីរៀបអាពាហ៍ពិពាហ៍កូនប្រុស កូនស្រីរបស់យើងខ្ញុំ\n\n🤵 កូនប្រុសនាម៖ ${card.groom_name}\n👰 ជាគូនឹង កូនស្រីនាម៖ ${card.bride_name}\n\n📅 កាលបរិច្ឆេទ៖ ថ្ងៃទី ${card.solar_date} វេលាម៉ោង ${card.solar_time}\n💌 សូមចុចតំណភ្ជាប់ខាងក្រោមដើម្បីបើកមើលធៀបការឌីជីថល៖\n${personalUrl}`;
+  };
 
   // Generate QR Code
   useEffect(() => {
@@ -70,6 +80,13 @@ export function WeddingShareModal({ card, isOpen, onClose }: WeddingShareModalPr
     setTimeout(() => setCopiedPersonal(false), 2000);
   };
 
+  const handleCopyFullText = () => {
+    const message = buildInvitationMessage(guestName);
+    navigator.clipboard.writeText(message);
+    setCopiedFullText(true);
+    setTimeout(() => setCopiedFullText(false), 2000);
+  };
+
   const handleDownloadQr = () => {
     if (!qrDataUrl) return;
     const link = document.createElement("a");
@@ -87,6 +104,12 @@ export function WeddingShareModal({ card, isOpen, onClose }: WeddingShareModalPr
     window.open(tgUrl, "_blank");
   };
 
+  const handleWhatsAppShare = (targetUrl: string, name?: string) => {
+    const message = buildInvitationMessage(name);
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, "_blank");
+  };
+
   const handleFacebookShare = (targetUrl: string) => {
     const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(targetUrl)}`;
     window.open(fbUrl, "_blank");
@@ -96,8 +119,8 @@ export function WeddingShareModal({ card, isOpen, onClose }: WeddingShareModalPr
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({
-          title: `${card.title} - ${card.groom_name} & ${card.bride_name}`,
-          text: `លិខិតអញ្ជើញអាពាហ៍ពិពាហ៍ រវាង ${card.groom_name} & ${card.bride_name}`,
+          title: `${card.groom_name} & ${card.bride_name} - ${card.title || "សិរីសួស្តី អាពាហ៍ពិពាហ៍"}`,
+          text: `សូមគោរពអញ្ជើញចូលរួមពិធីសិរីសួស្តីអាពាហ៍ពិពាហ៍ ${card.groom_name} & ${card.bride_name}`,
           url: personalUrl,
         });
       } catch {
@@ -117,12 +140,15 @@ export function WeddingShareModal({ card, isOpen, onClose }: WeddingShareModalPr
       guestLabel: "បញ្ចូលឈ្មោះភ្ញៀវកិត្តិយស (សម្រាប់ដាក់លើធៀប)",
       guestPlaceholder: "ឧ. ឯកឧត្តម សុខ សាន, លោកពូ និងអ្នកមីង, ក្រុមការងារ...",
       personalHint: "ពេលភ្ញៀវបើក Link នេះ ស្រោមសំបុត្រ និងលិខិតអញ្ជើញនឹងបង្ហាញឈ្មោះគាត់ផ្ទាល់ដោយស្វ័យប្រវត្តិ!",
+      copyFullInvitation: "ចម្លងសារអញ្ជើញពេញលេញ & Link",
+      copyFullHint: "មានសារពាក្យអញ្ជើញផ្លូវការ និងតំណភ្ជាប់ធៀបការ រួចជាស្រេចសម្រាប់ paste ក្នុង Telegram ឬ Messenger",
       downloadQr: "ទាញយក QR Code (PNG)",
       copyLink: "ចម្លង Link",
       copied: "បានចម្លង!",
-      shareTelegram: "ផ្ញើតាម Telegram",
-      shareFacebook: "ចែករំលែកលើ Facebook",
-      shareNative: "ចែករំលែកទៅកាន់កម្មវិធីផ្សេងៗ",
+      shareTelegram: "Telegram",
+      shareWhatsApp: "WhatsApp",
+      shareFacebook: "Facebook",
+      shareNative: "កម្មវិធីផ្សេងៗ",
       scanHint: "ស្កេនដើម្បីបើកធៀបការឌីជីថល",
       printStandeeHint: "បងអាចទាញយក QR Code នេះយកទៅព្រីនដាក់លើធៀបក្រដាស ឬបិទលើ Standee មុខរោងការបាន!",
       close: "បិទ",
@@ -135,12 +161,15 @@ export function WeddingShareModal({ card, isOpen, onClose }: WeddingShareModalPr
       guestLabel: "Enter Honored Guest Name (Optional)",
       guestPlaceholder: "e.g. Mr. & Mrs. Smith, Dearest Friends...",
       personalHint: "When your guest opens this link, the envelope dynamically honors them by name!",
+      copyFullInvitation: "Copy Formal Invitation Text & Link",
+      copyFullHint: "Includes formal invitation greeting and link ready to paste in Telegram, WhatsApp, or Messenger",
       downloadQr: "Download QR Code (PNG)",
       copyLink: "Copy Link",
       copied: "Copied!",
-      shareTelegram: "Share via Telegram",
-      shareFacebook: "Share to Facebook",
-      shareNative: "Share via Apps (Device)",
+      shareTelegram: "Telegram",
+      shareWhatsApp: "WhatsApp",
+      shareFacebook: "Facebook",
+      shareNative: "More Apps",
       scanHint: "Scan to open digital wedding invitation",
       printStandeeHint: "You can download this QR to print on physical cards or reception entrance standees!",
       close: "Close",
@@ -274,28 +303,65 @@ export function WeddingShareModal({ card, isOpen, onClose }: WeddingShareModalPr
             </div>
           </div>
 
-          {/* SECTION 3: 1-CLICK INSTANT SOCIAL SHARING */}
+          {/* SECTION 3: FORMAL INVITATION MESSAGE COPY (Clean text without any website branding) */}
+          <div className="p-4 rounded-3xl bg-amber-50/70 dark:bg-stone-900/60 border border-amber-300/80 dark:border-stone-700 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-900 dark:text-amber-300 font-serif flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>{t.copyFullInvitation}</span>
+              </span>
+              <button
+                type="button"
+                onClick={handleCopyFullText}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white text-xs font-bold shadow-xs transition transform hover:scale-102 cursor-pointer"
+              >
+                {copiedFullText ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedFullText ? t.copied : t.copyLink}</span>
+              </button>
+            </div>
+
+            <p className="text-[11px] text-stone-600 dark:text-stone-300 leading-relaxed">
+              {t.copyFullHint}
+            </p>
+
+            {/* Preview of the clean greeting message */}
+            <pre className="p-3 rounded-2xl bg-white dark:bg-stone-950 border border-amber-200 dark:border-stone-800 text-[11px] font-sans text-stone-700 dark:text-stone-300 whitespace-pre-wrap leading-relaxed shadow-inner max-h-36 overflow-y-auto">
+              {buildInvitationMessage(guestName)}
+            </pre>
+          </div>
+
+          {/* SECTION 4: 1-CLICK INSTANT SOCIAL SHARING */}
           <div className="space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400 block font-serif">
               {lang === "km" ? "ផ្ញើទៅកាន់បណ្តាញសង្គម" : "Share Directly"}
             </span>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {/* Telegram */}
               <button
                 type="button"
                 onClick={() => handleTelegramShare(personalUrl, guestName)}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[#229ED9] hover:bg-[#1e8bc0] text-white font-bold text-xs shadow-xs transition cursor-pointer"
+                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-[#229ED9] hover:bg-[#1e8bc0] text-white font-bold text-xs shadow-xs transition cursor-pointer"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Telegram</span>
+              </button>
+
+              {/* WhatsApp */}
+              <button
+                type="button"
+                onClick={() => handleWhatsAppShare(personalUrl, guestName)}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold text-xs shadow-xs transition cursor-pointer"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>WhatsApp</span>
               </button>
 
               {/* Facebook */}
               <button
                 type="button"
                 onClick={() => handleFacebookShare(personalUrl)}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[#1877F2] hover:bg-[#166fe5] text-white font-bold text-xs shadow-xs transition cursor-pointer"
+                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-[#1877F2] hover:bg-[#166fe5] text-white font-bold text-xs shadow-xs transition cursor-pointer"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
                 <span>Facebook</span>
@@ -305,7 +371,7 @@ export function WeddingShareModal({ card, isOpen, onClose }: WeddingShareModalPr
               <button
                 type="button"
                 onClick={handleNativeShare}
-                className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-gradient-to-r from-stone-800 to-stone-900 hover:bg-stone-700 text-white font-bold text-xs shadow-xs transition cursor-pointer"
+                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-gradient-to-r from-stone-800 to-stone-900 hover:bg-stone-700 text-white font-bold text-xs shadow-xs transition cursor-pointer"
               >
                 <Share2 className="w-3.5 h-3.5" />
                 <span>{t.shareNative}</span>

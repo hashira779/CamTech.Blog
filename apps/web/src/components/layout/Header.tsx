@@ -133,6 +133,11 @@ export function Header() {
     };
   }, [activeHref, place]);
 
+  // When viewing a public wedding invitation card, hide the blog header completely
+  if (pathname && pathname.startsWith("/wedding/") && pathname !== "/wedding") {
+    return null;
+  }
+
   return (
     <header
       data-scrolled={folded ? "true" : "false"}

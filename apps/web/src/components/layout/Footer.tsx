@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Rss, ArrowUpRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { Container } from "@/components/ui/container";
@@ -90,7 +91,13 @@ const TRANSLATED: Record<string, string> = {
 };
 
 export function Footer() {
+  const pathname = usePathname();
   const { lang, t } = useI18n();
+
+  // When viewing a public wedding invitation card, hide the blog footer completely
+  if (pathname && pathname.startsWith("/wedding/") && pathname !== "/wedding") {
+    return null;
+  }
 
   const label = (link: FooterLink) => {
     const key = TRANSLATED[link.href];
