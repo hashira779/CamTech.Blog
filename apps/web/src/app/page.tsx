@@ -102,13 +102,24 @@ export default async function HomePage() {
 
   return (
     <div className="flex w-full flex-1 flex-col">
-      {/* The masthead is the brand, not a page title; the document still needs one. */}
-      <h1 className="sr-only">
-        Today&rsquo;s briefing — Cambodia and world news, travel and discoveries
-      </h1>
-
       {/* ── Live rail ─────────────────────────────────────────────────────── */}
       {tickerItems.length > 0 && <NewsTicker items={tickerItems} />}
+
+      {/* ── Headline ──────────────────────────────────────────────────────── */}
+      <Section className="pb-0 pt-14 sm:pt-20">
+        <Container>
+          <div className="mx-auto max-w-4xl text-center">
+            <p className="hero-rise section-label text-accent">Today&rsquo;s briefing</p>
+            <h1 className="hero-rise hero-rise-2 mt-4 font-display text-[clamp(2.75rem,7vw,6rem)] leading-[1.02] tracking-tight text-foreground">
+              Cambodia and the world, told clearly.
+            </h1>
+            <p className="hero-rise hero-rise-3 mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
+              News with its sources named, travel guides to all 25 provinces, a daily quiz and
+              everyday tools.
+            </p>
+          </div>
+        </Container>
+      </Section>
 
       {/* ── Lead ──────────────────────────────────────────────────────────── */}
       {hasContent && (
@@ -130,7 +141,7 @@ export default async function HomePage() {
             )}
 
             <div className="grid gap-8 lg:grid-cols-12 lg:gap-10">
-              <div className="lg:col-span-8">
+              <div className="scroll-zoom lg:col-span-8">
                 <NewsCard article={lead} variant="hero" priority showSummary />
               </div>
 
@@ -395,6 +406,42 @@ export default async function HomePage() {
           </Container>
         </Section>
       )}
+
+      {/* ── Wedding invitations ───────────────────────────────────────────── */}
+      <Section className="pt-0">
+        <Container>
+          <div className="scroll-zoom flex flex-wrap items-center overflow-hidden rounded-[2rem] bg-[#1e2b26] text-[#f6f1e8]">
+            <div className="flex flex-[1_1_26rem] flex-col gap-5 p-8 sm:p-12 lg:p-16">
+              <span className="text-sm font-semibold text-[#e3c78f]">CamTech Invitations</span>
+              <h2 className="font-display text-[clamp(2.5rem,5vw,4.5rem)] leading-[1.02] tracking-tight">
+                An invitation they&rsquo;ll <em>open twice.</em>
+              </h2>
+              <p className="max-w-md text-base leading-relaxed text-[#c4ccc6] sm:text-lg">
+                A wax-sealed envelope, cinematic photos, a live countdown and one-tap RSVP — in
+                Khmer and English.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-3">
+                <Link
+                  href="/wedding"
+                  className="inline-flex min-h-12 items-center gap-2 rounded-full bg-[#f6f1e8] px-6 text-sm font-semibold text-[#1e2b26] transition-transform duration-300 hover:-translate-y-0.5"
+                >
+                  Create an invitation
+                  <ArrowRight size={15} aria-hidden="true" />
+                </Link>
+              </div>
+            </div>
+            <div className="flex min-h-[26rem] flex-[1_1_20rem] items-center justify-center p-10" aria-hidden="true">
+              <div className="float-phone flex h-[26rem] w-[13.5rem] flex-col items-center justify-center gap-2 rounded-[2.25rem] border-8 border-[#0f1714] bg-[#f6f1e8] text-[#1f1b16] shadow-[0_40px_80px_rgba(0,0,0,0.45)]">
+                <span className="text-[9px] uppercase tracking-[0.25em] text-[#7e5f2e]">The wedding of</span>
+                <span className="font-display text-2xl leading-none">Groom</span>
+                <span className="font-display text-lg italic text-[#7e5f2e]">&amp;</span>
+                <span className="font-display text-2xl leading-none">Bride</span>
+                <span className="mt-5 h-12 w-12 rounded-full bg-[#8e2f2a] shadow-[inset_0_-3px_6px_rgba(0,0,0,0.35)]" />
+              </div>
+            </div>
+          </div>
+        </Container>
+      </Section>
 
       {/* ── Quiz + tools ──────────────────────────────────────────────────── */}
       {(quiz || popularTools.length > 0) && (

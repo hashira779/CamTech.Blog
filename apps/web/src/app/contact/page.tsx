@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Container } from "@/components/ui/container";
+import { PageHeader } from "@/components/layout/page-header";
 
 /**
  * Contact.
@@ -24,17 +25,13 @@ const desks = [
 export default function ContactPage() {
   return (
     <div className="flex w-full flex-1 flex-col">
-      <Container width="reading" className="pt-12 sm:pt-16">
-        <p className="section-label text-accent">Contact</p>
-        <h1 className="mt-3 font-display text-4xl leading-[1.05] tracking-tight text-foreground sm:text-5xl">
-          Contact the newsroom
-        </h1>
-        <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
-          Questions, press releases, factual tips and partnership enquiries all reach the newsroom
-          through one of the two addresses below.
-        </p>
-        <div aria-hidden="true" className="mt-8 h-px bg-border" />
-      </Container>
+      <PageHeader
+        width="reading"
+        breadcrumbs={[{ label: "Contact the newsroom" }]}
+        eyebrow={<>Contact</>}
+        title={<>Contact the newsroom</>}
+        description={<>Questions, press releases, factual tips and partnership enquiries all reach the newsroom through one of the two addresses below.</>}
+      />
 
       <Container width="reading" as="article" className="pb-16 pt-6 sm:pb-20">
         <ul className="divide-y divide-border">

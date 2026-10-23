@@ -1,19 +1,17 @@
 "use client";
 
+import { PageHeader } from "@/components/layout/page-header";
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import { Bus, MapPin, ShieldCheck } from "lucide-react";
 import { searchTransportRoutes, getTransportOperators, getTransportHubs, getDestinations } from "@/lib/api";
 import { TransportRoute, TransportOperator, TransportHub, Destination } from "@/types";
 import { TransportRouteCard } from "@/components/travel/TransportRouteCard";
 import { TransportOperatorCard } from "@/components/travel/TransportOperatorCard";
 import { Container } from "@/components/ui/container";
-import { SectionHeader } from "@/components/ui/section-header";
 import { FormField } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MetaDot } from "@/components/ui/byline";
 import { humanize } from "@/lib/format";
 import travelConfig from "@/data/travel_config.json";
 
@@ -61,30 +59,17 @@ export default function TransportPage() {
 
   return (
     <div className="flex w-full flex-1 flex-col">
-      <Container className="pt-6 sm:pt-8">
-        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          <Link href="/" className="transition-colors hover:text-foreground">
-            Home
-          </Link>
-          <MetaDot />
-          <Link href="/travel" className="transition-colors hover:text-foreground">
-            Travel
-          </Link>
-          <MetaDot />
-          <span className="text-foreground">Transport</span>
-        </nav>
-      </Container>
+      <PageHeader
+        breadcrumbs={[{ label: "Travel", href: "/travel" }, { label: "Transport" }]}
+        category="transport"
+        eyebrow="Transport"
+        title="Getting between the provinces"
+        description="Coach, minivan, train and ferry services held in the CamTech.Blog registry, with the departure times, durations and fares each record carries."
+      />
 
-      {/* ── Header + search ──────────────────────────────────────────────── */}
-      <Container className="pt-8 pb-10 sm:pt-12">
-        <SectionHeader
-          as="h1"
-          label="Transport"
-          title="Getting between the provinces"
-          description="Coach, minivan, train and ferry services held in the CamTech.Blog registry, with the departure times, durations and fares each record carries."
-        />
-
-        <div className="mt-8 max-w-4xl rounded-lg border border-border bg-card p-5 shadow-xs sm:p-6">
+      {/* ── Search ──────────────────────────────────────────────────────────── */}
+      <Container className="pb-10 pt-8">
+        <div className="max-w-4xl rounded-lg border border-border bg-card p-5 shadow-xs sm:p-6">
           <div className="grid gap-4 sm:grid-cols-3">
             <FormField label="From" id="transport-origin">
               <Select id="transport-origin" value={origin} onChange={(e) => setOrigin(e.target.value)}>

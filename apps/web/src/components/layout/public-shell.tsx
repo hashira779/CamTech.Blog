@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Breadcrumbs, BreadcrumbItem } from "@/components/shared/breadcrumbs";
 import { Container, type ContainerWidth } from "@/components/ui/container";
+import { PageHeader } from "@/components/layout/page-header";
 
 export interface PublicPageShellProps {
   breadcrumbs?: BreadcrumbItem[];
@@ -24,12 +25,11 @@ const WIDTH_BY_MAXWIDTH: Record<
 };
 
 /**
- * The public listing/section shell: breadcrumb, masthead-style page header, body.
+ * The public listing/section shell: the shared `PageHeader`, then the body.
  *
- * The page header is deliberately not `SectionHeader` — that primitive sizes the
- * h2 used inside a page, and this is the one h1 a route gets, so it takes the
- * display scale. Everything measures from `<Container>`, so columns line up with
- * the homepage and the other routes that share this shell.
+ * It used to draw its own header with a slightly different title size and
+ * spacing from every other route. It now hands the header to `PageHeader`, so
+ * pages on this shell and pages that use the header directly line up exactly.
  */
 export function PublicPageShell({
   breadcrumbs,
@@ -41,41 +41,32 @@ export function PublicPageShell({
   maxWidth = "standard",
   className = "",
 }: PublicPageShellProps) {
+  const width = WIDTH_BY_MAXWIDTH[maxWidth];
+
   return (
-    <div className="flex w-full flex-1 flex-col py-8 sm:py-12">
-      <Container width={WIDTH_BY_MAXWIDTH[maxWidth]} className={className}>
-        {breadcrumbs && breadcrumbs.length > 0 && (
-          <div className="mb-5">
+    <div className="flex w-full flex-1 flex-col pb-14 sm:pb-20">
+      {title ? (
+        <PageHeader
+          width={width}
+          breadcrumbs={breadcrumbs}
+          badge={badge}
+          title={title}
+          description={description}
+          aside={actions}
+        />
+      ) : (
+        breadcrumbs &&
+        breadcrumbs.length > 0 && (
+          <Container width={width} className="pt-8 sm:pt-12">
             <Breadcrumbs items={breadcrumbs} />
-          </div>
-        )}
+          </Container>
+        )
+      )}
 
-        {title && (
-          <header className="mb-8 border-b border-border pb-6 sm:mb-10">
-            {(badge || actions) && (
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                {badge}
-                {actions && (
-                  <div className="flex items-center gap-2">{actions}</div>
-                )}
-              </div>
-            )}
-
-            <h1 className="page-enter max-w-3xl font-display text-[32px] leading-[1.08] tracking-tight text-foreground sm:text-5xl sm:leading-[1.04]">
-              {title}
-            </h1>
-
-            {description && (
-              <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
-                {description}
-              </p>
-            )}
-          </header>
-        )}
-
-        {/* The root layout already opens <main id="main">; a second one here was
-            invalid HTML. */}
-        <div>{children}</div>
+      {/* The root layout already opens <main id="main">; a second one here was
+          invalid HTML. */}
+      <Container width={width} className={`pt-8 sm:pt-10 ${className}`}>
+        {children}
       </Container>
     </div>
   );

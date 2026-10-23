@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Container } from "@/components/ui/container";
+import { PageHeader } from "@/components/layout/page-header";
 
 /**
  * About.
@@ -13,18 +14,13 @@ import { Container } from "@/components/ui/container";
 export default function AboutPage() {
   return (
     <div className="flex w-full flex-1 flex-col">
-      <Container width="reading" className="pt-12 sm:pt-16">
-        <p className="section-label text-accent">Editorial transparency</p>
-        <h1 className="mt-3 font-display text-4xl leading-[1.05] tracking-tight text-foreground sm:text-5xl">
-          About CamTech.Blog
-        </h1>
-        <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
-          A Cambodian news and travel publication: reporting from Phnom Penh and the provinces,
-          world stories, travel guides, a daily quiz and everyday web tools — with every story
-          credited to the publisher that reported it.
-        </p>
-        <div aria-hidden="true" className="mt-8 h-px bg-border" />
-      </Container>
+      <PageHeader
+        width="reading"
+        breadcrumbs={[{ label: "About CamTech.Blog" }]}
+        eyebrow={<>Editorial transparency</>}
+        title={<>About CamTech.Blog</>}
+        description={<>A Cambodian news and travel publication: reporting from Phnom Penh and the provinces, world stories, travel guides, a daily quiz and everyday web tools — with every story credited to the publisher that reported it.</>}
+      />
 
       <Container width="reading" as="article" className="pb-16 pt-10 sm:pb-20">
         <section className="space-y-4">

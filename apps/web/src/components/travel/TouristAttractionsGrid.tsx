@@ -39,17 +39,17 @@ export function TouristAttractionsGrid({ places }: TouristAttractionsGridProps) 
   const [activeFilter, setActiveFilter] = useState("ALL");
 
   const filteredPlaces = useMemo(() => {
-    if (activeFilter === "ALL") return places;
+    let list = places;
     if (activeFilter === "TEMPLE") {
-      return places.filter((p) => p.place_type === "TEMPLE");
+      list = places.filter((p) => p.place_type === "TEMPLE");
+    } else if (activeFilter === "NATURE") {
+      list = places.filter((p) => ["WATERFALL", "NATIONAL_PARK", "LAKE"].includes(p.place_type));
+    } else if (activeFilter === "BEACH") {
+      list = places.filter((p) => ["BEACH", "RESORT"].includes(p.place_type));
     }
-    if (activeFilter === "NATURE") {
-      return places.filter((p) => ["WATERFALL", "NATIONAL_PARK", "LAKE"].includes(p.place_type));
-    }
-    if (activeFilter === "BEACH") {
-      return places.filter((p) => ["BEACH", "RESORT"].includes(p.place_type));
-    }
-    return places;
+    // Places with a verified photo lead; the rest keep their order after them, so
+    // the grid no longer opens on a run of grey "not verified" tiles.
+    return [...list].sort((a, b) => Number(!a.hero_image_url) - Number(!b.hero_image_url));
   }, [places, activeFilter]);
 
   return (

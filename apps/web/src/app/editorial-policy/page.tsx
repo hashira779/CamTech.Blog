@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Container } from "@/components/ui/container";
+import { PageHeader } from "@/components/layout/page-header";
 
 /**
  * Editorial & AI policy.
@@ -12,17 +13,13 @@ import { Container } from "@/components/ui/container";
 export default function EditorialPolicyPage() {
   return (
     <div className="flex w-full flex-1 flex-col">
-      <Container width="reading" className="pt-12 sm:pt-16">
-        <p className="section-label text-accent">Standards &amp; ethics</p>
-        <h1 className="mt-3 font-display text-4xl leading-[1.05] tracking-tight text-foreground sm:text-5xl">
-          Editorial &amp; AI policy
-        </h1>
-        <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
-          How CamTech.Blog verifies information, attributes sources, uses artificial intelligence
-          under human control, and keeps political reporting neutral.
-        </p>
-        <div aria-hidden="true" className="mt-8 h-px bg-border" />
-      </Container>
+      <PageHeader
+        width="reading"
+        breadcrumbs={[{ label: "Editorial & AI policy" }]}
+        eyebrow={<>Standards &amp; ethics</>}
+        title={<>Editorial &amp; AI policy</>}
+        description={<>How CamTech.Blog verifies information, attributes sources, uses artificial intelligence under human control, and keeps political reporting neutral.</>}
+      />
 
       <Container width="reading" as="article" className="pb-16 pt-10 sm:pb-20">
         <section className="space-y-4">

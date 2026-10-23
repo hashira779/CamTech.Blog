@@ -1,45 +1,54 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { Cormorant_Garamond, Noto_Serif_Khmer, Pinyon_Script } from "next/font/google";
 import { WeddingCard, WeddingAgendaItem, WeddingReception, WeddingWish } from "@/types/wedding";
 import { postWeddingWish, extractYouTubeVideoId } from "@/lib/wedding-api";
 import { WeddingShareModal } from "./WeddingShareModal";
 import { getTemplateById } from "@/lib/wedding-templates";
-import {
-  WeddingFlowerIcon,
-  BotanicalMonogramCrest,
-  KhmerCornerFiligree,
-  KhmerArchCrown,
-  FloatingWeddingPetals
-} from "./WeddingFlowers";
+import { FloatingWeddingPetals } from "./WeddingFlowers";
+import { LotusDivider, CornerFlourish, HandCircle, HandCheck } from "./WeddingInk";
 import confetti from "canvas-confetti";
 import {
-  Heart,
-  Volume2,
-  VolumeX,
-  Music,
   MapPin,
-  Calendar,
-  CalendarPlus,
-  Clock,
   Sparkles,
-  QrCode,
-  Send,
-  UserCheck,
-  Check,
-  Copy,
-  Maximize2,
   X,
-  Globe,
   Gift,
   ChevronLeft,
   ChevronRight,
-  Navigation,
   Share2,
-  Palette,
-  Film,
-  LayoutGrid
+  Minus,
+  Plus
 } from "lucide-react";
+
+/* The invitation's own type, set like printed stationery: a Garamond for Latin
+   display, a Khmer serif for Khmer copy, and a pen script for a few accents.
+   All self-hosted by next/font like the site fonts. */
+const wcDisplay = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-wc-display",
+  display: "swap",
+});
+const wcKhmer = Noto_Serif_Khmer({
+  subsets: ["khmer", "latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-wc-khmer",
+  display: "swap",
+});
+const wcScript = Pinyon_Script({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-wc-script",
+  display: "swap",
+});
+
+/* Timeline of the envelope opening (ms), matched to the transition delays in
+   globals.css: flap 0.25–1.2s, letter 1–2.1s, overlay fades 2.1–3s. */
+const OPEN_CONFETTI_AT = 1500;
+const OPEN_HERO_AT = 2100;
+const OPEN_DONE_AT = 3000;
 
 interface PremierRoyalKhmerCardProps {
   card: WeddingCard;
@@ -49,6 +58,7 @@ interface PremierRoyalKhmerCardProps {
 export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalKhmerCardProps) {
   const [isOpen, setIsOpen] = useState(isPreview);
   const [isOpeningAnim, setIsOpeningAnim] = useState(false);
+  const [heroIn, setHeroIn] = useState(isPreview);
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
   const [lang, setLang] = useState<"km" | "en">("km");
   const [showQrModal, setShowQrModal] = useState(false);
@@ -66,10 +76,6 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  // Gallery view mode & slide state
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [galleryViewMode, setGalleryViewMode] = useState<"slider" | "grid">("slider");
-
   // RSVP & Wish State
   const [guestName, setGuestName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -83,12 +89,21 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   // Audio Refs
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ytIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const openTimers = useRef<number[]>([]);
 
   const youtubeId = card.music_url ? extractYouTubeVideoId(card.music_url) : null;
 
-  // Active Template & Dynamic Styles
+  // Active Template: its accent is the "ink" colour of the ornaments, labels
+  // and links, and tints the envelope and the dark programme card
   const template = getTemplateById(card.theme);
-  const s = template.styles;
+  const themeVars = {
+    "--wc-accent": template.accentColor,
+    "--wc-deep": `color-mix(in oklab, ${template.accentColor} 14%, #1a1612)`,
+    "--wc-link": `color-mix(in oklab, ${template.accentColor} 62%, #000)`,
+    "--wc-light": `color-mix(in oklab, ${template.accentColor} 45%, #fff)`,
+    "--wc-paper": "#f4eee3",
+    "--wc-ink": "#2b2520",
+  } as React.CSSProperties;
 
   // Agendas
   let morningAgendas: WeddingAgendaItem[] = [];
@@ -129,6 +144,9 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   const groomImage = card.groom_image_url || gallery[0] || heroImage;
   const brideImage = card.bride_image_url || gallery[1] || gallery[0] || heroImage;
 
+  const eventDate = new Date(`${card.solar_date || "2026-11-28"}T${card.solar_time || "17:00"}:00`);
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+
   // Countdown timer logic
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number }>({
     days: 0,
@@ -156,38 +174,61 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
     return () => clearInterval(timer);
   }, [card.solar_date, card.solar_time]);
 
-  // Handle Envelope Open with Unfold Animation & Celebratory Confetti
+  // Keep the page behind the envelope from scrolling until it is opened
+  useEffect(() => {
+    if (isPreview || isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen, isPreview]);
+
+  useEffect(() => {
+    const timers = openTimers.current;
+    return () => timers.forEach((id) => window.clearTimeout(id));
+  }, []);
+
+  // Open the envelope: flap, letter and fade run in CSS; these timers follow them
   const handleOpenEnvelope = () => {
+    if (isOpeningAnim) return;
     setIsOpeningAnim(true);
-    setTimeout(() => {
-      setIsOpen(true);
-      setIsOpeningAnim(false);
 
-      // Play music (YouTube or MP3)
-      if (card.music_url) {
-        if (youtubeId && ytIframeRef.current?.contentWindow) {
-          try {
-            ytIframeRef.current.contentWindow.postMessage(
-              JSON.stringify({ event: "command", func: "playVideo", args: "" }),
-              "*"
-            );
-            setIsPlayingMusic(true);
-          } catch {}
-        } else if (audioRef.current) {
-          audioRef.current.play().then(() => setIsPlayingMusic(true)).catch(() => {});
-        }
+    // Start music inside the tap itself so browsers allow the autoplay
+    if (card.music_url) {
+      if (youtubeId && ytIframeRef.current?.contentWindow) {
+        try {
+          ytIframeRef.current.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func: "playVideo", args: "" }),
+            "*"
+          );
+          setIsPlayingMusic(true);
+        } catch {}
+      } else if (audioRef.current) {
+        audioRef.current.play().then(() => setIsPlayingMusic(true)).catch(() => {});
       }
+    }
 
-      // Celebratory Golden & Lotus Confetti
-      try {
-        confetti({
-          particleCount: 140,
-          spread: 80,
-          origin: { y: 0.6 },
-          colors: ["#d4af37", "#f3e5ab", "#c59b27", "#b8324f", "#e63946", "#ffffff"]
-        });
-      } catch {}
-    }, 750);
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const scale = reduceMotion ? 0 : 1;
+    openTimers.current.push(
+      window.setTimeout(() => {
+        if (reduceMotion) return;
+        try {
+          confetti({
+            particleCount: 120,
+            spread: 80,
+            origin: { y: 0.45 },
+            colors: ["#c9a46a", "#f3e3b8", "#e8c9c0", template.accentColor, "#ffffff"]
+          });
+        } catch {}
+      }, OPEN_CONFETTI_AT * scale),
+      window.setTimeout(() => setHeroIn(true), OPEN_HERO_AT * scale),
+      window.setTimeout(() => {
+        setIsOpen(true);
+        setIsOpeningAnim(false);
+      }, OPEN_DONE_AT * scale)
+    );
   };
 
   const toggleMusic = () => {
@@ -247,13 +288,12 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       setBlessingMessage("");
       setWishSuccess(true);
 
-      // Fireworks
       try {
         confetti({
           particleCount: 100,
           spread: 75,
           origin: { y: 0.7 },
-          colors: ["#d4af37", "#c59b27", "#b8324f", "#f43f5e", "#ffffff"]
+          colors: ["#c9a46a", "#f3e3b8", template.accentColor, "#ffffff"]
         });
       } catch {}
 
@@ -265,12 +305,10 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
     }
   };
 
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % gallery.length);
-  };
-
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + gallery.length) % gallery.length);
+  const stepLightbox = (dir: 1 | -1) => {
+    if (!selectedImage) return;
+    const curIdx = gallery.indexOf(selectedImage);
+    setSelectedImage(gallery[(curIdx + dir + gallery.length) % gallery.length]);
   };
 
   // Monogram initials calculation (e.g. វ & ស or V & S)
@@ -413,9 +451,99 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
     }
   }[lang];
 
+  // Section labels and small copy for the printed-stationery layout
+  const ui = {
+    km: {
+      weddingOf: "សិរីមង្គលអាពាហ៍ពិពាហ៍",
+      s1: "១ — លិខិតអញ្ជើញ",
+      s2: "២ — កូនកំលោះ និងកូនក្រមុំ",
+      s3: "៣ — ថ្ងៃមង្គល",
+      s4: "៤ — កម្មវិធី",
+      s5: "៥ — អនុស្សាវរីយ៍",
+      s6: "៦ — ព័ត៌មានបន្ថែម",
+      s7: "៧ — ឆ្លើយតប",
+      invite: "សូមគោរពអញ្ជើញ",
+      programTitle: "កម្មវិធីសិរីមង្គល",
+      morning: "ពេលព្រឹក",
+      evening: "ពេលល្ងាច",
+      at: "វេលាម៉ោង",
+      toGo: "នៅសល់",
+      addCal: "កត់ត្រាក្នុងប្រតិទិន",
+      reply: "សូមមេត្តាឆ្លើយតប",
+      replyNote: "ដើម្បីងាយស្រួលក្នុងការរៀបចំកន្លែងអង្គុយ",
+      guests: "ចំនួនភ្ញៀវ",
+      fewer: "បន្ថយ",
+      more: "បន្ថែម",
+      fromGuests: "ពាក្យជូនពរពីភ្ញៀវ",
+      withLove: "ដោយក្ដីស្រឡាញ់",
+      madeWith: "បង្កើតដោយ CamTech Invitations",
+      photo: "រូបភាព",
+      prev: "មុន",
+      next: "បន្ទាប់",
+    },
+    en: {
+      weddingOf: "The wedding of",
+      s1: "I — The invitation",
+      s2: "II — The couple",
+      s3: "III — The date",
+      s4: "IV — The programme",
+      s5: "V — Moments",
+      s6: "VI — Good to know",
+      s7: "VII — Kindly reply",
+      invite: "You are warmly invited",
+      programTitle: "Order of the day",
+      morning: "Morning",
+      evening: "Evening",
+      at: "at",
+      toGo: "to go",
+      addCal: "Add to calendar",
+      reply: "Kindly reply",
+      replyNote: "It helps us plan the seating",
+      guests: "Number of guests",
+      fewer: "Fewer guests",
+      more: "More guests",
+      fromGuests: "Words from our guests",
+      withLove: "With love",
+      madeWith: "Made with CamTech Invitations",
+      photo: "Photo",
+      prev: "Previous",
+      next: "Next",
+    },
+  }[lang];
+
+  // Calendar page for the wedding month, with the day circled in pen
+  const MONTHS_KM = ["មករា", "កុម្ភៈ", "មីនា", "មេសា", "ឧសភា", "មិថុនា", "កក្កដា", "សីហា", "កញ្ញា", "តុលា", "វិច្ឆិកា", "ធ្នូ"];
+  const WEEKDAYS_KM = ["អាទិត្យ", "ចន្ទ", "អង្គារ", "ពុធ", "ព្រហស្បតិ៍", "សុក្រ", "សៅរ៍"];
+  const WEEK_HEAD = lang === "km" ? ["អា", "ច", "អ", "ពុ", "ព្រ", "សុ", "ស"] : ["S", "M", "T", "W", "T", "F", "S"];
+  const dateValid = !isNaN(eventDate.getTime());
+  const evYear = dateValid ? eventDate.getFullYear() : 0;
+  const evMonth = dateValid ? eventDate.getMonth() : 0;
+  const evDay = dateValid ? eventDate.getDate() : 0;
+  const monthName = dateValid
+    ? lang === "km" ? MONTHS_KM[evMonth] : eventDate.toLocaleString("en-GB", { month: "long" })
+    : "";
+  const weekdayName = dateValid
+    ? lang === "km" ? `ថ្ងៃ${WEEKDAYS_KM[eventDate.getDay()]}` : eventDate.toLocaleString("en-GB", { weekday: "long" })
+    : "";
+  const calendarCells: (number | null)[] = dateValid
+    ? [
+        ...Array.from({ length: new Date(evYear, evMonth, 1).getDay() }, () => null),
+        ...Array.from({ length: new Date(evYear, evMonth + 1, 0).getDate() }, (_, i) => i + 1),
+      ]
+    : [];
+  const prettyDate = dateValid ? `${evDay} ${monthName} ${evYear}` : card.solar_date;
+
+  // Slight, varied tilts so the collage looks laid out by hand, not by a grid
+  const collageTilt = ["-rotate-[1.2deg]", "rotate-[0.8deg]", "rotate-0", "rotate-[1.4deg]", "-rotate-[0.6deg]"];
+
+  const sectionLabel = "wc-smallcaps text-[var(--wc-link)]";
+
   return (
-    <div className={`relative min-h-screen ${s.pageBg} text-[#3c2a21] font-sans overflow-x-hidden selection:bg-amber-200 selection:text-amber-950`}>
-      
+    <div
+      lang={lang}
+      className={`wc-root relative min-h-screen overflow-x-clip font-sans ${wcDisplay.variable} ${wcKhmer.variable} ${wcScript.variable} ${heroIn ? "wc-opened" : ""} ${isPreview ? "wc-preview" : ""}`}
+      style={themeVars}
+    >
       {/* Background audio elements */}
       {card.music_url && !youtubeId && (
         <audio ref={audioRef} loop src={card.music_url} preload="auto" />
@@ -437,961 +565,524 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         <FloatingWeddingPetals flowerType={template.flowerType} />
       )}
 
-      {/* Floating Controls Bar (Language + Petals + Share) */}
+      {/* Corner controls: language, petals, share */}
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
-        {/* Language switch */}
         <button
+          type="button"
           onClick={() => setLang(lang === "km" ? "en" : "km")}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 hover:bg-white text-stone-800 text-xs font-semibold backdrop-blur-md border border-amber-300/60 shadow-lg cursor-pointer transition transform hover:scale-105"
+          className="h-10 px-4 rounded-full bg-[#fffdf8]/90 backdrop-blur border border-black/10 text-[13px] text-[#2b2520] shadow-sm cursor-pointer"
         >
-          <Globe className="w-3.5 h-3.5 text-amber-600" />
-          <span>{lang === "km" ? "English" : "ភាសាខ្មែរ"}</span>
+          {lang === "km" ? "English" : "ភាសាខ្មែរ"}
         </button>
-
-        {/* Falling Petals Toggle */}
         {isOpen && (
           <button
+            type="button"
             onClick={() => setShowPetals(!showPetals)}
-            className={`p-2 rounded-full border shadow-lg backdrop-blur-md cursor-pointer transition transform hover:scale-110 ${
-              showPetals
-                ? "bg-amber-100/90 text-amber-900 border-amber-400"
-                : "bg-white/90 text-stone-500 border-stone-300"
-            }`}
-            title={t.petalsToggle}
+            aria-pressed={showPetals}
             aria-label={t.petalsToggle}
+            className="w-10 h-10 rounded-full bg-[#fffdf8]/90 backdrop-blur border border-black/10 flex items-center justify-center text-[#2b2520] shadow-sm cursor-pointer"
           >
-            <Sparkles className="w-4 h-4 text-amber-600" />
+            <Sparkles className="w-4 h-4" />
           </button>
         )}
-
-        {/* Share Button */}
         <button
+          type="button"
           onClick={() => setShowShareModal(true)}
-          className="p-2 rounded-full bg-white/90 hover:bg-white text-stone-800 border border-amber-300/60 shadow-lg backdrop-blur-md cursor-pointer transition transform hover:scale-110"
-          title={t.shareInvitation}
+          aria-label={t.shareInvitation}
+          className="w-10 h-10 rounded-full bg-[#fffdf8]/90 backdrop-blur border border-black/10 flex items-center justify-center text-[#2b2520] shadow-sm cursor-pointer"
         >
-          <Share2 className="w-4 h-4 text-amber-700" />
+          <Share2 className="w-4 h-4" />
         </button>
       </div>
 
       {/* =========================================================================
-          SECTION 1: LUXURY ROYAL KHMER 3D ORIGAMI ENVELOPE (Theme-Adaptive)
+          ENVELOPE: tap the wax seal → flap opens → letter rises → into the card
          ========================================================================= */}
       {!isOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-4 bg-gradient-to-b from-[#1e0f09]/90 via-[#130804]/95 to-[#0b0402]/98 backdrop-blur-md overflow-hidden">
-          {/* Subtle ambient light glow behind envelope */}
-          <div className="absolute w-[360px] h-[360px] rounded-full bg-amber-500/15 blur-3xl pointer-events-none animate-pulse" />
+        <div
+          className={`wc-overlay fixed inset-0 z-40 flex flex-col items-center justify-center gap-12 px-6 ${isOpeningAnim ? "is-opening" : ""}`}
+        >
+          <p className={lang === "km" ? "wc-khmer text-lg text-[#e9d3a8]" : "wc-script text-4xl text-[#e9d3a8]"}>
+            {lang === "km" ? "លិខិតអញ្ជើញ" : "You are invited"}
+          </p>
 
-          {/* 3D Perspective Stage */}
-          <div className="relative w-full max-w-[420px] aspect-[4/5] [perspective:1200px] flex items-center justify-center">
-            
-            {/* Inner Gliding Letterpress Card (revealed on open) */}
-            <div
-              className={`absolute inset-4 z-10 rounded-[28px] ${s.cardBg} border-2 ${s.borderColor} shadow-2xl p-6 flex flex-col items-center justify-between text-center transition-all duration-700 ${
-                isOpeningAnim
-                  ? "animate-card-glide-up opacity-100"
-                  : "opacity-0 scale-95 pointer-events-none"
-              }`}
-            >
-              <div className="pt-2">
-                <WeddingFlowerIcon type={template.flowerType} className={`w-8 h-8 mx-auto ${s.flowerColor} mb-2`} />
-                <h3 className="font-moul text-lg text-amber-900">{t.auspiciousTitle}</h3>
-                <p className="font-serif font-bold text-stone-900 mt-1">{card.groom_name} &amp; {card.bride_name}</p>
-              </div>
-              <p className="text-xs text-amber-800 italic font-serif">« {t.invitationHonor} »</p>
-              <div className="text-[11px] font-bold text-stone-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
-                {card.khmer_date}
-              </div>
+          <div className="wc-env relative w-[min(86vw,360px)] aspect-[3/2]">
+            <div className="wc-env-back absolute inset-0 rounded-[3px] shadow-[0_30px_60px_rgba(0,0,0,0.5)]" />
+            <div className="wc-letter wc-grain absolute left-[4%] right-[4%] top-[5%] h-[88%] rounded-[2px] bg-[#fbf7ef] shadow-[0_6px_18px_rgba(0,0,0,0.2)] flex flex-col items-center justify-center gap-1 px-4 text-center text-[#2b2520]">
+              <span className="wc-smallcaps text-[10px] text-[var(--wc-link)]">{ui.weddingOf}</span>
+              <span className="wc-display text-2xl sm:text-[28px] leading-tight">
+                {card.groom_name} <span className="italic text-[var(--wc-link)]">&amp;</span> {card.bride_name}
+              </span>
+              <span className="text-[11px] text-[#6b6157]">{card.khmer_date || card.solar_date}</span>
+              <span className="mt-1.5 text-[11px] text-[#2b2520] truncate max-w-full">
+                {customGuestName || (lang === "km" ? "ឯកឧត្តម លោកជំទាវ លោក លោកស្រី" : "Honored Guest")}
+              </span>
             </div>
-
-            {/* Main Envelope Body */}
-            <div
-              className={`relative w-full h-full ${s.envelopeBg} rounded-[32px] shadow-[0_30px_90px_rgba(0,0,0,0.85)] border-[3px] ${s.envelopeBorder} p-6 sm:p-8 flex flex-col items-center justify-between text-center overflow-hidden transition-all duration-700 ${
-                isOpeningAnim ? "scale-95 opacity-80" : "scale-100 opacity-100"
-              }`}
+            <div className="wc-env-pocket absolute inset-0 z-[3] rounded-[3px]" />
+            <div className="wc-flap absolute left-0 right-0 top-0 h-[66%] rounded-t-[3px]" />
+            <button
+              type="button"
+              onClick={handleOpenEnvelope}
+              aria-label={t.tapToOpen}
+              className="wc-seal absolute left-1/2 top-[66%] z-[6] w-[76px] h-[76px] flex items-center justify-center cursor-pointer"
             >
-              {/* Authentic Khmer Corner Filigrees */}
-              <KhmerCornerFiligree position="top-left" className="text-[#f5d06b]/70" />
-              <KhmerCornerFiligree position="top-right" className="text-[#f5d06b]/70" />
-              <KhmerCornerFiligree position="bottom-left" className="text-[#f5d06b]/70" />
-              <KhmerCornerFiligree position="bottom-right" className="text-[#f5d06b]/70" />
-
-              {/* Multi-layered Gold Foil Hairline Borders */}
-              <div className="absolute inset-3 border border-[#f3d994]/30 rounded-[26px] pointer-events-none" />
-              <div className="absolute inset-4 border border-[#f3d994]/15 rounded-[22px] pointer-events-none" />
-
-              {/* 3D Folded Origami Flap Geometry */}
-              <div
-                className={`absolute top-0 left-0 right-0 h-[48%] [transform-origin:top_center] transition-transform duration-700 z-20 pointer-events-none ${
-                  isOpeningAnim ? "animate-envelope-open-3d" : ""
-                }`}
-                style={{
-                  background: "linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.22) 100%)",
-                  clipPath: "polygon(0 0, 100% 0, 50% 100%)",
-                  boxShadow: "0 8px 20px rgba(0,0,0,0.4)"
-                }}
-              >
-                {/* Gold filigree trim along the triangular flap edge */}
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{
-                    borderBottom: "2px solid rgba(245, 208, 107, 0.4)"
-                  }}
-                />
-              </div>
-
-              {/* Header with Traditional Kbach Floral Crest */}
-              <div className="w-full pt-2 relative z-10">
-                <WeddingFlowerIcon
-                  type={template.flowerType}
-                  className="w-10 h-10 mx-auto text-[#f5d06b] mb-2 animate-float-gentle filter drop-shadow-[0_2px_8px_rgba(245,208,107,0.4)]"
-                />
-                
-                <h1 className="font-moul text-xl sm:text-2xl text-[#fae5a7] tracking-wider drop-shadow-md leading-relaxed">
-                  {t.auspiciousTitle}
-                </h1>
-
-                <div className="h-[1px] w-28 mx-auto my-3 bg-gradient-to-r from-transparent via-[#f5d06b] to-transparent" />
-
-                <h2 className="text-xl sm:text-2xl font-bold font-serif text-white tracking-wide">
-                  {card.groom_name} &amp; {card.bride_name}
-                </h2>
-
-                <p className="text-[#f7e7be]/85 text-xs mt-1.5 font-medium tracking-wide">
-                  {card.khmer_date}
-                </p>
-              </div>
-
-              {/* VIP Guest Invitation Slip with Gold Border and Luxury Studio Typography */}
-              <div className="w-full my-auto py-2 relative z-10">
-                <div className="relative py-3 px-5 rounded-2xl bg-gradient-to-b from-[#fffefc] to-[#fbf7ed] border-2 border-[#e6c268] shadow-[0_4px_20px_rgba(0,0,0,0.25)] max-w-[320px] mx-auto text-center transform transition hover:scale-102">
-                  <div className="absolute inset-0.5 border border-amber-300/40 rounded-[14px] pointer-events-none" />
-                  <span className="text-[10px] font-bold text-amber-900/90 block uppercase tracking-widest mb-0.5">
-                    {t.invitedHonoredGuest}
-                  </span>
-                  <span className="text-sm sm:text-base font-bold font-serif text-stone-900 block truncate">
-                    {customGuestName || (lang === "km" ? "ឯកឧត្តម លោកជំទាវ លោក លោកស្រី" : "Honored Guest")}
-                  </span>
-                </div>
-              </div>
-
-              {/* Auspicious Golden Wax Seal Disc with Shimmer & Radiant Halo */}
-              <div className="w-full pb-2 relative z-30">
-                <button
-                  type="button"
-                  onClick={handleOpenEnvelope}
-                  disabled={isOpeningAnim}
-                  className="group relative inline-flex flex-col items-center justify-center cursor-pointer transition transform hover:scale-105 active:scale-95 focus:outline-hidden"
-                >
-                  {/* Glowing Aura Ring */}
-                  <div className="absolute -inset-3 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 blur-md opacity-60 group-hover:opacity-95 animate-gold-halo transition duration-500" />
-
-                  {/* Royal Wax Seal Disc with Shimmer Sweep */}
-                  <div className={`relative w-20 h-20 rounded-full ${s.waxSealBg} border-[2.5px] ${s.waxSealRing} shadow-2xl flex flex-col items-center justify-center ${s.waxSealTextColor} overflow-hidden`}>
-                    {/* Metallic specular sweep */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full animate-shimmer-sweep pointer-events-none" />
-                    
-                    <WeddingFlowerIcon type={template.flowerType} className="w-5 h-5 text-amber-100 mb-0.5 drop-shadow-xs" />
-                    <span className="font-moul text-[10px] drop-shadow-xs tracking-wide">
-                      {lang === "km" ? "សិរីសួស្តី" : "Open"}
-                    </span>
-                  </div>
-
-                  <span className="mt-3 text-xs font-semibold text-[#fae5a7] tracking-wider bg-black/60 backdrop-blur-xs px-4 py-1.5 rounded-full border border-[#f5d06b]/50 shadow-lg group-hover:border-[#f5d06b]">
-                    {t.tapToOpen}
-                  </span>
-                </button>
-              </div>
-
-            </div>
+              <span className="w-[58px] h-[58px] rounded-full border border-[#f1d6c8]/40 flex items-center justify-center wc-display italic text-[19px] text-[#f6e3d8]/95">
+                {monogramInitials.replace(/\s/g, "")}
+              </span>
+            </button>
           </div>
+
+          <p className={`wc-breathe text-white/70 text-center ${lang === "km" ? "text-sm" : "text-[11px] tracking-[0.25em] uppercase"}`}>
+            {t.tapToOpen}
+          </p>
         </div>
       )}
 
-      {/* =========================================================================
-          SECTION 2: MOBILE-FIRST HUMAN-CRAFTED KHMER WEDDING INVITATION CARD
-         ========================================================================= */}
-      <main className={`relative z-20 max-w-[440px] sm:max-w-[460px] mx-auto min-h-screen my-0 sm:my-8 ${s.cardBg} rounded-none sm:rounded-[36px] shadow-[0_20px_60px_-15px_rgba(100,50,20,0.22)] border-0 sm:border-[5px] ${s.borderColor} overflow-hidden animate-fade-in`}>
-        
-        {/* Inner Delicate Gold Hairline Border */}
-        <div className={`absolute inset-2 sm:inset-3 border ${s.innerBorderColor} rounded-none sm:rounded-[28px] pointer-events-none`} />
+      <main className="relative z-20">
 
         {/* =====================================================================
-            1. TOP CALLIGRAPHIC HEADER & AUSPICIOUS BLESSING
+            COVER: the photo, with the names set like a magazine cover
            ===================================================================== */}
-        <header className="relative text-center pt-10 pb-6 px-6 bg-gradient-to-b from-white/60 via-transparent to-transparent">
-          
-          {/* Top Traditional Khmer Flower Motif Crest */}
-          <WeddingFlowerIcon
-            type={template.flowerType}
-            className={`w-11 h-11 mx-auto ${s.flowerColor} mb-2 animate-float-gentle`}
-          />
-
-          {/* Main Khmer Wedding Calligraphy Header (Moul Font) */}
-          <h1 className={`font-moul text-2xl sm:text-3xl ${s.headerGradientText} leading-relaxed drop-shadow-xs`}>
-            {t.auspiciousTitle}
-          </h1>
-
-          <p className={`text-xs font-bold ${s.subtitleColor} mt-1 uppercase tracking-widest`}>
-            {t.auspiciousBlessing}
-          </p>
-
-          {/* Canva-Style Botanical Laurel Monogram Crest */}
-          <div className="my-2.5 flex justify-center">
-            <BotanicalMonogramCrest
-              initials={monogramInitials}
-              className={`w-16 h-16 ${s.flowerColor} opacity-90`}
-            />
+        <section className="relative h-[100svh] min-h-[620px] overflow-hidden bg-[#1a1612] text-[#fbf7ef]">
+          <div className="wc-parallax absolute inset-x-0 top-0 h-[118%]">
+            <img src={heroImage} alt={`${card.groom_name} & ${card.bride_name}`} className="wc-kb w-full h-full object-cover" />
           </div>
+          <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(20,16,12,0.82),rgba(20,16,12,0.2)_55%,rgba(20,16,12,0.35))]" />
 
-          {/* Symmetrical divider with matching floral core */}
-          <div className="flex items-center justify-center gap-2.5 my-3">
-            <div className="h-[1.5px] w-12 sm:w-20 bg-gradient-to-r from-transparent via-[#d4af37] to-[#c59b27]" />
-            <WeddingFlowerIcon type={template.flowerType} className={`w-4 h-4 ${s.flowerColor}`} />
-            <div className="h-[1.5px] w-12 sm:w-20 bg-gradient-to-l from-transparent via-[#d4af37] to-[#c59b27]" />
-          </div>
-
-          {/* Traditional Khmer Invitation Decree */}
-          <p className="text-xs text-stone-700 leading-relaxed max-w-[360px] mx-auto font-serif italic px-2">
-            « {t.invitationHonor} »
-          </p>
-
-          {/* Personalized VIP Guest Card */}
-          {customGuestName && (
-            <div className={`mt-4 py-2.5 px-4 rounded-2xl bg-gradient-to-r from-amber-50 via-amber-100/70 to-amber-50 border ${s.innerBorderColor} max-w-[340px] mx-auto text-center shadow-xs`}>
-              <span className="text-[10px] text-amber-900 font-bold block uppercase tracking-wider">
-                {t.invitedHonoredGuest}
-              </span>
-              <span className="text-sm sm:text-base font-bold font-serif text-stone-900 mt-0.5 block truncate">
-                {customGuestName}
-              </span>
+          <div className="absolute inset-x-0 bottom-0 max-w-[1080px] mx-auto px-6 pb-24 sm:pb-20">
+            <p className="wc-line d1 wc-smallcaps text-white/75">{ui.weddingOf}</p>
+            <h1 className="mt-3 wc-display font-light leading-[0.98] text-[clamp(52px,10vw,124px)]">
+              <span className="wc-line d2 block break-words">{card.groom_name}</span>
+              <span className="wc-line d3 block italic text-[#e9d3a8] text-[0.55em] leading-none my-2 sm:ml-[10vw]">&amp;</span>
+              <span className="wc-line d3 block break-words sm:ml-[16vw]">{card.bride_name}</span>
+            </h1>
+            <div className="wc-line d4 mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-[15px] text-white/85">
+              <span className="w-12 h-px bg-[#e9d3a8]" />
+              <span>{weekdayName}{weekdayName && " · "}{prettyDate}</span>
+              {card.solar_time && <span className="text-white/60">{ui.at} {card.solar_time}</span>}
             </div>
-          )}
-        </header>
-
-        {/* =====================================================================
-            2. PARENTS HONOR & BLESSING SECTION (មាតាបិតាទាំងសងខាង)
-           ===================================================================== */}
-        <section className={`px-5 py-6 border-y ${s.innerBorderColor} ${s.sectionBandBg}`}>
-          <div className="grid grid-cols-2 gap-3 text-center">
-            
-            {/* Groom's Family */}
-            <div className={`p-3.5 rounded-2xl bg-white/95 border ${s.innerBorderColor} shadow-xs`}>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 block mb-1">
-                {t.groomParentsTitle}
-              </span>
-              <p className="text-xs font-semibold text-stone-800 leading-snug">
-                {card.groom_parents}
+            {customGuestName && (
+              <p className="wc-line d5 mt-5 text-[15px] text-white/85">
+                <span className="text-white/60">{t.invitedHonoredGuest} — </span>
+                <span className="wc-display italic text-xl">{customGuestName}</span>
               </p>
-              <div className="mt-2.5 pt-2 border-t border-amber-200/60">
-                <span className="text-[10px] text-amber-800 font-medium block">
-                  {t.groomTitle}
-                </span>
-                <span className="text-xs sm:text-sm font-bold text-stone-900 font-serif">
-                  {card.groom_name}
-                </span>
-              </div>
-            </div>
-
-            {/* Bride's Family */}
-            <div className={`p-3.5 rounded-2xl bg-white/95 border ${s.innerBorderColor} shadow-xs`}>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-900 block mb-1">
-                {t.brideParentsTitle}
-              </span>
-              <p className="text-xs font-semibold text-stone-800 leading-snug">
-                {card.bride_parents}
-              </p>
-              <div className="mt-2.5 pt-2 border-t border-rose-200/60">
-                <span className="text-[10px] text-rose-800 font-medium block">
-                  {t.brideTitle}
-                </span>
-                <span className="text-xs sm:text-sm font-bold text-stone-900 font-serif">
-                  {card.bride_name}
-                </span>
-              </div>
-            </div>
-
+            )}
           </div>
         </section>
 
         {/* =====================================================================
-            3. STAR COUPLE HERO PORTRAIT IN ARCH FRAME WITH KHMER ARCH CROWN & KEN BURNS
+            I. THE INVITATION: a printed letter with the parents' names
            ===================================================================== */}
-        <section className="py-8 px-6 text-center relative">
-          
-          {/* Royal Khmer Arch Crown Over Arch Top */}
-          <KhmerArchCrown className={`w-28 h-7 mx-auto mb-[-8px] relative z-10 ${s.flowerColor} filter drop-shadow-[0_2px_4px_rgba(212,175,55,0.3)]`} />
+        <section className="px-5 sm:px-6 py-24 sm:py-32">
+          <p className={`${sectionLabel} text-center mb-8`}>{ui.s1}</p>
+          <div className="wc-reveal relative max-w-[720px] mx-auto bg-[#fffdf8] wc-grain border border-[color-mix(in_oklab,var(--wc-accent)_35%,transparent)] px-6 sm:px-16 py-16 sm:py-20 text-center shadow-[0_24px_50px_-30px_rgba(60,45,30,0.45)]">
+            <div aria-hidden="true" className="absolute inset-2.5 border border-[color-mix(in_oklab,var(--wc-accent)_22%,transparent)] pointer-events-none" />
+            <CornerFlourish className="absolute top-4 left-4 w-12 h-12 text-[var(--wc-link)]" />
+            <CornerFlourish flip="x" className="absolute top-4 right-4 w-12 h-12 text-[var(--wc-link)]" />
+            <CornerFlourish flip="y" className="absolute bottom-4 left-4 w-12 h-12 text-[var(--wc-link)]" />
+            <CornerFlourish flip="xy" className="absolute bottom-4 right-4 w-12 h-12 text-[var(--wc-link)]" />
 
-          {/* Arch Window Frame Container */}
-          <div
-            className={`relative max-w-[280px] sm:max-w-[300px] mx-auto aspect-[3/4] rounded-t-[140px] rounded-b-3xl overflow-hidden shadow-[0_20px_45px_rgba(110,60,30,0.22)] border-4 ${s.archBorder} p-1.5 ${s.archBg} group cursor-pointer transition-transform duration-500 hover:scale-[1.02]`}
-            onClick={() => setSelectedImage(heroImage)}
-          >
-            {/* Shimmer light sweep across the gold arch frame */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full animate-shimmer-sweep pointer-events-none z-20" />
-
-            {/* Inner Photo Wrapper */}
-            <div className="relative w-full h-full rounded-t-[132px] rounded-b-2xl overflow-hidden bg-stone-100">
-              {/* Ken Burns Animated Image */}
-              <img
-                src={heroImage}
-                alt={`${card.groom_name} & ${card.bride_name}`}
-                className="w-full h-full object-cover animate-ken-burns transition-transform duration-700"
-              />
-
-              {/* Soft Vignette Overlay to frame the subjects luxuriously */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/15 pointer-events-none" />
-
-              {/* Floating Auspicious Couple Badge */}
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-amber-300/40 text-[10px] text-amber-200 font-medium whitespace-nowrap shadow-md">
-                ✦ {lang === "km" ? "គូស្វាមីភរិយាថ្មី" : "The Blessed Couple"} ✦
-              </div>
-
-              {/* Expand Hint */}
-              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white z-10">
-                <Maximize2 className="w-5 h-5 drop-shadow-md" />
-              </div>
-            </div>
-          </div>
-
-          {/* Couple Romantic Quote */}
-          <p className="text-xs font-serif italic text-stone-700 max-w-[320px] mx-auto mt-4 px-2 leading-relaxed">
-            {t.romanticQuote}
-          </p>
-
-          {/* Auspicious Wedding Dates Card */}
-          <div className={`mt-6 p-4 rounded-2xl ${s.dateBannerBg} border ${s.dateBannerBorder} max-w-[340px] mx-auto text-center shadow-xs`}>
-            <div className={`flex items-center justify-center gap-1.5 ${s.dateTextColor} font-serif text-sm font-bold`}>
-              <Calendar className={`w-4 h-4 ${s.flowerColor} shrink-0`} />
-              <span>{card.khmer_date}</span>
-            </div>
-            <p className="text-xs text-stone-700 font-semibold mt-1">
-              {lang === "km"
-                ? `ត្រូវនឹងថ្ងៃទី ${card.solar_date} • វេលាម៉ោង ${card.solar_time}`
-                : `Solar Date: ${card.solar_date} • Time: ${card.solar_time}`}
+            <p className={lang === "km" ? "font-moul text-[22px] sm:text-[26px] text-[var(--wc-link)] leading-[1.7]" : "wc-script text-[44px] sm:text-[52px] text-[var(--wc-link)] leading-none"}>
+              {ui.invite}
             </p>
-          </div>
-        </section>
+            <LotusDivider className="mx-auto my-6 w-48 h-9 text-[var(--wc-link)]" />
+            <p className="wc-khmer text-[16px] sm:text-[17px] leading-[2.1] text-[#3a332c] max-w-[520px] mx-auto">{t.invitationHonor}</p>
 
-        {/* =====================================================================
-            3.5 DUAL GROOM & BRIDE SPOTLIGHT CAMEOS (Canva Pro / Studio Tier)
-           ===================================================================== */}
-        <section className={`px-5 py-6 border-y ${s.innerBorderColor} ${s.sectionBandBg}`}>
-          <div className="flex items-center justify-center gap-3 max-w-[380px] mx-auto">
-            {/* Groom Cameo */}
-            <div className="flex-1 flex flex-col items-center text-center">
-              <div
-                className={`relative w-28 h-36 sm:w-32 sm:h-40 rounded-t-full rounded-b-2xl overflow-hidden border-2 ${s.archBorder} p-1 ${s.archBg} shadow-md group cursor-pointer transition transform hover:-translate-y-1`}
-                onClick={() => setSelectedImage(groomImage)}
-              >
-                <div className="relative w-full h-full rounded-t-full rounded-b-xl overflow-hidden bg-stone-100">
-                  <img
-                    src={groomImage}
-                    alt={card.groom_name}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
-                </div>
-              </div>
-              <span className="mt-2 text-[10px] font-bold uppercase tracking-wider text-amber-900 block">
-                {t.theGroom}
-              </span>
-              <span className="text-xs sm:text-sm font-bold font-serif text-stone-900">
-                {card.groom_name}
-              </span>
-            </div>
-
-            {/* Center Monogram Crest & Interlocking Rings */}
-            <div className="flex flex-col items-center justify-center shrink-0 px-1">
-              <BotanicalMonogramCrest
-                initials={monogramInitials}
-                className={`w-12 h-12 ${s.flowerColor} opacity-85`}
-              />
-              <span className="text-base font-serif italic text-amber-700 my-0.5">&amp;</span>
-              <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500/30 animate-pulse" />
-            </div>
-
-            {/* Bride Cameo */}
-            <div className="flex-1 flex flex-col items-center text-center">
-              <div
-                className={`relative w-28 h-36 sm:w-32 sm:h-40 rounded-t-full rounded-b-2xl overflow-hidden border-2 ${s.archBorder} p-1 ${s.archBg} shadow-md group cursor-pointer transition transform hover:-translate-y-1`}
-                onClick={() => setSelectedImage(brideImage)}
-              >
-                <div className="relative w-full h-full rounded-t-full rounded-b-xl overflow-hidden bg-stone-100">
-                  <img
-                    src={brideImage}
-                    alt={card.bride_name}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
-                </div>
-              </div>
-              <span className="mt-2 text-[10px] font-bold uppercase tracking-wider text-rose-900 block">
-                {t.theBride}
-              </span>
-              <span className="text-xs sm:text-sm font-bold font-serif text-stone-900">
-                {card.bride_name}
-              </span>
-            </div>
-          </div>
-        </section>
-
-        {/* =====================================================================
-            4. WEDDING COUNTDOWN TIMER (Champagne & Gold Pills)
-           ===================================================================== */}
-        <section className={`px-5 py-7 ${s.sectionBandBg} border-y ${s.innerBorderColor} text-center`}>
-          <span className={`text-[11px] uppercase tracking-widest font-bold ${s.subtitleColor} block mb-3 font-serif`}>
-            {t.countdownTitle}
-          </span>
-
-          <div className="grid grid-cols-4 gap-2 max-w-[320px] mx-auto">
-            {[
-              { label: t.days, val: timeLeft.days },
-              { label: t.hours, val: timeLeft.hours },
-              { label: t.minutes, val: timeLeft.minutes },
-              { label: t.seconds, val: timeLeft.seconds },
-            ].map((item, idx) => (
-              <div key={idx} className={`${s.countdownBoxBg} rounded-2xl p-2 sm:p-2.5 border ${s.countdownBoxBorder} shadow-xs text-center`}>
-                <span className={`text-xl sm:text-2xl font-black font-serif ${s.countdownTextColor} block`}>
-                  {String(item.val).padStart(2, "0")}
-                </span>
-                <span className="text-[9px] sm:text-[10px] text-stone-600 font-semibold uppercase">
-                  {item.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* =====================================================================
-            5. MORNING CEREMONY TIMELINE (Traditional Khmer Rituals)
-           ===================================================================== */}
-        {morningAgendas.length > 0 && (
-          <section className={`px-5 py-8 border-b ${s.innerBorderColor}`}>
-            <div className="text-center mb-6">
-              <span className={`text-[10px] font-bold ${s.subtitleColor} uppercase tracking-widest block`}>
-                {lang === "km" ? "កម្មវិធីសិរីមង្គល" : "Ceremony Schedule"}
-              </span>
-              <h3 className="font-moul text-lg sm:text-xl text-stone-900 mt-0.5">
-                {t.morningProgram}
-              </h3>
-            </div>
-
-            <div className="space-y-3 max-w-[360px] mx-auto">
-              {morningAgendas.map((item, index) => (
-                <div
-                  key={index}
-                  className={`flex items-start gap-3 p-3.5 rounded-2xl bg-white border ${s.innerBorderColor} transition hover:shadow-xs`}
-                >
-                  <div className={`shrink-0 px-2.5 py-1.5 rounded-xl ${s.primaryButtonBg} font-bold text-[11px] flex items-center gap-1 shadow-xs`}>
-                    <Clock className="w-3 h-3" />
-                    <span>{item.time}</span>
+            <div className="mt-12 grid grid-cols-[1fr_auto_1fr] items-start gap-4 sm:gap-8">
+              {[
+                { parentsTitle: t.groomParentsTitle, parents: card.groom_parents, title: t.groomTitle, name: card.groom_name },
+                null,
+                { parentsTitle: t.brideParentsTitle, parents: card.bride_parents, title: t.brideTitle, name: card.bride_name },
+              ].map((p, i) =>
+                p ? (
+                  <div key={i}>
+                    <p className="wc-smallcaps text-[#6b6157]">{p.parentsTitle}</p>
+                    <p className="mt-2 wc-khmer text-[15px] leading-[1.9] text-[#2b2520]">{p.parents}</p>
+                    <p className="mt-6 text-[13px] text-[#6b6157]">{p.title}</p>
+                    <p className="wc-display text-[26px] sm:text-[32px] leading-tight text-[#2b2520] break-words">{p.name}</p>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-stone-900 text-xs sm:text-sm">
-                      {item.title}
-                    </h4>
-                    {item.description && (
-                      <p className="text-[11px] text-stone-600 mt-0.5 leading-relaxed">
-                        {item.description}
-                      </p>
-                    )}
+                ) : (
+                  <div key={i} className="self-stretch flex flex-col items-center">
+                    <span className="flex-1 w-px bg-[color-mix(in_oklab,var(--wc-accent)_35%,transparent)]" />
+                    <span className="wc-display italic text-[30px] text-[var(--wc-link)] leading-none py-2">&amp;</span>
+                    <span className="flex-1 w-px bg-[color-mix(in_oklab,var(--wc-accent)_35%,transparent)]" />
                   </div>
-                </div>
-              ))}
+                )
+              )}
             </div>
-          </section>
-        )}
+          </div>
+          <p className="mt-8 text-center wc-display italic text-[17px] text-[#6b6157]">{t.auspiciousBlessing}</p>
+        </section>
 
         {/* =====================================================================
-            6. EVENING WEDDING BANQUET & 1-TAP GOOGLE MAPS NAVIGATION
+            II. THE COUPLE: two prints, laid off-grid
            ===================================================================== */}
-        <section className={`px-5 py-8 ${s.sectionBandBg}`}>
-          <div className="text-center mb-6">
-            <span className={`text-[10px] font-bold ${s.subtitleColor} uppercase tracking-widest block`}>
-              {lang === "km" ? "ពិធីពិសាភោជនាហារ" : "Grand Reception"}
-            </span>
-            <h3 className="font-moul text-lg sm:text-xl text-stone-900 mt-0.5">
-              {t.eveningProgram}
-            </h3>
-          </div>
-
-          <div className={`max-w-[360px] mx-auto bg-white rounded-3xl p-5 border ${s.innerBorderColor} shadow-md`}>
-            <div className="space-y-3 text-stone-800">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-2xl bg-amber-100 text-amber-900 shrink-0 mt-0.5">
-                  <MapPin className={`w-5 h-5 ${s.flowerColor}`} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm sm:text-base text-stone-900 font-serif">
-                    {eveningReception.venue}
-                  </h4>
-                  {eveningReception.hall && (
-                    <p className={`text-[11px] font-bold mt-0.5 ${s.subtitleColor}`}>
-                      {t.hall} {eveningReception.hall}
-                    </p>
-                  )}
-                  <p className="text-[11px] text-stone-600 mt-1 leading-relaxed">
-                    {eveningReception.address}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 pt-1 text-xs text-stone-700 font-medium">
-                <Clock className={`w-3.5 h-3.5 ${s.flowerColor} shrink-0`} />
-                <span>{t.time} <strong className="text-stone-900 font-bold">{eveningReception.time}</strong></span>
-              </div>
-            </div>
-
-            {/* Action Buttons: 1-Tap Google Maps GPS + Copy Address + Add to Google Calendar */}
-            <div className="mt-5 pt-4 border-t border-stone-200 flex flex-col gap-2">
-              <div className="flex flex-col sm:flex-row gap-2">
-                {eveningReception.map_url && (
-                  <a
-                    href={eveningReception.map_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl ${s.primaryButtonBg} font-bold text-xs shadow-md transition transform hover:scale-[1.02] cursor-pointer`}
+        <section className="px-5 sm:px-6 pb-24 sm:pb-32">
+          <div className="max-w-[1080px] mx-auto">
+            <p className={`${sectionLabel} mb-10`}>{ui.s2}</p>
+            <div className="relative grid grid-cols-1 md:grid-cols-12 gap-14 md:gap-6">
+              {[
+                { img: groomImage, role: t.theGroom, name: card.groom_name, cls: "md:col-span-6 wc-tilt-l", capCls: "" },
+                { img: brideImage, role: t.theBride, name: card.bride_name, cls: "md:col-span-5 md:col-start-8 md:mt-40 wc-tilt-r", capCls: "md:text-right" },
+              ].map((p) => (
+                <figure key={p.role} className={`wc-reveal m-0 ${p.cls}`}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedImage(p.img)}
+                    className="wc-print wc-develop block w-full aspect-[4/5] cursor-zoom-in"
+                    aria-label={p.name}
                   >
-                    <Navigation className="w-3.5 h-3.5" />
-                    <span>{t.openMap}</span>
-                  </a>
-                )}
+                    <img src={p.img} alt={p.name} />
+                  </button>
+                  <figcaption className={`mt-5 ${p.capCls}`}>
+                    <span className="wc-smallcaps text-[#6b6157]">{p.role}</span>
+                    <span className="block mt-1 wc-display text-[32px] sm:text-[40px] leading-tight text-[#2b2520]">{p.name}</span>
+                  </figcaption>
+                </figure>
+              ))}
+              <span aria-hidden="true" className="hidden md:block absolute left-[52%] top-[36%] -translate-x-1/2 wc-display italic font-light text-[140px] leading-none text-[var(--wc-link)]/60">&amp;</span>
+            </div>
+            <p className="wc-reveal mt-16 md:mt-10 max-w-xl wc-display italic text-[24px] sm:text-[30px] leading-snug text-[#3a332c]">{t.romanticQuote}</p>
+          </div>
+        </section>
 
-                <button
-                  type="button"
-                  onClick={handleCopyAddress}
-                  className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-stone-300 bg-stone-50 hover:bg-stone-100 text-stone-800 font-semibold text-xs transition cursor-pointer"
-                >
-                  {copiedAddress ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedAddress ? t.copied : t.copyAddress}</span>
-                </button>
-              </div>
-
-              {/* 1-Tap Add to Google Calendar (Canva Pro Feature) */}
-              <a
-                href={buildGoogleCalendarUrl()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-amber-300/80 bg-gradient-to-r from-amber-50 to-amber-100/60 hover:from-amber-100 hover:to-amber-200/80 text-amber-950 font-bold text-xs shadow-xs transition transform hover:scale-[1.01] cursor-pointer"
-              >
-                <CalendarPlus className="w-3.5 h-3.5 text-amber-700" />
-                <span>{t.addToCalendar}</span>
+        {/* =====================================================================
+            III. THE DATE: big numeral + the month's calendar page
+           ===================================================================== */}
+        <section className="px-5 sm:px-6 py-24 sm:py-32 border-y border-[#2b2520]/10">
+          <div className="max-w-[1080px] mx-auto grid md:grid-cols-2 gap-14 items-center">
+            <div className="wc-reveal">
+              <p className={sectionLabel}>{ui.s3}</p>
+              {dateValid ? (
+                <>
+                  <p className="mt-6 text-[15px] text-[#6b6157]">{weekdayName}</p>
+                  <p className="wc-display font-light text-[clamp(120px,18vw,200px)] leading-[0.85] text-[#2b2520] tabular-nums">{evDay}</p>
+                  <p className="mt-2 wc-display text-[30px] text-[#2b2520]">{monthName} {evYear}</p>
+                </>
+              ) : (
+                <p className="mt-6 wc-display text-[40px]">{card.solar_date}</p>
+              )}
+              <p className="mt-4 wc-khmer text-[15px] leading-relaxed text-[#6b6157]">{card.khmer_date}</p>
+              {card.solar_time && <p className="mt-1 text-[15px] text-[#2b2520]">{ui.at} {card.solar_time}</p>}
+              <p className="mt-6 wc-display italic text-[19px] text-[#3a332c] tabular-nums">
+                {lang === "en"
+                  ? `${timeLeft.days} ${t.days.toLowerCase()}, ${timeLeft.hours} ${t.hours.toLowerCase()} ${ui.toGo}`
+                  : `${ui.toGo} ${timeLeft.days} ${t.days} ${timeLeft.hours} ${t.hours}`}
+              </p>
+              <a href={buildGoogleCalendarUrl()} target="_blank" rel="noopener noreferrer" className="wc-link mt-6 inline-block text-[15px]">
+                {ui.addCal}
               </a>
             </div>
 
-            {/* Canva-Style Dress Code & Theme Palette (សម្លៀកបំពាក់កិត្តិយស) */}
-            <div className="mt-4 pt-3.5 border-t border-amber-200/70 text-center">
-              <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-amber-900 mb-1">
-                <Palette className="w-3.5 h-3.5 text-amber-700" />
-                <span>{t.dressCodeTitle}</span>
+            {dateValid && (
+              <div className="wc-reveal bg-[#fffdf8] wc-grain border border-[#2b2520]/10 p-6 sm:p-9 shadow-[0_24px_50px_-30px_rgba(60,45,30,0.45)] md:rotate-[0.6deg]">
+                <div className="flex items-baseline justify-between mb-6">
+                  <span className="wc-display text-[26px] text-[#2b2520]">{monthName}</span>
+                  <span className="text-[13px] text-[#6b6157] tabular-nums">{evYear}</span>
+                </div>
+                <div className="grid grid-cols-7 text-center gap-y-1">
+                  {WEEK_HEAD.map((d, i) => (
+                    <span key={i} className="text-[11px] text-[#6b6157] pb-2">{d}</span>
+                  ))}
+                  {calendarCells.map((d, i) =>
+                    d === evDay ? (
+                      <span key={i} className="relative py-2.5 text-[15px] font-semibold text-[#2b2520] tabular-nums">
+                        {d}
+                        <HandCircle className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 text-[var(--wc-link)]" />
+                      </span>
+                    ) : (
+                      <span key={i} className="py-2.5 text-[15px] text-[#3a332c]/80 tabular-nums">{d ?? ""}</span>
+                    )
+                  )}
+                </div>
               </div>
-              <p className="text-[11px] text-stone-600 leading-snug px-1 mb-2.5">
-                {t.dressCodeSub}
-              </p>
-              {/* Theme Palette Swatch Dots */}
-              <div className="flex items-center justify-center gap-2">
-                {(template.palette || []).map((color: string, idx: number) => (
-                  <span
-                    key={idx}
-                    className="w-5 h-5 rounded-full border-2 border-white shadow-sm ring-1 ring-black/10 inline-block transition transform hover:scale-125"
-                    style={{ backgroundColor: color }}
-                    title={color}
-                  />
-                ))}
+            )}
+          </div>
+        </section>
+
+        {/* =====================================================================
+            IV. THE PROGRAMME: printed like a menu, on dark card stock
+           ===================================================================== */}
+        <section className="px-5 sm:px-6 py-24 sm:py-32 bg-[var(--wc-deep)] wc-grain text-[#f3ece0]">
+          <div className="max-w-[880px] mx-auto">
+            <p className="wc-smallcaps text-[var(--wc-light)]">{ui.s4}</p>
+            <h2 className="wc-reveal mt-4 wc-display font-light text-[clamp(40px,6vw,68px)] leading-[1.05]">{ui.programTitle}</h2>
+
+            <div className="mt-14 grid md:grid-cols-2 gap-14 md:gap-16">
+              {morningAgendas.length > 0 && (
+                <div className="wc-reveal">
+                  <h3 className="wc-smallcaps text-[var(--wc-light)] pb-4 border-b border-white/15">{ui.morning}</h3>
+                  <ol className="mt-2">
+                    {morningAgendas.map((item, index) => (
+                      <li key={index} className="py-4 border-b border-white/10">
+                        <div className="flex items-baseline gap-3">
+                          <span className="wc-khmer text-[17px] leading-snug">{item.title}</span>
+                          <span className="wc-leader !border-white/30" />
+                          <span className="wc-display text-[22px] tabular-nums shrink-0">{item.time}</span>
+                        </div>
+                        {item.description && <p className="mt-1.5 text-[14px] leading-relaxed text-white/60">{item.description}</p>}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              <div className={`wc-reveal ${morningAgendas.length > 0 ? "" : "md:col-span-2"}`}>
+                <h3 className="wc-smallcaps text-[var(--wc-light)] pb-4 border-b border-white/15">{ui.evening}</h3>
+                <p className="mt-6 wc-display font-light text-[56px] leading-none">{eveningReception.time}</p>
+                <p className="mt-2 wc-khmer text-[17px] text-white/85">{t.eveningProgram}</p>
+                <div className="mt-8 flex gap-3">
+                  <MapPin className="w-5 h-5 mt-1 shrink-0 text-[var(--wc-light)]" strokeWidth={1.5} />
+                  <div>
+                    <p className="wc-display text-[24px] leading-snug">{eveningReception.venue}</p>
+                    {eveningReception.hall && <p className="mt-1 text-[15px] text-white/80">{eveningReception.hall}</p>}
+                    <p className="mt-1 text-[14px] leading-relaxed text-white/60">{eveningReception.address}</p>
+                  </div>
+                </div>
+                <div className="mt-6 pl-8 flex flex-wrap gap-x-6 gap-y-2 text-[15px]">
+                  {eveningReception.map_url && (
+                    <a href={eveningReception.map_url} target="_blank" rel="noopener noreferrer" className="wc-link !text-[var(--wc-light)]">
+                      {t.openMap}
+                    </a>
+                  )}
+                  <button type="button" onClick={handleCopyAddress} className="wc-link !text-[var(--wc-light)] cursor-pointer">
+                    {copiedAddress ? t.copied : t.copyAddress}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
         {/* =====================================================================
-            7. PRE-WEDDING LOVE STORY PHOTO GALLERY (Multi-Mode Studio Tier)
+            V. MOMENTS: a loose collage of prints
            ===================================================================== */}
         {gallery.length > 0 && (
-          <section className={`px-5 py-8 border-y ${s.innerBorderColor} bg-white/40`}>
-            <div className="text-center mb-4">
-              <span className={`text-[10px] font-bold ${s.subtitleColor} uppercase tracking-widest block`}>
-                {t.galleryTitle}
-              </span>
-              <p className="text-[11px] text-stone-600 italic mt-0.5">
-                {t.gallerySub}
-              </p>
-            </div>
-
-            {/* View Mode Switcher: Cinematic vs Polaroid */}
-            <div className="flex items-center justify-center gap-1.5 p-1 max-w-[260px] mx-auto mb-5 rounded-full bg-stone-100 border border-amber-200/80 shadow-xs">
-              <button
-                type="button"
-                onClick={() => setGalleryViewMode("slider")}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-semibold transition cursor-pointer ${
-                  galleryViewMode === "slider"
-                    ? "bg-amber-800 text-white shadow-xs"
-                    : "text-stone-600 hover:text-stone-900"
-                }`}
-              >
-                <Film className="w-3.5 h-3.5" />
-                <span>{t.cinematicView}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setGalleryViewMode("grid")}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-semibold transition cursor-pointer ${
-                  galleryViewMode === "grid"
-                    ? "bg-amber-800 text-white shadow-xs"
-                    : "text-stone-600 hover:text-stone-900"
-                }`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                <span>{t.polaroidView}</span>
-              </button>
-            </div>
-
-            {galleryViewMode === "slider" ? (
-              <div>
-                {/* Cinematic Large Screen Stage */}
-                <div className={`relative max-w-[380px] mx-auto aspect-[4/3] rounded-2xl overflow-hidden shadow-xl border-2 ${s.borderColor} p-1 bg-gradient-to-b from-amber-100/50 to-white group`}>
-                  <div className="relative w-full h-full rounded-xl overflow-hidden bg-stone-900">
-                    <img
-                      key={currentSlide}
-                      src={gallery[currentSlide]}
-                      alt={`Photo ${currentSlide + 1}`}
-                      className="w-full h-full object-cover animate-ken-burns transition-all duration-700"
-                    />
-
-                    {/* Specular shimmer across the gold frame */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-shimmer-sweep pointer-events-none" />
-
-                    {/* Gradient vignette */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20 pointer-events-none" />
-
-                    {/* Slide Counter Badge */}
-                    <div className="absolute top-2.5 right-2.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-xs text-[10px] font-mono text-amber-200 border border-amber-300/40">
-                      {String(currentSlide + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
-                    </div>
-
-                    {/* Prev / Next controls */}
-                    <button
-                      type="button"
-                      onClick={prevSlide}
-                      className="absolute left-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-xs transition transform hover:scale-110 border border-white/20 cursor-pointer shadow-md"
-                      aria-label="Previous"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={nextSlide}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-xs transition transform hover:scale-110 border border-white/20 cursor-pointer shadow-md"
-                      aria-label="Next"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-
-                    {/* Fullscreen Button */}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedImage(gallery[currentSlide])}
-                      className="absolute bottom-2.5 right-2.5 p-2 rounded-xl bg-black/60 hover:bg-black/85 text-white backdrop-blur-xs transition border border-white/20 cursor-pointer shadow-md"
-                      title="Fullscreen"
-                    >
-                      <Maximize2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+          <section className="px-5 sm:px-6 py-24 sm:py-32">
+            <div className="max-w-[1080px] mx-auto">
+              <div className="flex flex-wrap items-end justify-between gap-4 mb-12">
+                <div>
+                  <p className={sectionLabel}>{ui.s5}</p>
+                  <h2 className="wc-reveal mt-4 wc-display font-light text-[clamp(36px,5vw,56px)] leading-[1.1] text-[#2b2520]">{t.galleryTitle}</h2>
                 </div>
+                <p className="wc-display italic text-[17px] text-[#6b6157] max-w-xs">{t.gallerySub}</p>
+              </div>
+              <div className="wc-collage columns-2 md:columns-3 gap-4 sm:gap-6">
+                {gallery.map((imgUrl, idx) => (
+                  <figure key={idx} className={`wc-reveal m-0 mb-6 sm:mb-8 break-inside-avoid ${collageTilt[idx % collageTilt.length]}`}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedImage(imgUrl)}
+                      className="wc-print wc-develop block w-full cursor-zoom-in"
+                      aria-label={`${ui.photo} ${idx + 1}`}
+                    >
+                      <img src={imgUrl} alt="" loading={idx < 6 ? "eager" : "lazy"} className="!h-auto" />
+                    </button>
+                    <figcaption className="mt-2 wc-display italic text-[14px] text-[#6b6157]">No. {pad2(idx + 1)}</figcaption>
+                  </figure>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
-                {/* Filmstrip Thumbnails Row (Smooth horizontal scrolling for 10-20+ images) */}
-                <div className="relative mt-4">
-                  <div className="flex items-center gap-2 overflow-x-auto py-2 px-2 scroll-smooth">
-                    {gallery.map((imgUrl, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setCurrentSlide(idx)}
-                        className={`relative w-14 h-14 rounded-xl overflow-hidden shrink-0 border-2 transition-all duration-300 cursor-pointer ${
-                          currentSlide === idx
-                            ? `${s.borderColor} scale-110 shadow-lg ring-2 ring-amber-400/60 z-10`
-                            : "border-transparent opacity-50 hover:opacity-100 hover:scale-105"
-                        }`}
-                      >
-                        <img src={imgUrl} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
-                        <span className="absolute bottom-0 right-0 bg-black/70 text-[8px] font-mono text-white px-1 rounded-tl">
-                          {idx + 1}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+        {/* =====================================================================
+            VI. GOOD TO KNOW: dress code + gift, set as two columns of text
+           ===================================================================== */}
+        <section className="px-5 sm:px-6 py-24 sm:py-32 border-t border-[#2b2520]/10">
+          <div className="max-w-[1080px] mx-auto">
+            <p className={`${sectionLabel} mb-12`}>{ui.s6}</p>
+            <div className={`grid gap-14 ${card.khqr_image_url ? "md:grid-cols-2 md:divide-x md:divide-[#2b2520]/10" : ""}`}>
+              <div className="wc-reveal md:pr-14">
+                <h3 className="wc-display text-[32px] leading-tight text-[#2b2520]">{t.dressCodeTitle}</h3>
+                <p className="mt-3 text-[16px] leading-relaxed text-[#6b6157] max-w-md">{t.dressCodeSub}</p>
+                <div className="mt-6 flex gap-3">
+                  {(template.palette || []).map((color: string) => (
+                    <span key={color} title={color} className="w-12 h-12 rounded-full wc-grain ring-1 ring-black/10" style={{ backgroundColor: color }} />
+                  ))}
                 </div>
               </div>
-            ) : (
-              /* Polaroid Collage Grid Mode */
-              <div className="grid grid-cols-2 gap-3.5 max-w-[390px] mx-auto pt-2 pb-4">
-                {gallery.map((imgUrl, idx) => {
-                  const rotations = ["-rotate-1", "rotate-2", "rotate-1", "-rotate-2", "-rotate-1.5", "rotate-1.5"];
-                  const rotClass = rotations[idx % rotations.length];
-                  return (
-                    <div
-                      key={idx}
-                      onClick={() => setSelectedImage(imgUrl)}
-                      className={`group relative bg-[#fffdf9] p-2 pb-3.5 rounded-xl border border-amber-200/70 shadow-md cursor-pointer transition-all duration-500 transform ${rotClass} hover:rotate-0 hover:scale-105 hover:shadow-2xl hover:z-20`}
-                    >
-                      {/* Polaroid Image Container */}
-                      <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden bg-stone-100">
-                        <img
-                          src={imgUrl}
-                          alt={`Memory ${idx + 1}`}
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                        />
-                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
-                          <Maximize2 className="w-4 h-4 drop-shadow-md" />
+              {card.khqr_image_url && (
+                <div className="wc-reveal md:pl-14">
+                  <h3 className="wc-display text-[32px] leading-tight text-[#2b2520]">{t.digitalGift}</h3>
+                  <p className="mt-3 text-[16px] leading-relaxed text-[#6b6157] max-w-md">{t.digitalGiftSub}</p>
+                  <button type="button" onClick={() => setShowQrModal(true)} className="wc-link mt-6 inline-flex items-center gap-2 text-[15px] cursor-pointer">
+                    <Gift className="w-4 h-4" strokeWidth={1.5} />
+                    {t.viewKhqr}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* =====================================================================
+            VII. KINDLY REPLY: a paper reply card
+           ===================================================================== */}
+        {card.enable_wishes && (
+          <section className="px-5 sm:px-6 pb-24 sm:pb-32">
+            <p className={`${sectionLabel} text-center mb-8`}>{ui.s7}</p>
+            <div className="wc-reveal relative max-w-[600px] mx-auto bg-[#fffdf8] wc-grain border border-[#2b2520]/15 px-6 sm:px-14 py-12 sm:py-16 shadow-[0_24px_50px_-30px_rgba(60,45,30,0.45)]">
+              <div aria-hidden="true" className="absolute inset-2.5 border border-[#2b2520]/10 pointer-events-none" />
+
+              {wishSuccess ? (
+                <div role="status" className="text-center py-10">
+                  {lang === "km"
+                    ? <p className="font-moul text-[24px] text-[var(--wc-link)]">សូមអរគុណ</p>
+                    : <p className="wc-script text-[56px] text-[var(--wc-link)] leading-none">Thank you</p>}
+                  <p className="mt-4 text-[16px] text-[#3a332c]">{t.blessingSent}</p>
+                </div>
+              ) : (
+                <form onSubmit={handleWishSubmit} className="relative">
+                  <div className="text-center">
+                    <h2 className="wc-display text-[40px] sm:text-[48px] leading-tight text-[#2b2520]">{ui.reply}</h2>
+                    <p className="mt-2 text-[15px] text-[#6b6157]">{ui.replyNote}</p>
+                  </div>
+
+                  <label className="block mt-10">
+                    <span className="wc-smallcaps text-[#6b6157]">{t.yourName}</span>
+                    <input
+                      type="text"
+                      required
+                      value={guestName}
+                      onChange={(e) => setGuestName(e.target.value)}
+                      className="mt-1 w-full h-12 bg-transparent border-0 border-b border-[#2b2520]/30 text-[19px] wc-display text-[#2b2520] focus:outline-none focus:border-[var(--wc-link)]"
+                    />
+                  </label>
+                  <label className="block mt-6">
+                    <span className="wc-smallcaps text-[#6b6157]">{t.yourPhone}</span>
+                    <input
+                      type="tel"
+                      value={guestPhone}
+                      onChange={(e) => setGuestPhone(e.target.value)}
+                      className="mt-1 w-full h-12 bg-transparent border-0 border-b border-[#2b2520]/30 text-[19px] wc-display text-[#2b2520] focus:outline-none focus:border-[var(--wc-link)]"
+                    />
+                  </label>
+
+                  {card.enable_rsvp && (
+                    <div className="mt-8 flex flex-col gap-1" role="group" aria-label={lang === "km" ? "ការចូលរួមពិធី" : "Attendance"}>
+                      {([
+                        ["attending", t.willAttend],
+                        ["not_attending", t.cannotAttend],
+                      ] as const).map(([val, label]) => (
+                        <button
+                          key={val}
+                          type="button"
+                          aria-pressed={attendance === val}
+                          onClick={() => setAttendance(val)}
+                          className="flex items-center gap-4 min-h-12 text-left cursor-pointer"
+                        >
+                          <span className="relative w-6 h-6 border border-[#2b2520]/50 shrink-0">
+                            <HandCheck className="absolute -top-1.5 -right-1.5 w-7 h-7 text-[var(--wc-link)]" />
+                          </span>
+                          <span className="wc-display text-[22px] text-[#2b2520]">{label}</span>
+                        </button>
+                      ))}
+                      {attendance === "attending" && (
+                        <div className="mt-3 flex items-center gap-4 pl-10">
+                          <span className="text-[15px] text-[#6b6157]">{t.numGuests}</span>
+                          <button type="button" aria-label={ui.fewer} onClick={() => setGuestCount(Math.max(1, guestCount - 1))} className="w-10 h-10 rounded-full border border-[#2b2520]/20 flex items-center justify-center cursor-pointer">
+                            <Minus className="w-4 h-4" strokeWidth={1.5} />
+                          </button>
+                          <span className="wc-display text-[24px] w-6 text-center tabular-nums" aria-live="polite">{guestCount}</span>
+                          <button type="button" aria-label={ui.more} onClick={() => setGuestCount(Math.min(10, guestCount + 1))} className="w-10 h-10 rounded-full border border-[#2b2520]/20 flex items-center justify-center cursor-pointer">
+                            <Plus className="w-4 h-4" strokeWidth={1.5} />
+                          </button>
                         </div>
-                      </div>
-                      {/* Handwritten Studio Caption */}
-                      <div className="mt-2 text-center">
-                        <span className="text-[10px] font-serif italic text-stone-600 block truncate px-1">
-                          {idx % 2 === 0 ? "✨ Sweet Moment" : "❤️ Forever & Always"}
-                        </span>
-                      </div>
+                      )}
                     </div>
-                  );
-                })}
+                  )}
+
+                  <label className="block mt-8">
+                    <span className="wc-smallcaps text-[#6b6157]">{lang === "km" ? "ពាក្យជូនពរ" : "A note for the couple"}</span>
+                    <textarea
+                      required
+                      rows={4}
+                      value={blessingMessage}
+                      onChange={(e) => setBlessingMessage(e.target.value)}
+                      placeholder={t.blessingPlaceholder}
+                      className="mt-1 w-full bg-transparent border-0 resize-none text-[18px] leading-[36px] wc-display italic text-[#2b2520] placeholder:text-[#6b6157]/60 focus:outline-none bg-[repeating-linear-gradient(transparent,transparent_35px,rgba(43,37,32,0.18)_35px,rgba(43,37,32,0.18)_36px)]"
+                    />
+                  </label>
+
+                  <div className="mt-10 text-center">
+                    <button
+                      type="submit"
+                      disabled={isSubmittingWish}
+                      className="inline-flex items-center justify-center h-12 px-10 rounded-[2px] bg-[#2b2520] text-[#fbf7ef] text-[15px] tracking-wide hover:bg-[var(--wc-link)] transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {t.sendBlessing}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+
+            {wishesList.length > 0 && (
+              <div className="max-w-[1080px] mx-auto mt-20">
+                <p className={`${sectionLabel} text-center mb-10`}>{ui.fromGuests} · {wishesList.length}</p>
+                <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {wishesList.map((wish, i) => (
+                    <li key={wish.id} className={`wc-reveal bg-[#fffdf8] wc-grain p-6 shadow-[0_14px_30px_-20px_rgba(60,45,30,0.5)] ${collageTilt[i % collageTilt.length]}`}>
+                      <p className="wc-display italic text-[19px] leading-snug text-[#2b2520]">&ldquo;{wish.blessing_message}&rdquo;</p>
+                      <p className="mt-4 text-[13px] text-[#6b6157]">— {wish.guest_name}</p>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </section>
         )}
 
-        {/* =====================================================================
-            8. DIGITAL CASHLESS WEDDING GIFT ENVELOPE (ABA / BAKONG KHQR)
-           ===================================================================== */}
-        {card.khqr_image_url && (
-          <section className={`px-5 py-8 ${s.sectionBandBg} border-b ${s.innerBorderColor} text-center`}>
-            <div className={`max-w-[340px] mx-auto p-5 rounded-3xl bg-white border ${s.innerBorderColor} shadow-md`}>
-              <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto mb-2">
-                <Gift className={`w-6 h-6 ${s.flowerColor}`} />
-              </div>
-              <h3 className="font-moul text-sm sm:text-base text-stone-900">
-                {t.digitalGift}
-              </h3>
-              <p className="text-[11px] text-stone-600 mt-1 mb-4 leading-relaxed">
-                {t.digitalGiftSub}
-              </p>
-
-              <button
-                type="button"
-                onClick={() => setShowQrModal(true)}
-                className={`inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full ${s.secondaryButtonBg} font-bold text-xs shadow-md hover:brightness-110 transition transform hover:scale-105 cursor-pointer`}
-              >
-                <QrCode className="w-3.5 h-3.5" />
-                <span>{t.viewKhqr}</span>
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* =====================================================================
-            9. GUESTBOOK & RSVP (Interactive Wishes with Confetti)
-           ===================================================================== */}
-        {card.enable_wishes && (
-          <section className="px-5 py-8 bg-gradient-to-b from-white/30 to-white">
-            <div className="text-center mb-6">
-              <span className={`text-[10px] font-bold ${s.subtitleColor} uppercase tracking-widest block`}>
-                {lang === "km" ? "ពរជ័យមង្គល" : "Guest Wishes"}
-              </span>
-              <h3 className="font-moul text-lg sm:text-xl text-stone-900 mt-0.5">
-                {t.wishesTitle}
-              </h3>
-            </div>
-
-            <div className={`max-w-[360px] mx-auto bg-white rounded-3xl p-5 border ${s.innerBorderColor} shadow-md`}>
-              {wishSuccess && (
-                <div className="mb-4 p-3 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-fade-in">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>{t.blessingSent}</span>
-                </div>
-              )}
-
-              <form onSubmit={handleWishSubmit} className="space-y-3">
-                {/* Guest Name */}
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    {t.yourName} <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={guestName}
-                    onChange={(e) => setGuestName(e.target.value)}
-                    placeholder={lang === "km" ? "ឧ. ម៉ៅ សុខុម" : "e.g. John Doe"}
-                    className={`w-full px-3 py-2 rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#c59b27] text-xs shadow-xs`}
-                  />
-                </div>
-
-                {/* RSVP Status */}
-                {card.enable_rsvp && (
-                  <div className="pt-1">
-                    <label className="block text-xs font-semibold text-stone-700 mb-1.5">
-                      {lang === "km" ? "ការចូលរួមពិធី" : "Attendance Status"}
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setAttendance("attending")}
-                        className={`py-2 px-2 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center justify-center gap-1 ${
-                          attendance === "attending"
-                            ? `${s.primaryButtonBg} shadow-xs`
-                            : "bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100"
-                        }`}
-                      >
-                        <UserCheck className="w-3.5 h-3.5" />
-                        <span>{t.willAttend}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAttendance("not_attending")}
-                        className={`py-2 px-2 rounded-xl text-xs font-semibold border transition cursor-pointer flex items-center justify-center gap-1 ${
-                          attendance === "not_attending"
-                            ? "bg-stone-700 text-white border-stone-700 shadow-xs"
-                            : "bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100"
-                        }`}
-                      >
-                        <span>{t.cannotAttend}</span>
-                      </button>
-                    </div>
-
-                    {attendance === "attending" && (
-                      <div className="mt-2.5">
-                        <label className="block text-[11px] text-stone-600 mb-1">
-                          {t.numGuests}
-                        </label>
-                        <select
-                          value={guestCount}
-                          onChange={(e) => setGuestCount(Number(e.target.value))}
-                          className="w-full px-3 py-2 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-[#c59b27]"
-                        >
-                          <option value={1}>1 {lang === "km" ? "រូប" : "Person"}</option>
-                          <option value={2}>2 {lang === "km" ? "រូប" : "People"}</option>
-                          <option value={3}>3 {lang === "km" ? "រូប" : "People"}</option>
-                          <option value={4}>4 {lang === "km" ? "រូប" : "People"}</option>
-                          <option value={5}>5+ {lang === "km" ? "រូប" : "People"}</option>
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Blessing Message */}
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    {lang === "km" ? "ពាក្យជូនពរ" : "Blessing Message"} <span className="text-rose-500">*</span>
-                  </label>
-                  <textarea
-                    required
-                    rows={3}
-                    value={blessingMessage}
-                    onChange={(e) => setBlessingMessage(e.target.value)}
-                    placeholder={t.blessingPlaceholder}
-                    className="w-full px-3 py-2 rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#c59b27] text-xs shadow-xs"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmittingWish}
-                  className={`w-full py-2.5 px-4 rounded-xl ${s.primaryButtonBg} hover:brightness-105 font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50`}
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>{t.sendBlessing}</span>
-                </button>
-              </form>
-
-              {/* Wishes Wall */}
-              {wishesList.length > 0 && (
-                <div className="mt-6 pt-5 border-t border-stone-200 space-y-2.5 max-h-72 overflow-y-auto pr-1">
-                  <h5 className={`text-[11px] font-bold uppercase tracking-wider ${s.subtitleColor}`}>
-                    {lang === "km" ? `ពាក្យជូនពរពីភ្ញៀវ (${wishesList.length})` : `Guest Blessings (${wishesList.length})`}
-                  </h5>
-                  {wishesList.map((wish) => (
-                    <div
-                      key={wish.id}
-                      className={`p-3 rounded-2xl bg-[#faf5ec] border ${s.innerBorderColor} text-xs space-y-1 shadow-2xs`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-stone-900 font-serif">
-                          {wish.guest_name}
-                        </span>
-                        <span className="text-[9px] text-amber-900 font-semibold px-2 py-0.5 rounded-full bg-amber-100">
-                          {wish.attendance === "attending" ? (lang === "km" ? "ចូលរួម" : "Attending") : (lang === "km" ? "មិនបានចូលរួម" : "Declined")}
-                        </span>
-                      </div>
-                      <p className="text-stone-700 italic leading-relaxed text-[11px]">
-                        « {wish.blessing_message} »
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* Footer Note */}
-        <footer className={`py-8 text-center text-xs text-amber-950/70 border-t ${s.innerBorderColor} ${s.sectionBandBg}`}>
-          <WeddingFlowerIcon type={template.flowerType} className={`w-5 h-5 mx-auto ${s.flowerColor} mb-1.5 opacity-70`} />
-          <p className="font-serif font-bold text-stone-800">
-            {card.groom_name} &amp; {card.bride_name}
-          </p>
-          <p className="text-[11px] text-stone-600 mt-0.5">
-            {card.solar_date} • {template.nameKm}
-          </p>
+        {/* Sign-off */}
+        <footer className="px-6 pt-20 pb-24 text-center border-t border-[#2b2520]/10">
+          <span className="mx-auto w-20 h-20 rounded-full border border-[var(--wc-link)]/50 flex items-center justify-center wc-display italic text-[24px] text-[var(--wc-link)]">
+            {monogramInitials.replace(/\s/g, "")}
+          </span>
+          <p className={lang === "km" ? "mt-8 wc-khmer text-[18px] text-[#6b6157]" : "mt-8 wc-script text-[44px] leading-none text-[#3a332c]"}>{ui.withLove}</p>
+          <p className="mt-3 wc-display text-[26px] text-[#2b2520]">{card.groom_name} &amp; {card.bride_name}</p>
+          <p className="mt-2 text-[13px] text-[#6b6157]">{card.khmer_date}</p>
+          <p className="mt-10 text-[11px] text-[#6b6157]/80">{ui.madeWith}</p>
         </footer>
-
       </main>
 
       {/* =========================================================================
-          MODAL: KHQR POPUP FOR ONLINE CASHLESS GIFT
+          MODAL: KHQR
          ========================================================================= */}
       {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
-          <div className="relative w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border-2 border-amber-500/50 text-center animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowQrModal(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t.digitalGift}
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-sm bg-[#fffdf8] wc-grain p-8 shadow-2xl text-center animate-fade-in"
+          >
             <button
+              type="button"
               onClick={() => setShowQrModal(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-full text-stone-400 hover:text-stone-600 transition cursor-pointer"
+              aria-label={t.close}
+              className="absolute top-2 right-2 w-11 h-11 flex items-center justify-center text-[#6b6157] hover:text-[#2b2520] cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
-
-            <span className={`text-xs font-bold ${s.subtitleColor} uppercase tracking-widest block mb-1`}>
-              {lang === "km" ? "ចំណងដៃតាមអេឡិចត្រូនិក" : "Digital Cashless Gift"}
-            </span>
-            <h4 className="text-base font-bold font-serif text-stone-900">
-              {card.khqr_account_name || "CHEA VISAL & SOK SOVANNARY"}
-            </h4>
-
-            {/* QR Code Frame */}
-            <div className="my-4 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 inline-block shadow-inner">
-              <img
-                src={card.khqr_image_url}
-                alt="Bakong KHQR Code"
-                className="w-48 h-48 object-contain mx-auto rounded-lg"
-              />
+            <p className="wc-smallcaps text-[var(--wc-link)]">{t.digitalGift}</p>
+            <h4 className="mt-2 wc-display text-[26px] text-[#2b2520]">{card.khqr_account_name || `${card.groom_name} & ${card.bride_name}`}</h4>
+            <div className="wc-print my-6 inline-block">
+              <img src={card.khqr_image_url} alt="Bakong KHQR Code" className="!w-52 !h-52 !object-contain" />
             </div>
-
-            {/* Account Info & Copy */}
             {card.khqr_account_number && (
-              <div className="p-2.5 rounded-xl bg-stone-100 flex items-center justify-between text-xs text-stone-800 mb-4">
-                <span className="font-mono font-semibold">{card.khqr_account_number}</span>
-                <button
-                  onClick={handleCopyAccount}
-                  className="flex items-center gap-1 text-amber-800 hover:text-amber-900 font-bold cursor-pointer"
-                >
-                  {copiedAccount ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedAccount ? t.copied : t.copyAccount}</span>
+              <div className="flex items-center justify-between gap-3 py-3 border-y border-[#2b2520]/10 text-[15px] text-[#2b2520] mb-6">
+                <span className="font-mono">{card.khqr_account_number}</span>
+                <button type="button" onClick={handleCopyAccount} className="wc-link min-h-11 cursor-pointer">
+                  {copiedAccount ? t.copied : t.copyAccount}
                 </button>
               </div>
             )}
-
             <button
+              type="button"
               onClick={() => setShowQrModal(false)}
-              className="w-full py-2.5 rounded-xl bg-stone-900 text-white text-xs font-medium hover:bg-stone-800 transition cursor-pointer"
+              className="w-full h-12 rounded-[2px] bg-[#2b2520] text-[#fbf7ef] text-[15px] cursor-pointer"
             >
               {t.close}
             </button>
@@ -1400,71 +1091,35 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       )}
 
       {/* =========================================================================
-          MODAL: FULLSCREEN IMAGE LIGHTBOX WITH SLIDER NAVIGATION
+          MODAL: FULLSCREEN LIGHTBOX
          ========================================================================= */}
       {selectedImage && (
         <div
           onClick={() => setSelectedImage(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/92 backdrop-blur-md cursor-pointer animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-[#14110e]/95 animate-fade-in"
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="relative max-w-3xl max-h-[90vh] flex flex-col items-center cursor-default"
-          >
-            {/* Image Frame */}
-            <div className="relative rounded-2xl overflow-hidden border-2 border-amber-300/40 shadow-[0_20px_60px_rgba(0,0,0,0.8)] bg-stone-950">
-              <img
-                src={selectedImage}
-                alt="Enlarged photo"
-                className="max-w-full max-h-[80vh] object-contain"
-              />
-
-              {/* Prev / Next controls if image is inside gallery */}
-              {gallery.includes(selectedImage) && gallery.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const curIdx = gallery.indexOf(selectedImage);
-                      const nextIdx = (curIdx - 1 + gallery.length) % gallery.length;
-                      setSelectedImage(gallery[nextIdx]);
-                    }}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/60 hover:bg-black/90 text-white backdrop-blur-md border border-white/20 transition cursor-pointer shadow-lg"
-                    aria-label="Previous photo"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const curIdx = gallery.indexOf(selectedImage);
-                      const nextIdx = (curIdx + 1) % gallery.length;
-                      setSelectedImage(gallery[nextIdx]);
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/60 hover:bg-black/90 text-white backdrop-blur-md border border-white/20 transition cursor-pointer shadow-lg"
-                    aria-label="Next photo"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-
-                  {/* Counter Badge */}
-                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md text-amber-200 text-xs font-mono border border-amber-300/40">
-                    {String(gallery.indexOf(selectedImage) + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
-                  </div>
-                </>
-              )}
+          <div onClick={(e) => e.stopPropagation()} className="relative max-w-5xl max-h-[90vh] flex flex-col items-center">
+            <div className="wc-print">
+              <img src={selectedImage} alt="" className="!w-auto !h-auto max-w-[88vw] max-h-[78vh] !object-contain" />
             </div>
-
-            {/* Close Button */}
+            {gallery.includes(selectedImage) && gallery.length > 1 && (
+              <div className="mt-5 flex items-center gap-6 text-white/80">
+                <button type="button" onClick={() => stepLightbox(-1)} aria-label={ui.prev} className="w-11 h-11 rounded-full border border-white/25 flex items-center justify-center cursor-pointer hover:bg-white/10">
+                  <ChevronLeft className="w-5 h-5" strokeWidth={1.5} />
+                </button>
+                <span className="wc-display italic text-[15px] tabular-nums">No. {pad2(gallery.indexOf(selectedImage) + 1)} / {pad2(gallery.length)}</span>
+                <button type="button" onClick={() => stepLightbox(1)} aria-label={ui.next} className="w-11 h-11 rounded-full border border-white/25 flex items-center justify-center cursor-pointer hover:bg-white/10">
+                  <ChevronRight className="w-5 h-5" strokeWidth={1.5} />
+                </button>
+              </div>
+            )}
             <button
+              type="button"
               onClick={() => setSelectedImage(null)}
-              className="absolute -top-11 right-0 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
-              title="Close"
+              className="absolute -top-12 right-0 w-11 h-11 rounded-full text-white/80 hover:text-white flex items-center justify-center cursor-pointer"
+              aria-label={t.close}
             >
-              <X className="w-6 h-6" />
+              <X className="w-6 h-6" strokeWidth={1.5} />
             </button>
           </div>
         </div>
@@ -1477,50 +1132,25 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         onClose={() => setShowShareModal(false)}
       />
 
-      {/* Floating Rotating Gold Audio Player Widget */}
+      {/* Music: a small record in the corner */}
       {card.music_url && isOpen && (
-        <aside
-          aria-label="Wedding Music Player"
-          className="fixed bottom-5 left-5 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-300/80 bg-white/95 backdrop-blur-md shadow-xl text-stone-900 transition-all hover:scale-105 select-none"
-        >
+        <aside aria-label="Wedding Music Player" className="fixed bottom-5 left-5 z-40">
           <button
+            type="button"
             onClick={toggleMusic}
             aria-label={isPlayingMusic ? "ផ្អាកភ្លេងការ" : "ចាក់ភ្លេងការ"}
-            className="flex items-center gap-2 cursor-pointer group"
+            aria-pressed={isPlayingMusic}
+            className="flex items-center gap-3 h-12 pl-1.5 pr-4 rounded-full bg-[#fffdf8]/92 backdrop-blur border border-black/10 shadow-[0_8px_24px_rgba(60,45,30,0.18)] text-[#2b2520] cursor-pointer"
           >
-            {/* Spinning Vinyl Record Disc */}
-            <div className={`relative w-8 h-8 rounded-full bg-gradient-to-tr from-amber-700 via-amber-500 to-amber-300 p-0.5 shadow-md flex items-center justify-center ${isPlayingMusic ? 'animate-spin-slow' : ''}`}>
-              <div className="w-full h-full rounded-full bg-stone-900 flex items-center justify-center border border-amber-300/50">
-                {isPlayingMusic ? (
-                  <Music className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-                ) : (
-                  <VolumeX className="w-3.5 h-3.5 text-stone-400" />
-                )}
-              </div>
-            </div>
-
-            {/* Equalizer animation */}
-            <div className="flex items-end gap-0.5 h-3.5 px-0.5" aria-hidden="true">
-              <span className={`w-0.5 bg-amber-600 rounded-full transition-all ${isPlayingMusic ? 'h-3 animate-pulse' : 'h-1'}`} />
-              <span className={`w-0.5 bg-amber-600 rounded-full transition-all ${isPlayingMusic ? 'h-3.5 animate-bounce' : 'h-1.5'}`} style={{ animationDuration: '0.6s' }} />
-              <span className={`w-0.5 bg-amber-600 rounded-full transition-all ${isPlayingMusic ? 'h-2 animate-pulse' : 'h-1'}`} style={{ animationDuration: '0.8s' }} />
-              <span className={`w-0.5 bg-amber-600 rounded-full transition-all ${isPlayingMusic ? 'h-3.5 animate-bounce' : 'h-1.5'}`} style={{ animationDuration: '0.5s' }} />
-            </div>
-
-            <div className="text-left hidden sm:block">
-              <div className="text-[9px] font-bold uppercase tracking-wider text-amber-800 leading-tight">
-                {youtubeId ? "YouTube Audio" : "Wedding Music"}
-              </div>
-              <div className="text-[11px] font-semibold text-stone-800 max-w-[120px] truncate leading-tight">
-                {isPlayingMusic
-                  ? (lang === "km" ? "កំពុងចាក់ភ្លេងការ" : "Playing Music")
-                  : (lang === "km" ? "ចុចចាក់ភ្លេង" : "Tap to Play")}
-              </div>
-            </div>
+            <span className={`w-9 h-9 rounded-full bg-[#2b2520] flex items-center justify-center ${isPlayingMusic ? "animate-spin-slow" : ""}`}>
+              <span className="w-3 h-3 rounded-full bg-[var(--wc-light)]" />
+            </span>
+            <span className="text-[13px]">
+              {isPlayingMusic ? t.musicPlaying : (lang === "km" ? "ចុចចាក់ភ្លេង" : "Play music")}
+            </span>
           </button>
         </aside>
       )}
-
     </div>
   );
 }

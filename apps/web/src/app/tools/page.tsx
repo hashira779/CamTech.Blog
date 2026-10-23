@@ -5,7 +5,7 @@ import { getTools } from "@/lib/api";
 import type { Tool } from "@/types";
 import { Container, Section } from "@/components/ui/container";
 import { SectionHeader } from "@/components/ui/section-header";
-import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+import { PageHeader } from "@/components/layout/page-header";
 import { ToolCard } from "@/components/shared/tool-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Reveal } from "@/components/ui/reveal";
@@ -73,16 +73,16 @@ export default async function ToolsHubPage() {
 
   return (
     <div className="flex w-full flex-1 flex-col">
-      <Section className="pb-8 pt-6 sm:pt-8">
-        <Container>
-          <Breadcrumbs items={[{ label: "Tools", href: "/tools" }]} className="mb-6" />
+      <PageHeader
+        breadcrumbs={[{ label: "Tools" }]}
+        category="tools"
+        eyebrow="Tools"
+        title="Everyday online tools"
+        description="Calculators, formatters and converters that run entirely in your browser. Nothing you enter is uploaded or stored."
+      />
 
-          <SectionHeader
-            as="h1"
-            label="Tools"
-            title="Everyday online tools"
-            description="Calculators, formatters and converters that run entirely in your browser. Nothing you enter is uploaded or stored."
-          />
+      <Section className="pb-16 pt-2 sm:pt-4">
+        <Container>
 
           {groups.length === 0 ? (
             <EmptyState

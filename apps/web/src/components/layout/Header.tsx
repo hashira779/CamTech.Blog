@@ -210,7 +210,8 @@ export function Header() {
             )}
           >
             <Link href="/" tabIndex={folded ? undefined : -1} aria-label="CamTech.Blog home" className="contents">
-              <Logo size="sm" />
+              {/* Icon only: the slot is 36px wide, and the full wordmark spilled over the nav */}
+              <Logo size="sm" variant="icon" />
             </Link>
           </span>
 

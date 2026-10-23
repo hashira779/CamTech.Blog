@@ -1,17 +1,15 @@
 "use client";
 
+import { PageHeader } from "@/components/layout/page-header";
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import { Compass } from "lucide-react";
 import { searchNearby, getPlaces } from "@/lib/api";
 import { NearbySearchResponse, Place } from "@/types";
 import { NearbyPlaceCard } from "@/components/travel/NearbyPlaceCard";
 import { Container } from "@/components/ui/container";
-import { SectionHeader } from "@/components/ui/section-header";
 import { FormField } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { MetaDot } from "@/components/ui/byline";
 import { humanize } from "@/lib/format";
 import travelConfig from "@/data/travel_config.json";
 
@@ -55,30 +53,17 @@ export default function NearbySearchPage() {
 
   return (
     <div className="flex w-full flex-1 flex-col">
-      <Container className="pt-6 sm:pt-8">
-        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          <Link href="/" className="transition-colors hover:text-foreground">
-            Home
-          </Link>
-          <MetaDot />
-          <Link href="/travel" className="transition-colors hover:text-foreground">
-            Travel
-          </Link>
-          <MetaDot />
-          <span className="text-foreground">Nearby</span>
-        </nav>
-      </Container>
+      <PageHeader
+        breadcrumbs={[{ label: "Travel", href: "/travel" }, { label: "Nearby" }]}
+        category="travel"
+        eyebrow="Nearby"
+        title="What is around this place"
+        description="Places within a chosen radius of a landmark, ordered by straight-line distance from its coordinates. Walking and road times are estimated from that distance, not measured on the street."
+      />
 
-      {/* ── Header + controls ────────────────────────────────────────────── */}
-      <Container className="pt-8 pb-10 sm:pt-12">
-        <SectionHeader
-          as="h1"
-          label="Nearby"
-          title="What is around this place"
-          description="Places within a chosen radius of a landmark, ordered by straight-line distance from its coordinates. Walking and road times are estimated from that distance, not measured on the street."
-        />
-
-        <div className="mt-8 max-w-4xl rounded-lg border border-border bg-card p-5 shadow-xs sm:p-6">
+      {/* ── Controls ──────────────────────────────────────────────────────────── */}
+      <Container className="pb-10 pt-8">
+        <div className="max-w-4xl rounded-lg border border-border bg-card p-5 shadow-xs sm:p-6">
           <div className="grid gap-4 sm:grid-cols-3">
             <FormField label="Reference place" id="nearby-place">
               <Select
