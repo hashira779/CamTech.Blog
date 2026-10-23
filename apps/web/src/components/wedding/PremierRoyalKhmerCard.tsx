@@ -8,6 +8,7 @@ import { WeddingShareModal } from "./WeddingShareModal";
 import { getTemplateById } from "@/lib/wedding-templates";
 import { FloatingWeddingPetals } from "./WeddingFlowers";
 import { LotusDivider, CornerFlourish, HandCircle, HandCheck } from "./WeddingInk";
+import { KbachBand, AngkorDawn, RedThread, CeremonyIcon, type CeremonyIconName } from "./KhmerArt";
 import confetti from "canvas-confetti";
 import {
   MapPin,
@@ -459,9 +460,15 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       s2: "២ — កូនកំលោះ និងកូនក្រមុំ",
       s3: "៣ — ថ្ងៃមង្គល",
       s4: "៤ — កម្មវិធី",
-      s5: "៥ — អនុស្សាវរីយ៍",
-      s6: "៦ — ព័ត៌មានបន្ថែម",
-      s7: "៧ — ឆ្លើយតប",
+      s5: "៥ — ប្រពៃណីខ្មែរ",
+      s6: "៦ — អនុស្សាវរីយ៍",
+      s7: "៧ — ព័ត៌មានបន្ថែម",
+      s8: "៨ — ឆ្លើយតប",
+      traditionsTitle: "អត្ថន័យនៃពិធីមង្គលការខ្មែរ",
+      traditionsNote: "ពិធីនីមួយៗ មានអត្ថន័យ និងពរជ័យរបស់វា ដែលបន្សល់ទុកពីដូនតាខ្មែរ។",
+      blessing: "ពរជ័យ",
+      blessingLine: "សូមឲ្យគូស្វាមីភរិយាថ្មី រស់នៅជាមួយគ្នាដោយសុខដុមរមនា រហូតដល់ចាស់កោងខ្នង។",
+      thread: "ចងដៃ",
       invite: "សូមគោរពអញ្ជើញ",
       programTitle: "កម្មវិធីសិរីមង្គល",
       morning: "ពេលព្រឹក",
@@ -487,9 +494,15 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       s2: "II — The couple",
       s3: "III — The date",
       s4: "IV — The programme",
-      s5: "V — Moments",
-      s6: "VI — Good to know",
-      s7: "VII — Kindly reply",
+      s5: "V — Khmer traditions",
+      s6: "VI — Moments",
+      s7: "VII — Good to know",
+      s8: "VIII — Kindly reply",
+      traditionsTitle: "The meaning of a Khmer wedding",
+      traditionsNote: "Each rite carries its own blessing, handed down by Khmer elders for generations.",
+      blessing: "A blessing",
+      blessingLine: "May the couple share a long and gentle life together, until their hair turns white.",
+      thread: "ចងដៃ · tied together",
       invite: "You are warmly invited",
       programTitle: "Order of the day",
       morning: "Morning",
@@ -537,6 +550,18 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   const collageTilt = ["-rotate-[1.2deg]", "rotate-[0.8deg]", "rotate-0", "rotate-[1.4deg]", "-rotate-[0.6deg]"];
 
   const sectionLabel = "wc-smallcaps text-[var(--wc-link)]";
+
+  // The rites of a Khmer wedding, in the order they are usually held
+  const KHMER_NUMERALS = ["១", "២", "៣", "៤", "៥", "៦", "៧"];
+  const CEREMONIES: { icon: CeremonyIconName; km: string; en: string; kmNote: string; enNote: string }[] = [
+    { icon: "procession", km: "ពិធីហែជំនូន", en: "Gift procession", kmNote: "គ្រួសារខាងកូនប្រុសហែជំនូនផ្លែឈើ នំចំណី និងកាដូ ទៅដល់ផ្ទះកូនស្រី។", enNote: "The groom’s family carries trays of fruit, sweets and gifts to the bride’s home." },
+    { icon: "blessing", km: "ពិធីសូត្រមន្ត", en: "Monks’ blessing", kmNote: "ព្រះសង្ឃសូត្រមន្ត ប្រសិទ្ធពរជ័យ សិរីមង្គលដល់គូស្វាមីភរិយា។", enNote: "Monks chant blessings over the couple and their life together." },
+    { icon: "haircut", km: "ពិធីកាត់សក់បង្កក់សិរី", en: "Hair-cutting", kmNote: "កាត់សក់ជានិមិត្តរូប ដើម្បីជម្រះអតីតកាល ត្រៀមចូលជីវិតថ្មី។", enNote: "A symbolic trim that cleanses the couple for their new life." },
+    { icon: "popil", km: "ពិធីបង្វិលពពិល", en: "Circling the candle", kmNote: "ចាស់ទុំបង្វិលទៀនពពិលជុំវិញគូស្វាមីភរិយា ប្រាំពីរជុំ ដើម្បីសិរីមង្គល។", enNote: "Married elders pass a candle around the couple seven times for good fortune." },
+    { icon: "sampeah", km: "ពិធីសំពះផ្ទឹម", en: "Sampeah Pthem", kmNote: "កូនកំលោះ និងកូនក្រមុំសំពះគ្នាទៅវិញទៅមក និងសំពះដូនតា។", enNote: "The couple bow to each other and to their ancestors." },
+    { icon: "chongdai", km: "ពិធីចងដៃ", en: "Knot tying", kmNote: "ភ្ញៀវចងអំបោះក្រហមនៅកដៃគូស្វាមីភរិយា ព្រមទាំងជូនពរ។", enNote: "Guests tie red threads around the couple’s wrists with their wishes." },
+    { icon: "petals", km: "ពិធីបាចផ្កាស្លា", en: "Palm-flower shower", kmNote: "ភ្ញៀវបាចផ្កាស្លាលើគូស្វាមីភរិយា ជាពរជ័យចុងក្រោយ។", enNote: "Guests shower the couple with palm-flower petals as a last blessing." },
+  ];
 
   return (
     <div
@@ -648,6 +673,13 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             <img src={heroImage} alt={`${card.groom_name} & ${card.bride_name}`} className="wc-kb w-full h-full object-cover" />
           </div>
           <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(20,16,12,0.82),rgba(20,16,12,0.2)_55%,rgba(20,16,12,0.35))]" />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-3 sm:inset-5">
+            <span className="wc-frame-line t" />
+            <span className="wc-frame-line r" />
+            <span className="wc-frame-line b" />
+            <span className="wc-frame-line l" />
+          </div>
+          <KbachBand tiles={3} mode="open" className="absolute top-14 sm:top-10 left-1/2 -translate-x-1/2 w-36 h-6 text-[#e9d3a8]" />
 
           <div className="absolute inset-x-0 bottom-0 max-w-[1080px] mx-auto px-6 pb-24 sm:pb-20">
             <p className="wc-line d1 wc-smallcaps text-white/75">{ui.weddingOf}</p>
@@ -712,6 +744,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             </div>
           </div>
           <p className="mt-8 text-center wc-display italic text-[17px] text-[#6b6157]">{t.auspiciousBlessing}</p>
+          <KbachBand className="mx-auto mt-16 w-full max-w-sm h-7 text-[var(--wc-link)]/70" />
         </section>
 
         {/* =====================================================================
@@ -722,8 +755,8 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             <p className={`${sectionLabel} mb-10`}>{ui.s2}</p>
             <div className="relative grid grid-cols-1 md:grid-cols-12 gap-14 md:gap-6">
               {[
-                { img: groomImage, role: t.theGroom, name: card.groom_name, cls: "md:col-span-6 wc-tilt-l", capCls: "" },
-                { img: brideImage, role: t.theBride, name: card.bride_name, cls: "md:col-span-5 md:col-start-8 md:mt-40 wc-tilt-r", capCls: "md:text-right" },
+                { img: groomImage, role: t.theGroom, name: card.groom_name, cls: "relative z-10 md:col-span-6 wc-tilt-l", capCls: "" },
+                { img: brideImage, role: t.theBride, name: card.bride_name, cls: "relative z-10 md:col-span-5 md:col-start-8 md:mt-40 wc-tilt-r", capCls: "md:text-right" },
               ].map((p) => (
                 <figure key={p.role} className={`wc-reveal m-0 ${p.cls}`}>
                   <button
@@ -740,7 +773,8 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                   </figcaption>
                 </figure>
               ))}
-              <span aria-hidden="true" className="hidden md:block absolute left-[52%] top-[36%] -translate-x-1/2 wc-display italic font-light text-[140px] leading-none text-[var(--wc-link)]/60">&amp;</span>
+              <RedThread className="pointer-events-none hidden md:block absolute inset-x-0 top-[16%] h-[56%] w-full" />
+              <span aria-hidden="true" className="hidden md:block absolute left-[53.5%] top-[50%] -translate-x-1/2 text-[13px] text-[#b3262d] wc-khmer whitespace-nowrap">{ui.thread}</span>
             </div>
             <p className="wc-reveal mt-16 md:mt-10 max-w-xl wc-display italic text-[24px] sm:text-[30px] leading-snug text-[#3a332c]">{t.romanticQuote}</p>
           </div>
@@ -855,14 +889,44 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         </section>
 
         {/* =====================================================================
-            V. MOMENTS: a loose collage of prints
+            V. KHMER TRADITIONS: each rite on a palm-leaf manuscript strip
+           ===================================================================== */}
+        <section className="px-5 sm:px-6 py-24 sm:py-32">
+          <div className="max-w-[1080px] mx-auto">
+            <p className={sectionLabel}>{ui.s5}</p>
+            <h2 className="wc-reveal mt-4 font-moul text-[clamp(24px,3.6vw,38px)] leading-[1.6] text-[#2b2520]">{ui.traditionsTitle}</h2>
+            <p className="mt-3 max-w-xl text-[16px] leading-relaxed text-[#6b6157]">{ui.traditionsNote}</p>
+            <ol className="mt-12 grid md:grid-cols-2 gap-5">
+              {CEREMONIES.map((c, i) => (
+                <li
+                  key={c.icon}
+                  className={`wc-reveal relative flex items-center gap-5 rounded-[14px] bg-[#e9dcbf] wc-grain pl-9 pr-9 py-6 shadow-[0_10px_24px_-16px_rgba(60,45,30,0.55)] ${collageTilt[i % collageTilt.length]}`}
+                >
+                  {/* Binding holes, as on a real palm-leaf manuscript */}
+                  <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#c9b48c] shadow-inner" />
+                  <span aria-hidden="true" className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#c9b48c] shadow-inner" />
+                  <span className="wc-khmer text-[30px] leading-none text-[var(--wc-link)] w-6 text-center shrink-0">{KHMER_NUMERALS[i]}</span>
+                  <CeremonyIcon name={c.icon} className="w-11 h-11 shrink-0 text-[#4a3b2a]" />
+                  <div className="min-w-0">
+                    <p className="wc-khmer text-[17px] font-semibold text-[#2b2520]">{c.km}</p>
+                    {lang === "en" && <p className="wc-display italic text-[16px] text-[#4a3b2a]">{c.en}</p>}
+                    <p className="mt-1 text-[14px] leading-relaxed text-[#5a4c3c]">{lang === "km" ? c.kmNote : c.enNote}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        {/* =====================================================================
+            VI. MOMENTS: a loose collage of prints
            ===================================================================== */}
         {gallery.length > 0 && (
           <section className="px-5 sm:px-6 py-24 sm:py-32">
             <div className="max-w-[1080px] mx-auto">
               <div className="flex flex-wrap items-end justify-between gap-4 mb-12">
                 <div>
-                  <p className={sectionLabel}>{ui.s5}</p>
+                  <p className={sectionLabel}>{ui.s6}</p>
                   <h2 className="wc-reveal mt-4 wc-display font-light text-[clamp(36px,5vw,56px)] leading-[1.1] text-[#2b2520]">{t.galleryTitle}</h2>
                 </div>
                 <p className="wc-display italic text-[17px] text-[#6b6157] max-w-xs">{t.gallerySub}</p>
@@ -887,11 +951,11 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         )}
 
         {/* =====================================================================
-            VI. GOOD TO KNOW: dress code + gift, set as two columns of text
+            VII. GOOD TO KNOW: dress code + gift, set as two columns of text
            ===================================================================== */}
         <section className="px-5 sm:px-6 py-24 sm:py-32 border-t border-[#2b2520]/10">
           <div className="max-w-[1080px] mx-auto">
-            <p className={`${sectionLabel} mb-12`}>{ui.s6}</p>
+            <p className={`${sectionLabel} mb-12`}>{ui.s7}</p>
             <div className={`grid gap-14 ${card.khqr_image_url ? "md:grid-cols-2 md:divide-x md:divide-[#2b2520]/10" : ""}`}>
               <div className="wc-reveal md:pr-14">
                 <h3 className="wc-display text-[32px] leading-tight text-[#2b2520]">{t.dressCodeTitle}</h3>
@@ -917,11 +981,11 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         </section>
 
         {/* =====================================================================
-            VII. KINDLY REPLY: a paper reply card
+            VIII. KINDLY REPLY: a paper reply card
            ===================================================================== */}
         {card.enable_wishes && (
           <section className="px-5 sm:px-6 pb-24 sm:pb-32">
-            <p className={`${sectionLabel} text-center mb-8`}>{ui.s7}</p>
+            <p className={`${sectionLabel} text-center mb-8`}>{ui.s8}</p>
             <div className="wc-reveal relative max-w-[600px] mx-auto bg-[#fffdf8] wc-grain border border-[#2b2520]/15 px-6 sm:px-14 py-12 sm:py-16 shadow-[0_24px_50px_-30px_rgba(60,45,30,0.45)]">
               <div aria-hidden="true" className="absolute inset-2.5 border border-[#2b2520]/10 pointer-events-none" />
 
@@ -1033,6 +1097,27 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             )}
           </section>
         )}
+
+        {/* =====================================================================
+            BLESSING: Angkor Wat at dawn, then the traditional "Jayo!" cheer
+           ===================================================================== */}
+        <section className="relative overflow-hidden px-5 sm:px-6 pt-24 sm:pt-32 pb-16 text-center">
+          <p className={sectionLabel}>{ui.blessing}</p>
+          <AngkorDawn className="mx-auto mt-8 w-full max-w-[880px] text-[var(--wc-link)]" />
+          <p className="mt-8 font-moul text-[clamp(28px,5vw,46px)] leading-[1.6] text-[var(--wc-link)]" aria-label="ជយោ! ជយោ! ជយោ!">
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                aria-hidden="true"
+                className="wc-jayo mx-2 sm:mx-4"
+                style={{ animationRange: `entry ${20 + i * 18}% cover ${38 + i * 18}%` } as React.CSSProperties}
+              >
+                ជយោ!
+              </span>
+            ))}
+          </p>
+          <p className="mt-4 mx-auto max-w-xl wc-khmer text-[17px] leading-[2] text-[#3a332c]">{ui.blessingLine}</p>
+        </section>
 
         {/* Sign-off */}
         <footer className="px-6 pt-20 pb-24 text-center border-t border-[#2b2520]/10">
