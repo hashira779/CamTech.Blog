@@ -17,8 +17,10 @@ and an ArticleRevision row so it can be traced and reverted from the admin.
 
 All behaviour is controlled from Admin -> Settings via SiteSetting keys (see DEFAULTS).
 """
+import asyncio
 import json
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -27,7 +29,9 @@ from sqlalchemy.orm import Session
 
 from app.models.article import Article, ArticleRevision
 from app.models.audit import AuditLog, SiteSetting
+from app.common.html_hygiene import sanitize_stored_html
 from app.services.article_service import ArticleService
+from app.services.filing import strip_brand_suffix
 from app.services import ai_gateway
 
 logger = logging.getLogger("NewsAutopilot")
@@ -43,6 +47,8 @@ DEFAULTS = {
     "AUTOPILOT_PUBLISH_DELAY_HOURS": "2",        # review window before auto-publish
     "AUTOPILOT_MAX_PUBLISH_PER_RUN": "10",       # safety cap per worker cycle
     "AUTOPILOT_MIN_CONTENT_CHARS": "300",        # thin drafts never auto-publish
+    "AUTOPILOT_REDRAFT_ENABLED": "true",         # re-write held local/fallback drafts with AI
+    "AUTOPILOT_MAX_REDRAFT_PER_RUN": "5",        # AI calls per worker cycle for re-drafting
     "AUTOPILOT_ARCHIVE_AFTER_DAYS": "7",         # stale AI drafts / rejected -> ARCHIVED
     "AUTOPILOT_PURGE_AFTER_DAYS": "30",          # ARCHIVED (never public) -> deleted
     "AUTOPILOT_DISCOVERY_ENABLED": "true",       # AI visual discoveries (Discover section)
@@ -142,6 +148,15 @@ def _metadata(article: Article) -> dict:
         return {}
 
 
+def _parse_iso(value) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        return _as_naive_utc(datetime.fromisoformat(str(value).replace("Z", "+00:00")))
+    except ValueError:
+        return None
+
+
 def _engine(meta: dict) -> str:
     return str(meta.get("engine") or meta.get("generator") or "unknown")
 
@@ -179,12 +194,14 @@ def evaluate_draft(db: Session, article: Article, run_quality_gate: bool = True)
     """Decide whether an AI_DRAFT may be auto-published, and when."""
     delay_hours = get_int(db, "AUTOPILOT_PUBLISH_DELAY_HOURS")
     created = _as_naive_utc(article.created_at) or _utcnow_naive()
-    publish_at = created + timedelta(hours=delay_hours)
+    meta = _metadata(article)
+    # A re-drafted story is new copy: editors get a full review window on the AI version too
+    redrafted = _parse_iso(meta.get("redrafted_at"))
+    publish_at = max(created, redrafted or created) + timedelta(hours=delay_hours)
 
     if article.status != "AI_DRAFT":
         return PublishVerdict(False, f"Status is {article.status}; only AI_DRAFT auto-publishes", None)
 
-    meta = _metadata(article)
     if not meta:
         return PublishVerdict(False, "Not AI-generated; needs manual publish", None)
 
@@ -226,6 +243,8 @@ def auto_publish_ready_drafts(db: Session) -> dict:
         if published >= cap:
             break
         verdict = evaluate_draft(db, article)
+        if verdict.eligible and verdict.auto_publish_at and verdict.auto_publish_at > _utcnow_naive():
+            continue  # re-drafted recently; its review window is still open
         if not verdict.eligible:
             skipped += 1
             meta = _metadata(article)
@@ -246,6 +265,91 @@ def auto_publish_ready_drafts(db: Session) -> dict:
             logger.warning(f"Auto-publish failed for {article.id}: {exc}")
 
     return {"published": published, "skipped": skipped}
+
+
+REDRAFT_MAX_ATTEMPTS = 3
+
+
+def _plain(value: Optional[str]) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", value or "")).strip()
+
+
+async def redraft_held_drafts(db: Session, drafter) -> dict:
+    """Give drafts written while no AI provider answered a second chance.
+
+    Ingestion falls back to local extraction when the gateway is unconfigured or failing, and
+    those drafts are never trusted for auto-publish, so without this they sat until the archive
+    job took them. Once a provider answers, each held draft is re-written by it (a few per
+    cycle, a few attempts each) and enters a fresh review window.
+    """
+    if not (get_bool(db, "AUTOPILOT_NEWS_ENABLED") and get_bool(db, "AUTOPILOT_REDRAFT_ENABLED")):
+        return {"redrafted": 0, "disabled": True}
+    if not await asyncio.to_thread(ai_gateway.has_any_configured_provider):
+        return {"redrafted": 0, "no_provider": True}
+
+    cap = max(0, get_int(db, "AUTOPILOT_MAX_REDRAFT_PER_RUN"))
+    window = _utcnow_naive() - timedelta(days=get_int(db, "AUTOPILOT_ARCHIVE_AFTER_DAYS"))
+    rows = (
+        db.query(Article)
+        .filter(Article.status == "AI_DRAFT", Article.ai_draft_metadata.isnot(None), Article.created_at >= window)
+        .order_by(Article.created_at.desc())
+        .limit(200)
+        .all()
+    )
+    held = [
+        a for a in rows
+        if not is_trusted_engine(_engine(_metadata(a)))
+        and int(_metadata(a).get("redraft_attempts") or 0) < REDRAFT_MAX_ATTEMPTS
+    ][:cap]
+
+    redrafted, failed = 0, 0
+    for article in held:
+        meta = _metadata(article)
+        meta["redraft_attempts"] = int(meta.get("redraft_attempts") or 0) + 1
+        source_name = meta.get("source") or (article.source_attribution_text or "").replace("Source: ", "") or "the publisher"
+        source_text = " ".join(filter(None, [_plain(article.summary), _plain(article.content)]))
+        try:
+            draft = await drafter.generate_draft_editorial(article.title, source_text, source_name)
+        except Exception as exc:  # provider down or bad JSON: count the attempt, keep the draft
+            draft = {"engine": "", "error": str(exc)}
+
+        engine = str(draft.get("engine") or "")
+        summary = str(draft.get("summary") or "").strip()
+        if not is_trusted_engine(engine) or not summary:
+            failed += 1
+            meta["redraft_error"] = str(draft.get("error") or f"no usable draft from '{engine or 'no engine'}'")[:200]
+            article.ai_draft_metadata = json.dumps(meta)
+            db.commit()
+            logger.warning(f"Re-draft failed for {article.id}: {meta['redraft_error']}")
+            continue
+
+        key_points = [str(k).strip() for k in (draft.get("key_points") or []) if str(k).strip()]
+        prev_engine = _engine(meta)
+        article.summary = summary
+        article.key_points = json.dumps(key_points)
+        article.why_it_matters = str(draft.get("why_it_matters") or "").strip()
+        article.content = sanitize_stored_html(summary + "\n\n" + "\n".join(f"- {k}" for k in key_points))
+        if draft.get("seo_title"):
+            article.seo_title = strip_brand_suffix(str(draft["seo_title"]))[:150]
+        if draft.get("seo_description"):
+            article.seo_description = str(draft["seo_description"])[:255]
+        meta.update({
+            "engine": engine,
+            "redrafted_from": prev_engine,
+            "redrafted_at": datetime.now(timezone.utc).isoformat(),
+        })
+        meta.pop("redraft_error", None)
+        meta.pop("autopilot_hold_reason", None)
+        article.ai_draft_metadata = json.dumps(meta)
+        article.updated_at = _utcnow_naive()
+        _revision(db, article, "AI_DRAFT", "AI_DRAFT", f"Autopilot: re-drafted by {engine} (was {prev_engine})")
+        _audit(db, "AI_REDRAFT", article, prev_engine, engine)
+        db.commit()
+        redrafted += 1
+
+    if redrafted or failed:
+        logger.info(f"Re-drafted {redrafted} held AI drafts ({failed} failed).")
+    return {"redrafted": redrafted, "failed": failed}
 
 
 def archive_stale_articles(db: Session) -> dict:

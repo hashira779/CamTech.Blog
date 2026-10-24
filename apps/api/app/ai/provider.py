@@ -201,7 +201,11 @@ class LocalAIProvider(BaseAIProvider):
         best = max(scores.items(), key=lambda kv: kv[1])[0]
         # Cambodia outranks a generic vertical when the two are within one point of each
         # other: a Bakong payment story is Cambodia news before it is Business news.
-        if best != "Cambodia" and scores.get("Cambodia", 0) >= max(scores.values()) - 1:
+        # The story must name Cambodia at all: with a lone body hit elsewhere (score 1), a zero
+        # Cambodia score is also "within one point", which filed Singapore and Bangkok stories
+        # on the Cambodia desk.
+        cambodia = scores.get("Cambodia", 0)
+        if best != "Cambodia" and cambodia > 0 and cambodia >= max(scores.values()) - 1:
             return "Cambodia"
         return best
 
@@ -249,7 +253,7 @@ suggested_tags (3-5 tags), seo_title (max 60 chars), seo_description (max 155 ch
 Return only valid JSON."""
         data, meta = await asyncio.to_thread(ai_gateway.generate_json, prompt, use_search=False, timeout=25.0)
         if not isinstance(data, dict):
-            raise RuntimeError("No AI provider produced an editorial draft")
+            raise RuntimeError(f"No AI provider produced an editorial draft: {(meta or {}).get('details') or (meta or {}).get('error') or 'unparseable response'}")
         data.setdefault("ai_draft_status", "AI_DRAFT_PENDING_EDITOR_REVIEW")
         data["engine"] = (meta or {}).get("engine", "gemini")
         return data
@@ -297,7 +301,7 @@ class HybridAIProvider(BaseAIProvider):
         try:
             return await self.gemini.generate_draft_editorial(title, source_content, source_name)
         except Exception as e:
-            logger.debug(f"Gateway editorial draft unavailable ({e}), using local extraction fallback.")
+            logger.warning(f"Gateway editorial draft unavailable ({e}), using local extraction fallback.")
             return await self.local.generate_draft_editorial(title, source_content, source_name)
 
     async def classify_category(self, title: str, content: str) -> str:

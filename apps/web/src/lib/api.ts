@@ -62,7 +62,7 @@ export async function getArticles(params: {
   source?: string;
   limit?: number;
   page?: number;
-} = {}): Promise<{ items: Article[]; total: number }> {
+} = {}): Promise<{ items: Article[]; total: number; unavailable?: boolean }> {
   const query = new URLSearchParams();
   if (params.country) query.set("country", params.country);
   if (params.category) query.set("category", params.category);
@@ -72,7 +72,8 @@ export async function getArticles(params: {
   if (params.page) query.set("page", params.page.toString());
 
   const url = `${API_BASE}/articles?${query.toString()}`;
-  return fetchWithFallback(url, { items: [], total: 0 });
+  // `unavailable` marks the fallback so pages never say "nothing published" when the API is down
+  return fetchWithFallback(url, { items: [], total: 0, unavailable: true });
 }
 
 export async function getAuthorBySlug(slug: string): Promise<Author | null> {

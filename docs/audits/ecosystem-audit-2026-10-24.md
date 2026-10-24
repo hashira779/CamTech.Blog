@@ -124,3 +124,22 @@ Wedding scenarios covered: draft on first sign-in without bank details; same car
 - Right-size DB pools against measured concurrency or raise `max_connections` (#10).
 - Run the wedding-service tests in CI. The current pipeline runs no tests even though its header comment lists lint and test stages.
 - Make `apps/api` Alembic the single owner of wedding DDL and drop `create_all` from the wedding service once a migration path is agreed.
+
+---
+
+## Follow-up: news autopilot (same day)
+
+Trigger: the admin showed 87 KH stories with 55 drafts held as "Drafted by 'local'", and a
+local `/cambodia` page said "No Cambodia stories published yet".
+
+| # | Sev | Finding | Evidence | Status |
+|---|---|---|---|---|
+| 15 | P1 | Drafts are stamped `local` whenever no AI provider answers during ingestion (unconfigured key, quota, timeout). The autopilot correctly never auto-publishes those, but nothing ever retried them with AI, so they sat until the 7-day archive. The failure reason was logged at DEBUG and the gateway's per-provider errors were dropped, so production logs never said *why*. | `app/ai/provider.py` HybridAIProvider, `news_autopilot.evaluate_draft` | **Fixed**: `redraft_held_drafts` re-writes held drafts once a provider is configured (5 per cycle, 3 attempts per story, reason recorded as `redraft_error`), and the re-drafted copy gets a fresh review window. Fallbacks are logged at WARNING with the provider errors. New admin settings `AUTOPILOT_REDRAFT_ENABLED` and `AUTOPILOT_MAX_REDRAFT_PER_RUN`. Tests: `tests/test_autopilot_redraft.py`. |
+| 16 | P1 | The local classifier filed foreign stories on the Cambodia desk. Its tie-break let a Cambodia score of 0 count as "within one point" of a lone body hit elsewhere. Live examples on `/cambodia`: a Bangkok IMF protest, and Singapore PM Wong's Gulf trip (Channel News Asia). | Reproduced against the live API's KH items | **Fixed**: Cambodia must score > 0 to win a tie. Regression test with the live headlines. Existing misfiled rows are unchanged (see below). |
+| 17 | P2 | The section fronts showed "No … stories published yet" whenever the API call failed or timed out (`fetchWithFallback` returned an empty list). | `apps/web/src/lib/api.ts`, `SectionFront.tsx` | **Fixed**: the fallback is marked `unavailable` and the page says the stories could not be loaded. |
+| 18 | P2 | Live `og:url` is `https://blog.camtech.cam`, a domain with no public DNS record; the site serves at `https://camtech.cam` (the sitemap is correct). Social previews and any link built from `PUBLIC_WEB_URL` point at a dead host. | `curl https://camtech.cam/cambodia`, `nslookup blog.camtech.cam 1.1.1.1` | **Open**: set `PUBLIC_WEB_URL=https://camtech.cam` in the server `.env` (or create the DNS record), then rebuild `web`. CORS `FRONTEND_URL` uses the same variable. |
+| 19 | P3 | The drafted body is summary + key points; a terse AI draft can fall under the 300-character minimum and be held. | `runner.py`, `AUTOPILOT_MIN_CONTENT_CHARS` | Open: watch hold reasons after a provider is configured. |
+
+Production checked read-only: `GET https://cms.camtech.cam/api/v1/articles?country=KH` → 8 published (0.6 s); `https://camtech.cam/cambodia` renders them.
+
+**Needs you:** configure and test an AI provider in Admin → Settings (AI providers, "Test" button). Until one answers, ingestion keeps producing `local` drafts that stay held. That is deliberate: those drafts are extracts of the publisher's own text, not editorial copy. Re-filing the stories already misfiled as KH is a production data change and has not been done.

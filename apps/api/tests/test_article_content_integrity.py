@@ -224,6 +224,21 @@ def test_classifier_no_longer_piles_everything_into_technology():
     )) == "Cambodia"
 
 
+def test_a_story_that_never_names_cambodia_is_not_filed_there():
+    # Live misfilings from Channel News Asia: one stray body word elsewhere scored 1, and a
+    # Cambodia score of 0 counted as "within one point" of it.
+    local = LocalAIProvider()
+    for title, summary in (
+        ("'Two bad options': Hundreds protest in Bangkok, decrying IMF austerity",
+         "Protest organisers called on institutions like the International Monetary Fund to focus on climate financing."),
+        ("PM Wong to visit Qatar, UAE in first trip to Middle East since taking office",
+         "The visits will provide an opportunity for Singapore to strengthen economic cooperation."),
+    ):
+        category = asyncio.run(local.classify_category(title, summary))
+        assert category != "Cambodia", title
+        assert filing.resolve_country(category, "KH", title, summary) == "WORLD", title
+
+
 def test_country_follows_the_story_not_the_publisher():
     assert filing.resolve_country("World", "KH", "US election results", "Donald Trump wins Iowa.") == "WORLD"
     assert filing.resolve_country("Business", "WORLD", "Bakong QR growth", "The National Bank of Cambodia said") == "KH"

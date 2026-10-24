@@ -61,7 +61,7 @@ export async function SectionFront({
   emptyDescription,
   emptySearch,
 }: SectionFrontProps) {
-  const [{ items, total }, trending] = await Promise.all([
+  const [{ items, total, unavailable }, trending] = await Promise.all([
     getArticles({ country, limit: 20 }),
     getTrending(),
   ]);
@@ -97,8 +97,8 @@ export async function SectionFront({
         <Section>
           <Container>
             <EmptyState
-              title={emptyTitle}
-              description={emptyDescription}
+              title={unavailable ? "Stories could not be loaded" : emptyTitle}
+              description={unavailable ? "The newsroom is not answering right now. Please try again in a minute." : emptyDescription}
               actionLabel="Search the archive"
               actionHref={`/search?q=${encodeURIComponent(emptySearch)}`}
             />

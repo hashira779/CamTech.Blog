@@ -382,9 +382,12 @@ async def news_autopilot_job():
     from app.services import news_autopilot
     db = SessionLocal()
     try:
+        # Upgrade drafts written while no AI provider answered, before deciding what publishes
+        redraft = await news_autopilot.redraft_held_drafts(db, get_ai_provider().gemini)
         result = news_autopilot.run_lifecycle(db)
         logger.info(
-            f"🤖 News Autopilot: published={result['publish'].get('published', 0)} "
+            f"🤖 News Autopilot: redrafted={redraft.get('redrafted', 0)} "
+            f"published={result['publish'].get('published', 0)} "
             f"held={result['publish'].get('skipped', 0)} "
             f"archived={result['archive'].get('archived', 0)} purged={result['purge'].get('purged', 0)}"
         )
