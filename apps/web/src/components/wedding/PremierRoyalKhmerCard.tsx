@@ -7,13 +7,13 @@ import { postWeddingWish, extractYouTubeVideoId } from "@/lib/wedding-api";
 import { WeddingShareModal } from "./WeddingShareModal";
 import { getTemplateById, getEnvelopeStyle } from "@/lib/wedding-templates";
 import { isSafeUrl } from "@/lib/safe-url";
-import { FloatingWeddingPetals, WeddingFlowerIcon, KhmerCornerFiligree, KhmerArchCrown } from "./WeddingFlowers";
+import { WeddingFlowerIcon, KhmerCornerFiligree, KhmerArchCrown } from "./WeddingFlowers";
+import { CeremonyPiece } from "./khmer3d/CeremonyPiece";
 import { LotusDivider, CornerFlourish, HandCircle, HandCheck } from "./WeddingInk";
 import { KbachBand, AngkorDawn, RedThread, CeremonyIcon, type CeremonyIconName } from "./KhmerArt";
 import confetti from "canvas-confetti";
 import {
   MapPin,
-  Sparkles,
   X,
   Gift,
   ChevronLeft,
@@ -83,7 +83,6 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   const [lang, setLang] = useState<"km" | "en">("km");
   const [showQrModal, setShowQrModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [showPetals, setShowPetals] = useState(true);
   const [customGuestName] = useState<string | null>(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
@@ -658,9 +657,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       )}
 
       {/* Floating Ambient Falling Petals */}
-      {isOpen && showPetals && (
-        <FloatingWeddingPetals flowerType={template.flowerType} />
-      )}
+
 
       {/* Corner controls: language, petals, share */}
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
@@ -671,17 +668,6 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         >
           {lang === "km" ? "English" : "ភាសាខ្មែរ"}
         </button>
-        {isOpen && (
-          <button
-            type="button"
-            onClick={() => setShowPetals(!showPetals)}
-            aria-pressed={showPetals}
-            aria-label={t.petalsToggle}
-            className="w-10 h-10 rounded-full bg-[#fffdf8]/90 backdrop-blur border border-black/10 flex items-center justify-center text-[#2b2520] shadow-sm cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4" />
-          </button>
-        )}
         <button
           type="button"
           onClick={() => setShowShareModal(true)}
@@ -1019,31 +1005,54 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         </section>
 
         {/* =====================================================================
-            V. KHMER TRADITIONS: each rite on a palm-leaf manuscript strip
+            V. KHMER TRADITIONS: the rites in order, each object of the rite
+            standing on a carved plinth (real 3D, see khmer3d/), joined by a
+            gold thread that draws itself as the guest scrolls
            ===================================================================== */}
-        <section className="px-5 sm:px-6 py-24 sm:py-32">
-          <div className="max-w-[1080px] mx-auto">
-            <p className={sectionLabel}>{ui.s5}</p>
-            <h2 className="wc-reveal mt-4 font-moul text-[clamp(24px,3.6vw,38px)] leading-[1.6] text-[#2b2520]">{ui.traditionsTitle}</h2>
-            <p className="mt-3 max-w-xl text-[16px] leading-relaxed text-[#6b6157]">{ui.traditionsNote}</p>
-            <ol className="mt-12 grid md:grid-cols-2 gap-5">
-              {CEREMONIES.map((c, i) => (
-                <li
-                  key={c.icon}
-                  className={`wc-reveal relative flex items-center gap-5 rounded-[14px] bg-[#e9dcbf] wc-grain pl-9 pr-9 py-6 shadow-[0_10px_24px_-16px_rgba(60,45,30,0.55)] ${collageTilt[i % collageTilt.length]}`}
-                >
-                  {/* Binding holes, as on a real palm-leaf manuscript */}
-                  <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#c9b48c] shadow-inner" />
-                  <span aria-hidden="true" className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#c9b48c] shadow-inner" />
-                  <span className="wc-khmer text-[30px] leading-none text-[var(--wc-link)] w-6 text-center shrink-0">{KHMER_NUMERALS[i]}</span>
-                  <CeremonyIcon name={c.icon} className="w-11 h-11 shrink-0 text-[#4a3b2a]" />
-                  <div className="min-w-0">
-                    <p className="wc-khmer text-[17px] font-semibold text-[#2b2520]">{c.km}</p>
-                    {lang === "en" && <p className="wc-display italic text-[16px] text-[#4a3b2a]">{c.en}</p>}
-                    <p className="mt-1 text-[14px] leading-relaxed text-[#5a4c3c]">{lang === "km" ? c.kmNote : c.enNote}</p>
-                  </div>
-                </li>
-              ))}
+        <section className="wc-rites relative px-5 sm:px-6 py-24 sm:py-32 overflow-hidden">
+          <div className="relative max-w-[1080px] mx-auto">
+            <header className="text-center max-w-2xl mx-auto">
+              <p className={sectionLabel}>{ui.s5}</p>
+              <KhmerArchCrown className="mx-auto mt-6 w-24 h-8 text-[var(--wc-link)]" />
+              <h2 className="wc-reveal mt-3 font-moul text-[clamp(24px,3.6vw,38px)] leading-[1.75] text-[#2b2520]">{ui.traditionsTitle}</h2>
+              <p className="mt-3 text-[17px] leading-[1.9] text-[#4a3f33]">{ui.traditionsNote}</p>
+            </header>
+
+            <ol className="relative mt-16 sm:mt-20">
+              {/* The red-gold thread binding the rites together */}
+              <span aria-hidden="true" className="wc-rite-thread absolute top-0 bottom-0 left-[27px] md:left-1/2 w-[2px] -translate-x-1/2" />
+              {CEREMONIES.map((c, i) => {
+                const flip = i % 2 === 1;
+                return (
+                  <li key={c.icon} className="wc-rite relative grid md:grid-cols-2 items-center gap-x-16 gap-y-6 pl-16 md:pl-0 pb-16 md:pb-24 last:pb-0">
+                    {/* Knot on the thread */}
+                    <span aria-hidden="true" className="wc-rite-knot absolute left-[27px] md:left-1/2 top-8 md:top-1/2 -translate-x-1/2 md:-translate-y-1/2 w-[18px] h-[18px] rotate-45" />
+
+                    {/* The object of the rite in its niche */}
+                    <div className={`wc-rite-niche relative mx-auto md:mx-0 w-full max-w-[340px] aspect-[4/5] ${flip ? "md:order-2 md:justify-self-start" : "md:justify-self-end"}`}>
+                      <span aria-hidden="true" className="absolute inset-[10px] rounded-t-[999px] rounded-b-[6px] border border-[color-mix(in_oklab,var(--wc-accent)_45%,transparent)] pointer-events-none z-[1]" />
+                      <KhmerCornerFiligree position="bottom-left" className="absolute bottom-3 left-3 w-7 h-7 text-[var(--wc-link)] opacity-80 z-[1]" />
+                      <KhmerCornerFiligree position="bottom-right" className="absolute bottom-3 right-3 w-7 h-7 text-[var(--wc-link)] opacity-80 z-[1]" />
+                      <CeremonyPiece
+                        kind={c.icon}
+                        accent={template.accentColor}
+                        baseTurn={(i % 3 - 1) * 0.5}
+                        className="absolute inset-x-0 bottom-[6%] top-[12%]"
+                        fallback={<CeremonyIcon name={c.icon} className="w-24 h-24 text-[var(--wc-link)]" />}
+                      />
+                    </div>
+
+                    {/* Its name and meaning */}
+                    <div className={`relative ${flip ? "md:order-1 md:text-right" : ""}`}>
+                      <span className="block font-moul text-[34px] leading-[1.4] text-[var(--wc-link)]" aria-hidden="true">{KHMER_NUMERALS[i]}</span>
+                      <h3 className="mt-1 wc-khmer text-[clamp(21px,2.4vw,26px)] font-semibold leading-[1.7] text-[#2b2520]">{c.km}</h3>
+                      {lang === "en" && <p className="wc-display italic text-[20px] leading-snug text-[#5a4a38]">{c.en}</p>}
+                      <span aria-hidden="true" className={`block mt-4 h-px w-24 bg-[linear-gradient(90deg,var(--wc-gold),transparent)] ${flip ? "md:ml-auto md:bg-[linear-gradient(270deg,var(--wc-gold),transparent)]" : ""}`} />
+                      <p className={`mt-4 text-[16.5px] leading-[1.95] text-[#3f352b] max-w-[44ch] ${flip ? "md:ml-auto" : ""}`}>{lang === "km" ? c.kmNote : c.enNote}</p>
+                    </div>
+                  </li>
+                );
+              })}
             </ol>
           </div>
         </section>

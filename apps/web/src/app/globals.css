@@ -1537,6 +1537,54 @@ html.js .dd-reveal:not([data-revealed="true"]) .rule-fill {
 /* Khmer text: room for stacked vowels and subscript consonants */
 .wc-km-lh { line-height: 1.35 !important; padding-block: .04em; }
 
+/* ---------- Rites: niches, thread and knots ----------
+   Each niche is a sheet of embossed ivory paper (raised edge, inner shadow)
+   lined with a silk-toned arch; the 3D piece stands inside it. */
+.wc-rite-niche {
+  border-radius: 999px 999px 10px 10px;
+  background:
+    radial-gradient(120% 70% at 50% 18%, color-mix(in oklab, var(--wc-accent) 10%, #fffaf0), transparent 70%),
+    linear-gradient(180deg, #fbf5e9, #efe3cc);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, .8),
+    inset 0 -14px 30px -18px rgba(90, 60, 25, .35),
+    inset 0 0 0 1px rgba(120, 90, 50, .12),
+    0 1px 0 rgba(255, 255, 255, .6),
+    0 26px 44px -30px rgba(60, 40, 15, .55),
+    0 8px 14px -10px rgba(60, 40, 15, .25);
+}
+/* Silk lining: fine diagonal weave, only inside the arch */
+.wc-rite-niche::before {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border-radius: 999px 999px 4px 4px;
+  background:
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, .18) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(25deg, rgba(0, 0, 0, .025) 0 1px, transparent 1px 4px),
+    radial-gradient(90% 60% at 50% 30%, color-mix(in oklab, var(--wc-accent) 16%, #fbf1df), color-mix(in oklab, var(--wc-accent) 26%, #ead8b8));
+  box-shadow: inset 0 10px 24px -14px rgba(60, 40, 15, .45);
+}
+
+.wc-rite-thread {
+  background: linear-gradient(180deg, transparent, color-mix(in oklab, var(--wc-gold) 85%, #8a1a1a) 6%, var(--wc-gold) 50%, color-mix(in oklab, var(--wc-gold) 85%, #8a1a1a) 94%, transparent);
+  transform-origin: top;
+}
+.wc-rite-knot {
+  background: radial-gradient(circle at 35% 30%, #fff4d6, var(--wc-gold) 55%, color-mix(in oklab, var(--wc-gold) 60%, #000));
+  box-shadow: 0 0 0 4px var(--wc-paper), 0 0 0 5px color-mix(in oklab, var(--wc-gold) 50%, transparent), 0 4px 8px rgba(60, 40, 15, .3);
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* The thread draws downward with scroll, and undraws scrolling back up */
+    .wc-rite-thread { animation: wc-thread linear both; animation-timeline: view(); animation-range: entry 10% cover 85%; }
+    @keyframes wc-thread { from { transform: translateX(-50%) scaleY(0); } to { transform: translateX(-50%) scaleY(1); } }
+    .wc-rite { animation: wc-rite-in linear both; animation-timeline: view(); animation-range: entry 0% cover 30%; }
+    @keyframes wc-rite-in { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+  }
+}
+
 /* ---------- Cover entrance: lines settle in one after another ---------- */
 .wc-line { opacity: 0; transform: translateY(18px); }
 .wc-opened .wc-line { animation: wc-line-in 1.6s var(--wc-ease) forwards; }
