@@ -88,9 +88,11 @@ export function JourneyHero() {
   const mistY = useTransform(scrollYProgress, [0, 1], ["0%", "-30%"]);
   const mistOpacity = useTransform(scrollYProgress, [0, 0.6, 1], [0.55, 0.85, 1]);
   const textY = useTransform(scrollYProgress, [0, 0.5], [0, -90]);
-  const textOpacity = useTransform(scrollYProgress, [0, 0.12, 0.42], [1, 1, 0]);
+  const textOpacity = useTransform(scrollYProgress, [0, 0.1, 0.36], [1, 1, 0]);
   const cueOpacity = useTransform(scrollYProgress, [0, 0.08], [1, 0]);
-  const veil = useTransform(scrollYProgress, [0.62, 0.98], [0, 1]);
+  // Never fully black: the discovery chapter slides up over this last stretch (it carries a
+  // negative top margin), so the reader sees its title arrive rather than an empty screen.
+  const veil = useTransform(scrollYProgress, [0.5, 1], [0, 0.75]);
 
   const still = reduce;
   const words = [copy.heroTitleA, copy.heroTitleB];
@@ -109,7 +111,7 @@ export function JourneyHero() {
       aria-labelledby="tv-hero-title"
       data-active={onScreen ? "true" : "false"}
       className="tv-scene relative bg-tv-night"
-      style={{ height: still ? "100svh" : "200svh" }}
+      style={{ height: still ? "100svh" : "175svh" }}
     >
       <div className="sticky top-0 h-svh overflow-hidden">
         {/* ── Sky ───────────────────────────────────────────────────────── */}

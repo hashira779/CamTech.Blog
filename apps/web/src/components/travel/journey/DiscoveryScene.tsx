@@ -114,11 +114,11 @@ export function DiscoveryScene({ destinations }: { destinations: Destination[] }
       id="tv-discovery"
       aria-labelledby="tv-discovery-title"
       data-active={onScreen ? "true" : "false"}
-      className="tv-scene relative scroll-mt-16 bg-tv-night text-tv-ivory"
+      className={`tv-scene relative z-10 scroll-mt-16 text-tv-ivory ${reduce ? "bg-tv-night" : "-mt-[60svh]"}`}
     >
       <div className="tv-discovery-bg pointer-events-none absolute inset-0" aria-hidden="true" />
 
-      <div className="container-page relative pt-20 sm:pt-28">
+      <div className={`container-page relative ${reduce ? "pt-20 sm:pt-28" : "pt-[34svh]"}`}>
         <div className="max-w-2xl">
           <p className="tv-eyebrow text-tv-gold-soft">{copy.discoveryLabel}</p>
           <h2 id="tv-discovery-title" className="mt-3 font-display text-3xl leading-tight tracking-tight sm:text-5xl">
