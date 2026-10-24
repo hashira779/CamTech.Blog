@@ -93,6 +93,8 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   const [openSpeed, setOpenSpeed] = useState(1);
   const envRef = useRef<HTMLDivElement | null>(null);
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
+  // The song can't be played here (removed, private, or embedding blocked)
+  const [musicBroken, setMusicBroken] = useState(false);
   const [lang, setLang] = useState<"km" | "en">("km");
   const [showQrModal, setShowQrModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -257,20 +259,101 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   // Open the envelope: flap, letter and fade run in CSS; these timers follow them
   const openedKey = `wc-opened:${card.slug}`;
 
+  /* Music. Browsers only let a page start sound from a tap, so it starts
+     when the guest opens the envelope. Two things could still lose it: a
+     YouTube player that hadn't loaded yet when they tapped, and a browser
+     that refuses anyway. So the play request waits for the player, the
+     button shows what is really playing (from the player's own events, not
+     what we asked for), and if nothing plays, the guest's next tap anywhere
+     on the card starts it. */
+  const wantMusic = useRef(false);
+  const ytReady = useRef(false);
+  const ytCommand = (func: "playVideo" | "pauseVideo") => {
+    ytIframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args: "" }), "https://www.youtube.com");
+  };
+
   const startMusic = () => {
     if (!card.music_url) return;
-    if (youtubeId && ytIframeRef.current?.contentWindow) {
-      try {
-        ytIframeRef.current.contentWindow.postMessage(
-          JSON.stringify({ event: "command", func: "playVideo", args: "" }),
-          "*"
-        );
-        setIsPlayingMusic(true);
-      } catch {}
-    } else if (audioRef.current) {
-      audioRef.current.play().then(() => setIsPlayingMusic(true)).catch(() => {});
+    wantMusic.current = true;
+    if (youtubeId) {
+      if (ytReady.current) ytCommand("playVideo"); // otherwise sent once the player says it's ready
+    } else {
+      audioRef.current?.play().catch(() => {});
     }
   };
+
+  const stopMusic = () => {
+    wantMusic.current = false;
+    if (youtubeId) ytCommand("pauseVideo");
+    else audioRef.current?.pause();
+  };
+
+  // YouTube player events: ready, and its real playing state
+  useEffect(() => {
+    if (!youtubeId) return;
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== "https://www.youtube.com" || e.source !== ytIframeRef.current?.contentWindow) return;
+      let msg: { event?: string; info?: unknown };
+      try { msg = typeof e.data === "string" ? JSON.parse(e.data) : e.data; } catch { return; }
+      if (msg.event === "onError") {
+        setMusicBroken(true);
+        return;
+      }
+      if (msg.event === "onReady" || (msg.event === "initialDelivery" && !ytReady.current)) {
+        ytReady.current = true;
+        if (wantMusic.current) ytCommand("playVideo");
+      }
+      const state = msg.event === "onStateChange" ? msg.info
+        : msg.event === "infoDelivery" ? (msg.info as { playerState?: number } | null)?.playerState
+        : undefined;
+      if (typeof state === "number") setIsPlayingMusic(state === 1 || state === 3);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [youtubeId]);
+
+  // Ask the player to report its events (the iframe API handshake)
+  const handleYtLoad = () => {
+    const w = ytIframeRef.current?.contentWindow;
+    if (!w) return;
+    w.postMessage(JSON.stringify({ event: "listening", id: "wedding-youtube-audio", channel: "widget" }), "https://www.youtube.com");
+    w.postMessage(JSON.stringify({ event: "command", func: "addEventListener", args: ["onStateChange"] }), "https://www.youtube.com");
+  };
+
+  // If the music still isn't playing a moment after opening, the guest's
+  // next tap or key press anywhere starts it
+  useEffect(() => {
+    if (!isOpen || isPreview || !card.music_url) return;
+    let armed = false;
+    const retry = () => { if (wantMusic.current && !isPlayingMusic) startMusic(); };
+    const t = window.setTimeout(() => {
+      if (!wantMusic.current || isPlayingMusic) return;
+      armed = true;
+      document.addEventListener("pointerup", retry, { once: true });
+      document.addEventListener("keydown", retry, { once: true });
+    }, 1500);
+    return () => {
+      window.clearTimeout(t);
+      if (armed) {
+        document.removeEventListener("pointerup", retry);
+        document.removeEventListener("keydown", retry);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isPlayingMusic, isPreview, card.music_url]);
+
+  // Quiet while the guest is in another app or tab, back when they return
+  useEffect(() => {
+    if (!card.music_url || isPreview) return;
+    const onVis = () => {
+      if (!wantMusic.current) return;
+      if (document.hidden) { if (youtubeId) ytCommand("pauseVideo"); else audioRef.current?.pause(); }
+      else if (youtubeId) ytCommand("playVideo");
+      else audioRef.current?.play().catch(() => {});
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [card.music_url, isPreview, youtubeId]);
 
   // Straight to the invitation (returning guests, or anyone who'd rather not wait)
   const handleSkipEnvelope = () => {
@@ -327,24 +410,8 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   };
 
   const toggleMusic = () => {
-    if (youtubeId && ytIframeRef.current?.contentWindow) {
-      const nextPlay = !isPlayingMusic;
-      const cmd = nextPlay ? "playVideo" : "pauseVideo";
-      try {
-        ytIframeRef.current.contentWindow.postMessage(
-          JSON.stringify({ event: "command", func: cmd, args: "" }),
-          "*"
-        );
-        setIsPlayingMusic(nextPlay);
-      } catch {}
-    } else if (audioRef.current) {
-      if (isPlayingMusic) {
-        audioRef.current.pause();
-        setIsPlayingMusic(false);
-      } else {
-        audioRef.current.play().then(() => setIsPlayingMusic(true)).catch(() => {});
-      }
-    }
+    if (isPlayingMusic) stopMusic();
+    else startMusic();
   };
 
   const handleCopyAccount = () => {
@@ -673,7 +740,16 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
     >
       {/* Background audio elements */}
       {card.music_url && !youtubeId && (
-        <audio ref={audioRef} loop src={card.music_url} preload="auto" />
+        <audio
+          ref={audioRef}
+          loop
+          src={card.music_url}
+          preload="auto"
+          playsInline
+          onPlaying={() => setIsPlayingMusic(true)}
+          onPause={() => setIsPlayingMusic(false)}
+          onError={() => setMusicBroken(true)}
+        />
       )}
       {card.music_url && youtubeId && (
         <div className="fixed -bottom-96 -left-96 pointer-events-none opacity-0 h-1 w-1 overflow-hidden" aria-hidden="true">
@@ -683,6 +759,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             src={`https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&autoplay=0&loop=1&playlist=${youtubeId}`}
             allow="autoplay"
             title="Wedding Audio Player"
+            onLoad={handleYtLoad}
           />
         </div>
       )}
@@ -1439,14 +1516,14 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       />
 
       {/* Music: a small record in the corner */}
-      {card.music_url && isOpen && (
+      {card.music_url && isOpen && !musicBroken && (
         <aside aria-label="Wedding Music Player" className="fixed bottom-5 left-5 z-40">
           <button
             type="button"
             onClick={toggleMusic}
             aria-label={isPlayingMusic ? "ផ្អាកភ្លេងការ" : "ចាក់ភ្លេងការ"}
             aria-pressed={isPlayingMusic}
-            className="flex items-center gap-3 h-12 pl-1.5 pr-4 rounded-full bg-[#fffdf8]/92 backdrop-blur border border-black/10 shadow-[0_8px_24px_rgba(60,45,30,0.18)] text-[#2b2520] cursor-pointer"
+            className={`flex items-center gap-3 h-12 pl-1.5 pr-4 rounded-full bg-[#fffdf8]/92 ${isPlayingMusic ? "" : "wc-music-nudge"} backdrop-blur border border-black/10 shadow-[0_8px_24px_rgba(60,45,30,0.18)] text-[#2b2520] cursor-pointer`}
           >
             <span className={`w-9 h-9 rounded-full bg-[#2b2520] flex items-center justify-center ${isPlayingMusic ? "animate-spin-slow" : ""}`}>
               <span className="w-3 h-3 rounded-full bg-[var(--wc-light)]" />

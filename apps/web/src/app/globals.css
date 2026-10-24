@@ -1538,6 +1538,15 @@ html.js .dd-reveal:not([data-revealed="true"]) .rule-fill {
 /* Khmer text: room for stacked vowels and subscript consonants */
 .wc-km-lh { line-height: 1.35 !important; padding-block: .04em; }
 
+/* Music button while nothing plays: a soft gold ring pulses so the guest
+   sees one tap starts the music */
+.wc-music-nudge { animation: wc-music-nudge 2.2s ease-out infinite; }
+@keyframes wc-music-nudge {
+  0% { box-shadow: 0 8px 24px rgba(60,45,30,.18), 0 0 0 0 color-mix(in oklab, var(--wc-gold, #c9a46a) 55%, transparent); }
+  70%, 100% { box-shadow: 0 8px 24px rgba(60,45,30,.18), 0 0 0 14px transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .wc-music-nudge { animation: none; } }
+
 /* Placeholder glow while a 3D ceremony piece loads */
 .wc-piece-loading {
   background: radial-gradient(closest-side, color-mix(in oklab, var(--wc-gold) 45%, transparent), transparent 72%);

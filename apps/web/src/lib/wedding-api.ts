@@ -227,60 +227,61 @@ export async function deleteMyResponse(token: string, id: string): Promise<void>
   await request<void>(`/wedding/my-card/responses/${encodeURIComponent(id)}`, { method: "DELETE", token });
 }
 
+// Same list as the service's: each one checked to play in an embedded player
 export const DEFAULT_CURATED_SONGS: CuratedSong[] = [
   {
-    id: "song-blessing-01",
-    title_km: "របាំជូនពរ (ភ្លេងការបុរាណខ្មែរ)",
-    title_en: "Robam Choun Por (Traditional Blessing Dance)",
-    category: "ជូនពរសិរីសួស្តី",
-    video_id: "Wj_P9cKzW2U",
-    youtube_url: "https://www.youtube.com/watch?v=Wj_P9cKzW2U",
-    thumbnail_url: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=400&q=80"
+    id: "song-homrong-01",
+    title_km: "ហោមរោង (បើកពិធីមង្គលការ)",
+    title_en: "Hom Rong (Opening of the Ceremony)",
+    category: "ចាប់ផ្តើមពិធី",
+    video_id: "iLHnS6Zjdh8",
+    youtube_url: "https://www.youtube.com/watch?v=iLHnS6Zjdh8",
+    thumbnail_url: "https://i.ytimg.com/vi/iLHnS6Zjdh8/hqdefault.jpg"
   },
   {
-    id: "song-procession-02",
-    title_km: "ពិធីហែកំណត់ / ហែជំនូនចូលរោងជ័យ",
-    title_en: "Hae Khnom (Traditional Groom Procession)",
-    category: "ពិធីហែជំនូន",
-    video_id: "8G-G4nC0GqY",
-    youtube_url: "https://www.youtube.com/watch?v=8G-G4nC0GqY",
-    thumbnail_url: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=400&q=80"
-  },
-  {
-    id: "song-katsok-03",
-    title_km: "ពិធីកាត់សក់បង្កក់សិរីមង្គល",
-    title_en: "Kat Sok Bangkork Serey (Hair Cutting Ceremony)",
-    category: "ពិធីកាត់សក់",
-    video_id: "7o3Fv64Bq0E",
-    youtube_url: "https://www.youtube.com/watch?v=7o3Fv64Bq0E",
-    thumbnail_url: "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=400&q=80"
-  },
-  {
-    id: "song-phtum-04",
-    title_km: "ពិធីសំពះផ្ទឹម ចងដៃសិរីសួស្តី",
-    title_en: "Sompeah Phtum (Sacred Knot Tying Ceremony)",
-    category: "ពិធីសំពះផ្ទឹម",
-    video_id: "4jS9XwLz7g0",
-    youtube_url: "https://www.youtube.com/watch?v=4jS9XwLz7g0",
-    thumbnail_url: "https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=400&q=80"
-  },
-  {
-    id: "song-pka-sla-05",
-    title_km: "ផ្កាស្លាបីទង (មរតកភ្លេងការបុរាណ)",
-    title_en: "Pka Sla Bei Torng (Heritage Wedding Melody)",
+    id: "song-plengka-02",
+    title_km: "ភ្លេងការបុរាណខ្មែរ",
+    title_en: "Pleng Ka — Khmer Traditional Wedding Music",
     category: "បទបុរាណប្រពៃណី",
-    video_id: "m9Y1Z9w8Q2c",
-    youtube_url: "https://www.youtube.com/watch?v=m9Y1Z9w8Q2c",
-    thumbnail_url: "https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?auto=format&fit=crop&w=400&q=80"
+    video_id: "wfJoz4The1w",
+    youtube_url: "https://www.youtube.com/watch?v=wfJoz4The1w",
+    thumbnail_url: "https://i.ytimg.com/vi/wfJoz4The1w/hqdefault.jpg"
   },
   {
-    id: "song-destiny-06",
-    title_km: "គូព្រេងនិស្ស័យ (ស្នេហ៍ស្មោះស័ក្តិសិទ្ធិ)",
-    title_en: "Destined Soulmates (Khmer Love Symphony)",
+    id: "song-smoung-03",
+    title_km: "ភ្លេងការ ស្មោង (ឈុតទី ១)",
+    title_en: "Phleng Ka Collection Vol. 1",
+    category: "បទបុរាណប្រពៃណី",
+    video_id: "aJqkEm6XHxQ",
+    youtube_url: "https://www.youtube.com/watch?v=aJqkEm6XHxQ",
+    thumbnail_url: "https://i.ytimg.com/vi/aJqkEm6XHxQ/hqdefault.jpg"
+  },
+  {
+    id: "song-kamdarong-04",
+    title_km: "ភ្លេងការកំដររោង",
+    title_en: "Pleng Ka for the Wedding Hall",
+    category: "កំដររោងការ",
+    video_id: "JB7p_x0uAI8",
+    youtube_url: "https://www.youtube.com/watch?v=JB7p_x0uAI8",
+    thumbnail_url: "https://i.ytimg.com/vi/JB7p_x0uAI8/hqdefault.jpg"
+  },
+  {
+    id: "song-norkorreach-05",
+    title_km: "ភ្លេងការ នគររាជ",
+    title_en: "Khmer Wedding Song — Nokor Reach",
+    category: "ជូនពរសិរីសួស្តី",
+    video_id: "v8lnHkZL1jk",
+    youtube_url: "https://www.youtube.com/watch?v=v8lnHkZL1jk",
+    thumbnail_url: "https://i.ytimg.com/vi/v8lnHkZL1jk/hqdefault.jpg"
+  },
+  {
+    id: "song-classic-06",
+    title_km: "ចម្រៀងការជំនាន់មុន (សាវុធ & សេរីយ៉ុង)",
+    title_en: "Classic Wedding Songs (Savuth & Sereyong)",
     category: "មនោសញ្ចេតនា",
-    video_id: "2g811Eo7K8U",
-    youtube_url: "https://www.youtube.com/watch?v=2g811Eo7K8U",
-    thumbnail_url: "https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=400&q=80"
+    video_id: "wosq2c0ZB9E",
+    youtube_url: "https://www.youtube.com/watch?v=wosq2c0ZB9E",
+    thumbnail_url: "https://i.ytimg.com/vi/wosq2c0ZB9E/hqdefault.jpg"
   }
 ];
 
