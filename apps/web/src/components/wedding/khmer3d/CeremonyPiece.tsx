@@ -15,6 +15,12 @@ interface CeremonyPieceProps {
   className?: string;
 }
 
+/* Phones and tablets: a lighter profile (lower canvas density, scroll-linked
+   redraws capped near 30 per second). Measured on a 390px viewport with a
+   4x-throttled CPU, drawing every piece on every scroll frame cost ~46 ms. */
+const touchProfile = () =>
+  typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+
 const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -36,6 +42,8 @@ export function CeremonyPiece({ kind, accent, baseTurn = 0, fallback, className 
     if (!wrap || !canvas) return;
 
     const reduced = prefersReducedMotion();
+    const touch = touchProfile();
+    let lastDraw = 0;
     let engine: KhmerEngine | null = null;
     let disposed = false;
     let raf = 0;
@@ -53,6 +61,12 @@ export function CeremonyPiece({ kind, accent, baseTurn = 0, fallback, className 
     const frame = (now: number) => {
       raf = 0;
       if (!engine || disposed) return;
+      // On touch devices, let scroll-driven redraws run at about 30 per second
+      if (touch && revealStart && pose.reveal >= 1 && now - lastDraw < 30) {
+        schedule();
+        return;
+      }
+      lastDraw = now;
       let again = false;
       if (!reduced) {
         if (revealStart && pose.reveal < 1) {
@@ -80,7 +94,7 @@ export function CeremonyPiece({ kind, accent, baseTurn = 0, fallback, className 
 
     const sizeCanvas = () => {
       const r = wrap.getBoundingClientRect();
-      const cap = (navigator.hardwareConcurrency || 8) <= 4 ? 1.5 : 2;
+      const cap = touch || (navigator.hardwareConcurrency || 8) <= 4 ? 1.5 : 2;
       const dpr = Math.min(window.devicePixelRatio || 1, cap);
       const w = Math.round(r.width * dpr);
       const h = Math.round(r.height * dpr);
@@ -117,19 +131,36 @@ export function CeremonyPiece({ kind, accent, baseTurn = 0, fallback, className 
       }
       sizeCanvas();
       setStatus("ready");
+      // Build the piece and compile its shaders while the browser is idle,
+      // well before it scrolls in, instead of stalling the first frame it's seen
+      const ready = engine;
+      const run = () => {
+        if (!disposed) void ready.prepare(kind);
+      };
+      if ("requestIdleCallback" in window) idleId = window.requestIdleCallback(run, { timeout: 2000 });
+      else idleId = globalThis.setTimeout(run, 150) as unknown as number;
       schedule();
     };
 
-    // Load when close to the viewport; reveal when actually on screen
+    // Start loading and preparing far ahead of the viewport
     let loading = false;
+    let idleId = 0;
+    const near = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting) && !loading) {
+          loading = true;
+          void start();
+        }
+      },
+      { rootMargin: "1500px 0px" }
+    );
+    near.observe(wrap);
+
+    // Draw only while actually on (or just off) screen; reveal once seen
     const io = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           visible = entry.isIntersecting;
-          if (entry.isIntersecting && !loading) {
-            loading = true;
-            void start();
-          }
           if (entry.intersectionRatio > 0.25 && !revealStart) revealStart = performance.now();
           if (visible) schedule();
         }
@@ -149,6 +180,9 @@ export function CeremonyPiece({ kind, accent, baseTurn = 0, fallback, className 
     return () => {
       disposed = true;
       if (raf) cancelAnimationFrame(raf);
+      if ("cancelIdleCallback" in window) window.cancelIdleCallback(idleId);
+      else globalThis.clearTimeout(idleId);
+      near.disconnect();
       io.disconnect();
       ro.disconnect();
       window.removeEventListener("scroll", onScroll);
@@ -159,9 +193,17 @@ export function CeremonyPiece({ kind, accent, baseTurn = 0, fallback, className 
 
   return (
     <div ref={wrapRef} className={className}>
+      {/* While loading: a soft glow where the piece will stand (not the flat
+          icon, which read as broken). The icon is kept for no-WebGL only. */}
       <div
         aria-hidden="true"
-        className={`absolute inset-0 flex items-center justify-center transition-opacity duration-700 ${status === "ready" ? "opacity-0" : "opacity-100"}`}
+        className={`absolute inset-0 flex items-center justify-center transition-opacity duration-700 ${status === "idle" ? "opacity-100" : "opacity-0"}`}
+      >
+        <span className="wc-piece-loading w-[62%] aspect-square rounded-full" />
+      </div>
+      <div
+        aria-hidden="true"
+        className={`absolute inset-0 flex items-center justify-center transition-opacity duration-700 ${status === "fallback" ? "opacity-100" : "opacity-0"}`}
       >
         {fallback}
       </div>

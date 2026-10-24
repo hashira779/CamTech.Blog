@@ -204,3 +204,20 @@ def test_uploads_need_an_account_and_a_real_image(client):
 
 def test_readiness_checks_the_database(client):
     assert client.get(f"{API}/ready").json() == {"status": "ready"}
+
+
+def test_slug_check_reports_each_link(client):
+    a, body = sign_in(client, phone="011111111")
+    b, _ = sign_in(client, phone="022222222")
+    assert client.put(f"{API}/my-card", headers=b, json={"slug": "dara-bopha"}).status_code == 200
+    mine = body["card"]["slug"]
+    res = client.get(f"{API}/my-card/slug-check", headers=a,
+                     params=[("slug", s) for s in ("dara-bopha", "dara-bopha-2026", mine, "preview", "x")])
+    assert res.status_code == 200
+    assert [(r["available"], r["reason"]) for r in res.json()] == [
+        (False, "taken"), (True, "free"), (True, "yours"), (False, "reserved"), (False, "invalid"),
+    ]
+
+
+def test_slug_check_needs_sign_in(client):
+    assert client.get(f"{API}/my-card/slug-check", params={"slug": "abc"}).status_code == 401

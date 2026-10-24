@@ -224,6 +224,14 @@ class WeddingAuthResponse(BaseModel):
     user: WeddingUserResponse
     card: Optional[WeddingCardResponse] = None
 
+class SlugCheckResult(BaseModel):
+    slug: str
+    available: bool
+    # free: nobody has it; yours: already this card's link; taken: another
+    # couple's; invalid: wrong characters or length; reserved: an app path
+    reason: Literal["free", "yours", "taken", "invalid", "reserved"]
+
+
 class YouTubeResolveResponse(BaseModel):
     valid: bool
     video_id: Optional[str] = None

@@ -211,6 +211,14 @@ export async function postWeddingWish(slug: string, wish: {
   }, "មិនអាចផ្ញើបានទេ (Couldn't send your response)");
 }
 
+export type SlugCheck = { slug: string; available: boolean; reason: "free" | "yours" | "taken" | "invalid" | "reserved" };
+
+/** Whether each link could be this couple's (up to 6 per call) */
+export async function checkWeddingSlugs(token: string, slugs: string[]): Promise<SlugCheck[]> {
+  const q = new URLSearchParams(slugs.map((s) => ["slug", s]));
+  return request<SlugCheck[]>(`/wedding/my-card/slug-check?${q}`, { token, cache: "no-store" });
+}
+
 export async function fetchMyResponses(token: string): Promise<WeddingResponsesList> {
   return request<WeddingResponsesList>("/wedding/my-card/responses", { token, cache: "no-store" });
 }

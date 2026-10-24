@@ -174,12 +174,11 @@ const COURSES = TOWERS.flatMap((t) => t.bands);
 const LIPS = TOWERS.flatMap((t) => t.lips);
 const UNDERCUTS = TOWERS.flatMap((t) => t.undercuts);
 const JOINTS = [...TERRACES.flatMap((t) => t.courses), ...STAIRS.flatMap((s) => s.steps)];
-const OPENINGS = [...TERRACES.flatMap((t) => t.cols), ...TOWERS.map((t) => t.door)];
 const PALM_SHAPES = PALMS.flatMap((p) => [p.trunk, ...p.fans]);
 /* Outlines drawn in first: the silhouette lines, then the joints of each course */
 const STROKES = [...TERRACES.flatMap((t) => [t.roof, t.body]), ...TOWERS.flatMap((t) => [t.outline, t.shrine]), ...PALMS.map((p) => p.trunk)];
 
-const SLICES = 26;
+const SLICES = 16;
 const SLICE_H = (H - WATER) / SLICES;
 
 /* The finale's heading. Approved wording; the stanza below comes from the
@@ -205,6 +204,7 @@ export function AngkorBlessing({ label, line, labelClassName }: { label: string;
       const q = gsap.utils.selector(root);
       const slices = Array.from(root.querySelectorAll<SVGGElement>("[data-slice]"));
       const wave = { amp: 0 };
+      let mistTweens: gsap.core.Tween[] = [];
       let t = 0;
       const tick = (_time: number, dt: number) => {
         t += dt / 1000;
@@ -239,7 +239,12 @@ export function AngkorBlessing({ label, line, labelClassName }: { label: string;
             end: "bottom bottom",
             scrub: 0.8,
             invalidateOnRefresh: true,
-            onToggle: (self) => (self.isActive ? gsap.ticker.add(tick) : gsap.ticker.remove(tick)),
+            // Ripples and mist only run while the scene is on screen
+            onToggle: (self) => {
+              if (self.isActive) gsap.ticker.add(tick);
+              else gsap.ticker.remove(tick);
+              mistTweens.forEach((tw) => (self.isActive ? tw.play() : tw.pause()));
+            },
           },
         });
         tl.addLabel("establish", 0)
@@ -263,9 +268,9 @@ export function AngkorBlessing({ label, line, labelClassName }: { label: string;
           .to(q("[data-line]"), { opacity: 1, y: 0, duration: 9, ease: "power2.out" }, "finale+=6");
 
         // Mist drifts slowly on its own; the ripple runs only while in view
-        q("[data-mist]").forEach((m: Element, i: number) => {
-          gsap.to(m, { x: i % 2 ? -50 : 60, duration: 10 + i * 3, ease: "sine.inOut", repeat: -1, yoyo: true });
-        });
+        mistTweens = q("[data-mist]").map((m: Element, i: number) =>
+          gsap.to(m, { x: i % 2 ? -50 : 60, duration: 10 + i * 3, ease: "sine.inOut", repeat: -1, yoyo: true, paused: true })
+        );
       }, root);
 
       // Re-measure when the page above changes height: lazy gallery photos,
@@ -297,7 +302,16 @@ export function AngkorBlessing({ label, line, labelClassName }: { label: string;
     <section ref={rootRef} className="relative overflow-clip px-4 sm:px-6 pt-24 sm:pt-32 pb-20 text-center">
       <p data-label className={labelClassName}>{label}</p>
 
-      <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto mt-8 w-full max-w-[980px] h-auto" role="img" aria-label="Angkor Wat at dawn">
+      {/* The scene is a stack of SVG layers sharing one viewBox. The filtered
+          relief (terraces, towers) never changes inside its SVG, only the
+          opacity of its wrapper, so the browser rasterises the lighting
+          filters once and composites them; everything that moves every frame
+          (sun, ripples, outlines, light sweep, mist) lives in light layers of
+          its own. In one SVG, each of those changes re-ran the filters across
+          the whole scene. */}
+      <div className="relative mx-auto mt-8 w-full max-w-[980px]" style={{ aspectRatio: `${W} / ${H}` }} role="img" aria-label="Angkor Wat at dawn">
+      {/* Shared definitions (gradients, filter, clips, the reflection source) */}
+      <svg width="0" height="0" className="absolute" aria-hidden="true" focusable="false">
         <defs>
           {/* Sandstone washed with old gold, lighter where the sun reaches */}
           <linearGradient id="ab-stone" x1="0" y1="40" x2="0" y2={WATER} gradientUnits="userSpaceOnUse">
@@ -389,13 +403,18 @@ export function AngkorBlessing({ label, line, labelClassName }: { label: string;
             {PALM_SHAPES.map((d, i) => <path key={`p${i}`} d={d} />)}
           </g>
         </defs>
+      </svg>
 
-        {/* Dawn sun behind the central tower */}
+      {/* Layer: dawn sun behind the central tower */}
+      <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 w-full h-full" aria-hidden="true">
         <g data-sun>
           <circle cx="500" cy="150" r="150" fill="url(#ab-sun)" />
           <circle cx="500" cy="150" r="46" fill="#FFE3A3" opacity="0.65" />
         </g>
+      </svg>
 
+      {/* Layer: the moat */}
+      <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 w-full h-full" aria-hidden="true">
         {/* Moat: water, the temple reflected in it (cut into slices that sway
             on a sine wave), and a few soft glints on the surface */}
         <g mask="url(#ab-moat-mask)">
@@ -413,17 +432,24 @@ export function AngkorBlessing({ label, line, labelClassName }: { label: string;
             <rect key={i} x={x} y={y} width={w} height="1.2" rx="0.6" fill="#E9F3EC" opacity="0.22" />
           ))}
         </g>
+      </svg>
 
-        {/* The carved stone: temple and palms in gilded relief */}
-        {/* Terraces and stairways come first, then the towers rise in relief */}
-        <g data-terrace filter="url(#ab-relief)">
+      {/* Layers: the carved stone. Terraces and stairways first, then the
+          towers rise in relief; GSAP fades the wrappers, not the SVG inside */}
+      <div data-terrace className="absolute inset-0 will-change-[opacity]">
+      <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 w-full h-full overflow-visible" aria-hidden="true">
+        <g filter="url(#ab-relief)">
           {PALM_SHAPES.map((d, i) => <path key={`p${i}`} d={d} fill="url(#ab-palm)" />)}
           {TERRACES.flatMap((t) => [t.body, t.roof]).map((d, i) => <path key={`t${i}`} d={d} fill="url(#ab-stone)" />)}
           {STAIRS.map((st, i) => <path key={`s${i}`} d={st.flight} fill="url(#ab-stone)" />)}
           {JOINTS.map((d, i) => <path key={`j${i}`} d={d} stroke="#5E4620" strokeOpacity="0.28" strokeWidth="0.7" fill="none" />)}
           {TERRACES.flatMap((t) => t.cols).map((d, i) => <path key={`o${i}`} d={d} fill="#4A3618" fillOpacity="0.62" />)}
         </g>
-        <g data-stone filter="url(#ab-relief)">
+      </svg>
+      </div>
+      <div data-stone className="absolute inset-0 will-change-[opacity]">
+      <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 w-full h-full overflow-visible" aria-hidden="true">
+        <g filter="url(#ab-relief)">
           {TOWERS.flatMap((t) => [t.shrine, t.outline, t.finial]).map((d, i) => <path key={i} d={d} fill="url(#ab-stone)" />)}
           {COURSES.map((d, i) => (
             <path key={`c${i}`} d={d} fill="url(#ab-stone)" stroke="#6B5226" strokeOpacity="0.4" strokeWidth="0.7" />
@@ -432,9 +458,13 @@ export function AngkorBlessing({ label, line, labelClassName }: { label: string;
           {LIPS.map((d, i) => <path key={`l${i}`} d={d} fill="#FBE7A6" fillOpacity="0.5" />)}
           {TOWERS.map((t, i) => <path key={`d${i}`} d={t.door} fill="#4A3618" fillOpacity="0.62" />)}
         </g>
+      </svg>
+      </div>
 
+      {/* Layer: light sweep, outlines, waterline and mist */}
+      <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 w-full h-full" aria-hidden="true">
         {/* Gold light sweeping across the stone */}
-        <g clipPath="url(#ab-temple-clip)" style={{ mixBlendMode: "screen" }}>
+        <g clipPath="url(#ab-temple-clip)" opacity="0.75">
           <rect data-sweep x="0" y="0" width="300" height={WATER} fill="url(#ab-sweep)" transform="translate(1100 0)" />
         </g>
 
@@ -451,6 +481,7 @@ export function AngkorBlessing({ label, line, labelClassName }: { label: string;
         <ellipse data-mist cx="700" cy="404" rx="300" ry="30" fill="url(#ab-mist)" />
         <ellipse data-mist cx="500" cy="420" rx="340" ry="22" fill="url(#ab-mist)" />
       </svg>
+      </div>
 
       <div data-divider className="mx-auto mt-4 w-full max-w-[420px]">
         <LotusMedallionDivider className="w-full h-auto" />

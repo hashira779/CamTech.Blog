@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { getStoredAuth, clearStoredAuth, fetchMyWeddingCard, updateMyWeddingCard, WeddingApiError, DEFAULT_PREMIER_CARD } from "@/lib/wedding-api";
 import { WeddingAuthResponse, WeddingCard } from "@/types/wedding";
 import { UnifiedAuthModal } from "@/components/wedding/UnifiedAuthModal";
@@ -53,7 +53,16 @@ function resetTilt(e: React.PointerEvent<HTMLElement>) {
   el.style.setProperty("--rx", "0deg");
 }
 
+/* false on the server and during hydration, true after: the saved session
+   lives in localStorage, so the first client render must match the server's
+   (the public landing page) or React throws the server HTML away (#418) */
+const noopSubscribe = () => () => {};
+function useHydrated() {
+  return useSyncExternalStore(noopSubscribe, () => true, () => false);
+}
+
 export default function WeddingLandingPage() {
+  const hydrated = useHydrated();
   const [authData, setAuthData] = useState<WeddingAuthResponse | null>(() => {
     return getStoredAuth();
   });
@@ -223,7 +232,7 @@ export default function WeddingLandingPage() {
   const label = lang === "km" ? "text-sm font-semibold" : "text-[11px] font-semibold tracking-[0.25em] uppercase";
 
   // Signed in, card still loading (or the service couldn't answer)
-  if (authData && !currentCard) {
+  if (hydrated && authData && !currentCard) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center px-6 bg-[#f7f2e9] dark:bg-[#12100d]">
         {cardError ? (
@@ -253,7 +262,7 @@ export default function WeddingLandingPage() {
   }
 
   // If user is authenticated and has a card -> Show the Editor/Dashboard!
-  if (authData && currentCard) {
+  if (hydrated && authData && currentCard) {
     return (
       <WeddingEditor
         initialCard={currentCard}

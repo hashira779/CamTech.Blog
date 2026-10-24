@@ -116,12 +116,17 @@ function poreMap() {
 
 /* ─── Materials ─────────────────────────────────────────────────────────── */
 
+/* Every distinct combination of material features is its own shader program,
+   and compiling those programs is the most expensive part of showing these
+   pieces (ANGLE translates each one to HLSL on Windows). So the metals and
+   marble share one feature set (standard PBR with grain maps), glossy
+   organics share another (clearcoat + bump), and cloth a third (sheen). */
 export interface KhmerMaterials {
-  gold: THREE.MeshPhysicalMaterial;
-  goldBright: THREE.MeshPhysicalMaterial;
-  brass: THREE.MeshPhysicalMaterial;
-  steel: THREE.MeshPhysicalMaterial;
-  marble: THREE.MeshPhysicalMaterial;
+  gold: THREE.MeshStandardMaterial;
+  goldBright: THREE.MeshStandardMaterial;
+  brass: THREE.MeshStandardMaterial;
+  steel: THREE.MeshStandardMaterial;
+  marble: THREE.MeshStandardMaterial;
   velvet: THREE.MeshPhysicalMaterial;
   lacquer: THREE.MeshPhysicalMaterial;
   redThread: THREE.MeshPhysicalMaterial;
@@ -131,7 +136,7 @@ export interface KhmerMaterials {
   apple: THREE.MeshPhysicalMaterial;
   mango: THREE.MeshPhysicalMaterial;
   grape: THREE.MeshPhysicalMaterial;
-  stem: THREE.MeshPhysicalMaterial;
+  stem: THREE.MeshStandardMaterial;
   leaf: THREE.MeshPhysicalMaterial;
   betel: THREE.MeshPhysicalMaterial;
   areca: THREE.MeshPhysicalMaterial;
@@ -142,33 +147,40 @@ export interface KhmerMaterials {
 export function createMaterials(accent: THREE.ColorRepresentation): KhmerMaterials {
   const grain = metalGrain();
   const pores = poreMap();
-  const metal = (color: string, roughness: number, metalness: number, extra: Partial<THREE.MeshPhysicalMaterialParameters> = {}) =>
-    new THREE.MeshPhysicalMaterial({ color, metalness, roughness, roughnessMap: grain, bumpMap: grain, bumpScale: 0.5, ...extra });
+  // Metals and stone: standard PBR, grain in roughness and bump
+  const metal = (color: string, roughness: number, metalness: number, bump = grain, bumpScale = 0.5) =>
+    new THREE.MeshStandardMaterial({ color, metalness, roughness, roughnessMap: grain, bumpMap: bump, bumpScale });
+  // Glossy organics (fruit skin, leaves, lacquer): clearcoat over a fine bump
+  const glossy = (color: THREE.ColorRepresentation, roughness: number, coat: number, bumpScale = 0.6, extra: Partial<THREE.MeshPhysicalMaterialParameters> = {}) =>
+    new THREE.MeshPhysicalMaterial({ color, metalness: 0, roughness, clearcoat: coat, clearcoatRoughness: 0.3, bumpMap: pores, bumpScale, ...extra });
+  // Cloth and soft surfaces (velvet, cotton, wax, florets, rice): sheen
+  const cloth = (color: THREE.ColorRepresentation, roughness: number, sheenColor: string, bump = grain, bumpScale = 0.3) =>
+    new THREE.MeshPhysicalMaterial({ color, metalness: 0, roughness, sheen: 1, sheenColor: new THREE.Color(sheenColor), sheenRoughness: 0.45, bumpMap: bump, bumpScale });
   return {
     // Warm Khmer gold, not yellow: metalness ~.9, roughness ~.26
-    gold: metal("#d4af37", 0.27, 0.92, { clearcoat: 0.25, clearcoatRoughness: 0.3 }),
+    gold: metal("#d4af37", 0.27, 0.92),
     goldBright: metal("#e5c158", 0.22, 0.95),
     // Brass carries the engraved kbach as real surface relief
-    brass: new THREE.MeshPhysicalMaterial({ color: "#c59b27", metalness: 0.9, roughness: 0.32, bumpMap: kbachEngraving(), bumpScale: 2.2, roughnessMap: grain }),
-    steel: new THREE.MeshPhysicalMaterial({ color: "#c9cdd2", metalness: 0.95, roughness: 0.15, bumpMap: grain, bumpScale: 0.25 }),
-    marble: new THREE.MeshPhysicalMaterial({ color: "#efe6d6", metalness: 0, roughness: 0.32, clearcoat: 0.5, clearcoatRoughness: 0.35, bumpMap: grain, bumpScale: 0.3 }),
-    // Velvet: deep pile colour with a bright sheen at grazing angles
-    velvet: new THREE.MeshPhysicalMaterial({ color: "#5c0912", metalness: 0, roughness: 0.92, sheen: 1, sheenColor: new THREE.Color("#e2384a"), sheenRoughness: 0.35 }),
-    lacquer: new THREE.MeshPhysicalMaterial({ color: accent, metalness: 0, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.12 }),
+    brass: metal("#c59b27", 0.32, 0.9, kbachEngraving(), 2.2),
+    steel: metal("#c9cdd2", 0.15, 0.95, grain, 0.25),
+    marble: metal("#efe6d6", 0.32, 0, grain, 0.3),
+    velvet: cloth("#5c0912", 0.92, "#e2384a"),
+    lacquer: glossy(accent, 0.3, 1, 0.1),
     // Cotton cord: twisted plies in the bump, soft sheen along the fibres
-    redThread: new THREE.MeshPhysicalMaterial({ color: "#a3101c", metalness: 0, roughness: 0.68, bumpMap: cordTwist(), bumpScale: 3, sheen: 0.9, sheenColor: new THREE.Color("#ff7a7a"), sheenRoughness: 0.5 }),
-    wax: new THREE.MeshPhysicalMaterial({ color: "#f7eedb", metalness: 0, roughness: 0.5, transmission: 0.12, thickness: 0.5, attenuationColor: new THREE.Color("#ffd9a0"), attenuationDistance: 0.6 }),
+    redThread: cloth("#a3101c", 0.68, "#ff7a7a", cordTwist(), 3),
+    wax: cloth("#f7eedb", 0.5, "#ffe2b0"),
     flame: new THREE.MeshBasicMaterial({ color: "#ffbf5e", transparent: true, opacity: 0.96 }),
-    orange: new THREE.MeshPhysicalMaterial({ color: "#d8601a", metalness: 0, roughness: 0.48, clearcoat: 0.55, clearcoatRoughness: 0.45, bumpMap: pores, bumpScale: 2.4, sheen: 0.3, sheenColor: new THREE.Color("#ffb070") }),
-    apple: new THREE.MeshPhysicalMaterial({ color: "#9e1420", metalness: 0, roughness: 0.32, clearcoat: 0.9, clearcoatRoughness: 0.2 }),
-    mango: new THREE.MeshPhysicalMaterial({ color: "#ffffff", vertexColors: true, metalness: 0, roughness: 0.38, clearcoat: 0.6, clearcoatRoughness: 0.3 }),
-    grape: new THREE.MeshPhysicalMaterial({ color: "#3b1638", metalness: 0, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.15, sheen: 0.6, sheenColor: new THREE.Color("#a68fb8") }),
-    stem: new THREE.MeshPhysicalMaterial({ color: "#5a3b1c", metalness: 0, roughness: 0.8 }),
-    leaf: new THREE.MeshPhysicalMaterial({ color: "#2f5a26", metalness: 0, roughness: 0.42, clearcoat: 0.4, side: THREE.DoubleSide }),
-    betel: new THREE.MeshPhysicalMaterial({ color: "#3d6b2a", metalness: 0, roughness: 0.35, clearcoat: 0.7, clearcoatRoughness: 0.25, side: THREE.DoubleSide, sheen: 0.4, sheenColor: new THREE.Color("#b6d98f") }),
-    areca: new THREE.MeshPhysicalMaterial({ color: "#c0661f", metalness: 0, roughness: 0.55, clearcoat: 0.3, bumpMap: pores, bumpScale: 1.2 }),
-    floret: new THREE.MeshPhysicalMaterial({ color: "#ffffff", metalness: 0, roughness: 0.55, sheen: 0.6, sheenColor: new THREE.Color("#fff8e0") }),
-    rice: new THREE.MeshPhysicalMaterial({ color: "#fbf7ee", metalness: 0, roughness: 0.75, sheen: 0.5, sheenColor: new THREE.Color("#ffffff") }),
+    orange: glossy("#d8601a", 0.48, 0.55, 2.4),
+    apple: glossy("#9e1420", 0.32, 0.9, 0.2),
+    mango: glossy("#ffffff", 0.38, 0.6, 0.3, { vertexColors: true }),
+    grape: glossy("#3b1638", 0.25, 1, 0.15),
+    stem: new THREE.MeshStandardMaterial({ color: "#5a3b1c", metalness: 0, roughness: 0.8 }),
+    leaf: glossy("#2f5a26", 0.42, 0.4, 0.3, { side: THREE.DoubleSide }),
+    betel: glossy("#3d6b2a", 0.35, 0.7, 0.3, { side: THREE.DoubleSide }),
+    areca: glossy("#c0661f", 0.55, 0.3, 1.2),
+    // Florets take per-instance colour (cream to pale gold)
+    floret: cloth("#ffffff", 0.55, "#fff8e0"),
+    rice: cloth("#fbf7ee", 0.75, "#ffffff"),
   };
 }
 

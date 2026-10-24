@@ -7,7 +7,7 @@ import urllib.request
 import urllib.parse
 from datetime import timedelta, datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, Query, status, UploadFile, File
 from sqlalchemy import func, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -27,6 +27,7 @@ from schemas import (
     WeddingResponsesSummary,
     YouTubeResolveResponse,
     CuratedSong,
+    SlugCheckResult,
 )
 from auth import verify_password, get_password_hash, create_access_token, get_current_wedding_user
 from security import (
@@ -34,6 +35,7 @@ from security import (
     client_ip,
     clean_slug,
     validate_slug,
+    RESERVED_SLUGS,
     sniff_image_extension,
     MAX_UPLOAD_BYTES,
     MAX_FILES_PER_REQUEST,
@@ -277,6 +279,36 @@ def update_my_card(
         raise HTTPException(status_code=409, detail="តំណភ្ជាប់ (Slug) នេះមានអ្នកប្រើរួចហើយ (This link is already taken)")
     db.refresh(card)
     return serialize_card(card)
+
+
+@router.get("/my-card/slug-check", response_model=List[SlugCheckResult])
+def check_slugs(
+    slug: List[str] = Query(..., max_length=80),
+    current_user: WeddingUser = Depends(get_current_wedding_user),
+    db: Session = Depends(get_db)
+):
+    """Whether each proposed link could be this couple's, so the editor can
+    say so while they type instead of failing on Save. Signed-in only, and a
+    handful per call, so it is no cheaper a way to list other couples' links
+    than opening them."""
+    if len(slug) > 6:
+        raise HTTPException(status_code=400, detail="Too many links in one check")
+    card = get_or_create_card(db, current_user)
+    results = []
+    for raw in slug:
+        s = clean_slug(raw)
+        if s == card.slug:
+            results.append(SlugCheckResult(slug=s, available=True, reason="yours"))
+            continue
+        try:
+            validate_slug(s)
+        except HTTPException:
+            reason = "reserved" if s in RESERVED_SLUGS else "invalid"
+            results.append(SlugCheckResult(slug=s, available=False, reason=reason))
+            continue
+        taken = db.query(WeddingCard.id).filter(WeddingCard.slug == s).first()
+        results.append(SlugCheckResult(slug=s, available=not taken, reason="taken" if taken else "free"))
+    return results
 
 
 @router.get("/my-card/responses", response_model=WeddingResponsesList)

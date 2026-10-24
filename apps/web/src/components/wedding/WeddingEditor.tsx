@@ -16,11 +16,11 @@ import { WEDDING_TEMPLATES, getTemplateById, WeddingTemplateDefinition } from "@
 import { isSafeUrl } from "@/lib/safe-url";
 import { WeddingFlowerIcon } from "./WeddingFlowers";
 import { WeddingShareModal } from "./WeddingShareModal";
+import { WeddingLinkBox } from "./WeddingLinkBox";
 import confetti from "canvas-confetti";
 import {
   Save,
   ExternalLink,
-  Copy,
   Check,
   Eye,
   Edit3,
@@ -213,6 +213,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
   const patch = useCallback((p: Partial<WeddingCard>) => setCard((prev) => ({ ...prev, ...p })), []);
 
   const isDirty = useMemo(() => JSON.stringify(card) !== savedSnapshot, [card, savedSnapshot]);
+  const savedSlug = useMemo(() => (JSON.parse(savedSnapshot) as WeddingCard).slug, [savedSnapshot]);
   const activeTemplate = getTemplateById(card.theme);
 
   const parsedAgenda = useMemo(() => parseJson<WeddingAgendaItem[]>(card.morning_agenda, []), [card.morning_agenda]);
@@ -308,6 +309,34 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
   };
 
   /* ─── Photos ─── */
+  // Latest card, for building the next gallery inside async upload handlers
+  const cardRef = useRef(card);
+  useEffect(() => {
+    cardRef.current = card;
+  }, [card]);
+
+  /* An uploaded photo is saved to the server straight away, on its own.
+     Before, it lived only in the editor until "Save" was pressed, so leaving
+     or reloading the page lost it while the file sat orphaned in storage. */
+  const persistPhotos = async (fields: Partial<WeddingCard>) => {
+    try {
+      const updated = await updateMyWeddingCard(token, fields);
+      const keys = Object.keys(fields) as (keyof WeddingCard)[];
+      const confirmed = Object.fromEntries(keys.map((k) => [k, updated[k]])) as Partial<WeddingCard>;
+      setCard((prev) => ({ ...prev, ...confirmed }));
+      // Only these fields are now saved; other unsaved edits stay unsaved
+      setSavedSnapshot((prev) => JSON.stringify({ ...JSON.parse(prev), ...confirmed }));
+      return true;
+    } catch (err) {
+      if (err instanceof WeddingApiError && err.status === 401) {
+        notify("error", L("វគ្គចូលប្រើបានផុតកំណត់ សូមចូលម្តងទៀត", "Your session expired, please sign in again"));
+        return false;
+      }
+      notify("error", err instanceof Error ? err.message : L("មិនអាចរក្សាទុករូបភាពបានទេ", "Couldn't save the photo"));
+      return false;
+    }
+  };
+
   const handleUploadMultipleGallery = async (files: FileList | File[] | null) => {
     const list = files ? Array.from(files).filter((f) => f.type.startsWith("image/")) : [];
     if (list.length === 0) return;
@@ -316,15 +345,16 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
     try {
       const urls = await uploadWeddingImages(list, token, (cur, tot) => setUploadProgress({ current: cur, total: tot }));
       if (urls.length > 0) {
-        setCard((prev) => {
-          const current = parseJson<string[]>(prev.gallery_images, []);
-          return { ...prev, gallery_images: JSON.stringify([...current, ...urls]), cover_image_url: prev.cover_image_url || urls[0] };
-        });
-        notify("success", L(`បានបន្ថែម ${urls.length} រូប`, `Added ${urls.length} photo(s)`));
+        const current = parseJson<string[]>(cardRef.current.gallery_images, []);
+        const fields: Partial<WeddingCard> = { gallery_images: JSON.stringify([...current, ...urls]) };
+        if (!cardRef.current.cover_image_url) fields.cover_image_url = urls[0];
+        if (await persistPhotos(fields)) {
+          notify("success", L(`បានបន្ថែម និងរក្សាទុក ${urls.length} រូប`, `Added and saved ${urls.length} photo(s)`));
+        }
       }
     } catch (err) {
       console.error("Gallery upload error:", err);
-      notify("error", L("បរាជ័យក្នុងការផ្ទុករូបភាព សូមព្យាយាមម្តងទៀត", "Upload failed, please try again"));
+      notify("error", err instanceof Error ? err.message : L("បរាជ័យក្នុងការផ្ទុករូបភាព សូមព្យាយាមម្តងទៀត", "Upload failed, please try again"));
     } finally {
       setUploading(false);
       if (multiFileInputRef.current) multiFileInputRef.current.value = "";
@@ -339,13 +369,12 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
     setUploading(true);
     try {
       const urls = await uploadWeddingImages([file], token);
-      if (urls[0]) {
-        patch({ [field]: urls[0] });
-        notify("success", L("បានផ្ទុករូបភាព", "Photo updated"));
+      if (urls[0] && (await persistPhotos({ [field]: urls[0] }))) {
+        notify("success", L("បានផ្ទុក និងរក្សាទុករូបភាព", "Photo uploaded and saved"));
       }
     } catch (err) {
       console.error(`Upload error for ${field}:`, err);
-      notify("error", L("បរាជ័យក្នុងការផ្ទុករូបភាព", "Upload failed"));
+      notify("error", err instanceof Error ? err.message : L("បរាជ័យក្នុងការផ្ទុករូបភាព", "Upload failed"));
     } finally {
       setUploading(false);
     }
@@ -925,6 +954,19 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
                     <input className={inputCls} value={card.solar_time} onChange={(e) => patch({ solar_time: e.target.value })} />
                   </Field>
                 </div>
+
+                <WeddingLinkBox
+                  token={token}
+                  slug={card.slug}
+                  savedSlug={savedSlug}
+                  groomName={card.groom_name}
+                  brideName={card.bride_name}
+                  solarDate={card.solar_date}
+                  onChange={(slug) => patch({ slug })}
+                  onCopy={handleCopyLink}
+                  copied={copiedLink}
+                  L={L}
+                />
               </Panel>
             )}
 
@@ -1316,20 +1358,18 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
 
             {activeTab === "settings" && (
               <Panel icon={Settings} title={L("ការកំណត់ & តំណភ្ជាប់", "Settings & link")} subtitle={L("គ្រប់គ្រងការផ្សព្វផ្សាយ និងមុខងារសម្រាប់ភ្ញៀវ", "Control publishing and guest features")}>
-                <Field label={L("តំណភ្ជាប់ផ្ទាល់ខ្លួន", "Custom link")} hint={L("អក្សរតូច លេខ - និង _ ប៉ុណ្ណោះ", "Lowercase letters, numbers, - and _ only")}>
-                  <div className="flex items-stretch rounded-xl overflow-hidden ring-1 ring-stone-200 dark:ring-white/10 focus-within:ring-2 focus-within:ring-amber-500 transition">
-                    <span className="px-3.5 flex items-center bg-stone-100 dark:bg-white/5 text-stone-500 text-[12.5px] font-mono">/wedding/</span>
-                    <input
-                      className="flex-1 h-11 px-3 bg-white dark:bg-transparent text-[13px] font-mono outline-none"
-                      value={card.slug}
-                      maxLength={60}
-                      onChange={(e) => patch({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, "") })}
-                    />
-                    <button type="button" onClick={handleCopyLink} className="px-3.5 bg-stone-100 dark:bg-white/5 hover:bg-amber-500/15 transition cursor-pointer" title={L("ចម្លង", "Copy")}>
-                      {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </Field>
+                <WeddingLinkBox
+                  token={token}
+                  slug={card.slug}
+                  savedSlug={savedSlug}
+                  groomName={card.groom_name}
+                  brideName={card.bride_name}
+                  solarDate={card.solar_date}
+                  onChange={(slug) => patch({ slug })}
+                  onCopy={handleCopyLink}
+                  copied={copiedLink}
+                  L={L}
+                />
                 <div className="space-y-2.5">
                   <Toggle checked={card.is_published} onChange={(v) => patch({ is_published: v })} title={L("ផ្សព្វផ្សាយជាសាធារណៈ", "Publish invitation")} desc={L("ភ្ញៀវអាចបើកមើលតាម Link", "Anyone with the link can view it")} />
                   <Toggle checked={card.enable_rsvp} onChange={(v) => patch({ enable_rsvp: v })} title={L("ឆ្លើយតបការចូលរួម (RSVP)", "Guest RSVP")} desc={L("ភ្ញៀវបញ្ជាក់ការចូលរួម និងចំនួនមនុស្ស", "Guests confirm attendance and party size")} />

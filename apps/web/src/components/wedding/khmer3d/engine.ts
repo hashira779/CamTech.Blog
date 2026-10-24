@@ -22,6 +22,8 @@ export interface PiecePose {
 export interface KhmerEngine {
   /** false once the GPU context is gone: callers switch to their fallback */
   draw(kind: CeremonyKind, target: HTMLCanvasElement, pose: PiecePose, accent?: string): boolean;
+  /** Build a piece and compile its shaders ahead of time, off the main thread where the GPU allows */
+  prepare(kind: CeremonyKind): Promise<void>;
   dispose(): void;
 }
 
@@ -32,9 +34,24 @@ export function getKhmerEngine(accent: string): Promise<KhmerEngine | null> {
   return shared;
 }
 
+/* Start the engine and prepare every piece in the background, as soon as the
+   invitation is opened, so the ceremony section is ready before the guest
+   scrolls to it instead of building each piece as it comes into view. */
+export function warmUpPieces(accent: string, kinds: CeremonyKind[]): void {
+  void getKhmerEngine(accent).then(async (engine) => {
+    if (!engine) return;
+    for (const kind of kinds) await engine.prepare(kind);
+  });
+}
+
 function lowPowerDevice(): boolean {
   const nav = navigator as Navigator & { deviceMemory?: number };
-  return (nav.deviceMemory !== undefined && nav.deviceMemory <= 4) || (navigator.hardwareConcurrency || 8) <= 4;
+  return (
+    (nav.deviceMemory !== undefined && nav.deviceMemory <= 4) ||
+    (navigator.hardwareConcurrency || 8) <= 4 ||
+    // Touch devices get the light profile (smaller shadow maps)
+    window.matchMedia("(pointer: coarse)").matches
+  );
 }
 
 async function createEngine(accent: string): Promise<KhmerEngine | null> {
@@ -50,7 +67,8 @@ async function createEngine(accent: string): Promise<KhmerEngine | null> {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // PCFSoftShadowMap is gone from current three.js; PCFShadowMap blurs by shadow.radius
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.setClearColor(0x000000, 0);
   let lost = false;
   renderer.domElement.addEventListener("webglcontextlost", (e) => {
@@ -123,7 +141,27 @@ async function createEngine(accent: string): Promise<KhmerEngine | null> {
     return p;
   };
 
+  const compiled = new Set<CeremonyKind>();
+  let queue: Promise<void> = Promise.resolve();
+
   return {
+    prepare(kind) {
+      if (lost || compiled.has(kind)) return queue;
+      compiled.add(kind);
+      // One piece at a time. compileAsync uses KHR_parallel_shader_compile
+      // where available, so the shaders build without blocking scrolling;
+      // the main scene supplies the lights and environment the programs need
+      queue = queue.then(async () => {
+        if (lost) return;
+        const p = piece(kind);
+        try {
+          await renderer.compileAsync(p, camera, scene);
+        } catch {
+          // First draw will compile it instead
+        }
+      });
+      return queue;
+    },
     draw(kind, target, pose, accent) {
       if (lost) return false;
       // Lacquer is the accent sunk deep, as real lacquerware is darker than its pigment
