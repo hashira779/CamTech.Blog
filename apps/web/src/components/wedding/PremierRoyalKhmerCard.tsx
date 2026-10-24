@@ -9,7 +9,8 @@ import { getTemplateById, getEnvelopeStyle } from "@/lib/wedding-templates";
 import { isSafeUrl } from "@/lib/safe-url";
 import { WeddingFlowerIcon, KhmerCornerFiligree, KhmerArchCrown } from "./WeddingFlowers";
 import { CeremonyPiece } from "./khmer3d/CeremonyPiece";
-import { LotusDivider, CornerFlourish, HandCircle, HandCheck } from "./WeddingInk";
+import { HandCircle, HandCheck } from "./WeddingInk";
+import { LotusMedallionDivider, KhmerMedallion, VineCorner } from "./KhmerOrnaments";
 import { KbachBand, RedThread, CeremonyIcon, type CeremonyIconName } from "./KhmerArt";
 import { AngkorBlessing } from "./AngkorBlessing";
 import confetti from "canvas-confetti";
@@ -539,7 +540,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       traditionsTitle: "អត្ថន័យនៃពិធីមង្គលការខ្មែរ",
       traditionsNote: "ពិធីនីមួយៗ មានអត្ថន័យ និងពរជ័យរបស់វា ដែលបន្សល់ទុកពីដូនតាខ្មែរ។",
       blessing: "ពរជ័យ",
-      blessingLine: "សូមឲ្យគូស្វាមីភរិយាថ្មី រស់នៅជាមួយគ្នាដោយសុខដុមរមនា រហូតដល់ចាស់កោងខ្នង។",
+      blessingLine: "សូមឱ្យគូស្វាមីភរិយាថ្មី រស់នៅជាមួយគ្នាដោយសុខដុមរមនា រហូតដល់ចាស់កោងខ្នង។",
       thread: "ចងដៃ",
       invite: "សូមគោរពអញ្ជើញ",
       programTitle: "កម្មវិធីសិរីមង្គល",
@@ -826,15 +827,16 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
           <p className={`${sectionLabel} text-center mb-8`}>{ui.s1}</p>
           <div className="wc-reveal relative max-w-[720px] mx-auto bg-[#fffdf8] wc-grain border border-[color-mix(in_oklab,var(--wc-accent)_35%,transparent)] px-6 sm:px-16 py-16 sm:py-20 text-center shadow-[0_24px_50px_-30px_rgba(60,45,30,0.45)]">
             <div aria-hidden="true" className="absolute inset-2.5 border border-[color-mix(in_oklab,var(--wc-accent)_22%,transparent)] pointer-events-none" />
-            <CornerFlourish className="absolute top-4 left-4 w-12 h-12 text-[var(--wc-link)]" />
-            <CornerFlourish flip="x" className="absolute top-4 right-4 w-12 h-12 text-[var(--wc-link)]" />
-            <CornerFlourish flip="y" className="absolute bottom-4 left-4 w-12 h-12 text-[var(--wc-link)]" />
-            <CornerFlourish flip="xy" className="absolute bottom-4 right-4 w-12 h-12 text-[var(--wc-link)]" />
+            {/* Gold vines turning round each corner of the letter card */}
+            <VineCorner className="absolute top-3 left-3 w-14 h-14 sm:w-16 sm:h-16 pointer-events-none" />
+            <VineCorner flip="x" className="absolute top-3 right-3 w-14 h-14 sm:w-16 sm:h-16 pointer-events-none" />
+            <VineCorner flip="y" className="absolute bottom-3 left-3 w-14 h-14 sm:w-16 sm:h-16 pointer-events-none" />
+            <VineCorner flip="xy" className="absolute bottom-3 right-3 w-14 h-14 sm:w-16 sm:h-16 pointer-events-none" />
 
             <p className={lang === "km" ? "font-moul text-[22px] sm:text-[26px] text-[var(--wc-link)] leading-[1.7]" : "wc-script text-[44px] sm:text-[52px] text-[var(--wc-link)] leading-none"}>
               {ui.invite}
             </p>
-            <LotusDivider className="mx-auto my-6 w-48 h-9 text-[var(--wc-link)]" />
+            <LotusMedallionDivider className="mx-auto my-6 w-64 sm:w-72 h-auto" />
             <p className="wc-khmer text-[16px] sm:text-[17px] leading-[2.1] text-[#3a332c] max-w-[520px] mx-auto">{t.invitationHonor}</p>
 
             <div className="mt-12 grid grid-cols-[1fr_auto_1fr] items-start gap-4 sm:gap-8">
@@ -861,7 +863,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             </div>
           </div>
           <p className="mt-8 text-center wc-display italic text-[17px] text-[#6b6157]">{t.auspiciousBlessing}</p>
-          <KbachBand className="mx-auto mt-16 w-full max-w-sm h-7 text-[var(--wc-link)]/70" />
+          <KhmerMedallion className="mx-auto mt-16 w-12 h-12" />
         </section>
 
         {/* =====================================================================
@@ -1256,7 +1258,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
 
         {/* =====================================================================
             BLESSING: Angkor Wat at dawn in gilded sandstone relief, then the
-            traditional "ជយោ!" cheer (see AngkorBlessing.tsx)
+            «សិរីសួស្ដី ជ័យមង្គល» blessing (see AngkorBlessing.tsx)
            ===================================================================== */}
         <AngkorBlessing label={ui.blessing} line={ui.blessingLine} labelClassName={sectionLabel} />
 

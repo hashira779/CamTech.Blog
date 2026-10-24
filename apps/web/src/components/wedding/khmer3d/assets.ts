@@ -167,7 +167,7 @@ export function createMaterials(accent: THREE.ColorRepresentation): KhmerMateria
     leaf: new THREE.MeshPhysicalMaterial({ color: "#2f5a26", metalness: 0, roughness: 0.42, clearcoat: 0.4, side: THREE.DoubleSide }),
     betel: new THREE.MeshPhysicalMaterial({ color: "#3d6b2a", metalness: 0, roughness: 0.35, clearcoat: 0.7, clearcoatRoughness: 0.25, side: THREE.DoubleSide, sheen: 0.4, sheenColor: new THREE.Color("#b6d98f") }),
     areca: new THREE.MeshPhysicalMaterial({ color: "#c0661f", metalness: 0, roughness: 0.55, clearcoat: 0.3, bumpMap: pores, bumpScale: 1.2 }),
-    floret: new THREE.MeshPhysicalMaterial({ color: "#efe0ae", metalness: 0, roughness: 0.55, sheen: 0.6, sheenColor: new THREE.Color("#fff8e0") }),
+    floret: new THREE.MeshPhysicalMaterial({ color: "#ffffff", metalness: 0, roughness: 0.55, sheen: 0.6, sheenColor: new THREE.Color("#fff8e0") }),
     rice: new THREE.MeshPhysicalMaterial({ color: "#fbf7ee", metalness: 0, roughness: 0.75, sheen: 0.5, sheenColor: new THREE.Color("#ffffff") }),
   };
 }
@@ -265,7 +265,7 @@ export function buildLotus(mats: KhmerMaterials, scale = 1): THREE.Group {
 /* ─── The phan (ជើងពាន): footed offering stand ───────────────────────────
    Stepped foot, a beaded waist and a dish whose rim is notched with rounded
    petals. Returns the stand, its dish surface height and rim height. */
-function buildPhan(mats: KhmerMaterials, opts: { radius: number; height: number; deep?: boolean; material?: THREE.Material }) {
+function buildPhan(mats: KhmerMaterials, opts: { radius: number; height: number; deep?: boolean; fluted?: boolean; material?: THREE.Material }) {
   const { radius: R, height: H } = opts;
   const mat = opts.material ?? mats.gold;
   const g = new THREE.Group();
@@ -277,7 +277,22 @@ function buildPhan(mats: KhmerMaterials, opts: { radius: number; height: number;
     P(0.6, 0.72), P(0.86, 0.84), P(1.0, 0.94), P(1.03, 0.97), P(0.98, 0.99), P(0.82, opts.deep ? 0.88 : 0.93),
     P(0.5, dishFloor), P(0, dishFloor),
   ];
-  g.add(mesh(lathe(profile, 96), mat));
+  const body = lathe(profile, 128);
+  if (opts.fluted) {
+    // Vertical flutes round the foot and waist, fading out toward the dish
+    const pos = body.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+      const r = Math.hypot(x, z);
+      if (r < 1e-4 || y > 0.66 * H) continue;
+      const fade = 1 - Math.max(0, (y - 0.5 * H) / (0.16 * H));
+      const k = 1 + 0.045 * fade * Math.cos(Math.atan2(z, x) * 24);
+      pos.setX(i, x * k);
+      pos.setZ(i, z * k);
+    }
+    body.computeVertexNormals();
+  }
+  g.add(mesh(body, mat));
   g.add(mesh(ring(0.7 * R, 0.018 * R, 0.1 * H), mats.goldBright));
   g.add(mesh(ring(0.235 * R, 0.03 * R, 0.47 * H), mats.goldBright));
   g.add(mesh(ring(0.25 * R, 0.022 * R, 0.53 * H), mats.goldBright));
@@ -612,7 +627,7 @@ function buildChongdai(mats: KhmerMaterials): THREE.Group {
 
 function buildPetals(mats: KhmerMaterials): THREE.Group {
   const g = new THREE.Group();
-  const phan = buildPhan(mats, { radius: 0.8, height: 0.58, deep: true });
+  const phan = buildPhan(mats, { radius: 0.8, height: 0.58, deep: true, fluted: true });
   g.add(phan.group);
   const rnd = seeded(29);
   const m = new THREE.Matrix4();
@@ -652,7 +667,10 @@ function buildPetals(mats: KhmerMaterials): THREE.Group {
     for (let j = 0; j < perStrand; j++) {
       const pnt = curve.getPoint(0.18 + (j / perStrand) * 0.8);
       pnt.add(new THREE.Vector3((rnd() - 0.5) * 0.05, (rnd() - 0.3) * 0.04, (rnd() - 0.5) * 0.05));
-      m.compose(pnt, q, new THREE.Vector3(1, 1, 1));
+      const sz = 0.8 + rnd() * 0.45;
+      m.compose(pnt, q, new THREE.Vector3(sz, sz, sz));
+      // Warm ivory with slight variation from cream to pale gold
+      flor.setColorAt(fi, new THREE.Color().setHSL(0.12 + rnd() * 0.03, 0.45 + rnd() * 0.2, 0.8 + rnd() * 0.08));
       flor.setMatrixAt(fi++, m);
     }
   }

@@ -1652,16 +1652,7 @@ html.js .dd-reveal:not([data-revealed="true"]) .rule-fill {
   @keyframes wc-develop { from { filter: grayscale(1) sepia(.35) contrast(.85) brightness(1.08); } to { filter: none; } }
 
   /* Angkor at dawn: the sun climbs behind the central tower as the scene scrolls in */
-  .wc-sun { animation: wc-sunrise linear both; animation-timeline: view(); animation-range: entry 0% cover 55%; }
-  @keyframes wc-sunrise { from { transform: translateY(70px); opacity: .15; } to { transform: none; opacity: 1; } }
 
-  /* "ជយោ! ជយោ! ជយោ!" — each cheer pops in after the one before (ranges set inline) */
-  .wc-jayo { display: inline-block; animation: wc-pop linear both; animation-timeline: view(); }
-  @keyframes wc-pop {
-    0% { opacity: 0; transform: translateY(24px) scale(.6); }
-    70% { opacity: 1; transform: translateY(-4px) scale(1.08); }
-    100% { opacity: 1; transform: none; }
-  }
 
   /* Cover photo drifts slower than the page */
   .wc-parallax { animation: wc-parallax linear both; animation-timeline: scroll(nearest); animation-range: 0px 900px; }
