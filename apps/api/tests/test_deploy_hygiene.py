@@ -9,6 +9,7 @@ when it goes back to the shape that made the site easy to reach.
 The compose files live at the repository root, outside the API image's build context, so this
 module skips when they are not on disk (e.g. pytest running inside the container).
 """
+import re
 from pathlib import Path
 
 import pytest
@@ -272,3 +273,16 @@ def test_the_admin_login_page_hands_out_no_credentials():
     assert 'setPassword("' not in text and "setPassword('" not in text, (
         "the login form must never be filled in from source"
     )
+
+
+DEPLOY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "deploy.yml"
+
+
+@pytest.mark.skipif(not DEPLOY_WORKFLOW.exists(), reason="no deploy workflow in this checkout")
+def test_the_deploy_workflow_never_writes_a_secret_value():
+    # The pipeline used to append a literal JWT_SECRET / SESSION_SECRET / database and store
+    # passwords to the server .env when one was missing, so the "fallback" was a public key.
+    text = DEPLOY_WORKFLOW.read_text(encoding="utf-8")
+    for key in ("JWT_SECRET", "SESSION_SECRET", "POSTGRES_PASSWORD", "REDIS_PASSWORD",
+                "MINIO_ROOT_USER", "MINIO_ROOT_PASSWORD"):
+        assert not re.search(rf"{key}=[^\s\"$]", text), f"{key} has a literal value in deploy.yml"

@@ -62,3 +62,5 @@ scripts/sync_secrets.py
 *.db
 *.db-shm
 *.db-wal
+# Couples' photos and KHQR images uploaded to a local wedding-service
+apps/wedding-service/uploads/

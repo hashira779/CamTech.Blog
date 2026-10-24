@@ -172,16 +172,27 @@ def _route_guards():
     `route.dependencies`, so reading only the latter reported every admin route as unguarded.
     """
     index = {}
-    for route in app.routes:
-        methods = getattr(route, "methods", None)
-        dependant = getattr(route, "dependant", None)
-        if not methods or dependant is None:
-            continue
-        guards = _dependency_names(dependant) | set(
-            name for dep in getattr(route, "dependencies", []) or [] for name in _dependency_names(dep)
-        )
-        for method in methods:
-            index[(method, route.path)] = guards
+
+    def walk(routes, prefix="", inherited=frozenset()):
+        for route in routes:
+            # FastAPI >= 0.141 keeps each include_router() as one nested entry instead of copying
+            # its routes onto the app; without descending, the index came back empty.
+            context = getattr(route, "include_context", None)
+            if context is not None and hasattr(route, "original_router"):
+                extra = set(n for dep in context.dependencies or [] for n in _dependency_names(dep))
+                walk(route.original_router.routes, prefix + context.prefix, inherited | extra)
+                continue
+            methods = getattr(route, "methods", None)
+            dependant = getattr(route, "dependant", None)
+            if not methods or dependant is None:
+                continue
+            guards = set(inherited) | _dependency_names(dependant) | set(
+                name for dep in getattr(route, "dependencies", []) or [] for name in _dependency_names(dep)
+            )
+            for method in methods:
+                index[(method, prefix + route.path)] = guards
+
+    walk(app.routes)
     return index
 
 

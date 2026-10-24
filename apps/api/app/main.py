@@ -46,7 +46,6 @@ from app.api.v1.travel import router as travel_router
 from app.api.v1.transport import router as transport_router
 from app.api.v1.config import router as config_router
 from app.api.v1.storage_config import router as storage_config_router
-from app.api.v1.wedding import router as wedding_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -176,7 +175,10 @@ app.include_router(travel_router, prefix="/api/v1")
 app.include_router(transport_router, prefix="/api/v1")
 app.include_router(config_router, prefix="/api/v1")
 app.include_router(storage_config_router, prefix="/api/v1")
-app.include_router(wedding_router, prefix="/api/v1")
+# /api/v1/wedding is owned by apps/wedding-service (reached through the web app's proxy).
+# A second copy here, publicly reachable via the admin nginx, skipped its rate limits, URL
+# validation and draft rules over the same tables. app.models.wedding stays so Alembic
+# autogenerate never proposes dropping those tables.
 
 if __name__ == "__main__":
     import uvicorn

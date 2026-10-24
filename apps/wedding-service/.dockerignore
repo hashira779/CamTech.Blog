@@ -1,0 +1,12 @@
+# The image is `COPY . .`: keep local databases and couples' uploads out of it.
+# Production uploads live on the wedding_uploads volume mounted at /app/uploads.
+*.db
+*.db-shm
+*.db-wal
+uploads/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+tests/
+.env
+.env.*
