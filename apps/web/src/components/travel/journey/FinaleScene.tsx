@@ -124,7 +124,7 @@ export function FinaleScene({ trips }: { trips: Trip[] }) {
                           </span>
                           <Link
                             href={`/travel/trips/${trip.slug}`}
-                            className="tv-link-gold group/cta inline-flex items-center gap-1 text-sm font-semibold"
+                            className="tv-link-gold group/cta inline-flex min-h-6 items-center gap-1 text-sm font-semibold"
                           >
                             {copy.viewItinerary}
                             <ArrowRight size={14} aria-hidden="true" className="transition-transform duration-300 group-hover/cta:translate-x-0.5" />

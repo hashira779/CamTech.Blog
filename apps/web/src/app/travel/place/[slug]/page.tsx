@@ -14,6 +14,8 @@ import {
   X,
   Landmark,
   ArrowRight,
+  CalendarClock,
+  Navigation,
 } from "lucide-react";
 import { getPlaceBySlug, getPlaces } from "@/lib/api";
 import PlaceImage from "@/components/travel/place-image";
@@ -25,6 +27,11 @@ import { Photo } from "@/components/ui/photo";
 import { PhotoFill } from "@/components/ui/photo-image";
 import { Reveal } from "@/components/ui/reveal";
 import { cleanText, humanize } from "@/lib/format";
+import { nearestTo, toCoord } from "@/lib/travel/itinerary";
+import { isProvinceStandIn } from "@/lib/travel/photo";
+import { AddToTripButton } from "@/components/travel/trip/AddToTripButton";
+import { JsonLd } from "@/components/JsonLd";
+import { generateBreadcrumbJsonLd, SITE_URL } from "@/lib/seo";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -35,9 +42,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const place = await getPlaceBySlug(slug);
   if (!place) return { title: "Place Not Found" };
 
+  const description = cleanText(place.description || "").slice(0, 160);
   return {
     title: `${place.name} | Travel Guide`,
-    description: place.description.slice(0, 160),
+    description,
+    alternates: { canonical: `/travel/place/${place.slug}` },
+    openGraph: {
+      type: "website",
+      url: `/travel/place/${place.slug}`,
+      title: place.name,
+      description,
+      ...(place.hero_image_url && !isProvinceStandIn(place.hero_image_url) ? { images: [{ url: place.hero_image_url, alt: place.name }] } : {}),
+    },
   };
 }
 
@@ -121,21 +137,58 @@ export default async function PlaceDetailPage({ params }: PageProps) {
 
   const gallery = parseJsonArray(place.gallery_json);
   // The hero is usually the first gallery frame; count each URL once.
-  const images = Array.from(new Set([place.hero_image_url, ...gallery].filter(Boolean) as string[]));
+  // A province cover used as this row's hero is not a photograph of the place (see lib/travel/photo).
+  const images = Array.from(new Set([place.hero_image_url, ...gallery].filter(Boolean) as string[])).filter(
+    (src) => !isProvinceStandIn(src)
+  );
   const [lead, ...rest] = images;
 
-  // Related places in same destination
+  // Other places in the same province. With coordinates on both sides they are ordered by
+  // straight-line distance (and labelled so); otherwise in the order the directory returns them.
   const relatedData = await getPlaces({
     destination: place.destination?.slug,
-    limit: 4,
+    limit: 100,
   });
-  const relatedPlaces = relatedData.items.filter((p) => p.id !== place.id).slice(0, 3);
+  const others = relatedData.items.filter((p) => p.id !== place.id && p.place_type !== "ACCOMMODATION");
+  const origin = toCoord(place);
+  const nearby = origin ? nearestTo(place, others, 4) : [];
+  const relatedPlaces = nearby.length > 0 ? nearby.map((n) => n.place as (typeof others)[number]) : others.slice(0, 3);
+  const distanceBySlug = new Map(nearby.map((n) => [n.place.slug, n.km]));
+  const isVisit = !["ACCOMMODATION", "RESTAURANT", "CAFE"].includes(place.place_type);
+  const updated = place.updated_at ? new Date(place.updated_at) : null;
 
   const destinationName = place.destination?.name || null;
   const destinationSlug = place.destination?.slug || null;
 
+  const breadcrumbJsonLd = generateBreadcrumbJsonLd(
+    [
+      { name: "Home", url: "/" },
+      { name: "Travel", url: "/travel" },
+      ...(destinationSlug && destinationName ? [{ name: destinationName, url: `/travel/${destinationSlug}` }] : []),
+      { name: place.name, url: `/travel/place/${place.slug}` },
+    ],
+    SITE_URL
+  );
+  // Only for places to visit, and only with fields the record carries — no ratings or reviews.
+  const placeJsonLd = isVisit
+    ? {
+        "@context": "https://schema.org",
+        "@type": "TouristAttraction",
+        name: place.name,
+        ...(place.local_name ? { alternateName: place.local_name } : {}),
+        description: cleanText(place.description || "").slice(0, 300),
+        url: `${SITE_URL}/travel/place/${place.slug}`,
+        ...(lead ? { image: lead.startsWith("/") ? `${SITE_URL}${lead}` : lead } : {}),
+        ...(origin ? { geo: { "@type": "GeoCoordinates", latitude: origin[0], longitude: origin[1] } } : {}),
+        ...(place.address ? { address: cleanText(place.address) } : {}),
+        ...(destinationName ? { containedInPlace: { "@type": "AdministrativeArea", name: `${destinationName}, Cambodia` } } : {}),
+      }
+    : null;
+
   return (
     <div className="flex w-full flex-1 flex-col">
+      <JsonLd data={breadcrumbJsonLd} />
+      {placeJsonLd && <JsonLd data={placeJsonLd} />}
       {/* ── 1. Masthead: what this place is, no photograph required ─────────── */}
       <Section className="border-b border-border pb-8 pt-8 sm:pb-10 sm:pt-10">
         <Container>
@@ -197,6 +250,36 @@ export default async function PlaceDetailPage({ params }: PageProps) {
                 <span aria-hidden="true">·</span>
                 <span>{destinationName}</span>
               </>
+            )}
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            {isVisit && (
+              <AddToTripButton
+                variant="solid"
+                place={{ slug: place.slug, name: place.name, destination_slug: destinationSlug, hero_image_url: place.hero_image_url ?? null }}
+              />
+            )}
+            {origin && (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${origin[0]},${origin[1]}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-foreground hover:border-border-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                <Navigation size={14} aria-hidden="true" />
+                Directions (Google Maps)
+                <ExternalLink size={12} aria-hidden="true" />
+              </a>
+            )}
+            {destinationSlug && (
+              <Link
+                href={`/travel/planner?destination=${destinationSlug}`}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs font-semibold text-accent hover:text-foreground"
+              >
+                Plan a trip in {destinationName ?? "this province"}
+                <ArrowRight size={13} aria-hidden="true" />
+              </Link>
             )}
           </div>
         </Container>
@@ -470,6 +553,17 @@ export default async function PlaceDetailPage({ params }: PageProps) {
                   ) : undefined}
                 </FactRow>
 
+                <FactRow icon={CalendarClock} label="Record last updated" absent="Update date not recorded">
+                  {updated && !Number.isNaN(updated.getTime()) ? (
+                    <span>
+                      {updated.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+                      <span className="block text-xs text-muted-foreground">
+                        When this directory entry last changed — not a date the hours or prices were checked on site.
+                      </span>
+                    </span>
+                  ) : undefined}
+                </FactRow>
+
                 <FactRow icon={Mail} label="Email" absent="No email address recorded yet">
                   {place.email ? (
                     <a
@@ -505,9 +599,13 @@ export default async function PlaceDetailPage({ params }: PageProps) {
         {relatedPlaces.length > 0 && (
           <section className="mt-14 border-t border-border pt-10">
             <SectionHeader
-              label="Keep reading"
+              label={distanceBySlug.size > 0 ? "Nearby" : "Keep reading"}
               title={destinationName ? `More in ${destinationName}` : "More places in the directory"}
-              description="Listings sharing this province record, shown in the order the directory returns them."
+              description={
+                distanceBySlug.size > 0
+                  ? "The closest listed places by straight-line distance — not road distance or travel time."
+                  : "Listings sharing this province record, shown in the order the directory returns them."
+              }
             />
 
             <ul className="divide-y divide-border border-y border-border">
@@ -538,6 +636,11 @@ export default async function PlaceDetailPage({ params }: PageProps) {
                         </span>
                       )}
                     </span>
+                    {distanceBySlug.has(rel.slug) && (
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                        {(distanceBySlug.get(rel.slug) as number).toFixed(1)} km
+                      </span>
+                    )}
                     <ArrowRight
                       size={15}
                       aria-hidden="true"

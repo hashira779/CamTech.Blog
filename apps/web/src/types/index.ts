@@ -250,7 +250,7 @@ export interface Place {
   gallery_json?: string;
   amenities_json?: string;
   tags_json?: string;
-  verification_status: "VERIFIED" | "UNVERIFIED" | "NEEDS_REVIEW" | "OUTDATED";
+  verification_status: "VERIFIED" | "GROUND_VERIFIED" | "AI_GENERATED" | "UNVERIFIED" | "NEEDS_REVIEW" | "OUTDATED";
   status: "ACTIVE" | "CLOSED" | "TEMPORARILY_CLOSED" | "ARCHIVED" | "MERGED";
   rating: number;
   review_count: number;

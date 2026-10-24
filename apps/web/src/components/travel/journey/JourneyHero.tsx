@@ -6,6 +6,8 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, Bus, Footprints, Navigation, PlusCircle } from "lucide-react";
 import { useJourneyCopy } from "./copy";
 import { useOnScreen, useReducedMotionPref } from "./hooks";
+import { HeroFeatured } from "./HeroFeatured";
+import type { Destination } from "@/types";
 import { sugarPalm, templeBodyPoints, templeTowers, towerPoints, treeLine } from "./angkor-art";
 
 const VB_W = 1600;
@@ -44,14 +46,15 @@ function Temple({ id }: { id: string }) {
 /**
  * Scene A — Angkor at sunrise.
  *
- * A 200vh section with a sticky stage. Native scroll drives everything: as the reader scrolls,
+ * A 175vh section with a sticky stage. Native scroll drives everything: as the reader scrolls,
  * the camera pushes into the temple, the palms part past the lens, the mist thickens and a veil
  * fades the stage into the charcoal the discovery scene opens on, so the two read as one shot.
- * On mount the sun rises and the headline arrives word by word.
+ * On mount the sun rises and the headline arrives word by word. On wide screens a featured-
+ * province card (`HeroFeatured`) sits bottom-right and fades with the type.
  *
  * Reduced motion: a single still frame, 100svh tall, no pinning, no drift, nothing withheld.
  */
-export function JourneyHero() {
+export function JourneyHero({ featured = [] }: { featured?: Destination[] }) {
   const { copy, lang } = useJourneyCopy();
   const reduce = useReducedMotionPref();
   const sectionRef = React.useRef<HTMLElement>(null);
@@ -295,7 +298,7 @@ export function JourneyHero() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1, ease, delay: 1.85 }}
               >
-                <a href="#tv-discovery" className="tv-btn tv-btn-gold group">
+                <a href="#tv-explore" className="tv-btn tv-btn-gold group">
                   {copy.ctaExplore}
                   <ArrowRight size={16} aria-hidden="true" className="link-nudge" />
                 </a>
@@ -325,6 +328,18 @@ export function JourneyHero() {
               </motion.nav>
             </div>
           </div>
+
+          {featured.length > 0 && (
+            <motion.div
+              className="absolute right-8 hidden w-[23rem] xl:block"
+              style={{ bottom: lift + 28 }}
+              initial={still ? false : { opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 1, ease, delay: 2.1 }}
+            >
+              <HeroFeatured destinations={featured} />
+            </motion.div>
+          )}
         </motion.div>
 
         {/* ── Scroll cue ─────────────────────────────────────────────────── */}
@@ -332,7 +347,7 @@ export function JourneyHero() {
           <motion.a
             href="#tv-discovery"
             aria-label={copy.scrollCue}
-            className="tv-scroll-cue absolute right-5 hidden flex-col items-center gap-2 text-tv-ivory/70 sm:flex lg:right-10"
+            className="tv-scroll-cue absolute left-5 hidden flex-col items-center gap-2 text-tv-ivory/70 sm:flex lg:left-10"
             style={{ opacity: cueOpacity, bottom: lift + 20 }}
           >
             <motion.span

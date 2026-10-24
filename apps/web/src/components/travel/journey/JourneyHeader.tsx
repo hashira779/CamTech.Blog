@@ -27,9 +27,9 @@ export function JourneyHeader({ chapter, count = 0 }: { chapter: Chapter; count?
       return (
         <SectionHeader
           category="travel"
-          label={copy.provincesLabel}
-          title={copy.provincesTitle}
-          description={copy.provincesLead(count)}
+          label={copy.exploreLabel}
+          title={copy.exploreTitle}
+          description={copy.exploreLead(count)}
         />
       );
     case "transport":

@@ -254,7 +254,7 @@ export function DiscoveryScene({ destinations }: { destinations: Destination[] }
                     ) : (
                       <span />
                     )}
-                    <Link href={`/travel/${dest.slug}`} className="tv-link-gold group inline-flex items-center gap-1.5 font-semibold">
+                    <Link href={`/travel/${dest.slug}`} className="tv-link-gold group inline-flex min-h-6 items-center gap-1.5 font-semibold">
                       {copy.exploreHub}
                       <ArrowRight size={15} aria-hidden="true" className="link-nudge" />
                     </Link>
