@@ -784,7 +784,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         {/* =====================================================================
             COVER: the photo, with the names set like a magazine cover
            ===================================================================== */}
-        <section className="relative h-[100svh] min-h-[620px] overflow-hidden bg-[#1a1612] text-[#fbf7ef]">
+        <section className="relative h-[100svh] min-h-[620px] overflow-clip bg-[#1a1612] text-[#fbf7ef]">
           <div className="wc-parallax absolute inset-x-0 top-0 h-[118%]">
             <img src={heroImage} alt={`${card.groom_name} & ${card.bride_name}`} className="wc-kb w-full h-full object-cover" />
           </div>
@@ -1009,13 +1009,13 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             standing on a carved plinth (real 3D, see khmer3d/), joined by a
             gold thread that draws itself as the guest scrolls
            ===================================================================== */}
-        <section className="wc-rites relative px-5 sm:px-6 py-24 sm:py-32 overflow-hidden">
+        <section className="wc-rites relative px-5 sm:px-6 py-24 sm:py-32 overflow-x-clip">
           <div className="relative max-w-[1080px] mx-auto">
             <header className="text-center max-w-2xl mx-auto">
               <p className={sectionLabel}>{ui.s5}</p>
               <KhmerArchCrown className="mx-auto mt-6 w-24 h-8 text-[var(--wc-link)]" />
-              <h2 className="wc-reveal mt-3 font-moul text-[clamp(24px,3.6vw,38px)] leading-[1.75] text-[#2b2520]">{ui.traditionsTitle}</h2>
-              <p className="mt-3 text-[17px] leading-[1.9] text-[#4a3f33]">{ui.traditionsNote}</p>
+              <h2 className="wc-reveal mt-3 font-moul text-[clamp(24px,3.6vw,38px)] leading-[1.75] text-[#1a1816]">{ui.traditionsTitle}</h2>
+              <p className="mt-3 text-[17px] leading-[1.9] text-[#2a241e]">{ui.traditionsNote}</p>
             </header>
 
             <ol className="relative mt-16 sm:mt-20">
@@ -1045,10 +1045,10 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                     {/* Its name and meaning */}
                     <div className={`relative ${flip ? "md:order-1 md:text-right" : ""}`}>
                       <span className="block font-moul text-[34px] leading-[1.4] text-[var(--wc-link)]" aria-hidden="true">{KHMER_NUMERALS[i]}</span>
-                      <h3 className="mt-1 wc-khmer text-[clamp(21px,2.4vw,26px)] font-semibold leading-[1.7] text-[#2b2520]">{c.km}</h3>
-                      {lang === "en" && <p className="wc-display italic text-[20px] leading-snug text-[#5a4a38]">{c.en}</p>}
+                      <h3 className="mt-1 wc-khmer text-[clamp(21px,2.4vw,26px)] font-semibold leading-[1.75] text-[#1a1816]">{c.km}</h3>
+                      {lang === "en" && <p className="wc-display italic text-[20px] leading-snug text-[#3a3128]">{c.en}</p>}
                       <span aria-hidden="true" className={`block mt-4 h-px w-24 bg-[linear-gradient(90deg,var(--wc-gold),transparent)] ${flip ? "md:ml-auto md:bg-[linear-gradient(270deg,var(--wc-gold),transparent)]" : ""}`} />
-                      <p className={`mt-4 text-[16.5px] leading-[1.95] text-[#3f352b] max-w-[44ch] ${flip ? "md:ml-auto" : ""}`}>{lang === "km" ? c.kmNote : c.enNote}</p>
+                      <p className={`mt-4 wc-khmer text-[16.5px] leading-[1.95] text-[#2a241e] max-w-[44ch] ${flip ? "md:ml-auto" : ""}`}>{lang === "km" ? c.kmNote : c.enNote}</p>
                     </div>
                   </li>
                 );
@@ -1256,7 +1256,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         {/* =====================================================================
             BLESSING: Angkor Wat at dawn, then the traditional "Jayo!" cheer
            ===================================================================== */}
-        <section className="relative overflow-hidden px-5 sm:px-6 pt-24 sm:pt-32 pb-16 text-center">
+        <section className="relative overflow-clip px-5 sm:px-6 pt-24 sm:pt-32 pb-16 text-center">
           <p className={sectionLabel}>{ui.blessing}</p>
           <AngkorDawn className="mx-auto mt-8 w-full max-w-[880px] text-[var(--wc-link)]" />
           <p className="mt-8 font-moul text-[clamp(28px,5vw,46px)] leading-[1.6] text-[var(--wc-link)]" aria-label="ជយោ! ជយោ! ជយោ!">

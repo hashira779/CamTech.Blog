@@ -48,7 +48,7 @@ async function createEngine(accent: string): Promise<KhmerEngine | null> {
   renderer.setPixelRatio(1); // targets are sized in device pixels by the caller
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.92;
+  renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setClearColor(0x000000, 0);
@@ -67,10 +67,11 @@ async function createEngine(accent: string): Promise<KhmerEngine | null> {
 
   const scene = new THREE.Scene();
   scene.environment = envTex;
-  scene.environmentIntensity = 0.7;
+  scene.environmentIntensity = 0.62;
 
-  // Warm key from upper left (rakes across the carving), cool soft fill
-  const key = new THREE.DirectionalLight("#fff0d2", 3.4);
+  // Three-point rig. Key: warm, high and slightly left, rakes across the
+  // engraving and casts the contact shadow
+  const key = new THREE.DirectionalLight("#ffeccc", 3.2);
   // High and only slightly to the left: shadows stay short and inside the frame
   key.position.set(-1.4, 5.6, 1.8);
   key.castShadow = true;
@@ -85,15 +86,20 @@ async function createEngine(accent: string): Promise<KhmerEngine | null> {
   key.shadow.normalBias = 0.02;
   key.shadow.radius = 4;
   scene.add(key);
-  scene.add(new THREE.HemisphereLight("#fff6e8", "#4a3c2c", 0.3));
-  const rim = new THREE.DirectionalLight("#ffe2b0", 0.9);
-  rim.position.set(2.5, 1.6, -2.8);
+  // Fill: cool and soft from the front right, opens the shadow side
+  const fill = new THREE.DirectionalLight("#dfe8ff", 0.85);
+  fill.position.set(3, 2.2, 3.4);
+  scene.add(fill);
+  // Rim: golden, from behind, draws the silhouette off the paper
+  const rim = new THREE.DirectionalLight("#ffd27a", 1.6);
+  rim.position.set(1.8, 2.6, -3.6);
   scene.add(rim);
+  scene.add(new THREE.HemisphereLight("#fff6e8", "#4a3c2c", 0.22));
 
   // Contact shadow onto the page itself (the canvas is transparent)
   // Shadow-catcher only under the pedestal's footprint, so no shadow is ever
   // cut off by the edge of the frame
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(1.05, 64), new THREE.ShadowMaterial({ opacity: 0.26 }));
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(1.2, 64), new THREE.ShadowMaterial({ opacity: 0.3 }));
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = 0.001;
   ground.receiveShadow = true;
@@ -101,6 +107,8 @@ async function createEngine(accent: string): Promise<KhmerEngine | null> {
 
   const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 30);
   const pieces = new Map<CeremonyKind, THREE.Group>();
+  // Each piece's bounds, measured once, so the camera frames it whole
+  const bounds = new Map<CeremonyKind, THREE.Sphere>();
   let current: THREE.Group | null = null;
   let bufW = 0;
   let bufH = 0;
@@ -110,6 +118,7 @@ async function createEngine(accent: string): Promise<KhmerEngine | null> {
     if (!p) {
       p = buildCeremonyPiece(kind, mats);
       pieces.set(kind, p);
+      bounds.set(kind, new THREE.Box3().setFromObject(p).getBoundingSphere(new THREE.Sphere()));
     }
     return p;
   };
@@ -141,11 +150,17 @@ async function createEngine(accent: string): Promise<KhmerEngine | null> {
       p.scale.setScalar(s);
 
       camera.aspect = w / h;
-      const elev = 0.44 - pose.tiltY * 0.1;
+      const elev = 0.42 - pose.tiltY * 0.1;
       const az = pose.tiltX * 0.22;
-      const dist = 5.2;
-      camera.position.set(Math.sin(az) * dist * Math.cos(elev), Math.sin(elev) * dist, Math.cos(az) * dist * Math.cos(elev));
-      camera.lookAt(0, 0.74, 0);
+      // Fit the bounding sphere into the narrower field of view, with margin
+      const sphere = bounds.get(kind)!;
+      const vFov = THREE.MathUtils.degToRad(camera.fov) / 2;
+      const hFov = Math.atan(Math.tan(vFov) * camera.aspect);
+      // A sphere round a wide, low piece over-estimates its height: frame tighter
+      const dist = (sphere.radius * 0.8) / Math.sin(Math.min(vFov, hFov));
+      const cy = sphere.center.y;
+      camera.position.set(Math.sin(az) * dist * Math.cos(elev), cy + Math.sin(elev) * dist, Math.cos(az) * dist * Math.cos(elev));
+      camera.lookAt(0, cy, 0);
       camera.updateProjectionMatrix();
 
       renderer.setViewport(0, bufH - h, w, h);
