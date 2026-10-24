@@ -1356,41 +1356,186 @@ html.js .dd-reveal:not([data-revealed="true"]) .rule-fill {
 /* Dotted leader between a programme item and its time, like a printed menu */
 .wc-leader { flex: 1; border-bottom: 1px dotted color-mix(in oklab, var(--wc-ink) 35%, transparent); transform: translateY(-6px); min-width: 24px; }
 
-/* ---------- Envelope intro ---------- */
+/* ---------- Envelope intro ----------
+   A real object on a stage: layered body, pocket and two-faced flap in 3D.
+   Theme comes from --env-* (per template, see getEnvelopeStyle). Every
+   timing is multiplied by --wc-t so a returning guest gets a brisker replay.
+   Sequence: seal press (0) → flap turns (.25s) → flowers bloom (.9s) →
+   card rises (1s) → card comes forward and the stage dissolves (2.1s). */
 .wc-overlay {
-  background: color-mix(in oklab, var(--wc-deep) 92%, black);
-  transition: opacity .9s var(--wc-ease) 2.1s, transform 1.2s var(--wc-ease) 2.1s;
+  --wc-t: 1;
+  background: var(--env-stage, color-mix(in oklab, var(--wc-deep) 92%, black));
+  transition:
+    opacity calc(.9s * var(--wc-t)) var(--wc-ease) calc(2.1s * var(--wc-t)),
+    visibility 0s linear calc(3s * var(--wc-t));
 }
-.wc-overlay.is-opening { opacity: 0; transform: scale(1.25); pointer-events: none; }
-.wc-env { perspective: 1400px; }
-.wc-env-back { background-color: var(--wc-deep); background-image: var(--wc-grain); }
-/* Pocket covers the whole face except a V opening that the closed flap hides */
-.wc-env-pocket { background-color: color-mix(in oklab, var(--wc-accent) 42%, #1d1813); background-image: var(--wc-grain); clip-path: polygon(0 0, 50% 54%, 100% 0, 100% 100%, 0 100%); }
+.wc-overlay.is-opening { opacity: 0; visibility: hidden; pointer-events: none; }
+
+.wc-stage-light {
+  background:
+    radial-gradient(60% 45% at 50% 46%, color-mix(in oklab, var(--env-foil) 26%, transparent), transparent 70%),
+    radial-gradient(120% 90% at 50% 120%, rgba(0, 0, 0, .55), transparent 60%);
+  animation: wc-glow 6s ease-in-out infinite;
+}
+@keyframes wc-glow { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
+
+.wc-dust {
+  background: var(--env-foil);
+  box-shadow: 0 0 6px 1px color-mix(in oklab, var(--env-foil) 70%, transparent);
+  opacity: 0;
+  animation: wc-dust 8s ease-in-out infinite;
+}
+@keyframes wc-dust {
+  0% { opacity: 0; transform: translateY(14px) scale(.6); }
+  30% { opacity: .75; }
+  70% { opacity: .45; }
+  100% { opacity: 0; transform: translateY(-46px) scale(1); }
+}
+
+.wc-env-intro { transition: opacity calc(.5s * var(--wc-t)) ease, transform calc(.6s * var(--wc-t)) var(--wc-ease); }
+.is-opening .wc-env-intro { opacity: 0; transform: translateY(10px); }
+
+/* Idle float; the inner .wc-env leans toward the pointer */
+.wc-env-float { perspective: 1400px; animation: wc-float 6s ease-in-out infinite; }
+.is-opening .wc-env-float { animation-play-state: paused; }
+@keyframes wc-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+
+.wc-env {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  transform-style: preserve-3d;
+  transform: rotateX(calc(8deg + var(--tilt-x))) rotateY(var(--tilt-y));
+  transition: transform .6s var(--wc-ease);
+}
+.is-opening .wc-env {
+  transform: rotateX(0deg) rotateY(0deg) translateY(12%);
+  transition: transform calc(1s * var(--wc-t)) var(--wc-ease);
+}
+.wc-env-shadow {
+  background: radial-gradient(closest-side, rgba(0, 0, 0, .55), transparent);
+  filter: blur(6px);
+  transform: translateZ(-40px);
+  animation: wc-shadow 6s ease-in-out infinite;
+}
+@keyframes wc-shadow { 0%, 100% { opacity: .9; transform: translateZ(-40px) scale(1); } 50% { opacity: .6; transform: translateZ(-40px) scale(.92); } }
+
+.wc-env-back {
+  background-color: var(--env-body, var(--wc-deep));
+  background-image: linear-gradient(180deg, rgba(0, 0, 0, .28), rgba(0, 0, 0, .05)), var(--wc-grain);
+  box-shadow: 0 30px 60px -10px rgba(0, 0, 0, .55), 0 0 0 1px rgba(0, 0, 0, .25);
+}
+
+/* Pocket covers the whole face except a V opening that the closed flap hides.
+   The diagonal lights mimic silk catching the key light. */
+.wc-env-pocket {
+  background-color: var(--env-body, color-mix(in oklab, var(--wc-accent) 42%, #1d1813));
+  background-image:
+    linear-gradient(115deg, rgba(255, 255, 255, .10), transparent 35%, rgba(255, 255, 255, .06) 60%, transparent 80%),
+    linear-gradient(0deg, rgba(0, 0, 0, .18), transparent 40%),
+    var(--wc-grain);
+  clip-path: polygon(0 0, 50% 54%, 100% 0, 100% 100%, 0 100%);
+  transform: translateZ(2px);
+  overflow: hidden;
+}
+.wc-env-foil {
+  border: 1px solid color-mix(in oklab, var(--env-foil) 75%, transparent);
+  box-shadow: inset 0 0 0 3px color-mix(in oklab, var(--env-foil) 14%, transparent);
+}
+/* A band of light crosses the foil every few seconds, and once more on opening */
+.wc-env-sheen {
+  background: linear-gradient(105deg, transparent 35%, color-mix(in oklab, var(--env-foil) 38%, transparent) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: wc-sheen 5.5s var(--wc-ease) 1.2s infinite;
+  mix-blend-mode: screen;
+}
+@keyframes wc-sheen { 0% { transform: translateX(-120%); } 35%, 100% { transform: translateX(120%); } }
+
 .wc-flap {
-  background-color: color-mix(in oklab, var(--wc-accent) 52%, #241d16);
-  background-image: var(--wc-grain);
-  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  transform-style: preserve-3d;
   transform-origin: 50% 0;
-  transition: transform .95s var(--wc-ease-io) .25s, z-index 0s linear .7s;
+  transform: translateZ(3px);
+  transition: transform calc(.95s * var(--wc-t)) var(--wc-ease-io) calc(.25s * var(--wc-t)), z-index 0s linear calc(.7s * var(--wc-t));
   z-index: 4;
 }
-.is-opening .wc-flap { transform: rotateX(180deg); z-index: 1; }
-.wc-letter { transition: transform 1.1s var(--wc-ease) 1s; z-index: 2; }
-.is-opening .wc-letter { transform: translateY(-46%); }
+.wc-flap-face { clip-path: polygon(0 0, 100% 0, 50% 100%); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.wc-flap-front {
+  background-color: var(--env-flap, color-mix(in oklab, var(--wc-accent) 52%, #241d16));
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(0, 0, 0, .22)), var(--wc-grain);
+  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .35));
+}
+/* Lining: a small repeating foil lattice, like printed envelope tissue */
+.wc-flap-back {
+  transform: rotateX(180deg);
+  background-color: color-mix(in oklab, var(--env-body) 70%, #000);
+  background-image:
+    radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--env-foil) 55%, transparent) 1.2px, transparent 1.6px),
+    linear-gradient(45deg, transparent 46%, color-mix(in oklab, var(--env-foil) 22%, transparent) 48% 52%, transparent 54%),
+    linear-gradient(-45deg, transparent 46%, color-mix(in oklab, var(--env-foil) 22%, transparent) 48% 52%, transparent 54%);
+  background-size: 14px 14px;
+}
+.is-opening .wc-flap { transform: translateZ(3px) rotateX(180deg); z-index: 1; }
+
+.wc-letter {
+  z-index: 2;
+  transform: translateZ(1px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .2);
+  transition:
+    transform calc(1.1s * var(--wc-t)) var(--wc-ease) calc(1s * var(--wc-t)),
+    box-shadow calc(1.1s * var(--wc-t)) var(--wc-ease) calc(1s * var(--wc-t));
+}
+.is-opening .wc-letter {
+  transform: translateY(-52%) translateZ(60px) scale(1.06);
+  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, .55);
+  animation: wc-letter-forward calc(.9s * var(--wc-t)) var(--wc-ease-io) calc(2.1s * var(--wc-t)) both;
+}
+/* Last beat: the card comes toward the guest as the stage dissolves */
+@keyframes wc-letter-forward {
+  from { transform: translateY(-52%) translateZ(60px) scale(1.06); }
+  to { transform: translateY(-40%) translateZ(260px) scale(1.5); }
+}
+
+/* Wax seal: press, crack into a gold ring, gone */
 .wc-seal {
-  background: radial-gradient(circle at 38% 32%, #a8423b, #8e2f2a 55%, #6d211d);
-  box-shadow: inset 0 -4px 8px rgba(0,0,0,.35), inset 0 3px 6px rgba(255,255,255,.2), 0 10px 22px rgba(0,0,0,.45);
+  background: radial-gradient(circle at 38% 32%, color-mix(in oklab, var(--env-wax, #8e2f2a) 70%, #fff), var(--env-wax, #8e2f2a) 55%, color-mix(in oklab, var(--env-wax, #8e2f2a) 70%, #000));
+  box-shadow: inset 0 -4px 8px rgba(0,0,0,.35), inset 0 3px 6px rgba(255,255,255,.22), 0 10px 22px rgba(0,0,0,.45);
   /* Wax is never a perfect circle */
   border-radius: 48% 52% 50% 46% / 50% 46% 54% 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) translateZ(6px);
   transition: transform .45s var(--wc-spring), opacity .35s ease;
 }
-.wc-seal:hover { transform: translate(-50%, -50%) scale(1.06); }
-.wc-seal:focus-visible { outline: 2px solid var(--wc-gold); outline-offset: 6px; }
-.is-opening .wc-seal { transform: translate(-50%, -50%) scale(.2) rotate(-40deg); opacity: 0; }
+.wc-seal:hover { transform: translate(-50%, -50%) translateZ(6px) scale(1.07); }
+.wc-seal:active { transform: translate(-50%, -50%) translateZ(6px) scale(.92); }
+.wc-seal:focus-visible { outline: 2px solid var(--env-foil, var(--wc-gold)); outline-offset: 6px; }
+.wc-seal-ring { box-shadow: 0 0 0 0 color-mix(in oklab, var(--env-foil) 70%, transparent); animation: wc-seal-idle 2.6s ease-out infinite; }
+@keyframes wc-seal-idle { 0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--env-foil) 55%, transparent); } 100% { box-shadow: 0 0 0 18px transparent; } }
+.is-opening .wc-seal {
+  animation: wc-seal-break calc(.5s * var(--wc-t)) var(--wc-ease) forwards;
+}
+.is-opening .wc-seal-ring { animation: wc-seal-burst calc(.7s * var(--wc-t)) var(--wc-ease) forwards; }
+@keyframes wc-seal-break {
+  0% { transform: translate(-50%, -50%) translateZ(6px) scale(1); opacity: 1; }
+  30% { transform: translate(-50%, -50%) translateZ(6px) scale(.86); opacity: 1; }
+  100% { transform: translate(-50%, -50%) translateZ(30px) scale(1.3) rotate(-25deg); opacity: 0; }
+}
+@keyframes wc-seal-burst {
+  from { box-shadow: 0 0 0 0 color-mix(in oklab, var(--env-foil) 85%, transparent); }
+  to { box-shadow: 0 0 0 70px transparent; }
+}
+
+/* Flowers grow out from behind the pocket once the flap is open */
+.wc-bloom { left: 50%; top: 40%; opacity: 0; transform: translate(-50%, -50%) translateZ(20px) scale(.2) rotate(0deg); }
+.is-opening .wc-bloom { transition: transform calc(1.1s * var(--wc-t)) var(--wc-spring) calc(.9s * var(--wc-t)), opacity calc(.5s * var(--wc-t)) ease calc(.9s * var(--wc-t)); opacity: 1; }
+.is-opening .wc-bloom-1 { transform: translate(-50%, -50%) translate(-150px, -70px) translateZ(40px) scale(1) rotate(-25deg); }
+.is-opening .wc-bloom-2 { transform: translate(-50%, -50%) translate(150px, -90px) translateZ(40px) scale(1) rotate(30deg); }
+.is-opening .wc-bloom-3 { transform: translate(-50%, -50%) translate(-120px, 70px) translateZ(30px) scale(1) rotate(15deg); }
+.is-opening .wc-bloom-4 { transform: translate(-50%, -50%) translate(130px, 60px) translateZ(30px) scale(1) rotate(-15deg); }
+
 .wc-breathe { animation: wc-breathe 2.4s ease-in-out infinite; }
 .is-opening .wc-breathe { opacity: 0; transition: opacity .3s; animation: none; }
 @keyframes wc-breathe { 0%,100% { opacity: .55; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-4px); } }
+
+/* Khmer text: room for stacked vowels and subscript consonants */
+.wc-km-lh { line-height: 1.35 !important; padding-block: .04em; }
 
 /* ---------- Cover entrance: lines settle in one after another ---------- */
 .wc-line { opacity: 0; transform: translateY(18px); }

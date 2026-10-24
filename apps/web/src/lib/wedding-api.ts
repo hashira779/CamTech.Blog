@@ -1,13 +1,15 @@
-import { WeddingAuthResponse, WeddingCard, WeddingWish, YouTubeResolveResponse, CuratedSong } from "@/types/wedding";
+import { WeddingAuthResponse, WeddingCard, WeddingWish, WeddingResponsesList, YouTubeResolveResponse, CuratedSong } from "@/types/wedding";
 
 const API_BASE = typeof window === "undefined"
   ? (process.env.INTERNAL_WEDDING_API_URL || "http://127.0.0.1:8002/api/v1")
   : (process.env.NEXT_PUBLIC_WEDDING_API_URL || "/api/v1");
 
+/* Showroom sample for the /wedding landing page only. It is never served for a
+   real invitation link: a slug that doesn't resolve is a 404, not this couple. */
 export const DEFAULT_PREMIER_CARD: WeddingCard = {
   id: "card-sample-01",
-  slug: "heng-bopha-wedding",
-  theme: "royal_khmer_gold",
+  slug: "demo",
+  theme: "romduol_golden",
   title: "សិរីសួស្តី អាពាហ៍ពិពាហ៍",
   groom_name: "ជា វិសាល",
   groom_title: "កូនប្រុសច្បង",
@@ -66,74 +68,78 @@ export const DEFAULT_PREMIER_CARD: WeddingCard = {
   ]
 };
 
-// Local storage keys
+// Local storage key for the signed-in couple's session (token + user)
 const AUTH_KEY = "camtech_wedding_auth";
-const CARD_KEY = "camtech_wedding_card";
+// Legacy key: earlier builds cached a copy of the card here and served it when the API failed
+const LEGACY_CARD_KEY = "camtech_wedding_card";
+
+/** Error carrying the HTTP status, so callers can tell "signed out" from "offline". */
+export class WeddingApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "WeddingApiError";
+    this.status = status;
+  }
+}
+
+const NETWORK_ERROR = "មិនអាចភ្ជាប់ទៅម៉ាស៊ីនមេបានទេ សូមព្យាយាមម្តងទៀត (Can't reach the server, please try again)";
+
+function detailMessage(detail: unknown, fallback: string): string {
+  if (typeof detail === "string" && detail) return detail;
+  // FastAPI validation errors: [{ loc, msg }]
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0] as { loc?: unknown[]; msg?: string };
+    const field = Array.isArray(first.loc) ? String(first.loc[first.loc.length - 1]) : "";
+    return `${fallback}${field ? ` (${field}: ${first.msg})` : first.msg ? ` (${first.msg})` : ""}`;
+  }
+  return fallback;
+}
+
+/** fetch + JSON with real errors: success is only ever what the server confirmed. */
+async function request<T>(path: string, init: RequestInit & { token?: string } = {}, fallbackError = "សំណើបរាជ័យ (Request failed)"): Promise<T> {
+  const { token, headers, ...rest } = init;
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...rest,
+      headers: {
+        ...(rest.body && !(rest.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
+      },
+    });
+  } catch {
+    throw new WeddingApiError(NETWORK_ERROR, 0);
+  }
+  if (res.status === 204) return undefined as T;
+  const body = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = (body as { detail?: unknown } | null)?.detail;
+    const msg = res.status === 429
+      ? detailMessage(detail, "សំណើច្រើនពេក (Too many requests)")
+      : res.status >= 500
+        ? NETWORK_ERROR
+        : detailMessage(detail, fallbackError);
+    throw new WeddingApiError(msg, res.status);
+  }
+  return body as T;
+}
 
 export async function unifiedWeddingAuth(payload: {
   phone: string;
   username?: string;
   password: string;
 }): Promise<WeddingAuthResponse> {
-  try {
-    const res = await fetch(`${API_BASE}/wedding/auth`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (typeof window !== "undefined") {
-        localStorage.setItem(AUTH_KEY, JSON.stringify(data));
-        localStorage.setItem(CARD_KEY, JSON.stringify(data.card));
-      }
-      return data;
-    }
-
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "បរាជ័យក្នុងការចូលប្រើ");
-  } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    // If backend is unreachable, gracefully fall back to local mode
-    if (errorMsg.includes("Incorrect") || errorMsg.includes("លេខសម្ងាត់មិនត្រឹមត្រូវ")) {
-      throw err;
-    }
-    console.warn("FastAPI unreachable, fallback to browser state:", err);
-    
-    // Simulate smart local response
-    const stored = typeof window !== "undefined" ? localStorage.getItem(AUTH_KEY) : null;
-    let is_new = true;
-    let card = { ...DEFAULT_PREMIER_CARD };
-    
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (parsed.user?.phone === payload.phone.replace(/[^\d+]/g, "")) {
-        is_new = false;
-        card = parsed.card || card;
-      }
-    }
-
-    const mockResponse: WeddingAuthResponse = {
-      access_token: "mock-jwt-token-" + Date.now(),
-      token_type: "bearer",
-      is_new,
-      user: {
-        id: "local-user-" + Date.now(),
-        phone: payload.phone,
-        username: payload.username || (is_new ? `User ${payload.phone.slice(-4)}` : "ភ្ញៀវកិត្តិយស"),
-        created_at: new Date().toISOString()
-      },
-      card
-    };
-
-    if (typeof window !== "undefined") {
-      localStorage.setItem(AUTH_KEY, JSON.stringify(mockResponse));
-      localStorage.setItem(CARD_KEY, JSON.stringify(mockResponse.card));
-    }
-
-    return mockResponse;
+  const data = await request<WeddingAuthResponse>("/wedding/auth", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  }, "បរាជ័យក្នុងការចូលប្រើ (Sign-in failed)");
+  if (typeof window !== "undefined") {
+    localStorage.setItem(AUTH_KEY, JSON.stringify({ ...data, card: null }));
+    localStorage.removeItem(LEGACY_CARD_KEY);
   }
+  return data;
 }
 
 export function getStoredAuth(): WeddingAuthResponse | null {
@@ -141,7 +147,13 @@ export function getStoredAuth(): WeddingAuthResponse | null {
   const raw = localStorage.getItem(AUTH_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw) as WeddingAuthResponse;
+    // Sessions minted by the old offline fallback were never real accounts
+    if (!parsed?.access_token || parsed.access_token.startsWith("mock-jwt-token-")) {
+      localStorage.removeItem(AUTH_KEY);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -150,84 +162,39 @@ export function getStoredAuth(): WeddingAuthResponse | null {
 export function clearStoredAuth() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(AUTH_KEY);
-  localStorage.removeItem(CARD_KEY);
+  localStorage.removeItem(LEGACY_CARD_KEY);
 }
 
 export async function fetchMyWeddingCard(token: string): Promise<WeddingCard> {
-  try {
-    const res = await fetch(`${API_BASE}/wedding/my-card`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (res.ok) {
-      const card = await res.json();
-      if (typeof window !== "undefined") localStorage.setItem(CARD_KEY, JSON.stringify(card));
-      return card;
-    }
-  } catch (err) {
-    console.warn("fetchMyWeddingCard network fallback:", err);
-  }
-
-  if (typeof window !== "undefined") {
-    const local = localStorage.getItem(CARD_KEY);
-    if (local) return JSON.parse(local);
-  }
-  return DEFAULT_PREMIER_CARD;
+  return request<WeddingCard>("/wedding/my-card", { token, cache: "no-store" }, "មិនអាចទាញយកធៀបការបានទេ (Couldn't load your invitation)");
 }
 
 export async function updateMyWeddingCard(token: string, updates: Partial<WeddingCard>): Promise<WeddingCard> {
-  try {
-    const res = await fetch(`${API_BASE}/wedding/my-card`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(updates)
-    });
-    if (res.ok) {
-      const card = await res.json();
-      if (typeof window !== "undefined") localStorage.setItem(CARD_KEY, JSON.stringify(card));
-      return card;
-    }
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "បរាជ័យក្នុងការរក្សាទុក");
-  } catch (err: unknown) {
-    console.warn("updateMyWeddingCard network fallback:", err);
-    // Local fallback update
-    if (typeof window !== "undefined") {
-      const local = localStorage.getItem(CARD_KEY);
-      const existing = local ? JSON.parse(local) : DEFAULT_PREMIER_CARD;
-      const updated = { ...existing, ...updates };
-      localStorage.setItem(CARD_KEY, JSON.stringify(updated));
-      return updated;
-    }
-    return { ...DEFAULT_PREMIER_CARD, ...updates };
-  }
+  // Only send editable columns; server-owned fields and the guestbook stay out
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id, wishes, created_at, updated_at, ...editable } = updates as WeddingCard;
+  return request<WeddingCard>("/wedding/my-card", {
+    method: "PUT",
+    token,
+    body: JSON.stringify(editable),
+  }, "បរាជ័យក្នុងការរក្សាទុក (Save failed)");
 }
 
-export async function fetchPublicWeddingCard(slug: string): Promise<WeddingCard> {
+/** The published card for a slug, or null when there is none (unknown or draft).
+ *  Throws when the service itself can't be reached, so the page can say so
+ *  instead of showing someone else's invitation. */
+export async function fetchPublicWeddingCard(slug: string): Promise<WeddingCard | null> {
+  let res: Response;
   try {
-    const res = await fetch(`${API_BASE}/wedding/card/${encodeURIComponent(slug)}`, {
+    res = await fetch(`${API_BASE}/wedding/card/${encodeURIComponent(slug)}`, {
       next: { revalidate: 10 }
     });
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch (err) {
-    console.warn("fetchPublicWeddingCard network fallback:", err);
+  } catch {
+    throw new WeddingApiError(NETWORK_ERROR, 0);
   }
-
-  // Fallback to local or default
-  if (typeof window !== "undefined") {
-    const local = localStorage.getItem(CARD_KEY);
-    if (local) {
-      const parsed = JSON.parse(local);
-      if (parsed.slug === slug || slug === "demo" || slug === "sample") {
-        return parsed;
-      }
-    }
-  }
-  return DEFAULT_PREMIER_CARD;
+  if (res.status === 404) return null;
+  if (!res.ok) throw new WeddingApiError(NETWORK_ERROR, res.status);
+  return await res.json();
 }
 
 export async function postWeddingWish(slug: string, wish: {
@@ -236,28 +203,20 @@ export async function postWeddingWish(slug: string, wish: {
   attendance: string;
   guest_count: number;
   blessing_message: string;
+  website?: string;
 }): Promise<WeddingWish> {
-  try {
-    const res = await fetch(`${API_BASE}/wedding/card/${encodeURIComponent(slug)}/wish`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(wish)
-    });
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch (err) {
-    console.warn("postWeddingWish network fallback:", err);
-  }
+  return request<WeddingWish>(`/wedding/card/${encodeURIComponent(slug)}/wish`, {
+    method: "POST",
+    body: JSON.stringify(wish),
+  }, "មិនអាចផ្ញើបានទេ (Couldn't send your response)");
+}
 
-  return {
-    id: "wish-" + Date.now(),
-    guest_name: wish.guest_name,
-    attendance: (wish.attendance as "attending" | "not_attending" | "unsure") || "attending",
-    guest_count: wish.guest_count,
-    blessing_message: wish.blessing_message,
-    created_at: new Date().toISOString()
-  };
+export async function fetchMyResponses(token: string): Promise<WeddingResponsesList> {
+  return request<WeddingResponsesList>("/wedding/my-card/responses", { token, cache: "no-store" });
+}
+
+export async function deleteMyResponse(token: string, id: string): Promise<void> {
+  await request<void>(`/wedding/my-card/responses/${encodeURIComponent(id)}`, { method: "DELETE", token });
 }
 
 export const DEFAULT_CURATED_SONGS: CuratedSong[] = [
@@ -438,74 +397,28 @@ export async function optimizeImageFile(file: File, maxWidth = 1600, quality = 0
 }
 
 /**
- * Upload one or multiple wedding images directly to the database/filesystem.
- * Tries Next.js API route first, then FastAPI microservice, and falls back to optimized Base64 data URL.
+ * Upload wedding images to the wedding service (signed-in owners only).
+ * Each photo is compressed in the browser first. A failed upload throws:
+ * nothing is silently swapped for an inline copy the server never stored.
  */
 export async function uploadWeddingImages(
   files: File[],
-  token?: string,
+  token: string,
   onProgress?: (current: number, total: number) => void
 ): Promise<string[]> {
   const uploadedUrls: string[] = [];
-
   for (let i = 0; i < files.length; i++) {
-    const file = files[i];
     if (onProgress) onProgress(i + 1, files.length);
-
-    // Optimize image first
-    const optimized = await optimizeImageFile(file);
-
-    let uploadedUrl: string | null = null;
-
-    // 1. Try Next.js upload API route
-    try {
-      const fd = new FormData();
-      fd.append("file", optimized);
-      const res = await fetch("/api/wedding/upload", {
-        method: "POST",
-        body: fd
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.url) uploadedUrl = data.url;
-      }
-    } catch {}
-
-    // 2. Try FastAPI microservice upload route
-    if (!uploadedUrl) {
-      try {
-        const fd = new FormData();
-        fd.append("file", optimized);
-        const headers: Record<string, string> = {};
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-        const res = await fetch(`${API_BASE}/wedding/upload`, {
-          method: "POST",
-          headers,
-          body: fd
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.url) uploadedUrl = data.url;
-        }
-      } catch {}
-    }
-
-    // 3. Resilient Base64 Fallback
-    if (!uploadedUrl) {
-      uploadedUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => resolve("");
-        reader.readAsDataURL(optimized);
-      });
-    }
-
-    if (uploadedUrl) {
-      uploadedUrls.push(uploadedUrl);
-    }
+    const optimized = await optimizeImageFile(files[i]);
+    const fd = new FormData();
+    fd.append("file", optimized);
+    const data = await request<{ url?: string }>("/wedding/upload", {
+      method: "POST",
+      token,
+      body: fd,
+    }, "បរាជ័យក្នុងការផ្ទុករូបភាព (Upload failed)");
+    if (!data?.url) throw new WeddingApiError("បរាជ័យក្នុងការផ្ទុករូបភាព (Upload failed)", 500);
+    uploadedUrls.push(data.url);
   }
-
   return uploadedUrls;
 }
-
-

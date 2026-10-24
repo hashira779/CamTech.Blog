@@ -1,6 +1,7 @@
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+import logging
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import Base, engine
@@ -16,6 +17,8 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Wedding DB Init notice: {e}")
     yield
+
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(
     title="Wedding Microservice API",
@@ -35,10 +38,21 @@ allowed_origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,  # bearer tokens, never cookies
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    if request.url.path.startswith("/uploads/"):
+        # Uploaded images are content-sniffed on the way in; still never let one run as a page
+        response.headers["Content-Security-Policy"] = "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox"
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
 
 from fastapi.staticfiles import StaticFiles
 

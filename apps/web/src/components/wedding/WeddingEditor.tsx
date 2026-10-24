@@ -1,15 +1,19 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { WeddingCard, WeddingAgendaItem, WeddingReception, CuratedSong, YouTubeResolveResponse } from "@/types/wedding";
+import { WeddingCard, WeddingAgendaItem, WeddingReception, WeddingResponsesList, CuratedSong, YouTubeResolveResponse } from "@/types/wedding";
 import {
   updateMyWeddingCard,
+  fetchMyResponses,
+  deleteMyResponse,
+  WeddingApiError,
   resolveYouTubeAudio,
   fetchCuratedSongs,
   DEFAULT_CURATED_SONGS,
   uploadWeddingImages
 } from "@/lib/wedding-api";
 import { WEDDING_TEMPLATES, getTemplateById, WeddingTemplateDefinition } from "@/lib/wedding-templates";
+import { isSafeUrl } from "@/lib/safe-url";
 import { WeddingFlowerIcon } from "./WeddingFlowers";
 import { WeddingShareModal } from "./WeddingShareModal";
 import confetti from "canvas-confetti";
@@ -48,7 +52,12 @@ import {
   Crown,
   Link2,
   ShieldCheck,
-  Star
+  Star,
+  Users,
+  Download,
+  RefreshCw,
+  Rocket,
+  EyeOff
 } from "lucide-react";
 
 interface WeddingEditorProps {
@@ -57,7 +66,7 @@ interface WeddingEditorProps {
   onLogout: () => void;
 }
 
-type TabId = "templates" | "details" | "photos" | "schedule" | "venue" | "music" | "gift" | "settings";
+type TabId = "templates" | "details" | "photos" | "schedule" | "venue" | "music" | "gift" | "guests" | "settings";
 type ViewMode = "editor" | "split" | "preview";
 type Toast = { id: number; kind: "success" | "error" | "info"; text: string };
 
@@ -84,20 +93,6 @@ const STUDIO_PRESETS = [
   "https://images.unsplash.com/photo-1544077960-604201fe74bc?auto=format&fit=crop&w=1200&q=80",
   "https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?auto=format&fit=crop&w=1200&q=80"
 ];
-
-/* Links end up in public hrefs and srcs, so only plain web URLs are accepted
-   (blocks javascript:, data: and friends). Relative upload paths are allowed. */
-function isSafeUrl(value?: string): boolean {
-  if (!value) return true;
-  const v = value.trim();
-  if (v.startsWith("/") && !v.startsWith("//")) return true;
-  try {
-    const u = new URL(v);
-    return u.protocol === "https:" || u.protocol === "http:";
-  } catch {
-    return false;
-  }
-}
 
 function parseJson<T>(raw: string | undefined, fallback: T): T {
   if (!raw) return fallback;
@@ -187,6 +182,9 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
   const [copiedLink, setCopiedLink] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [responses, setResponses] = useState<WeddingResponsesList | null>(null);
+  const [responsesLoading, setResponsesLoading] = useState(false);
+  const [responsesError, setResponsesError] = useState<string | null>(null);
   const [themeSwap, setThemeSwap] = useState(0);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -395,7 +393,9 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
     return null;
   };
 
-  const handleSave = async () => {
+  /* Saves the whole draft; `publish` also flips its visibility in the same
+     request, so publishing always ships what is on screen. */
+  const handleSave = async (publish?: boolean) => {
     if (saving) return;
     const problem = validate();
     if (problem) {
@@ -404,16 +404,75 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
     }
     setSaving(true);
     try {
-      const updated = await updateMyWeddingCard(token, card);
+      const payload = publish === undefined ? card : { ...card, is_published: publish };
+      const updated = await updateMyWeddingCard(token, payload);
       setCard(updated);
       setSavedSnapshot(JSON.stringify(updated));
-      notify("success", L("បានរក្សាទុកជោគជ័យ!", "Saved successfully!"));
+      notify(
+        "success",
+        publish === true
+          ? L("ធៀបការត្រូវបានផ្សព្វផ្សាយ! ចែករំលែក Link បានហើយ", "Published! Your link is ready to share")
+          : publish === false
+            ? L("បានដាក់ជាព្រាងវិញ — Link ត្រូវបានបិទ", "Back to draft — the link is offline")
+            : L("បានរក្សាទុកជោគជ័យ!", "Saved successfully!")
+      );
+      if (publish === true) setShowShareModal(true);
     } catch (err: unknown) {
+      if (err instanceof WeddingApiError && err.status === 401) {
+        notify("error", L("វគ្គចូលប្រើបានផុតកំណត់ សូមចូលម្តងទៀត", "Your session expired, please sign in again"));
+        setTimeout(onLogout, 1800);
+        return;
+      }
       const msg = err instanceof Error ? err.message : String(err);
       notify("error", msg || L("បរាជ័យក្នុងការរក្សាទុក", "Failed to save"));
     } finally {
       setSaving(false);
     }
+  };
+
+  /* ─── Guests & RSVP (owner only) ─── */
+  const loadResponses = useCallback(async () => {
+    setResponsesLoading(true);
+    setResponsesError(null);
+    try {
+      setResponses(await fetchMyResponses(token));
+    } catch (err) {
+      setResponsesError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setResponsesLoading(false);
+    }
+  }, [token]);
+
+  const handleDeleteResponse = async (id: string) => {
+    if (!window.confirm(L("លុបការឆ្លើយតបនេះ?", "Delete this response?"))) return;
+    try {
+      await deleteMyResponse(token, id);
+      await loadResponses();
+      notify("success", L("បានលុប", "Deleted"));
+    } catch (err) {
+      notify("error", err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const exportResponsesCsv = () => {
+    if (!responses) return;
+    // Quote every cell, and neutralise leading = + - @ so a spreadsheet never runs a guest's text as a formula
+    const cell = (v: unknown) => {
+      let s = String(v ?? "");
+      if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+    const rows = [
+      ["Name", "Phone", "Attendance", "Guests", "Message", "Submitted"],
+      ...responses.responses.map((r) => [r.guest_name, r.phone || "", r.attendance, r.guest_count, r.blessing_message, r.created_at || ""]),
+    ];
+    const csv = "﻿" + rows.map((r) => r.map(cell).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${card.slug}-guests.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Ctrl/Cmd + S saves
@@ -508,6 +567,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
     { id: "venue", km: "ទីកន្លែង", en: "Venue", icon: MapPin },
     { id: "music", km: "បទភ្លេង", en: "Music", icon: Music },
     { id: "gift", km: "ចងដៃ KHQR", en: "Gift KHQR", icon: QrCode },
+    { id: "guests", km: "ភ្ញៀវ & RSVP", en: "Guests & RSVP", icon: Users },
     { id: "settings", km: "ការកំណត់", en: "Settings", icon: Settings },
   ];
 
@@ -629,7 +689,21 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
             </a>
             <button
               type="button"
-              onClick={handleSave}
+              onClick={() => handleSave(!card.is_published)}
+              disabled={saving}
+              className={`h-9 px-3 rounded-xl text-[12.5px] font-bold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-60 ${
+                card.is_published
+                  ? "we-icon-btn"
+                  : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_10px_24px_-12px_rgba(5,120,80,.9)]"
+              }`}
+              title={card.is_published ? L("ដាក់ជាព្រាងវិញ", "Unpublish") : L("ផ្សព្វផ្សាយ", "Publish")}
+            >
+              {card.is_published ? <EyeOff className="w-4 h-4" /> : <Rocket className="w-4 h-4" />}
+              <span className="hidden md:inline">{card.is_published ? L("បិទ Link", "Unpublish") : L("ផ្សព្វផ្សាយ", "Publish")}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSave()}
               disabled={saving || !isDirty}
               className="we-primary relative h-9 pl-3 pr-4 rounded-xl text-[12.5px] font-bold flex items-center gap-2 cursor-pointer disabled:cursor-default"
               title="Ctrl + S"
@@ -668,7 +742,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => { setActiveTab(tab.id); if (tab.id === "guests") void loadResponses(); }}
                     aria-current={active ? "page" : undefined}
                     className={`we-nav-item group relative flex items-center gap-3 shrink-0 h-11 pl-3 pr-4 rounded-2xl text-[13px] font-semibold whitespace-nowrap transition-all duration-300 cursor-pointer ${
                       active
@@ -1163,6 +1237,83 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
             )}
 
             {/* SETTINGS */}
+            {activeTab === "guests" && (
+              <Panel
+                icon={Users}
+                title={L("ភ្ញៀវ និងការឆ្លើយតប", "Guests & responses")}
+                subtitle={L("ការឆ្លើយតបពីភ្ញៀវ — មើលបានតែម្ចាស់ធៀបការប៉ុណ្ណោះ", "RSVPs from your guests — visible only to you")}
+                action={
+                  <div className="flex gap-2">
+                    <button type="button" onClick={loadResponses} disabled={responsesLoading} className="we-icon-btn w-9 h-9" title={L("ផ្ទុកឡើងវិញ", "Refresh")}>
+                      <RefreshCw className={`w-4 h-4 ${responsesLoading ? "animate-spin" : ""}`} />
+                    </button>
+                    <button type="button" onClick={exportResponsesCsv} disabled={!responses?.responses.length} className="we-icon-btn h-9 px-3 text-[12px] font-semibold disabled:opacity-40" title="CSV">
+                      <Download className="w-4 h-4" /> CSV
+                    </button>
+                  </div>
+                }
+              >
+                {!card.is_published && (
+                  <p className="flex items-start gap-2 p-3.5 rounded-2xl bg-amber-500/10 text-[12.5px] text-amber-900 dark:text-amber-200 ring-1 ring-amber-500/25">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    {L("ធៀបការនៅជាព្រាង — ភ្ញៀវមិនទាន់អាចបើក ឬឆ្លើយតបបានទេ។ ចុច «ផ្សព្វផ្សាយ» ដើម្បីបើក Link។", "Your invitation is a draft — guests can't open or reply yet. Press Publish to open the link.")}
+                  </p>
+                )}
+                {responsesError && (
+                  <p role="alert" className="p-3.5 rounded-2xl bg-rose-500/10 text-[12.5px] text-rose-700 dark:text-rose-300 ring-1 ring-rose-500/25">{responsesError}</p>
+                )}
+                {responses && (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        [L("ចូលរួម", "Attending"), responses.summary.attending, "text-emerald-600"],
+                        [L("ចំនួនភ្ញៀវ", "Expected guests"), responses.summary.expected_guests, "we-gold-text"],
+                        [L("មិនអាចចូលរួម", "Declined"), responses.summary.not_attending, "text-rose-600"],
+                        [L("សរុប", "Responses"), responses.summary.total_responses, "text-stone-700 dark:text-stone-200"],
+                      ].map(([label, value, tone]) => (
+                        <div key={String(label)} className="p-4 rounded-2xl ring-1 ring-stone-200/80 dark:ring-white/10 bg-white/60 dark:bg-white/[0.03]">
+                          <p className={`text-2xl font-bold tabular-nums ${tone}`}>{value}</p>
+                          <p className="text-[11.5px] text-stone-500 mt-0.5">{label}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {responses.responses.length === 0 ? (
+                      <div className="p-10 text-center rounded-3xl bg-stone-900/[0.03] dark:bg-white/[0.03] text-[13px] text-stone-500">
+                        {L("មិនទាន់មានការឆ្លើយតបនៅឡើយ", "No responses yet")}
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-stone-200/80 dark:divide-white/10 rounded-2xl ring-1 ring-stone-200/80 dark:ring-white/10 overflow-hidden">
+                        {responses.responses.map((r) => (
+                          <li key={r.id} className="p-4 flex items-start gap-3 bg-white/60 dark:bg-white/[0.02]">
+                            <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${r.attendance === "attending" ? "bg-emerald-500" : r.attendance === "not_attending" ? "bg-rose-500" : "bg-stone-400"}`} />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                <span className="text-[13.5px] font-bold">{r.guest_name}</span>
+                                <span className="text-[11.5px] text-stone-500">
+                                  {r.attendance === "attending"
+                                    ? L(`ចូលរួម · ${r.guest_count} នាក់`, `Attending · ${r.guest_count}`)
+                                    : r.attendance === "not_attending" ? L("មិនអាចចូលរួម", "Declined") : L("មិនទាន់ប្រាកដ", "Unsure")}
+                                </span>
+                                {r.phone && <a href={`tel:${r.phone}`} className="text-[11.5px] font-mono text-amber-700 dark:text-amber-400">{r.phone}</a>}
+                              </div>
+                              <p className="text-[12.5px] text-stone-600 dark:text-stone-300 mt-1 break-words">{r.blessing_message}</p>
+                              {r.created_at && <p className="text-[10.5px] text-stone-400 mt-1">{new Date(r.created_at).toLocaleString(lang === "km" ? "km-KH" : "en-GB")}</p>}
+                            </div>
+                            <button type="button" onClick={() => handleDeleteResponse(r.id)} className="shrink-0 w-8 h-8 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-500/10 flex items-center justify-center cursor-pointer" title={L("លុប", "Delete")}>
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+                {!responses && responsesLoading && (
+                  <div className="p-10 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-amber-600" /></div>
+                )}
+              </Panel>
+            )}
+
             {activeTab === "settings" && (
               <Panel icon={Settings} title={L("ការកំណត់ & តំណភ្ជាប់", "Settings & link")} subtitle={L("គ្រប់គ្រងការផ្សព្វផ្សាយ និងមុខងារសម្រាប់ភ្ញៀវ", "Control publishing and guest features")}>
                 <Field label={L("តំណភ្ជាប់ផ្ទាល់ខ្លួន", "Custom link")} hint={L("អក្សរតូច លេខ - និង _ ប៉ុណ្ណោះ", "Lowercase letters, numbers, - and _ only")}>

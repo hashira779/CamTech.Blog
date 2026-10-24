@@ -26,7 +26,7 @@ class WeddingCard(Base):
     id = Column(String(36), primary_key=True, default=generate_uuid)
     user_id = Column(String(36), ForeignKey("wedding_users.id"), nullable=False, index=True)
     slug = Column(String(100), unique=True, index=True, nullable=False)
-    theme = Column(String(50), default="royal_khmer_gold")
+    theme = Column(String(50), default="romduol_golden")
     title = Column(String(255), default="សិរីសួស្តី អាពាហ៍ពិពាហ៍")
 
     # Groom
@@ -61,7 +61,7 @@ class WeddingCard(Base):
     # Settings
     enable_rsvp = Column(Boolean, default=True)
     enable_wishes = Column(Boolean, default=True)
-    is_published = Column(Boolean, default=True)
+    is_published = Column(Boolean, default=False)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

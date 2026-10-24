@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { getStoredAuth, clearStoredAuth, fetchMyWeddingCard, DEFAULT_PREMIER_CARD } from "@/lib/wedding-api";
+import { getStoredAuth, clearStoredAuth, fetchMyWeddingCard, updateMyWeddingCard, WeddingApiError, DEFAULT_PREMIER_CARD } from "@/lib/wedding-api";
 import { WeddingAuthResponse, WeddingCard } from "@/types/wedding";
 import { UnifiedAuthModal } from "@/components/wedding/UnifiedAuthModal";
 import { WeddingEditor } from "@/components/wedding/WeddingEditor";
@@ -57,9 +57,12 @@ export default function WeddingLandingPage() {
   const [authData, setAuthData] = useState<WeddingAuthResponse | null>(() => {
     return getStoredAuth();
   });
-  const [currentCard, setCurrentCard] = useState<WeddingCard | null>(() => {
-    return getStoredAuth()?.card || null;
-  });
+  // The card always comes from the server; nothing cached in the browser stands in for it
+  const [currentCard, setCurrentCard] = useState<WeddingCard | null>(null);
+  const [cardError, setCardError] = useState<string | null>(null);
+  const [cardReload, setCardReload] = useState(0);
+  // Template picked in the showroom before signing up, applied to the new card
+  const [pendingTemplate, setPendingTemplate] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [showDemoPreview, setShowDemoPreview] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("romduol_golden");
@@ -71,12 +74,30 @@ export default function WeddingLandingPage() {
   const showTpl = WEDDING_TEMPLATES[showIndex];
 
   useEffect(() => {
-    if (authData?.access_token) {
-      void fetchMyWeddingCard(authData.access_token).then((card) => {
+    const token = authData?.access_token;
+    if (!token) return;
+    let cancelled = false;
+    fetchMyWeddingCard(token)
+      .then((card) => {
+        if (cancelled) return;
         setCurrentCard(card);
+        setCardError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        if (err instanceof WeddingApiError && err.status === 401) {
+          // Expired or revoked session: back to sign-in
+          clearStoredAuth();
+          setAuthData(null);
+          setCurrentCard(null);
+          return;
+        }
+        setCardError(err instanceof Error ? err.message : String(err));
       });
-    }
-  }, [authData?.access_token]);
+    return () => {
+      cancelled = true;
+    };
+  }, [authData?.access_token, cardReload]);
 
   useEffect(() => {
     if (showPaused || showDemoPreview) return;
@@ -101,10 +122,19 @@ export default function WeddingLandingPage() {
     };
   }, [showDemoPreview]);
 
-  const handleAuthSuccess = (data: WeddingAuthResponse) => {
-    setAuthData(data);
-    setCurrentCard(data.card);
+  const handleAuthSuccess = async (data: WeddingAuthResponse) => {
     setIsAuthModalOpen(false);
+    let card = data.card ?? null;
+    if (card && data.is_new && pendingTemplate && card.theme !== pendingTemplate) {
+      try {
+        card = await updateMyWeddingCard(data.access_token, { theme: pendingTemplate });
+      } catch {
+        // Keep the server's card; the template can still be picked in the editor
+      }
+    }
+    setPendingTemplate(null);
+    setCurrentCard(card);
+    setAuthData(data);
   };
 
   const handleLogout = () => {
@@ -120,6 +150,7 @@ export default function WeddingLandingPage() {
 
   const chooseTemplate = (templateId: string) => {
     setSelectedTemplateId(templateId);
+    setPendingTemplate(templateId);
     setIsAuthModalOpen(true);
   };
 
@@ -190,6 +221,36 @@ export default function WeddingLandingPage() {
 
   // Khmer clusters break apart under letter-spacing, so tracked labels are English-only
   const label = lang === "km" ? "text-sm font-semibold" : "text-[11px] font-semibold tracking-[0.25em] uppercase";
+
+  // Signed in, card still loading (or the service couldn't answer)
+  if (authData && !currentCard) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center px-6 bg-[#f7f2e9] dark:bg-[#12100d]">
+        {cardError ? (
+          <div className="max-w-sm text-center space-y-4">
+            <p className="text-sm text-stone-700 dark:text-stone-300">{cardError}</p>
+            <div className="flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => { setCardError(null); setCardReload((n) => n + 1); }}
+                className="h-10 px-5 rounded-xl bg-[#1c1610] text-amber-50 text-sm font-semibold cursor-pointer"
+              >
+                {lang === "km" ? "ព្យាយាមម្តងទៀត" : "Try again"}
+              </button>
+              <button type="button" onClick={handleLogout} className="h-10 px-4 rounded-xl text-sm text-stone-600 dark:text-stone-300 cursor-pointer">
+                {lang === "km" ? "ចាកចេញ" : "Log out"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3 text-sm text-stone-500" role="status">
+            <span className="w-8 h-8 rounded-full border-2 border-amber-500/30 border-t-amber-600 animate-spin" />
+            {lang === "km" ? "កំពុងបើកធៀបការរបស់អ្នក..." : "Opening your invitation..."}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // If user is authenticated and has a card -> Show the Editor/Dashboard!
   if (authData && currentCard) {

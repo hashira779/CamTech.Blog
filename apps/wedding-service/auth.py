@@ -9,7 +9,13 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import WeddingUser
 
-JWT_SECRET = os.getenv("JWT_SECRET", "camtech-wedding-service-super-secret-key-2026")
+_DEV_SECRET = "camtech-wedding-service-dev-only-secret"
+JWT_SECRET = os.getenv("JWT_SECRET") or ""
+if not JWT_SECRET:
+    if os.getenv("APP_ENV", "development").lower() == "production":
+        # A guessable signing key would let anyone mint a token for any couple
+        raise RuntimeError("JWT_SECRET must be set when APP_ENV=production")
+    JWT_SECRET = _DEV_SECRET
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "43200")) # 30 days
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/wedding/auth", auto_error=False)

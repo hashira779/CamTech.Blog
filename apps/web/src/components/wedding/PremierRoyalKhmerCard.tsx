@@ -5,8 +5,9 @@ import { Cormorant_Garamond, Noto_Serif_Khmer, Pinyon_Script } from "next/font/g
 import { WeddingCard, WeddingAgendaItem, WeddingReception, WeddingWish } from "@/types/wedding";
 import { postWeddingWish, extractYouTubeVideoId } from "@/lib/wedding-api";
 import { WeddingShareModal } from "./WeddingShareModal";
-import { getTemplateById } from "@/lib/wedding-templates";
-import { FloatingWeddingPetals } from "./WeddingFlowers";
+import { getTemplateById, getEnvelopeStyle } from "@/lib/wedding-templates";
+import { isSafeUrl } from "@/lib/safe-url";
+import { FloatingWeddingPetals, WeddingFlowerIcon, KhmerCornerFiligree, KhmerArchCrown } from "./WeddingFlowers";
 import { LotusDivider, CornerFlourish, HandCircle, HandCheck } from "./WeddingInk";
 import { KbachBand, AngkorDawn, RedThread, CeremonyIcon, type CeremonyIconName } from "./KhmerArt";
 import confetti from "canvas-confetti";
@@ -50,6 +51,22 @@ const wcScript = Pinyon_Script({
 const OPEN_CONFETTI_AT = 1500;
 const OPEN_HERO_AT = 2100;
 const OPEN_DONE_AT = 3000;
+/* A returning guest gets the same ceremony at a brisker pace */
+const REPLAY_SPEED = 0.45;
+
+/* Fixed positions for the gold dust on the envelope stage (no Math.random in render) */
+const STAGE_DUST = Array.from({ length: 18 }, (_, i) => ({
+  left: `${(i * 37 + 11) % 100}%`,
+  top: `${(i * 53 + 7) % 100}%`,
+  size: 2 + (i % 3),
+  delay: `${(i * 0.7) % 6}s`,
+  dur: `${7 + (i % 5) * 1.6}s`,
+}));
+
+/* Khmer stacks vowels and subscript consonants above and below the line, so
+   Khmer names need far more leading than Latin display type */
+const KHMER_RE = /[\u1780-\u17FF\u19E0-\u19FF]/;
+const hasKhmer = (text?: string | null) => !!text && KHMER_RE.test(text);
 
 interface PremierRoyalKhmerCardProps {
   card: WeddingCard;
@@ -60,6 +77,8 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   const [isOpen, setIsOpen] = useState(isPreview);
   const [isOpeningAnim, setIsOpeningAnim] = useState(false);
   const [heroIn, setHeroIn] = useState(isPreview);
+  const [openSpeed, setOpenSpeed] = useState(1);
+  const envRef = useRef<HTMLDivElement | null>(null);
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
   const [lang, setLang] = useState<"km" | "en">("km");
   const [showQrModal, setShowQrModal] = useState(false);
@@ -86,6 +105,9 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   const [isSubmittingWish, setIsSubmittingWish] = useState(false);
   const [wishesList, setWishesList] = useState<WeddingWish[]>(card.wishes || []);
   const [wishSuccess, setWishSuccess] = useState(false);
+  const [wishError, setWishError] = useState<string | null>(null);
+  // Honeypot: hidden from people, filled in by form-spamming bots
+  const [website, setWebsite] = useState("");
 
   // Audio Refs
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -104,6 +126,18 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
     "--wc-light": `color-mix(in oklab, ${template.accentColor} 45%, #fff)`,
     "--wc-paper": `color-mix(in oklab, ${template.accentColor} 9%, #f4eee3)`,
     "--wc-ink": "#2b2520",
+  } as React.CSSProperties;
+
+  const envelope = getEnvelopeStyle(template);
+  const envVars = {
+    "--env-stage": envelope.stage,
+    "--env-body": envelope.body,
+    "--env-flap": envelope.flap,
+    "--env-foil": envelope.foil,
+    "--env-wax": envelope.wax,
+    "--env-wax-ink": envelope.waxInk,
+    "--env-ink": envelope.ink,
+    "--wc-t": String(openSpeed),
   } as React.CSSProperties;
 
   // Agendas
@@ -191,27 +225,57 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   }, []);
 
   // Open the envelope: flap, letter and fade run in CSS; these timers follow them
+  const openedKey = `wc-opened:${card.slug}`;
+
+  const startMusic = () => {
+    if (!card.music_url) return;
+    if (youtubeId && ytIframeRef.current?.contentWindow) {
+      try {
+        ytIframeRef.current.contentWindow.postMessage(
+          JSON.stringify({ event: "command", func: "playVideo", args: "" }),
+          "*"
+        );
+        setIsPlayingMusic(true);
+      } catch {}
+    } else if (audioRef.current) {
+      audioRef.current.play().then(() => setIsPlayingMusic(true)).catch(() => {});
+    }
+  };
+
+  // Straight to the invitation (returning guests, or anyone who'd rather not wait)
+  const handleSkipEnvelope = () => {
+    openTimers.current.forEach((id) => window.clearTimeout(id));
+    startMusic();
+    try { localStorage.setItem(openedKey, "1"); } catch {}
+    setHeroIn(true);
+    setIsOpen(true);
+    setIsOpeningAnim(false);
+  };
+
+  // Pointer parallax: the envelope leans toward the cursor (mouse only)
+  const handleStagePointer = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "mouse" || isOpeningAnim || !envRef.current) return;
+    const x = e.clientX / window.innerWidth - 0.5;
+    const y = e.clientY / window.innerHeight - 0.5;
+    envRef.current.style.setProperty("--tilt-y", `${x * 14}deg`);
+    envRef.current.style.setProperty("--tilt-x", `${-y * 10}deg`);
+  };
+
   const handleOpenEnvelope = () => {
     if (isOpeningAnim) return;
+    let seen = false;
+    try { seen = localStorage.getItem(openedKey) === "1"; localStorage.setItem(openedKey, "1"); } catch {}
+    const speed = seen ? REPLAY_SPEED : 1;
+    setOpenSpeed(speed);
+    envRef.current?.style.setProperty("--tilt-x", "0deg");
+    envRef.current?.style.setProperty("--tilt-y", "0deg");
     setIsOpeningAnim(true);
 
     // Start music inside the tap itself so browsers allow the autoplay
-    if (card.music_url) {
-      if (youtubeId && ytIframeRef.current?.contentWindow) {
-        try {
-          ytIframeRef.current.contentWindow.postMessage(
-            JSON.stringify({ event: "command", func: "playVideo", args: "" }),
-            "*"
-          );
-          setIsPlayingMusic(true);
-        } catch {}
-      } else if (audioRef.current) {
-        audioRef.current.play().then(() => setIsPlayingMusic(true)).catch(() => {});
-      }
-    }
+    startMusic();
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const scale = reduceMotion ? 0 : 1;
+    const scale = reduceMotion ? 0 : speed;
     openTimers.current.push(
       window.setTimeout(() => {
         if (reduceMotion) return;
@@ -271,19 +335,27 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
 
   const handleWishSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!guestName.trim() || !blessingMessage.trim()) return;
+    if (isSubmittingWish || !guestName.trim() || !blessingMessage.trim()) return;
+    // The editor's preview renders this same card: never send a real response from it
+    if (isPreview) {
+      setWishError(lang === "km" ? "នេះជាការមើលគំរូ — ភ្ញៀវនឹងផ្ញើការឆ្លើយតបពី Link ពិត" : "This is a preview — guests reply from the real link");
+      return;
+    }
 
     setIsSubmittingWish(true);
+    setWishError(null);
     try {
       const newWish = await postWeddingWish(card.slug, {
         guest_name: guestName.trim(),
         phone: guestPhone.trim() || undefined,
         attendance,
-        guest_count: guestCount,
-        blessing_message: blessingMessage.trim()
+        guest_count: attendance === "attending" ? guestCount : 0,
+        blessing_message: blessingMessage.trim(),
+        website: website || undefined,
       });
 
-      setWishesList([newWish, ...wishesList]);
+      // Only what the server stored is shown, and a resubmission isn't listed twice
+      setWishesList((prev) => (card.enable_wishes ? [newWish, ...prev.filter((w) => w.id !== newWish.id)] : prev));
       setGuestName("");
       setGuestPhone("");
       setBlessingMessage("");
@@ -298,9 +370,9 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         });
       } catch {}
 
-      setTimeout(() => setWishSuccess(false), 4000);
+      setTimeout(() => setWishSuccess(false), 6000);
     } catch (err) {
-      console.error(err);
+      setWishError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsSubmittingWish(false);
     }
@@ -625,41 +697,99 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
          ========================================================================= */}
       {!isOpen && (
         <div
-          className={`wc-overlay fixed inset-0 z-40 flex flex-col items-center justify-center gap-12 px-6 ${isOpeningAnim ? "is-opening" : ""}`}
+          className={`wc-overlay fixed inset-0 z-40 flex flex-col items-center justify-center gap-10 sm:gap-12 px-6 overflow-hidden ${isOpeningAnim ? "is-opening" : ""}`}
+          style={envVars}
+          onPointerMove={handleStagePointer}
+          onPointerLeave={() => {
+            envRef.current?.style.setProperty("--tilt-x", "0deg");
+            envRef.current?.style.setProperty("--tilt-y", "0deg");
+          }}
         >
-          <p className={lang === "km" ? "wc-khmer text-lg text-[#e9d3a8]" : "wc-script text-4xl text-[#e9d3a8]"}>
-            {lang === "km" ? "លិខិតអញ្ជើញ" : "You are invited"}
-          </p>
-
-          <div className="wc-env relative w-[min(86vw,360px)] aspect-[3/2]">
-            <div className="wc-env-back absolute inset-0 rounded-[3px] shadow-[0_30px_60px_rgba(0,0,0,0.5)]" />
-            <div className="wc-letter wc-grain absolute left-[4%] right-[4%] top-[5%] h-[88%] rounded-[2px] bg-[#fbf7ef] shadow-[0_6px_18px_rgba(0,0,0,0.2)] flex flex-col items-center justify-center gap-1 px-4 text-center text-[#2b2520]">
-              <span className="wc-smallcaps text-[10px] text-[var(--wc-link)]">{ui.weddingOf}</span>
-              <span className="wc-display text-2xl sm:text-[28px] leading-tight">
-                {card.groom_name} <span className="italic text-[var(--wc-link)]">&amp;</span> {card.bride_name}
-              </span>
-              <span className="text-[11px] text-[#6b6157]">{card.khmer_date || card.solar_date}</span>
-              <span className="mt-1.5 text-[11px] text-[#2b2520] truncate max-w-full">
-                {customGuestName || (lang === "km" ? "ឯកឧត្តម លោកជំទាវ លោក លោកស្រី" : "Honored Guest")}
-              </span>
-            </div>
-            <div className="wc-env-pocket absolute inset-0 z-[3] rounded-[3px]" />
-            <div className="wc-flap absolute left-0 right-0 top-0 h-[66%] rounded-t-[3px]" />
-            <button
-              type="button"
-              onClick={handleOpenEnvelope}
-              aria-label={t.tapToOpen}
-              className="wc-seal absolute left-1/2 top-[66%] z-[6] w-[76px] h-[76px] flex items-center justify-center cursor-pointer"
-            >
-              <span className="w-[58px] h-[58px] rounded-full border border-[#f1d6c8]/40 flex items-center justify-center wc-display italic text-[19px] text-[#f6e3d8]/95">
-                {monogramInitials.replace(/\s/g, "")}
-              </span>
-            </button>
+          {/* Stage: warm key light behind the envelope, drifting gold dust */}
+          <div aria-hidden="true" className="wc-stage-light absolute inset-0 pointer-events-none" />
+          <div aria-hidden="true" className="absolute inset-0 pointer-events-none">
+            {STAGE_DUST.map((d, i) => (
+              <span
+                key={i}
+                className="wc-dust absolute rounded-full"
+                style={{ left: d.left, top: d.top, width: d.size, height: d.size, animationDelay: d.delay, animationDuration: d.dur }}
+              />
+            ))}
           </div>
 
-          <p className={`wc-breathe text-white/70 text-center ${lang === "km" ? "text-sm" : "text-[11px] tracking-[0.25em] uppercase"}`}>
-            {t.tapToOpen}
-          </p>
+          <div className="wc-env-intro relative text-center">
+            <KhmerArchCrown className="mx-auto w-24 h-8 text-[var(--env-foil)] opacity-90" />
+            <p className={lang === "km" ? "wc-khmer mt-3 text-lg text-[var(--env-foil)]" : "wc-script mt-2 text-4xl text-[var(--env-foil)]"}>
+              {lang === "km" ? "លិខិតអញ្ជើញ" : "You are invited"}
+            </p>
+          </div>
+
+          <div className="wc-env-float relative">
+            <div ref={envRef} className="wc-env relative w-[min(86vw,380px)] aspect-[3/2]">
+              <div aria-hidden="true" className="wc-env-shadow absolute -inset-x-[6%] -bottom-[18%] h-[22%] rounded-[50%]" />
+              <div className="wc-env-back absolute inset-0 rounded-[4px]" />
+
+              {/* The invitation card inside */}
+              <div className="wc-letter wc-grain absolute left-[4%] right-[4%] top-[5%] h-[88%] rounded-[2px] bg-[#fbf7ef] flex flex-col items-center justify-center gap-1 px-4 text-center text-[#2b2520]">
+                <span aria-hidden="true" className="absolute inset-[5px] border border-[color-mix(in_oklab,var(--env-foil)_60%,transparent)] pointer-events-none" />
+                <KhmerCornerFiligree position="top-left" className="absolute top-1.5 left-1.5 w-5 h-5 text-[var(--wc-link)] opacity-70" />
+                <KhmerCornerFiligree position="top-right" className="absolute top-1.5 right-1.5 w-5 h-5 text-[var(--wc-link)] opacity-70" />
+                <span className="wc-smallcaps text-[10px] text-[var(--wc-link)]">{ui.weddingOf}</span>
+                <span className={`wc-display text-2xl sm:text-[28px] ${hasKhmer(card.groom_name + card.bride_name) ? "wc-km-lh" : "leading-tight"}`}>
+                  {card.groom_name} <span className="italic text-[var(--wc-link)]">&amp;</span> {card.bride_name}
+                </span>
+                <span className="text-[11px] text-[#6b6157] wc-km-lh">{card.khmer_date || card.solar_date}</span>
+                <span className="mt-1.5 text-[11px] text-[#2b2520] truncate max-w-full">
+                  {customGuestName || (lang === "km" ? "ឯកឧត្តម លោកជំទាវ លោក លោកស្រី" : "Honored Guest")}
+                </span>
+              </div>
+
+              {/* Front pocket: silk-like material, foil hairline, kbach corners and a passing sheen */}
+              <div className="wc-env-pocket absolute inset-0 z-[3] rounded-[4px]">
+                <span aria-hidden="true" className="wc-env-foil absolute inset-[7px] rounded-[2px]" />
+                <KhmerCornerFiligree position="bottom-left" className="absolute bottom-2 left-2 w-7 h-7 text-[var(--env-foil)]" />
+                <KhmerCornerFiligree position="bottom-right" className="absolute bottom-2 right-2 w-7 h-7 text-[var(--env-foil)]" />
+                <span aria-hidden="true" className="wc-env-sheen absolute inset-0" />
+              </div>
+
+              {/* Flap: an outer face and a foil-patterned lining that shows once it turns */}
+              <div className="wc-flap absolute left-0 right-0 top-0 h-[66%]">
+                <span className="wc-flap-face wc-flap-front absolute inset-0" />
+                <span className="wc-flap-face wc-flap-back absolute inset-0" />
+              </div>
+
+              {/* Template flowers bloom out of the envelope as it opens */}
+              <span aria-hidden="true" className="wc-bloom wc-bloom-1 absolute z-[7]"><WeddingFlowerIcon type={template.flowerType} className="w-10 h-10 text-[var(--env-foil)]" /></span>
+              <span aria-hidden="true" className="wc-bloom wc-bloom-2 absolute z-[7]"><WeddingFlowerIcon type={template.flowerType} className="w-8 h-8 text-[var(--env-foil)]" /></span>
+              <span aria-hidden="true" className="wc-bloom wc-bloom-3 absolute z-[7]"><WeddingFlowerIcon type={template.flowerType} className="w-7 h-7 text-[var(--env-foil)]" /></span>
+              <span aria-hidden="true" className="wc-bloom wc-bloom-4 absolute z-[7]"><WeddingFlowerIcon type={template.flowerType} className="w-9 h-9 text-[var(--env-foil)]" /></span>
+
+              <button
+                type="button"
+                onClick={handleOpenEnvelope}
+                aria-label={t.tapToOpen}
+                className="wc-seal absolute left-1/2 top-[66%] z-[6] w-[78px] h-[78px] flex items-center justify-center cursor-pointer"
+              >
+                <span aria-hidden="true" className="wc-seal-ring absolute inset-0 rounded-full" />
+                <span className="w-[58px] h-[58px] rounded-full border border-[color-mix(in_oklab,var(--env-wax-ink)_45%,transparent)] flex items-center justify-center wc-display italic text-[19px] text-[var(--env-wax-ink)]">
+                  {monogramInitials.replace(/\s/g, "")}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div className="wc-env-intro relative flex flex-col items-center gap-3">
+            <p className={`wc-breathe text-white/75 text-center ${lang === "km" ? "text-sm" : "text-[11px] tracking-[0.25em] uppercase"}`}>
+              {t.tapToOpen}
+            </p>
+            <button
+              type="button"
+              onClick={handleSkipEnvelope}
+              className="text-[12px] text-white/45 hover:text-white/80 underline underline-offset-4 decoration-white/20 transition cursor-pointer"
+            >
+              {lang === "km" ? "រំលង ›" : "Skip ›"}
+            </button>
+          </div>
         </div>
       )}
 
@@ -683,7 +813,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
 
           <div className="absolute inset-x-0 bottom-0 max-w-[1080px] mx-auto px-6 pb-24 sm:pb-20">
             <p className="wc-line d1 wc-smallcaps text-white/75">{ui.weddingOf}</p>
-            <h1 className="mt-3 wc-display font-light leading-[0.98] text-[clamp(52px,10vw,124px)]">
+            <h1 className={`mt-3 wc-display font-light ${hasKhmer(card.groom_name + card.bride_name) ? "wc-km-lh text-[clamp(40px,8vw,104px)]" : "leading-[0.98] text-[clamp(52px,10vw,124px)]"}`}>
               <span className="wc-line d2 block break-words">{card.groom_name}</span>
               <span className="wc-line d3 block italic text-[#e9d3a8] text-[0.55em] leading-none my-2 sm:ml-[10vw]">&amp;</span>
               <span className="wc-line d3 block break-words sm:ml-[16vw]">{card.bride_name}</span>
@@ -874,7 +1004,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                   </div>
                 </div>
                 <div className="mt-6 pl-8 flex flex-wrap gap-x-6 gap-y-2 text-[15px]">
-                  {eveningReception.map_url && (
+                  {eveningReception.map_url && isSafeUrl(eveningReception.map_url) && (
                     <a href={eveningReception.map_url} target="_blank" rel="noopener noreferrer" className="wc-link !text-[var(--wc-light)]">
                       {t.openMap}
                     </a>
@@ -983,7 +1113,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         {/* =====================================================================
             VIII. KINDLY REPLY: a paper reply card
            ===================================================================== */}
-        {card.enable_wishes && (
+        {(card.enable_wishes || card.enable_rsvp) && (
           <section className="px-5 sm:px-6 pb-24 sm:pb-32">
             <p className={`${sectionLabel} text-center mb-8`}>{ui.s8}</p>
             <div className="wc-reveal relative max-w-[600px] mx-auto bg-[#fffdf8] wc-grain border border-[#2b2520]/15 px-6 sm:px-14 py-12 sm:py-16 shadow-[0_24px_50px_-30px_rgba(60,45,30,0.45)]">
@@ -997,7 +1127,11 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                   <p className="mt-4 text-[16px] text-[#3a332c]">{t.blessingSent}</p>
                 </div>
               ) : (
-                <form onSubmit={handleWishSubmit} className="relative">
+                <form onSubmit={handleWishSubmit} className="relative" aria-busy={isSubmittingWish}>
+                  <label aria-hidden="true" className="absolute -left-[9999px] w-px h-px overflow-hidden">
+                    Website
+                    <input type="text" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
+                  </label>
                   <div className="text-center">
                     <h2 className="wc-display text-[40px] sm:text-[48px] leading-tight text-[#2b2520]">{ui.reply}</h2>
                     <p className="mt-2 text-[15px] text-[#6b6157]">{ui.replyNote}</p>
@@ -1008,6 +1142,8 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                     <input
                       type="text"
                       required
+                      maxLength={100}
+                      autoComplete="name"
                       value={guestName}
                       onChange={(e) => setGuestName(e.target.value)}
                       className="mt-1 w-full h-12 bg-transparent border-0 border-b border-[#2b2520]/30 text-[19px] wc-display text-[#2b2520] focus:outline-none focus:border-[var(--wc-link)]"
@@ -1017,6 +1153,8 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                     <span className="wc-smallcaps text-[#6b6157]">{t.yourPhone}</span>
                     <input
                       type="tel"
+                      maxLength={30}
+                      autoComplete="tel"
                       value={guestPhone}
                       onChange={(e) => setGuestPhone(e.target.value)}
                       className="mt-1 w-full h-12 bg-transparent border-0 border-b border-[#2b2520]/30 text-[19px] wc-display text-[#2b2520] focus:outline-none focus:border-[var(--wc-link)]"
@@ -1062,6 +1200,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                     <textarea
                       required
                       rows={4}
+                      maxLength={1000}
                       value={blessingMessage}
                       onChange={(e) => setBlessingMessage(e.target.value)}
                       placeholder={t.blessingPlaceholder}
@@ -1069,12 +1208,19 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                     />
                   </label>
 
+                  {wishError && (
+                    <p role="alert" className="mt-8 px-4 py-3 border border-[#9e1927]/30 bg-[#9e1927]/[0.06] text-[14px] text-[#7f1d1d] text-center">
+                      {wishError}
+                    </p>
+                  )}
+
                   <div className="mt-10 text-center">
                     <button
                       type="submit"
                       disabled={isSubmittingWish}
-                      className="inline-flex items-center justify-center h-12 px-10 rounded-[2px] bg-[#2b2520] text-[#fbf7ef] text-[15px] tracking-wide hover:bg-[var(--wc-link)] transition-colors cursor-pointer disabled:opacity-50"
+                      className="inline-flex items-center justify-center gap-2 h-12 px-10 rounded-[2px] bg-[#2b2520] text-[#fbf7ef] text-[15px] tracking-wide hover:bg-[var(--wc-link)] transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait"
                     >
+                      {isSubmittingWish && <span aria-hidden="true" className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
                       {t.sendBlessing}
                     </button>
                   </div>
@@ -1082,7 +1228,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
               )}
             </div>
 
-            {wishesList.length > 0 && (
+            {card.enable_wishes && wishesList.length > 0 && (
               <div className="max-w-[1080px] mx-auto mt-20">
                 <p className={`${sectionLabel} text-center mb-10`}>{ui.fromGuests} · {wishesList.length}</p>
                 <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">

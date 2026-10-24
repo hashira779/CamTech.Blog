@@ -2,11 +2,14 @@ import os
 import json
 import re
 import uuid
+import logging
 import urllib.request
 import urllib.parse
 from datetime import timedelta, datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File
+from sqlalchemy import func, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -18,20 +21,72 @@ from schemas import (
     WeddingCardResponse,
     WeddingCardUpdate,
     WeddingWishCreate,
+    WeddingWishPublic,
     WeddingWishResponse,
+    WeddingResponsesList,
+    WeddingResponsesSummary,
     YouTubeResolveResponse,
     CuratedSong,
 )
 from auth import verify_password, get_password_hash, create_access_token, get_current_wedding_user
+from security import (
+    rate_limiter,
+    client_ip,
+    clean_slug,
+    validate_slug,
+    sniff_image_extension,
+    MAX_UPLOAD_BYTES,
+    MAX_FILES_PER_REQUEST,
+)
+
+logger = logging.getLogger("wedding")
 
 router = APIRouter(prefix="/api/v1/wedding", tags=["Wedding Microservice"])
+
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+DEFAULT_THEME = "romduol_golden"
+PUBLIC_WISHES_LIMIT = 200
+
 
 def normalize_phone(phone: str) -> str:
     return re.sub(r"[^\d+]", "", phone.strip())
 
+
+def _age(ts: Optional[datetime]) -> timedelta:
+    if ts is None:
+        return timedelta.max
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - ts
+
+
+def serialize_card(card: WeddingCard, include_wishes: bool = True) -> WeddingCardResponse:
+    """Single place that turns a row into the API shape. Guestbook entries are
+    the public view (name + message); headcounts and phones stay owner-only."""
+    data = {c.name: getattr(card, c.name) for c in card.__table__.columns}
+    data["theme"] = data.get("theme") or DEFAULT_THEME
+    data["wishes"] = []
+    if include_wishes and card.enable_wishes:
+        data["wishes"] = [
+            WeddingWishPublic(
+                id=w.id,
+                guest_name=w.guest_name,
+                blessing_message=w.blessing_message,
+                created_at=w.created_at,
+            )
+            for w in card.wishes[:PUBLIC_WISHES_LIMIT]
+            if (w.blessing_message or "").strip()
+        ]
+    return WeddingCardResponse(**data)
+
+
 def create_default_card(db: Session, user: WeddingUser) -> WeddingCard:
-    base_slug = f"wedding-{user.phone[-4:] if len(user.phone) >= 4 else 'card'}-{uuid.uuid4().hex[:4]}"
-    
+    """A new couple starts from a filled-in sample so the editor and preview
+    look complete, but as an unpublished draft: nothing is public, and no
+    placeholder bank account is attached, until the owner publishes it."""
+    tail = user.phone[-4:] if len(user.phone) >= 4 else "card"
+    slug = f"wedding-{tail}-{uuid.uuid4().hex[:6]}"
+
     default_morning = json.dumps([
         {"time": "07:00 ព្រឹក", "title": "ពិធីហែកំណត់ / ហែជំនូន", "description": "ក្បួនហែជំនូនចូលគេហដ្ឋានមាតាបិតាខាងស្រី រៀបរាប់ផ្លែឈើ និងគ្រឿងបណ្ណាការ"},
         {"time": "08:30 ព្រឹក", "title": "ពិធីកាត់សក់បង្កក់សិរី", "description": "កាត់សក់សិរីសួស្តី ជូនពរជ័យដោយមេបា ចាស់ទុំ និងភ្ញៀវកិត្តិយស"},
@@ -55,17 +110,15 @@ def create_default_card(db: Session, user: WeddingUser) -> WeddingCard:
 
     card = WeddingCard(
         user_id=user.id,
-        slug=base_slug,
-        theme="royal_khmer_gold",
+        slug=slug,
+        theme=DEFAULT_THEME,
         title="សិរីសួស្តី អាពាហ៍ពិពាហ៍",
-        groom_name=user.username if user.username else "ជា វិសាល",
+        groom_name="ជា វិសាល",
         groom_title="កូនប្រុសច្បង",
         groom_parents="លោក ជា សុខុម & លោកស្រី គង់ ផល្លា",
-        groom_image_url="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80",
         bride_name="សុខ សុវណ្ណារី",
         bride_title="កូនស្រីពៅ",
         bride_parents="លោក សុខ ចន្ថា & លោកស្រី ម៉ៅ សុភ័ក្ត្រ",
-        bride_image_url="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=600&q=80",
         khmer_date="ថ្ងៃអាទិត្យ ៥កើត ខែមិគសិរ ឆ្នាំរោង ឆស័ក ព.ស. ២៥៦៩",
         solar_date="2026-11-28",
         solar_time="17:00",
@@ -73,34 +126,66 @@ def create_default_card(db: Session, user: WeddingUser) -> WeddingCard:
         evening_reception=default_evening,
         cover_image_url="https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80",
         gallery_images=default_gallery,
-        music_url="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3",
-        khqr_image_url="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://bakong.nbc.org.kh",
-        khqr_account_name="CHEA VISAL & SOK SOVANNARY",
-        khqr_account_number="000 123 456 (ABA Bank)",
+        music_url=None,
+        khqr_image_url=None,
+        khqr_account_name=None,
+        khqr_account_number=None,
         enable_rsvp=True,
         enable_wishes=True,
-        is_published=True
+        is_published=False,
     )
     db.add(card)
     db.commit()
     db.refresh(card)
     return card
 
+
+def get_or_create_card(db: Session, user: WeddingUser) -> WeddingCard:
+    """One invitation per account. Opening the editor never creates a second
+    row: the oldest card is the account's card."""
+    card = (
+        db.query(WeddingCard)
+        .filter(WeddingCard.user_id == user.id)
+        .order_by(WeddingCard.created_at.asc())
+        .first()
+    )
+    return card or create_default_card(db, user)
+
+
 @router.get("/health")
 def health_check():
-    return {"status": "ok", "service": "wedding-microservice", "version": "1.0.0"}
+    return {"status": "ok", "service": "wedding-microservice", "version": "1.1.0"}
+
+
+@router.get("/ready")
+def readiness_check(db: Session = Depends(get_db)):
+    """/health only proves the process is up; this one proves it can reach its database."""
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:
+        logger.exception("wedding readiness: database unreachable")
+        raise HTTPException(status_code=503, detail="database unavailable")
+    return {"status": "ready"}
+
 
 @router.post("/auth", response_model=WeddingAuthResponse)
-def unified_wedding_auth(req: WeddingAuthRequest, db: Session = Depends(get_db)):
+def unified_wedding_auth(req: WeddingAuthRequest, request: Request, db: Session = Depends(get_db)):
+    ip = client_ip(request)
+    rate_limiter.check(f"auth:ip:{ip}", limit=20, window_seconds=600)
+
     phone = normalize_phone(req.phone)
-    if not phone or len(phone) < 8:
+    if not phone or len(phone) < 8 or len(phone) > 20:
         raise HTTPException(status_code=400, detail="សូមបញ្ចូលលេខទូរស័ព្ទឱ្យបានត្រឹមត្រូវ")
+
+    # Per-account guard against password guessing from many addresses
+    rate_limiter.check(f"auth:phone:{phone}", limit=10, window_seconds=900)
 
     user = db.query(WeddingUser).filter(WeddingUser.phone == phone).first()
     is_new = False
 
     if user:
         if not verify_password(req.password, user.password_hash):
+            logger.info("wedding auth: wrong password for an existing account")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="លេខសម្ងាត់មិនត្រឹមត្រូវ (Incorrect password)"
@@ -118,17 +203,18 @@ def unified_wedding_auth(req: WeddingAuthRequest, db: Session = Depends(get_db))
             password_hash=get_password_hash(req.password)
         )
         db.add(user)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(status_code=409, detail="គណនីនេះមានរួចហើយ សូមព្យាយាមម្តងទៀត (Account already exists, please retry)")
         db.refresh(user)
 
-    card = db.query(WeddingCard).filter(WeddingCard.user_id == user.id).first()
-    if not card:
-        card = create_default_card(db, user)
+    card = get_or_create_card(db, user)
 
-    token_expires = timedelta(days=30)
     access_token = create_access_token(
-        data={"sub": user.id, "phone": user.phone, "role": "WEDDING_USER"},
-        expires_delta=token_expires
+        data={"sub": user.id, "role": "WEDDING_USER"},
+        expires_delta=timedelta(days=30)
     )
 
     return WeddingAuthResponse(
@@ -141,60 +227,17 @@ def unified_wedding_auth(req: WeddingAuthRequest, db: Session = Depends(get_db))
             username=user.username,
             created_at=user.created_at
         ),
-        card=WeddingCardResponse(
-            id=card.id,
-            slug=card.slug,
-            theme=card.theme,
-            title=card.title,
-            groom_name=card.groom_name,
-            groom_title=card.groom_title,
-            groom_parents=card.groom_parents,
-            groom_image_url=card.groom_image_url,
-            bride_name=card.bride_name,
-            bride_title=card.bride_title,
-            bride_parents=card.bride_parents,
-            bride_image_url=card.bride_image_url,
-            khmer_date=card.khmer_date,
-            solar_date=card.solar_date,
-            solar_time=card.solar_time,
-            morning_agenda=card.morning_agenda,
-            evening_reception=card.evening_reception,
-            cover_image_url=card.cover_image_url,
-            gallery_images=card.gallery_images,
-            music_url=card.music_url,
-            khqr_image_url=card.khqr_image_url,
-            khqr_account_name=card.khqr_account_name,
-            khqr_account_number=card.khqr_account_number,
-            enable_rsvp=card.enable_rsvp,
-            enable_wishes=card.enable_wishes,
-            is_published=card.is_published,
-            wishes=[],
-            created_at=card.created_at
-        )
+        card=serialize_card(card),
     )
+
 
 @router.get("/my-card", response_model=WeddingCardResponse)
 def get_my_card(
     current_user: WeddingUser = Depends(get_current_wedding_user),
     db: Session = Depends(get_db)
 ):
-    card = db.query(WeddingCard).filter(WeddingCard.user_id == current_user.id).first()
-    if not card:
-        card = create_default_card(db, current_user)
+    return serialize_card(get_or_create_card(db, current_user))
 
-    wishes_res = [
-        WeddingWishResponse(
-            id=w.id,
-            guest_name=w.guest_name,
-            attendance=w.attendance,
-            guest_count=w.guest_count,
-            blessing_message=w.blessing_message,
-            created_at=w.created_at
-        ) for w in card.wishes
-    ]
-    card_dict = {c.name: getattr(card, c.name) for c in card.__table__.columns}
-    card_dict["wishes"] = wishes_res
-    return WeddingCardResponse(**card_dict)
 
 @router.put("/my-card", response_model=WeddingCardResponse)
 def update_my_card(
@@ -202,89 +245,156 @@ def update_my_card(
     current_user: WeddingUser = Depends(get_current_wedding_user),
     db: Session = Depends(get_db)
 ):
-    card = db.query(WeddingCard).filter(WeddingCard.user_id == current_user.id).first()
-    if not card:
-        card = create_default_card(db, current_user)
+    card = get_or_create_card(db, current_user)
 
     update_dict = update_data.model_dump(exclude_unset=True)
-    if "slug" in update_dict and update_dict["slug"]:
-        clean_slug = re.sub(r"[^a-zA-Z0-9-_]", "", update_dict["slug"].strip().lower())
-        existing = db.query(WeddingCard).filter(WeddingCard.slug == clean_slug, WeddingCard.id != card.id).first()
-        if existing:
-            raise HTTPException(status_code=400, detail="តំណភ្ជាប់ (Slug) នេះមានអ្នកប្រើរួចហើយ")
-        update_dict["slug"] = clean_slug
+    # Server-owned or non-nullable columns never accept null from the client
+    for key in ("title", "groom_name", "groom_title", "groom_parents", "bride_name", "bride_title",
+                "bride_parents", "khmer_date", "solar_date", "solar_time", "theme",
+                "enable_rsvp", "enable_wishes", "is_published", "slug"):
+        if key in update_dict and update_dict[key] is None:
+            update_dict.pop(key)
+
+    if "slug" in update_dict:
+        new_slug = clean_slug(update_dict["slug"])
+        if new_slug != card.slug:
+            validate_slug(new_slug)
+            taken = db.query(WeddingCard).filter(WeddingCard.slug == new_slug, WeddingCard.id != card.id).first()
+            if taken:
+                raise HTTPException(status_code=409, detail="តំណភ្ជាប់ (Slug) នេះមានអ្នកប្រើរួចហើយ (This link is already taken)")
+        update_dict["slug"] = new_slug
 
     for field, value in update_dict.items():
+        if isinstance(value, str):
+            value = value.strip()
         setattr(card, field, value)
 
     card.updated_at = datetime.now(timezone.utc)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="តំណភ្ជាប់ (Slug) នេះមានអ្នកប្រើរួចហើយ (This link is already taken)")
     db.refresh(card)
+    return serialize_card(card)
 
-    wishes_res = [
+
+@router.get("/my-card/responses", response_model=WeddingResponsesList)
+def get_my_responses(
+    current_user: WeddingUser = Depends(get_current_wedding_user),
+    db: Session = Depends(get_db)
+):
+    card = get_or_create_card(db, current_user)
+    rows = (
+        db.query(WeddingWish)
+        .filter(WeddingWish.card_id == card.id)
+        .order_by(WeddingWish.created_at.desc())
+        .all()
+    )
+    responses = [
         WeddingWishResponse(
             id=w.id,
             guest_name=w.guest_name,
-            attendance=w.attendance,
-            guest_count=w.guest_count,
+            phone=w.phone,
+            attendance=w.attendance or "attending",
+            guest_count=w.guest_count if w.guest_count is not None else 1,
             blessing_message=w.blessing_message,
-            created_at=w.created_at
-        ) for w in card.wishes
+            created_at=w.created_at,
+        )
+        for w in rows
     ]
-    card_dict = {c.name: getattr(card, c.name) for c in card.__table__.columns}
-    card_dict["wishes"] = wishes_res
-    return WeddingCardResponse(**card_dict)
+    attending = [r for r in responses if r.attendance == "attending"]
+    summary = WeddingResponsesSummary(
+        total_responses=len(responses),
+        attending=len(attending),
+        not_attending=sum(1 for r in responses if r.attendance == "not_attending"),
+        unsure=sum(1 for r in responses if r.attendance == "unsure"),
+        expected_guests=sum(r.guest_count for r in attending),
+    )
+    return WeddingResponsesList(summary=summary, responses=responses)
+
+
+@router.delete("/my-card/responses/{wish_id}", status_code=204)
+def delete_my_response(
+    wish_id: str,
+    current_user: WeddingUser = Depends(get_current_wedding_user),
+    db: Session = Depends(get_db)
+):
+    card = get_or_create_card(db, current_user)
+    wish = db.query(WeddingWish).filter(WeddingWish.id == wish_id, WeddingWish.card_id == card.id).first()
+    if not wish:
+        raise HTTPException(status_code=404, detail="Response not found")
+    db.delete(wish)
+    db.commit()
+    return None
+
 
 @router.get("/card/{slug}", response_model=WeddingCardResponse)
 def get_public_card(slug: str, db: Session = Depends(get_db)):
-    card = db.query(WeddingCard).filter(WeddingCard.slug == slug.lower()).first()
+    card = db.query(WeddingCard).filter(WeddingCard.slug == clean_slug(slug)).first()
+    # Drafts are indistinguishable from missing cards to the public
     if not card or not card.is_published:
         raise HTTPException(status_code=404, detail="Wedding card not found")
+    return serialize_card(card)
 
-    wishes_res = [
-        WeddingWishResponse(
-            id=w.id,
-            guest_name=w.guest_name,
-            attendance=w.attendance,
-            guest_count=w.guest_count,
-            blessing_message=w.blessing_message,
-            created_at=w.created_at
-        ) for w in card.wishes
-    ]
-    card_dict = {c.name: getattr(card, c.name) for c in card.__table__.columns}
-    card_dict["wishes"] = wishes_res
-    return WeddingCardResponse(**card_dict)
 
-@router.post("/card/{slug}/wish", response_model=WeddingWishResponse)
+@router.post("/card/{slug}/wish", response_model=WeddingWishPublic, status_code=201)
 def add_wish(
     slug: str,
     wish_in: WeddingWishCreate,
+    request: Request,
     db: Session = Depends(get_db)
 ):
-    card = db.query(WeddingCard).filter(WeddingCard.slug == slug.lower()).first()
+    card = db.query(WeddingCard).filter(WeddingCard.slug == clean_slug(slug)).first()
     if not card or not card.is_published:
         raise HTTPException(status_code=404, detail="Wedding card not found")
+    if not card.enable_wishes and not card.enable_rsvp:
+        raise HTTPException(status_code=403, detail="ការឆ្លើយតបត្រូវបានបិទ (Responses are closed for this invitation)")
 
-    if not card.enable_wishes:
-        raise HTTPException(status_code=400, detail="Wishes disabled")
+    ip = client_ip(request)
+    rate_limiter.check(f"wish:{card.id}:{ip}", limit=5, window_seconds=600)
+    rate_limiter.check(f"wish:{card.id}", limit=300, window_seconds=3600)
 
+    # Bots fill every field; pretend success without storing anything
+    if wish_in.website:
+        logger.info("wedding wish: honeypot triggered")
+        return WeddingWishPublic(id=str(uuid.uuid4()), guest_name=wish_in.guest_name,
+                                 blessing_message=wish_in.blessing_message,
+                                 created_at=datetime.now(timezone.utc))
+
+    # A double tap or a resubmitted form returns the existing response instead of a copy
+    duplicate = (
+        db.query(WeddingWish)
+        .filter(
+            WeddingWish.card_id == card.id,
+            func.lower(WeddingWish.guest_name) == wish_in.guest_name.lower(),
+            WeddingWish.blessing_message == wish_in.blessing_message,
+        )
+        .order_by(WeddingWish.created_at.desc())
+        .first()
+    )
+    if duplicate and _age(duplicate.created_at) < timedelta(minutes=30):
+        return WeddingWishPublic(id=duplicate.id, guest_name=duplicate.guest_name,
+                                 blessing_message=duplicate.blessing_message,
+                                 created_at=duplicate.created_at)
+
+    attendance = wish_in.attendance if card.enable_rsvp else "unsure"
+    guest_count = 0 if attendance == "not_attending" else max(1, wish_in.guest_count)
     wish = WeddingWish(
         card_id=card.id,
-        guest_name=wish_in.guest_name.strip(),
-        phone=wish_in.phone.strip() if wish_in.phone else None,
-        attendance=wish_in.attendance or "attending",
-        guest_count=max(1, wish_in.guest_count or 1),
-        blessing_message=wish_in.blessing_message.strip()
+        guest_name=wish_in.guest_name,
+        phone=(wish_in.phone or "").strip() or None,
+        attendance=attendance,
+        guest_count=guest_count,
+        blessing_message=wish_in.blessing_message,
     )
     db.add(wish)
     db.commit()
     db.refresh(wish)
 
-    return WeddingWishResponse(
+    return WeddingWishPublic(
         id=wish.id,
         guest_name=wish.guest_name,
-        attendance=wish.attendance,
-        guest_count=wish.guest_count,
         blessing_message=wish.blessing_message,
         created_at=wish.created_at
     )
@@ -361,7 +471,9 @@ def extract_youtube_video_id(url: str) -> Optional[str]:
     return None
 
 @router.get("/youtube-resolve", response_model=YouTubeResolveResponse)
-def resolve_youtube_audio(url: str):
+def resolve_youtube_audio(url: str, request: Request):
+    # Unauthenticated and each call holds a worker for up to 4 s on YouTube's oEmbed
+    rate_limiter.check(f"yt:{client_ip(request)}", limit=30, window_seconds=600)
     if not url or not url.strip():
         return YouTubeResolveResponse(valid=False, error="សូមបញ្ចូល Link YouTube")
 
@@ -409,68 +521,40 @@ def resolve_youtube_audio(url: str):
 def get_curated_songs():
     return [CuratedSong(**s) for s in CURATED_WEDDING_SONGS]
 
+
+async def _store_upload(file: UploadFile) -> dict:
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="រូបភាពធំពេក (Image is larger than 8 MB)")
+    ext = sniff_image_extension(content[:16])
+    if not ext:
+        raise HTTPException(status_code=415, detail="សូមផ្ទុកតែរូបភាព JPG, PNG, WebP ឬ GIF (Only JPG, PNG, WebP or GIF images)")
+    filename = f"wedding_{uuid.uuid4().hex}{ext}"
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    with open(os.path.join(UPLOAD_DIR, filename), "wb") as f:
+        f.write(content)
+    return {"url": f"/uploads/{filename}", "filename": filename, "size": len(content)}
+
+
 @router.post("/upload")
-async def upload_image(file: UploadFile = File(...)):
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    if ext not in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
-        ext = ".jpg"
-    filename = f"wedding_{uuid.uuid4().hex[:12]}{ext}"
-    upload_dir = os.path.join(os.path.dirname(__file__), "uploads")
-    content = await file.read()
-    try:
-        os.makedirs(upload_dir, exist_ok=True)
-        file_path = os.path.join(upload_dir, filename)
-        with open(file_path, "wb") as f:
-            f.write(content)
-        return {
-            "success": True,
-            "url": f"/uploads/{filename}",
-            "filename": filename,
-            "size": len(content)
-        }
-    except Exception:
-        import base64
-        mime = "image/png" if ext == ".png" else "image/webp" if ext == ".webp" else "image/jpeg"
-        b64 = f"data:{mime};base64,{base64.b64encode(content).decode('utf-8')}"
-        return {
-            "success": True,
-            "url": b64,
-            "filename": filename,
-            "size": len(content)
-        }
+async def upload_image(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: WeddingUser = Depends(get_current_wedding_user),
+):
+    rate_limiter.check(f"upload:{current_user.id}", limit=120, window_seconds=3600)
+    stored = await _store_upload(file)
+    return {"success": True, **stored}
+
 
 @router.post("/upload-multiple")
-async def upload_multiple_images(files: List[UploadFile] = File(...)):
-    results = []
-    upload_dir = os.path.join(os.path.dirname(__file__), "uploads")
-    try:
-        os.makedirs(upload_dir, exist_ok=True)
-    except Exception:
-        pass
-
-    for file in files:
-        ext = os.path.splitext(file.filename or "")[1].lower()
-        if ext not in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
-            ext = ".jpg"
-        filename = f"wedding_{uuid.uuid4().hex[:12]}{ext}"
-        content = await file.read()
-        try:
-            file_path = os.path.join(upload_dir, filename)
-            with open(file_path, "wb") as f:
-                f.write(content)
-            results.append({
-                "url": f"/uploads/{filename}",
-                "filename": filename,
-                "size": len(content)
-            })
-        except Exception:
-            import base64
-            mime = "image/png" if ext == ".png" else "image/webp" if ext == ".webp" else "image/jpeg"
-            b64 = f"data:{mime};base64,{base64.b64encode(content).decode('utf-8')}"
-            results.append({
-                "url": b64,
-                "filename": filename,
-                "size": len(content)
-            })
+async def upload_multiple_images(
+    request: Request,
+    files: List[UploadFile] = File(...),
+    current_user: WeddingUser = Depends(get_current_wedding_user),
+):
+    if len(files) > MAX_FILES_PER_REQUEST:
+        raise HTTPException(status_code=400, detail=f"Upload at most {MAX_FILES_PER_REQUEST} images at once")
+    rate_limiter.check(f"upload:{current_user.id}", limit=120, window_seconds=3600)
+    results = [await _store_upload(f) for f in files]
     return {"success": True, "files": results, "count": len(results)}
-

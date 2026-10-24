@@ -36,6 +36,8 @@ services:
         # client-side call leaves the visitor to find an API on their own machine.
         - NEXT_PUBLIC_API_URL=${PUBLIC_API_URL:-https://cms.camtech.cam/api/v1}
         - INTERNAL_API_URL=http://api:8000/api/v1
+        # Baked into the wedding proxy rewrite at build time (see apps/web/Dockerfile)
+        - INTERNAL_WEDDING_API_URL=http://wedding-service:8000/api/v1
         - NEXT_PUBLIC_SITE_URL=${PUBLIC_WEB_URL:-https://blog.camtech.cam}
         # The AdSense account number lives here and nowhere else in the tree. Override it from the
         # server's .env (ADSENSE_PUBLISHER_ID=...) without editing this file; leaving it unset makes
@@ -183,6 +185,9 @@ services:
       - FRONTEND_URL=${PUBLIC_WEB_URL:-https://blog.camtech.cam}
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is missing from the server .env next to docker-compose.yml}
       - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-discovery_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is missing from the server .env}@postgres:5432/${POSTGRES_DB:-daily_discovery}
+    volumes:
+      # Couples' photos and KHQR images must survive a redeploy
+      - wedding_uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -260,6 +265,7 @@ services:
 
 volumes:
   postgres_data:
+  wedding_uploads:
   redis_data:
   minio_data:
 

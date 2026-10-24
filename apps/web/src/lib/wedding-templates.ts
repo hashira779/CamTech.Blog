@@ -530,3 +530,45 @@ export function getTemplateById(id?: string): WeddingTemplateDefinition {
   const found = WEDDING_TEMPLATES.find((t) => t.id === id);
   return found || WEDDING_TEMPLATES[0];
 }
+
+/* ─── Envelope art direction ─────────────────────────────────────────────
+   Each template opens from its own envelope: material colour, flap, foil
+   (the gold of the borders and kbach), wax seal and the stage it floats on.
+   Dark materials take light ink and vice versa. */
+export interface WeddingEnvelopeStyle {
+  stage: string;
+  body: string;
+  flap: string;
+  foil: string;
+  wax: string;
+  waxInk: string;
+  /** Text colour on the envelope itself */
+  ink: string;
+}
+
+const ENVELOPES: Record<string, WeddingEnvelopeStyle> = {
+  romduol_golden:     { stage: "#17110a", body: "#3b2a12", flap: "#6e4f1c", foil: "#e6c271", wax: "#8e2f2a", waxInk: "#f6e3d8", ink: "#f3e3b8" },
+  royal_crimson:      { stage: "#1a0508", body: "#5a0c15", flap: "#86182a", foil: "#e8c77c", wax: "#c9a046", waxInk: "#3d2408", ink: "#f6e3c0" },
+  lotus_blessing:     { stage: "#24121a", body: "#e8c4c9", flap: "#d793a0", foil: "#a8792a", wax: "#b4485f", waxInk: "#fde8ec", ink: "#5a2430" },
+  emerald_angkor:     { stage: "#05140e", body: "#0e3a2c", flap: "#18614a", foil: "#dcbb68", wax: "#a8803a", waxInk: "#fff4d6", ink: "#efe2b8" },
+  champagne_pearl:    { stage: "#221d16", body: "#efe5d1", flap: "#e0cfab", foil: "#a38234", wax: "#8c6d2c", waxInk: "#fbf3df", ink: "#4a3c22" },
+  jasmine_garland:    { stage: "#1d1a10", body: "#f3ecd3", flap: "#e4d69c", foil: "#a6871e", wax: "#7f6a1c", waxInk: "#fff8dc", ink: "#4b4120" },
+  apsara_divine:      { stage: "#180b03", body: "#552606", flap: "#9a4a0b", foil: "#f0c674", wax: "#7a2a0c", waxInk: "#fde7c2", ink: "#f8dfb4" },
+  sunset_terracotta:  { stage: "#1d0c05", body: "#71290e", flap: "#b03d0c", foil: "#f2c48a", wax: "#5a1f08", waxInk: "#fde4cc", ink: "#fbe2c9" },
+  midnight_starlight: { stage: "#050918", body: "#0e1c48", flap: "#1c3780", foil: "#d8b552", wax: "#b8902f", waxInk: "#141c3a", ink: "#e8dcb4" },
+  orchid_elegance:    { stage: "#12061d", body: "#380e58", flap: "#6c1fb0", foil: "#e3c27a", wax: "#b48a36", waxInk: "#2a0f3d", ink: "#f0e2c4" },
+};
+
+export function getEnvelopeStyle(tpl: WeddingTemplateDefinition): WeddingEnvelopeStyle {
+  return (
+    ENVELOPES[tpl.id] || {
+      stage: "#17110a",
+      body: `color-mix(in oklab, ${tpl.accentColor} 30%, #1d1813)`,
+      flap: `color-mix(in oklab, ${tpl.accentColor} 52%, #241d16)`,
+      foil: "#e6c271",
+      wax: "#8e2f2a",
+      waxInk: "#f6e3d8",
+      ink: "#f3e3b8",
+    }
+  );
+}

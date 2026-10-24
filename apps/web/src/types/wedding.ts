@@ -12,13 +12,30 @@ export interface WeddingReception {
   map_url: string;
 }
 
+/* Public guestbook entry. Attendance, headcount and phone are only present in
+   the owner's responses view (WeddingResponsesList). */
 export interface WeddingWish {
   id: string;
   guest_name: string;
-  attendance: "attending" | "not_attending" | "unsure";
-  guest_count: number;
+  attendance?: "attending" | "not_attending" | "unsure";
+  guest_count?: number;
+  phone?: string | null;
   blessing_message: string;
   created_at?: string;
+}
+
+export type WeddingResponse = Required<Pick<WeddingWish, "id" | "guest_name" | "attendance" | "guest_count" | "blessing_message">> &
+  Pick<WeddingWish, "phone" | "created_at">;
+
+export interface WeddingResponsesList {
+  summary: {
+    total_responses: number;
+    attending: number;
+    not_attending: number;
+    unsure: number;
+    expected_guests: number;
+  };
+  responses: WeddingResponse[];
 }
 
 export interface WeddingCard {
@@ -50,6 +67,7 @@ export interface WeddingCard {
   is_published: boolean;
   wishes?: WeddingWish[];
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface WeddingUser {

@@ -81,6 +81,11 @@ const nextConfig: NextConfig = {
         source: "/api/v1/wedding/:path*",
         destination: `${baseTarget}/api/v1/wedding/:path*`,
       },
+      // Photos and KHQR images uploaded through the wedding service
+      {
+        source: "/uploads/:file(wedding_[a-f0-9]+\\.(?:jpg|png|webp|gif))",
+        destination: `${baseTarget}/uploads/:file`,
+      },
     ];
   },
 };
