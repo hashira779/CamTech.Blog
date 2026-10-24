@@ -10,7 +10,8 @@ import { isSafeUrl } from "@/lib/safe-url";
 import { WeddingFlowerIcon, KhmerCornerFiligree, KhmerArchCrown } from "./WeddingFlowers";
 import { CeremonyPiece } from "./khmer3d/CeremonyPiece";
 import { LotusDivider, CornerFlourish, HandCircle, HandCheck } from "./WeddingInk";
-import { KbachBand, AngkorDawn, RedThread, CeremonyIcon, type CeremonyIconName } from "./KhmerArt";
+import { KbachBand, RedThread, CeremonyIcon, type CeremonyIconName } from "./KhmerArt";
+import { AngkorBlessing } from "./AngkorBlessing";
 import confetti from "canvas-confetti";
 import {
   MapPin,
@@ -1254,25 +1255,10 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         )}
 
         {/* =====================================================================
-            BLESSING: Angkor Wat at dawn, then the traditional "Jayo!" cheer
+            BLESSING: Angkor Wat at dawn in gilded sandstone relief, then the
+            traditional "ជយោ!" cheer (see AngkorBlessing.tsx)
            ===================================================================== */}
-        <section className="relative overflow-clip px-5 sm:px-6 pt-24 sm:pt-32 pb-16 text-center">
-          <p className={sectionLabel}>{ui.blessing}</p>
-          <AngkorDawn className="mx-auto mt-8 w-full max-w-[880px] text-[var(--wc-link)]" />
-          <p className="mt-8 font-moul text-[clamp(28px,5vw,46px)] leading-[1.6] text-[var(--wc-link)]" aria-label="ជយោ! ជយោ! ជយោ!">
-            {[0, 1, 2].map((i) => (
-              <span
-                key={i}
-                aria-hidden="true"
-                className="wc-jayo mx-2 sm:mx-4"
-                style={{ animationRange: `entry ${20 + i * 18}% cover ${38 + i * 18}%` } as React.CSSProperties}
-              >
-                ជយោ!
-              </span>
-            ))}
-          </p>
-          <p className="mt-4 mx-auto max-w-xl wc-khmer text-[17px] leading-[2] text-[#3a332c]">{ui.blessingLine}</p>
-        </section>
+        <AngkorBlessing label={ui.blessing} line={ui.blessingLine} labelClassName={sectionLabel} />
 
         {/* Sign-off */}
         <footer className="px-6 pt-20 pb-24 text-center border-t border-[#2b2520]/10">
