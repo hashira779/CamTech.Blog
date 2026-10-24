@@ -102,7 +102,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
     "--wc-deep": `color-mix(in oklab, ${template.accentColor} 14%, #1a1612)`,
     "--wc-link": `color-mix(in oklab, ${template.accentColor} 62%, #000)`,
     "--wc-light": `color-mix(in oklab, ${template.accentColor} 45%, #fff)`,
-    "--wc-paper": "#f4eee3",
+    "--wc-paper": `color-mix(in oklab, ${template.accentColor} 9%, #f4eee3)`,
     "--wc-ink": "#2b2520",
   } as React.CSSProperties;
 

@@ -1,18 +1,16 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { WeddingCard, WeddingAgendaItem, WeddingReception, CuratedSong, YouTubeResolveResponse } from "@/types/wedding";
 import {
   updateMyWeddingCard,
   resolveYouTubeAudio,
   fetchCuratedSongs,
   DEFAULT_CURATED_SONGS,
-  extractYouTubeVideoId,
   uploadWeddingImages
 } from "@/lib/wedding-api";
 import { WEDDING_TEMPLATES, getTemplateById, WeddingTemplateDefinition } from "@/lib/wedding-templates";
 import { WeddingFlowerIcon } from "./WeddingFlowers";
-import { PremierRoyalKhmerCard } from "./PremierRoyalKhmerCard";
 import { WeddingShareModal } from "./WeddingShareModal";
 import confetti from "canvas-confetti";
 import {
@@ -27,15 +25,12 @@ import {
   Heart,
   QrCode,
   Sparkles,
-  Globe,
   Settings,
   Plus,
   Trash2,
   CheckCircle2,
   Music,
   Search,
-  Play,
-  Pause,
   Loader2,
   Headphones,
   Radio,
@@ -45,6 +40,14 @@ import {
   ArrowLeft,
   ArrowRight,
   Camera,
+  Columns2,
+  Smartphone,
+  Monitor,
+  LogOut,
+  AlertCircle,
+  Crown,
+  Link2,
+  ShieldCheck,
   Star
 } from "lucide-react";
 
@@ -54,110 +57,276 @@ interface WeddingEditorProps {
   onLogout: () => void;
 }
 
+type TabId = "templates" | "details" | "photos" | "schedule" | "venue" | "music" | "gift" | "settings";
+type ViewMode = "editor" | "split" | "preview";
+type Toast = { id: number; kind: "success" | "error" | "info"; text: string };
+
+/* Virtual viewport the desktop preview lays out at before scaling to fit */
+const DESKTOP_WIDTH = 1280;
+
+const DEFAULT_EVENING: WeddingReception = {
+  venue: "មជ្ឈមណ្ឌលសន្និបាត និងពិព័រណ៍ ឌឹ ព្រេមៀ សេនធ័រ សែនសុខ",
+  hall: "អាគារ A",
+  time: "05:00 ល្ងាច",
+  address: "ផ្លូវ 1003 សង្កាត់ភ្នំពេញថ្មី រាជធានីភ្នំពេញ",
+  map_url: "https://maps.google.com/?q=The+Premier+Center+Sen+Sok+Phnom+Penh"
+};
+
+const STUDIO_PRESETS = [
+  "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1537633552985-df8429e8048b?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1591604466107-ec97de577aff?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1544077960-604201fe74bc?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?auto=format&fit=crop&w=1200&q=80"
+];
+
+/* Links end up in public hrefs and srcs, so only plain web URLs are accepted
+   (blocks javascript:, data: and friends). Relative upload paths are allowed. */
+function isSafeUrl(value?: string): boolean {
+  if (!value) return true;
+  const v = value.trim();
+  if (v.startsWith("/") && !v.startsWith("//")) return true;
+  try {
+    const u = new URL(v);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+function parseJson<T>(raw: string | undefined, fallback: T): T {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+/* ─── Small building blocks ─────────────────────────────────────────────── */
+
+const inputCls =
+  "w-full h-11 px-3.5 rounded-xl border border-stone-200 dark:border-white/10 bg-white/90 dark:bg-white/[0.04] text-[13px] text-stone-900 dark:text-stone-100 placeholder:text-stone-400 outline-none transition duration-200 hover:border-stone-300 dark:hover:border-white/20 focus:border-amber-500 focus:ring-4 focus:ring-amber-500/15";
+const textareaCls = inputCls.replace("h-11", "min-h-[84px] py-3 leading-relaxed resize-y");
+
+function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string; children: React.ReactNode }) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="block text-[12px] font-semibold text-stone-700 dark:text-stone-300">{label}</span>
+      {children}
+      {error ? (
+        <span className="flex items-center gap-1 text-[11px] text-rose-600"><AlertCircle className="w-3 h-3" />{error}</span>
+      ) : hint ? (
+        <span className="block text-[11px] text-stone-400">{hint}</span>
+      ) : null}
+    </label>
+  );
+}
+
+function Panel({ icon: Icon, title, subtitle, action, children }: {
+  icon: React.ElementType;
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="we-panel rounded-[28px] p-5 sm:p-7 space-y-6">
+      <header className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3.5 min-w-0">
+          <span className="we-icon-chip shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center">
+            <Icon className="w-5 h-5" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-[17px] font-bold tracking-tight text-stone-900 dark:text-white leading-snug">{title}</h2>
+            {subtitle && <p className="text-[12.5px] text-stone-500 dark:text-stone-400 mt-0.5 leading-relaxed">{subtitle}</p>}
+          </div>
+        </div>
+        {action}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function Toggle({ checked, onChange, title, desc }: { checked: boolean; onChange: (v: boolean) => void; title: string; desc: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="w-full flex items-center justify-between gap-4 p-4 rounded-2xl border border-stone-200/80 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] hover:border-amber-400/60 transition text-left cursor-pointer"
+    >
+      <span>
+        <span className="block text-[13px] font-semibold text-stone-900 dark:text-white">{title}</span>
+        <span className="block text-[11.5px] text-stone-500 mt-0.5">{desc}</span>
+      </span>
+      <span className={`relative shrink-0 w-11 h-6 rounded-full transition-colors duration-300 ${checked ? "bg-gradient-to-r from-amber-500 to-amber-700" : "bg-stone-300 dark:bg-stone-700"}`}>
+        <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 [transition-timing-function:cubic-bezier(.34,1.56,.64,1)] ${checked ? "translate-x-5" : ""}`} />
+      </span>
+    </button>
+  );
+}
+
+/* ─── Editor ────────────────────────────────────────────────────────────── */
+
 export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorProps) {
   const [card, setCard] = useState<WeddingCard>(initialCard);
+  const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(initialCard));
   const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<"templates" | "details" | "photos" | "schedule" | "venue" | "music" | "gift" | "settings">("templates");
-  const [viewMode, setViewMode] = useState<"split" | "editor" | "preview">("split");
+  const [activeTab, setActiveTab] = useState<TabId>("templates");
+  const [viewMode, setViewMode] = useState<ViewMode>("split");
+  const [device, setDevice] = useState<"mobile" | "desktop">("mobile");
   const [lang, setLang] = useState<"km" | "en">("km");
   const [copiedLink, setCopiedLink] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [themeSwap, setThemeSwap] = useState(0);
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [frameReady, setFrameReady] = useState(false);
+  const [stageSize, setStageSize] = useState({ w: 0, h: 0 });
 
-  // Photos & Multi-image Gallery State (Supports 5-20+ images)
+  // Photos
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
   const [newGalleryUrl, setNewGalleryUrl] = useState("");
+  const [dragOver, setDragOver] = useState(false);
   const multiFileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const groomInputRef = useRef<HTMLInputElement>(null);
   const brideInputRef = useRef<HTMLInputElement>(null);
   const khqrInputRef = useRef<HTMLInputElement>(null);
 
-  // YouTube Music Scanner & Studio State
+  // Music
   const [youtubeInput, setYoutubeInput] = useState(card.music_url || "");
   const [isScanningYoutube, setIsScanningYoutube] = useState(false);
   const [scannedSong, setScannedSong] = useState<YouTubeResolveResponse | null>(null);
   const [curatedSongs, setCuratedSongs] = useState<CuratedSong[]>(DEFAULT_CURATED_SONGS);
-  const [previewAudioId, setPreviewAudioId] = useState<string | null>(null);
+
+  const L = (km: string, en: string) => (lang === "km" ? km : en);
+  const patch = useCallback((p: Partial<WeddingCard>) => setCard((prev) => ({ ...prev, ...p })), []);
+
+  const isDirty = useMemo(() => JSON.stringify(card) !== savedSnapshot, [card, savedSnapshot]);
+  const activeTemplate = getTemplateById(card.theme);
+
+  const parsedAgenda = useMemo(() => parseJson<WeddingAgendaItem[]>(card.morning_agenda, []), [card.morning_agenda]);
+  const parsedEvening = useMemo(() => parseJson<WeddingReception>(card.evening_reception, DEFAULT_EVENING), [card.evening_reception]);
+  const galleryList = useMemo(() => parseJson<string[]>(card.gallery_images, []), [card.gallery_images]);
+
+  const notify = useCallback((kind: Toast["kind"], text: string) => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev.slice(-2), { id, kind, text }]);
+    setTimeout(() => setToasts((prev) => prev.filter((x) => x.id !== id)), 3200);
+  }, []);
 
   useEffect(() => {
     fetchCuratedSongs().then(setCuratedSongs).catch(() => {});
   }, []);
 
-  const handleSelectTemplate = (tpl: WeddingTemplateDefinition) => {
-    setCard((prev) => ({
-      ...prev,
-      theme: tpl.id,
-      cover_image_url: (!prev.cover_image_url || prev.cover_image_url.includes("photo-1519741497674"))
-        ? tpl.defaultCoverImage
-        : prev.cover_image_url,
-    }));
+  // The site header is sticky too (and shrinks on scroll): pin the editor bar right below it
+  useEffect(() => {
+    const siteHeader = document.querySelector("header");
+    const root = rootRef.current;
+    if (!siteHeader || !root || root.contains(siteHeader)) return;
+    const sync = () => root.style.setProperty("--we-top", `${siteHeader.getBoundingClientRect().height}px`);
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(siteHeader);
+    return () => ro.disconnect();
+  }, []);
+
+  /* ─── Live preview iframe ─── */
+  const postToFrame = useCallback((msg: object) => {
+    frameRef.current?.contentWindow?.postMessage(msg, window.location.origin);
+  }, []);
+
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin || e.source !== frameRef.current?.contentWindow) return;
+      if ((e.data as { type?: string })?.type === "wedding-preview:ready") setFrameReady(true);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
+  const previewVisible = viewMode !== "editor";
+  const changeView = (mode: ViewMode) => {
+    setViewMode(mode);
+    // Hiding the preview unmounts the frame; it says "ready" again when it comes back
+    if (mode === "editor") setFrameReady(false);
+  };
+
+  useEffect(() => {
+    if (frameReady) postToFrame({ type: "wedding-preview:card", card });
+  }, [card, frameReady, postToFrame]);
+
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setStageSize({ w: entry.contentRect.width, h: entry.contentRect.height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [previewVisible]);
+
+  // Warn before leaving with unsaved edits
+  useEffect(() => {
+    if (!isDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [isDirty]);
+
+  /* ─── Template ─── */
+  const handleSelectTemplate = (tpl: WeddingTemplateDefinition, e?: React.MouseEvent) => {
+    if (tpl.id === activeTemplate.id && card.theme === tpl.id) return;
+    setCard((prev) => {
+      // Swap the cover only while it is still one of the stock template photos
+      const coverIsStock = !prev.cover_image_url || WEDDING_TEMPLATES.some((t) => t.defaultCoverImage === prev.cover_image_url);
+      return { ...prev, theme: tpl.id, cover_image_url: coverIsStock ? tpl.defaultCoverImage : prev.cover_image_url };
+    });
+    setThemeSwap((n) => n + 1);
+    postToFrame({ type: "wedding-preview:top" });
+    notify("success", L(`បានប្តូរទៅ «${tpl.nameKm}»`, `Switched to “${tpl.nameEn}”`));
     try {
       confetti({
-        particleCount: 80,
-        spread: 60,
-        origin: { y: 0.6 },
-        colors: [tpl.accentColor, "#d4af37", "#ffffff"]
+        particleCount: 60,
+        spread: 70,
+        startVelocity: 28,
+        scalar: 0.8,
+        origin: e ? { x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight } : { y: 0.6 },
+        colors: [tpl.accentColor, ...tpl.palette.slice(1, 3), "#ffffff"]
       });
     } catch {}
   };
 
-  // Agenda items parse
-  let parsedAgenda: WeddingAgendaItem[] = [];
-  try {
-    parsedAgenda = card.morning_agenda ? JSON.parse(card.morning_agenda) : [];
-  } catch {
-    parsedAgenda = [];
-  }
-
-  // Evening reception parse
-  let parsedEvening: WeddingReception = {
-    venue: "មជ្ឈមណ្ឌលសន្និបាត និងពិព័រណ៍ ឌឹ ព្រេមៀ សេនធ័រ សែនសុខ",
-    hall: "អាគារ A",
-    time: "05:00 ល្ងាច",
-    address: "ផ្លូវ 1003 សង្កាត់ភ្នំពេញថ្មី រាជធានីភ្នំពេញ",
-    map_url: "https://maps.google.com/?q=The+Premier+Center+Sen+Sok+Phnom+Penh"
-  };
-  try {
-    if (card.evening_reception) parsedEvening = JSON.parse(card.evening_reception);
-  } catch {}
-
-  // Gallery List parse (Supports 5-20+ images)
-  let galleryList: string[] = [];
-  try {
-    galleryList = card.gallery_images ? JSON.parse(card.gallery_images) : [];
-  } catch {
-    galleryList = [];
-  }
-
-  const handleUploadMultipleGallery = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+  /* ─── Photos ─── */
+  const handleUploadMultipleGallery = async (files: FileList | File[] | null) => {
+    const list = files ? Array.from(files).filter((f) => f.type.startsWith("image/")) : [];
+    if (list.length === 0) return;
     setUploading(true);
-    setUploadProgress({ current: 1, total: files.length });
+    setUploadProgress({ current: 1, total: list.length });
     try {
-      const urls = await uploadWeddingImages(Array.from(files), token, (cur, tot) => {
-        setUploadProgress({ current: cur, total: tot });
-      });
+      const urls = await uploadWeddingImages(list, token, (cur, tot) => setUploadProgress({ current: cur, total: tot }));
       if (urls.length > 0) {
-        const nextGallery = [...galleryList, ...urls];
-        setCard((prev) => ({
-          ...prev,
-          gallery_images: JSON.stringify(nextGallery),
-          cover_image_url: prev.cover_image_url || urls[0],
-        }));
-        try {
-          confetti({
-            particleCount: 70,
-            spread: 60,
-            origin: { y: 0.6 },
-            colors: ["#d4af37", "#f3e5ab", "#ffffff"]
-          });
-        } catch {}
+        setCard((prev) => {
+          const current = parseJson<string[]>(prev.gallery_images, []);
+          return { ...prev, gallery_images: JSON.stringify([...current, ...urls]), cover_image_url: prev.cover_image_url || urls[0] };
+        });
+        notify("success", L(`បានបន្ថែម ${urls.length} រូប`, `Added ${urls.length} photo(s)`));
       }
     } catch (err) {
       console.error("Gallery upload error:", err);
-      alert("បរាជ័យក្នុងការផ្ទុករូបភាព សូមព្យាយាមម្តងទៀត");
+      notify("error", L("បរាជ័យក្នុងការផ្ទុករូបភាព សូមព្យាយាមម្តងទៀត", "Upload failed, please try again"));
     } finally {
       setUploading(false);
       if (multiFileInputRef.current) multiFileInputRef.current.value = "";
@@ -168,142 +337,147 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
     field: "cover_image_url" | "groom_image_url" | "bride_image_url" | "khqr_image_url",
     file: File
   ) => {
+    if (!file.type.startsWith("image/")) return;
     setUploading(true);
     try {
       const urls = await uploadWeddingImages([file], token);
       if (urls[0]) {
-        setCard((prev) => ({ ...prev, [field]: urls[0] }));
+        patch({ [field]: urls[0] });
+        notify("success", L("បានផ្ទុករូបភាព", "Photo updated"));
       }
     } catch (err) {
       console.error(`Upload error for ${field}:`, err);
+      notify("error", L("បរាជ័យក្នុងការផ្ទុករូបភាព", "Upload failed"));
     } finally {
       setUploading(false);
     }
   };
 
+  const setGallery = (next: string[]) => patch({ gallery_images: JSON.stringify(next) });
+
   const handleAddGalleryUrl = () => {
-    if (!newGalleryUrl.trim()) return;
-    const nextGallery = [...galleryList, newGalleryUrl.trim()];
+    const url = newGalleryUrl.trim();
+    if (!url) return;
+    if (!isSafeUrl(url)) {
+      notify("error", L("Link មិនត្រឹមត្រូវ (ត្រូវចាប់ផ្តើមដោយ https://)", "Invalid link (must start with https://)"));
+      return;
+    }
     setCard((prev) => ({
       ...prev,
-      gallery_images: JSON.stringify(nextGallery),
-      cover_image_url: prev.cover_image_url || newGalleryUrl.trim(),
+      gallery_images: JSON.stringify([...parseJson<string[]>(prev.gallery_images, []), url]),
+      cover_image_url: prev.cover_image_url || url,
     }));
     setNewGalleryUrl("");
   };
 
-  const handleRemoveGalleryImage = (index: number) => {
-    const nextGallery = galleryList.filter((_, i) => i !== index);
-    setCard((prev) => ({
-      ...prev,
-      gallery_images: JSON.stringify(nextGallery),
-    }));
-  };
-
   const handleMoveGalleryImage = (index: number, direction: "left" | "right") => {
-    if (direction === "left" && index === 0) return;
-    if (direction === "right" && index === galleryList.length - 1) return;
-    const targetIndex = direction === "left" ? index - 1 : index + 1;
-    const nextGallery = [...galleryList];
-    const temp = nextGallery[index];
-    nextGallery[index] = nextGallery[targetIndex];
-    nextGallery[targetIndex] = temp;
-    setCard((prev) => ({
-      ...prev,
-      gallery_images: JSON.stringify(nextGallery),
-    }));
+    const target = direction === "left" ? index - 1 : index + 1;
+    if (target < 0 || target >= galleryList.length) return;
+    const next = [...galleryList];
+    [next[index], next[target]] = [next[target], next[index]];
+    setGallery(next);
   };
 
-  const handleSetGalleryImageAs = (url: string, target: "cover" | "groom" | "bride") => {
-    if (target === "cover") setCard((prev) => ({ ...prev, cover_image_url: url }));
-    if (target === "groom") setCard((prev) => ({ ...prev, groom_image_url: url }));
-    if (target === "bride") setCard((prev) => ({ ...prev, bride_image_url: url }));
-  };
-
-  const handleLoadPresetStudioPhotos = () => {
-    const presets = [
-      "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1520854221256-17451cc331bf?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1537633552985-df8429e8048b?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1591604466107-ec97de577aff?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1544077960-604201fe74bc?auto=format&fit=crop&w=1200&q=80",
-      "https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?auto=format&fit=crop&w=1200&q=80"
+  /* ─── Save ─── */
+  const validate = (): string | null => {
+    const urlFields: [string | undefined, string][] = [
+      [card.cover_image_url, "Cover"],
+      [card.groom_image_url, L("រូបកូនប្រុស", "Groom photo")],
+      [card.bride_image_url, L("រូបកូនស្រី", "Bride photo")],
+      [card.khqr_image_url, "KHQR"],
+      [card.music_url, L("បទភ្លេង", "Music")],
+      [parsedEvening.map_url, "Google Maps"],
+      ...galleryList.map((u, i): [string, string] => [u, `Gallery #${i + 1}`]),
     ];
-    setCard((prev) => ({
-      ...prev,
-      gallery_images: JSON.stringify(presets),
-      cover_image_url: prev.cover_image_url || presets[0],
-    }));
+    const bad = urlFields.find(([u]) => !isSafeUrl(u));
+    if (bad) return L(`Link មិនត្រឹមត្រូវ៖ ${bad[1]}`, `Invalid link: ${bad[1]}`);
+    if (!card.slug || card.slug.length < 3) return L("Slug ត្រូវមានយ៉ាងហោចណាស់ ៣ តួអក្សរ", "Slug must be at least 3 characters");
+    return null;
   };
 
   const handleSave = async () => {
+    if (saving) return;
+    const problem = validate();
+    if (problem) {
+      notify("error", problem);
+      return;
+    }
     setSaving(true);
     try {
       const updated = await updateMyWeddingCard(token, card);
       setCard(updated);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      setSavedSnapshot(JSON.stringify(updated));
+      notify("success", L("បានរក្សាទុកជោគជ័យ!", "Saved successfully!"));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      alert(msg || "Failed to save");
+      notify("error", msg || L("បរាជ័យក្នុងការរក្សាទុក", "Failed to save"));
     } finally {
       setSaving(false);
     }
   };
 
+  // Ctrl/Cmd + S saves
+  const saveRef = useRef(handleSave);
+  useEffect(() => {
+    saveRef.current = handleSave;
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        saveRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const handleLogout = () => {
+    if (isDirty && !window.confirm(L("អ្នកមានការកែប្រែមិនទាន់រក្សាទុក។ ចាកចេញដែរឬទេ?", "You have unsaved changes. Log out anyway?"))) return;
+    onLogout();
+  };
+
+  /* ─── Schedule & venue ─── */
+  const setAgenda = (next: WeddingAgendaItem[]) => patch({ morning_agenda: JSON.stringify(next) });
   const handleAgendaChange = (index: number, field: keyof WeddingAgendaItem, val: string) => {
     const next = [...parsedAgenda];
     next[index] = { ...next[index], [field]: val };
-    setCard({ ...card, morning_agenda: JSON.stringify(next) });
+    setAgenda(next);
+  };
+  const handleEveningChange = (field: keyof WeddingReception, val: string) =>
+    patch({ evening_reception: JSON.stringify({ ...parsedEvening, [field]: val }) });
+
+  const invitationUrl = typeof window !== "undefined" ? `${window.location.origin}/wedding/${card.slug}` : `/wedding/${card.slug}`;
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(invitationUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {
+      notify("error", L("មិនអាចចម្លងបាន", "Could not copy"));
+    }
   };
 
-  const addAgendaItem = () => {
-    const next = [...parsedAgenda, { time: "08:00 ព្រឹក", title: "កម្មវិធីថ្មី", description: "ការពិពណ៌នា..." }];
-    setCard({ ...card, morning_agenda: JSON.stringify(next) });
-  };
-
-  const removeAgendaItem = (index: number) => {
-    const next = parsedAgenda.filter((_, i) => i !== index);
-    setCard({ ...card, morning_agenda: JSON.stringify(next) });
-  };
-
-  const handleEveningChange = (field: keyof WeddingReception, val: string) => {
-    const next = { ...parsedEvening, [field]: val };
-    setCard({ ...card, evening_reception: JSON.stringify(next) });
-  };
-
-  const invitationUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/wedding/${card.slug}`
-    : `/wedding/${card.slug}`;
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(invitationUrl);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
-
+  /* ─── Music ─── */
   const handleScanYoutube = async () => {
     if (!youtubeInput.trim()) return;
     setIsScanningYoutube(true);
     try {
       const result = await resolveYouTubeAudio(youtubeInput.trim());
       setScannedSong(result);
-      if (result.valid && result.music_url) {
-        setCard({ ...card, music_url: result.music_url });
-      }
+      if (result.valid && result.music_url) patch({ music_url: result.music_url });
+      else notify("error", L("រកមិនឃើញបទចម្រៀងនេះទេ", "Couldn't find that song"));
     } catch (e) {
       console.error(e);
+      notify("error", L("ស្កេនមិនបានសម្រេច", "Scan failed"));
     } finally {
       setIsScanningYoutube(false);
     }
   };
 
   const handleSelectCuratedSong = (song: CuratedSong) => {
-    setCard({ ...card, music_url: song.youtube_url });
+    patch({ music_url: song.youtube_url });
     setYoutubeInput(song.youtube_url);
     setScannedSong({
       valid: true,
@@ -316,1177 +490,806 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
     });
   };
 
-  const t = {
-    km: {
-      dashboardTitle: "ផ្ទាំងគ្រប់គ្រង និងកែប្រែធៀបការ",
-      saveBtn: "រក្សាទុកការកែប្រែ",
-      saving: "កំពុងរក្សាទុក...",
-      saved: "បានរក្សាទុកជោគជ័យ!",
-      previewBtn: "មើលគំរូធៀបការ (Preview)",
-      editorBtn: "ផ្ទាំងកែសម្រួល (Editor)",
-      splitBtn: "មើលទន្ទឹមគ្នា (Split View)",
-      tabTemplates: "🎨 ១០ គំរូ Template",
-      tabDetails: "ព័ត៌មានកូនកំលោះ & ក្រមុំ",
-      tabPhotos: "📸 រូបថត & Gallery (10-20+)",
-      tabSchedule: "កាលវិភាគពិធី",
-      tabVenue: "ទីកន្លែង & ផែនទី",
-      tabMusic: "បទភ្លេងការ & YouTube",
-      tabGift: "ចងដៃ KHQR",
-      tabSettings: "ការកំណត់ & Link",
-      copyLink: "ចម្លង Link ធៀបការ",
-      copied: "បានចម្លង!",
-      viewLive: "បើកមើលផ្ទាល់",
-      logout: "ចាកចេញ",
-    },
-    en: {
-      dashboardTitle: "Wedding Invitation Dashboard & Editor",
-      saveBtn: "Save Changes",
-      saving: "Saving...",
-      saved: "Saved successfully!",
-      previewBtn: "Preview",
-      editorBtn: "Editor",
-      splitBtn: "Split View",
-      tabTemplates: "🎨 10 Templates",
-      tabDetails: "Bride & Groom",
-      tabPhotos: "📸 Photos & Gallery (10-20+)",
-      tabSchedule: "Schedule",
-      tabVenue: "Venue & Map",
-      tabMusic: "Music & YouTube",
-      tabGift: "KHQR Gift",
-      tabSettings: "Settings & Link",
-      copyLink: "Copy Link",
-      copied: "Copied!",
-      viewLive: "Open Live Card",
-      logout: "Log Out",
-    }
-  }[lang];
+  /* ─── Completion meter ─── */
+  const completion = useMemo(() => {
+    const checks = [
+      !!card.groom_name, !!card.bride_name, !!card.groom_parents, !!card.bride_parents,
+      !!card.solar_date, !!card.cover_image_url, galleryList.length >= 5, parsedAgenda.length > 0,
+      !!parsedEvening.venue, !!card.music_url, !!card.khqr_account_number, !!card.theme,
+    ];
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  }, [card, galleryList.length, parsedAgenda.length, parsedEvening.venue]);
+
+  const TABS: { id: TabId; km: string; en: string; icon: React.ElementType }[] = [
+    { id: "templates", km: "គំរូរចនា", en: "Templates", icon: Palette },
+    { id: "details", km: "កូនកំលោះ & ក្រមុំ", en: "Couple", icon: Heart },
+    { id: "photos", km: "រូបថត & Gallery", en: "Photos", icon: ImageIcon },
+    { id: "schedule", km: "កាលវិភាគ", en: "Schedule", icon: Clock },
+    { id: "venue", km: "ទីកន្លែង", en: "Venue", icon: MapPin },
+    { id: "music", km: "បទភ្លេង", en: "Music", icon: Music },
+    { id: "gift", km: "ចងដៃ KHQR", en: "Gift KHQR", icon: QrCode },
+    { id: "settings", km: "ការកំណត់", en: "Settings", icon: Settings },
+  ];
+
+  const VIEWS: { id: ViewMode; km: string; en: string; icon: React.ElementType }[] = [
+    { id: "editor", km: "កែសម្រួល", en: "Edit", icon: Edit3 },
+    { id: "split", km: "ទន្ទឹមគ្នា", en: "Split", icon: Columns2 },
+    { id: "preview", km: "មើលគំរូ", en: "Preview", icon: Eye },
+  ];
+  const viewIndex = VIEWS.findIndex((v) => v.id === viewMode);
+
+  const showEditor = viewMode !== "preview";
+  const showPreview = viewMode !== "editor";
+
+  const photoSlot = (
+    field: "cover_image_url" | "groom_image_url" | "bride_image_url",
+    label: string,
+    ref: React.RefObject<HTMLInputElement | null>
+  ) => (
+    <div className="group relative">
+      <input
+        type="file"
+        ref={ref}
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files?.[0]) handleUploadSingleField(field, e.target.files[0]);
+          e.target.value = "";
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => ref.current?.click()}
+        disabled={uploading}
+        className="relative block w-full aspect-[3/4] rounded-t-[999px] rounded-b-3xl overflow-hidden bg-stone-100 dark:bg-white/5 ring-1 ring-stone-200 dark:ring-white/10 shadow-[0_18px_40px_-24px_rgba(60,40,10,0.55)] cursor-pointer disabled:cursor-wait"
+      >
+        {card[field] ? (
+          <img src={card[field]} alt={label} loading="lazy" decoding="async" className="w-full h-full object-cover transition duration-700 group-hover:scale-105" />
+        ) : (
+          <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-stone-400 text-xs">
+            <Camera className="w-6 h-6" />
+            {L("បន្ថែមរូប", "Add photo")}
+          </span>
+        )}
+        <span className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-transparent opacity-0 group-hover:opacity-100 transition duration-300 flex items-end justify-center pb-4">
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/95 text-stone-900 text-[11px] font-bold shadow-lg translate-y-2 group-hover:translate-y-0 transition duration-300">
+            <Camera className="w-3.5 h-3.5" />
+            {L("ប្តូររូប", "Replace")}
+          </span>
+        </span>
+      </button>
+      <p className="mt-2.5 text-center text-[12px] font-semibold text-stone-700 dark:text-stone-300">{label}</p>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-stone-100">
-      
-      {/* Top Navbar */}
-      <header className="sticky top-0 z-30 bg-white/90 dark:bg-stone-900/90 backdrop-blur-md border-b border-stone-200 dark:border-stone-800 px-4 py-3 shadow-xs">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-600 to-amber-700 flex items-center justify-center text-white shadow-xs">
-              <Sparkles className="w-5 h-5 text-amber-200" />
+    <div ref={rootRef} className="we-root min-h-screen text-stone-900 dark:text-stone-100">
+      {/* ═══════════════════════ TOP BAR ═══════════════════════ */}
+      <header className="sticky top-[var(--we-top,0px)] z-40 we-glass border-b border-stone-200/70 dark:border-white/10">
+        <div className="max-w-[1680px] mx-auto px-3 sm:px-6 h-16 flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="relative w-10 h-10 shrink-0 rounded-2xl bg-gradient-to-br from-[#2b2116] to-[#0f0c08] flex items-center justify-center shadow-[0_8px_20px_-8px_rgba(120,80,20,0.7)] ring-1 ring-amber-400/30">
+              <Crown className="w-5 h-5 text-amber-300" />
             </div>
-            <div>
-              <h1 className="text-base font-bold text-stone-900 dark:text-white leading-tight font-serif">
-                {t.dashboardTitle}
+            <div className="min-w-0 hidden sm:block">
+              <h1 className="text-[15px] font-bold leading-tight truncate tracking-tight">
+                {card.groom_name || "—"} <span className="we-gold-text">&</span> {card.bride_name || "—"}
               </h1>
-              <p className="text-xs text-stone-500">
-                Slug: <span className="font-mono text-amber-700 dark:text-amber-400 font-semibold">{card.slug}</span>
-              </p>
+              <div className="flex items-center gap-2 text-[11px] text-stone-500">
+                <span className="font-mono truncate">/wedding/{card.slug}</span>
+                <span className={`inline-flex items-center gap-1 px-1.5 py-px rounded-full font-semibold ${card.is_published ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-stone-500/10 text-stone-500"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${card.is_published ? "bg-emerald-500 animate-pulse" : "bg-stone-400"}`} />
+                  {card.is_published ? L("កំពុងផ្សាយ", "Live") : L("ព្រាង", "Draft")}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Action Toolbar */}
-          <div className="flex items-center gap-2">
-            
-            {/* View Mode Buttons (Desktop) */}
-            <div className="hidden md:flex items-center p-1 rounded-xl bg-stone-200 dark:bg-stone-800 text-xs">
-              <button
-                onClick={() => setViewMode("editor")}
-                className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
-                  viewMode === "editor" ? "bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs" : "text-stone-600 dark:text-stone-300"
-                }`}
-              >
-                <Edit3 className="w-3.5 h-3.5 inline mr-1" />
-                {t.editorBtn}
-              </button>
-              <button
-                onClick={() => setViewMode("split")}
-                className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
-                  viewMode === "split" ? "bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs" : "text-stone-600 dark:text-stone-300"
-                }`}
-              >
-                {t.splitBtn}
-              </button>
-              <button
-                onClick={() => setViewMode("preview")}
-                className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
-                  viewMode === "preview" ? "bg-white dark:bg-stone-700 text-stone-900 dark:text-white shadow-xs" : "text-stone-600 dark:text-stone-300"
-                }`}
-              >
-                <Eye className="w-3.5 h-3.5 inline mr-1" />
-                {t.previewBtn}
-              </button>
-            </div>
+          {/* View switcher with sliding indicator */}
+          <div className="relative grid grid-cols-3 p-1 rounded-2xl bg-stone-900/[0.05] dark:bg-white/[0.06] ring-1 ring-inset ring-stone-900/5 dark:ring-white/10">
+            <span
+              aria-hidden="true"
+              className="absolute top-1 bottom-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-xl bg-white dark:bg-stone-800 shadow-[0_4px_14px_-6px_rgba(0,0,0,0.3)] transition-transform duration-500 [transition-timing-function:cubic-bezier(.22,1,.36,1)]"
+              style={{ transform: `translateX(${viewIndex * 100}%)` }}
+            />
+            {VIEWS.map((v) => {
+              const Icon = v.icon;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => changeView(v.id)}
+                  aria-pressed={viewMode === v.id}
+                  className={`relative z-10 flex items-center justify-center gap-1.5 h-8 px-2.5 sm:px-3.5 rounded-xl text-[12px] font-semibold transition-colors cursor-pointer ${viewMode === v.id ? "text-stone-900 dark:text-white" : "text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"}`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline whitespace-nowrap">{L(v.km, v.en)}</span>
+                </button>
+              );
+            })}
+          </div>
 
-            {/* Language switcher */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
+              type="button"
               onClick={() => setLang(lang === "km" ? "en" : "km")}
-              className="px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 text-xs font-semibold flex items-center gap-1 cursor-pointer hover:bg-stone-100 dark:hover:bg-stone-800"
+              className="we-icon-btn h-9 px-2.5 text-[12px] font-bold"
+              title="Language"
             >
-              <Globe className="w-3.5 h-3.5" />
-              <span>{lang === "km" ? "English" : "ខ្មែរ"}</span>
+              {lang === "km" ? "EN" : "ខ្មែរ"}
             </button>
-
-            {/* Copy Link */}
-            <button
-              onClick={handleCopyLink}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 text-xs font-semibold hover:bg-amber-100 transition cursor-pointer"
-            >
-              {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedLink ? t.copied : t.copyLink}</span>
+            <button type="button" onClick={handleCopyLink} className="we-icon-btn hidden md:flex w-9 h-9" title={L("ចម្លង Link", "Copy link")}>
+              {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Link2 className="w-4 h-4" />}
             </button>
-
-            {/* Share & QR Code Modal Trigger */}
-            <button
-              onClick={() => setShowShareModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-600 bg-gradient-to-r from-amber-600 to-amber-700 text-white text-xs font-bold hover:from-amber-500 hover:to-amber-600 transition cursor-pointer shadow-xs"
-            >
-              <QrCode className="w-3.5 h-3.5" />
-              <span>{lang === "km" ? "ចែករំលែក & QR" : "Share & QR"}</span>
+            <button type="button" onClick={() => setShowShareModal(true)} className="we-icon-btn w-9 h-9" title={L("ចែករំលែក & QR", "Share & QR")}>
+              <QrCode className="w-4 h-4" />
             </button>
-
-            {/* Live Open */}
-            <a
-              href={`/wedding/${card.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-lg bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-xs font-semibold transition"
-            >
-              <span>{t.viewLive}</span>
-              <ExternalLink className="w-3.5 h-3.5" />
+            <a href={`/wedding/${card.slug}`} target="_blank" rel="noopener noreferrer" className="we-icon-btn hidden md:flex w-9 h-9" title={L("បើកមើលផ្ទាល់", "Open live card")}>
+              <ExternalLink className="w-4 h-4" />
             </a>
-
-            {/* Save Button */}
             <button
+              type="button"
               onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs shadow-md transition cursor-pointer disabled:opacity-50"
+              disabled={saving || !isDirty}
+              className="we-primary relative h-9 pl-3 pr-4 rounded-xl text-[12.5px] font-bold flex items-center gap-2 cursor-pointer disabled:cursor-default"
+              title="Ctrl + S"
             >
-              <Save className="w-3.5 h-3.5" />
-              <span>{saving ? t.saving : t.saveBtn}</span>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : isDirty ? <Save className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+              <span className="hidden sm:inline">
+                {saving ? L("កំពុងរក្សាទុក...", "Saving...") : isDirty ? L("រក្សាទុក", "Save") : L("បានរក្សាទុក", "Saved")}
+              </span>
+              {isDirty && !saving && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-stone-900 animate-pulse" />}
             </button>
-
-            {/* Logout */}
-            <button
-              onClick={onLogout}
-              className="px-2.5 py-1.5 text-xs text-rose-600 hover:text-rose-700 font-medium cursor-pointer"
-            >
-              {t.logout}
+            <button type="button" onClick={handleLogout} className="we-icon-btn w-9 h-9 hover:!text-rose-600" title={L("ចាកចេញ", "Log out")}>
+              <LogOut className="w-4 h-4" />
             </button>
-
           </div>
-
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto p-4">
-        
-        {/* Saved Alert Toast */}
-        {saveSuccess && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 text-xs font-semibold flex items-center gap-2 animate-fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{t.saved}</span>
-          </div>
+      {/* ═══════════════════════ WORKSPACE ═══════════════════════ */}
+      <div
+        className={`max-w-[1680px] mx-auto px-3 sm:px-6 py-5 sm:py-7 grid gap-6 ${
+          viewMode === "split"
+            ? "lg:grid-cols-[minmax(0,1fr)_minmax(340px,400px)] xl:grid-cols-[210px_minmax(0,1fr)_minmax(380px,440px)]"
+            : viewMode === "editor"
+              ? "xl:grid-cols-[210px_minmax(0,1fr)]"
+              : "grid-cols-1"
+        }`}
+      >
+        {/* ─── Section navigation ─── */}
+        {showEditor && (
+          <nav aria-label={L("ផ្នែកកែសម្រួល", "Editor sections")} className="min-w-0 lg:col-span-full xl:col-span-1 xl:sticky xl:top-[calc(var(--we-top,0px)+88px)] xl:self-start">
+            <div className="flex xl:flex-col gap-1.5 overflow-x-auto no-scrollbar -mx-3 px-3 xl:mx-0 xl:px-0 pb-1 xl:pb-0">
+              {TABS.map((tab, i) => {
+                const Icon = tab.icon;
+                const active = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    aria-current={active ? "page" : undefined}
+                    className={`we-nav-item group relative flex items-center gap-3 shrink-0 h-11 pl-3 pr-4 rounded-2xl text-[13px] font-semibold whitespace-nowrap transition-all duration-300 cursor-pointer ${
+                      active
+                        ? "bg-[#1c1610] text-amber-50 shadow-[0_12px_28px_-14px_rgba(60,40,10,0.9)] dark:bg-amber-500/15 dark:text-amber-200"
+                        : "text-stone-600 dark:text-stone-400 hover:bg-white/80 dark:hover:bg-white/5 hover:text-stone-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 transition-transform duration-300 group-hover:scale-110 ${active ? "text-amber-300" : ""}`} />
+                    <span>{L(tab.km, tab.en)}</span>
+                    <span className={`hidden xl:inline ml-auto text-[10px] font-mono ${active ? "text-amber-200/60" : "text-stone-300 dark:text-stone-600"}`}>
+                      0{i + 1}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Completion meter */}
+            <div className="hidden xl:block mt-5 p-4 rounded-2xl we-panel">
+              <div className="flex items-center justify-between text-[12px] font-semibold">
+                <span>{L("ភាពពេញលេញ", "Completion")}</span>
+                <span className="we-gold-text font-bold">{completion}%</span>
+              </div>
+              <div className="mt-2.5 h-1.5 rounded-full bg-stone-200/80 dark:bg-white/10 overflow-hidden">
+                <div className="h-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-700 transition-[width] duration-700" style={{ width: `${completion}%` }} />
+              </div>
+              <p className="mt-2.5 text-[11px] text-stone-500 leading-relaxed">
+                {completion < 100 ? L("បំពេញព័ត៌មានបន្ថែម ដើម្បីធៀបការដ៏ល្អឥតខ្ចោះ", "Fill in more details for a flawless invitation") : L("ធៀបការរួចរាល់ហើយ!", "Your invitation is complete!")}
+              </p>
+              <div className="mt-3 flex items-center gap-1.5 text-[10.5px] text-stone-400">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>{L("រក្សាទុកដោយសុវត្ថិភាព", "Secure, encrypted save")} · Ctrl+S</span>
+              </div>
+            </div>
+          </nav>
         )}
 
-        <div className={`grid gap-6 ${viewMode === "split" ? "grid-cols-1 lg:grid-cols-12" : "grid-cols-1"}`}>
-          
-          {/* ===============================================================
-              LEFT COLUMN: EDITOR FORM
-             =============================================================== */}
-          {(viewMode === "split" || viewMode === "editor") && (
-            <div className={`${viewMode === "split" ? "lg:col-span-6 xl:col-span-5" : "max-w-3xl mx-auto w-full"} space-y-6`}>
-              
-              {/* Form Tab Navigation */}
-              <div className="flex items-center gap-1 p-1 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 overflow-x-auto shadow-xs text-xs">
-                {[
-                  { id: "templates", label: t.tabTemplates, icon: Palette },
-                  { id: "details", label: t.tabDetails, icon: Heart },
-                  { id: "photos", label: t.tabPhotos, icon: ImageIcon },
-                  { id: "schedule", label: t.tabSchedule, icon: Clock },
-                  { id: "venue", label: t.tabVenue, icon: MapPin },
-                  { id: "music", label: t.tabMusic, icon: Music },
-                  { id: "gift", label: t.tabGift, icon: QrCode },
-                  { id: "settings", label: t.tabSettings, icon: Settings },
-                ].map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id as "templates" | "details" | "photos" | "schedule" | "venue" | "music" | "gift" | "settings")}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-medium whitespace-nowrap transition cursor-pointer ${
-                        activeTab === tab.id
-                          ? "bg-amber-600 text-white shadow-xs"
-                          : "text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* TAB 0: 10 AUTHENTIC LUXURY TEMPLATES */}
-              {activeTab === "templates" && (
-                <div className="p-5 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400 font-serif flex items-center gap-2">
-                        <Palette className="w-4 h-4" />
-                        <span>ជ្រើសរើសទម្រង់រចនា (10 Authentic Khmer Templates)</span>
-                      </h3>
-                      <p className="text-xs text-stone-500 mt-0.5">
-                        ផ្កាតំណាងជាតិ (ផ្ការំដួល), ផ្កាឈូកមង្គល, ផ្កាម្លិះ, មាសអង្គរ និងរាជវាំងបុរាណ
-                      </p>
+        {/* ─── Editor panel ─── */}
+        {showEditor && (
+          <main key={activeTab} className={`we-rise min-w-0 ${viewMode === "editor" ? "max-w-4xl w-full" : ""}`}>
+            {/* TEMPLATES */}
+            {activeTab === "templates" && (
+              <Panel
+                icon={Palette}
+                title={L("ជ្រើសរើសគំរូរចនាធៀបការ", "Choose your invitation design")}
+                subtitle={L("ចុចលើគំរូណាមួយ ដើម្បីប្តូរភ្លាមៗ — មើលការផ្លាស់ប្តូរនៅលើទូរស័ព្ទខាងស្តាំ", "Tap any design to apply it instantly — watch it transform in the live preview")}
+                action={
+                  <span className="hidden sm:inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-800 dark:text-amber-300 ring-1 ring-amber-500/25 whitespace-nowrap">
+                    <Sparkles className="w-3 h-3" /> {WEDDING_TEMPLATES.length} {L("គំរូ", "designs")}
+                  </span>
+                }
+              >
+                {/* Active template spotlight */}
+                <div className="relative overflow-hidden rounded-3xl ring-1 ring-black/5" style={{ ["--tpl" as string]: activeTemplate.accentColor }}>
+                  <img key={activeTemplate.id} src={activeTemplate.thumbnailUrl} alt="" className="we-kenburns absolute inset-0 w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-black/10" />
+                  <div className="relative p-5 sm:p-6 flex items-end justify-between gap-4 min-h-[150px]">
+                    <div className="text-white min-w-0" key={activeTemplate.id + "-t"}>
+                      <span className="we-rise inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur text-[10.5px] font-bold uppercase tracking-wider">
+                        <Check className="w-3 h-3" /> {L("កំពុងប្រើ", "Active design")}
+                      </span>
+                      <h3 className="we-rise mt-2.5 text-xl sm:text-2xl font-bold tracking-tight">{L(activeTemplate.nameKm, activeTemplate.nameEn)}</h3>
+                      <p className="we-rise text-[12.5px] text-white/75 mt-1 max-w-md">{L(activeTemplate.taglineKm, activeTemplate.taglineEn)}</p>
                     </div>
-                    <span className="text-[10px] font-bold text-amber-800 bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded-full border border-amber-300">
-                      10 Templates
-                    </span>
+                    <div className="flex -space-x-1.5 shrink-0">
+                      {activeTemplate.palette.map((c) => (
+                        <span key={c} className="w-7 h-7 rounded-full ring-2 ring-white/80 shadow-md" style={{ backgroundColor: c }} />
+                      ))}
+                    </div>
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                    {WEDDING_TEMPLATES.map((tpl) => {
-                      const isSelected = card.theme === tpl.id || (!card.theme && tpl.id === "romduol_golden");
+                <div className={`grid gap-4 ${viewMode === "split" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"}`}>
+                  {WEDDING_TEMPLATES.map((tpl, i) => {
+                    const isSelected = activeTemplate.id === tpl.id;
+                    return (
+                      <button
+                        key={tpl.id}
+                        type="button"
+                        onClick={(e) => handleSelectTemplate(tpl, e)}
+                        aria-pressed={isSelected}
+                        data-active={isSelected}
+                        className="we-tpl group relative text-left rounded-3xl p-2 cursor-pointer"
+                        style={{ ["--tpl" as string]: tpl.accentColor, animationDelay: `${i * 40}ms` }}
+                      >
+                        <div className="relative aspect-[4/3] rounded-[20px] overflow-hidden bg-stone-200 dark:bg-stone-800">
+                          <img
+                            src={tpl.thumbnailUrl}
+                            alt={tpl.nameEn}
+                            loading="lazy"
+                            decoding="async"
+                            className="w-full h-full object-cover transition duration-[900ms] [transition-timing-function:cubic-bezier(.22,1,.36,1)] group-hover:scale-110"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/5 to-transparent" />
+                          <div
+                            className="absolute inset-0 opacity-0 group-hover:opacity-100 transition duration-500 mix-blend-soft-light"
+                            style={{ background: `radial-gradient(circle at 30% 20%, ${tpl.accentColor}, transparent 70%)` }}
+                          />
+
+                          <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md text-white text-[10.5px] font-semibold ring-1 ring-white/15">
+                            <WeddingFlowerIcon type={tpl.flowerType} className="w-3.5 h-3.5 text-amber-200" />
+                            {tpl.badgeTextKm}
+                          </span>
+                          {tpl.isPopular && (
+                            <span className="absolute top-2.5 right-2.5 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-400 text-amber-950 text-[10px] font-bold shadow-md">
+                              <Star className="w-3 h-3 fill-current" /> {L("ពេញនិយម", "Popular")}
+                            </span>
+                          )}
+
+                          <div className="absolute bottom-2.5 left-2.5 flex -space-x-1">
+                            {tpl.palette.map((c) => (
+                              <span key={c} className="w-4 h-4 rounded-full ring-[1.5px] ring-white/90" style={{ backgroundColor: c }} />
+                            ))}
+                          </div>
+
+                          {/* Apply pill */}
+                          <span
+                            className={`absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold shadow-lg transition-all duration-300 ${
+                              isSelected
+                                ? "bg-white text-stone-900"
+                                : "bg-white/95 text-stone-900 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 group-focus-visible:opacity-100 group-focus-visible:translate-y-0"
+                            }`}
+                          >
+                            {isSelected ? <><Check className="w-3.5 h-3.5" style={{ color: tpl.accentColor }} />{L("កំពុងប្រើ", "Active")}</> : <>{L("ប្រើគំរូនេះ", "Use design")}<ArrowRight className="w-3 h-3" /></>}
+                          </span>
+                        </div>
+
+                        <div className="px-2 pt-3 pb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tpl.accentColor, boxShadow: `0 0 0 3px color-mix(in oklab, ${tpl.accentColor} 20%, transparent)` }} />
+                            <h4 className="font-bold text-[13.5px] text-stone-900 dark:text-white truncate">{L(tpl.nameKm, tpl.nameEn)}</h4>
+                          </div>
+                          <p className="mt-1 text-[11.5px] text-stone-500 dark:text-stone-400 line-clamp-2 leading-relaxed">{L(tpl.taglineKm, tpl.taglineEn)}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Panel>
+            )}
+
+            {/* DETAILS */}
+            {activeTab === "details" && (
+              <Panel icon={Heart} title={L("ព័ត៌មានកូនកំលោះ និងកូនក្រមុំ", "The couple")} subtitle={L("ឈ្មោះ តួនាទី និងមាតាបិតា ដែលនឹងបង្ហាញលើធៀបការ", "Names, titles and parents shown on the invitation")}>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {([
+                    { side: "groom", km: "ខាងកូនប្រុស", en: "Groom", tone: "from-amber-500/10" },
+                    { side: "bride", km: "ខាងកូនស្រី", en: "Bride", tone: "from-rose-500/10" },
+                  ] as const).map(({ side, km, en, tone }) => (
+                    <div key={side} className={`p-5 rounded-3xl bg-gradient-to-br ${tone} to-transparent ring-1 ring-stone-200/80 dark:ring-white/10 space-y-4`}>
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-stone-500">
+                        <span className={`w-1.5 h-1.5 rounded-full ${side === "groom" ? "bg-amber-600" : "bg-rose-500"}`} />
+                        {L(km, en)}
+                      </span>
+                      <Field label={L("ឈ្មោះ", "Full name")}>
+                        <input className={inputCls} value={card[`${side}_name`]} onChange={(e) => patch({ [`${side}_name`]: e.target.value })} />
+                      </Field>
+                      <Field label={L("តួនាទី", "Title")} hint={L("ឧ. កូនច្បង, កូនពៅ", "e.g. eldest son, youngest daughter")}>
+                        <input className={inputCls} value={card[`${side}_title`]} onChange={(e) => patch({ [`${side}_title`]: e.target.value })} />
+                      </Field>
+                      <Field label={L("ឈ្មោះមាតាបិតា", "Parents")}>
+                        <input className={inputCls} value={card[`${side}_parents`]} onChange={(e) => patch({ [`${side}_parents`]: e.target.value })} />
+                      </Field>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-3">
+                    <Field label={L("ថ្ងៃខែឆ្នាំតាមចន្ទគតិខ្មែរ", "Khmer lunar date")}>
+                      <input className={inputCls} value={card.khmer_date} onChange={(e) => patch({ khmer_date: e.target.value })} />
+                    </Field>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Field label={L("កាលបរិច្ឆេទ", "Wedding date")}>
+                      <input type="date" className={inputCls} value={card.solar_date} onChange={(e) => patch({ solar_date: e.target.value })} />
+                    </Field>
+                  </div>
+                  <Field label={L("ម៉ោងពិសាភោជនាហារ", "Reception time")}>
+                    <input className={inputCls} value={card.solar_time} onChange={(e) => patch({ solar_time: e.target.value })} />
+                  </Field>
+                </div>
+              </Panel>
+            )}
+
+            {/* PHOTOS */}
+            {activeTab === "photos" && (
+              <Panel
+                icon={ImageIcon}
+                title={L("រូបថត & Love Story Gallery", "Photos & love-story gallery")}
+                subtitle={L("រូបភាពត្រូវបានបង្រួមដោយស្វ័យប្រវត្តិ ដើម្បីល្បឿនលឿន", "Images are compressed automatically for fast loading")}
+                action={
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-stone-900/5 dark:bg-white/10 whitespace-nowrap">
+                    {galleryList.length} {L("រូប", "photos")}
+                  </span>
+                }
+              >
+                <div className="grid grid-cols-3 gap-3 sm:gap-6 max-w-xl mx-auto">
+                  {photoSlot("cover_image_url", L("រូបក្រប", "Cover"), coverInputRef)}
+                  {photoSlot("groom_image_url", L("កូនកំលោះ", "Groom"), groomInputRef)}
+                  {photoSlot("bride_image_url", L("កូនក្រមុំ", "Bride"), brideInputRef)}
+                </div>
+
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => !uploading && multiFileInputRef.current?.click()}
+                  onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && multiFileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(e) => { e.preventDefault(); setDragOver(false); handleUploadMultipleGallery(e.dataTransfer.files); }}
+                  className={`relative overflow-hidden rounded-3xl border-2 border-dashed p-8 text-center transition-all duration-300 cursor-pointer group ${
+                    dragOver ? "border-amber-500 bg-amber-500/10 scale-[1.01]" : "border-stone-300 dark:border-white/15 hover:border-amber-400 hover:bg-amber-500/[0.04]"
+                  }`}
+                >
+                  <input type="file" ref={multiFileInputRef} multiple accept="image/*" className="hidden" onChange={(e) => handleUploadMultipleGallery(e.target.files)} />
+                  <span className="mx-auto w-14 h-14 rounded-2xl we-icon-chip flex items-center justify-center transition-transform duration-500 group-hover:-translate-y-1 group-hover:rotate-3">
+                    {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <UploadCloud className="w-6 h-6" />}
+                  </span>
+                  <h5 className="mt-3 font-bold text-[14px]">
+                    {uploading
+                      ? L(`កំពុងផ្ទុក... (${uploadProgress.current}/${uploadProgress.total})`, `Uploading... (${uploadProgress.current}/${uploadProgress.total})`)
+                      : L("អូសរូបមកទីនេះ ឬចុចដើម្បីជ្រើសរើស", "Drop photos here or click to browse")}
+                  </h5>
+                  <p className="text-[12px] text-stone-500 mt-1">JPG · PNG · WebP — {L("ច្រើនរូបក្នុងពេលតែមួយ", "select many at once")}</p>
+                  {uploading && (
+                    <div className="w-56 mx-auto mt-4 h-1.5 bg-stone-200 dark:bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-amber-400 to-amber-700 transition-all duration-300" style={{ width: `${(uploadProgress.current / Math.max(1, uploadProgress.total)) * 100}%` }} />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    className={inputCls}
+                    value={newGalleryUrl}
+                    onChange={(e) => setNewGalleryUrl(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleAddGalleryUrl()}
+                    placeholder={L("ឬបិទភ្ជាប់ Link រូបភាព https://...", "Or paste an image link https://...")}
+                  />
+                  <div className="flex gap-2">
+                    <button type="button" onClick={handleAddGalleryUrl} className="we-dark-btn h-11 px-4 rounded-xl text-[12.5px] font-bold whitespace-nowrap cursor-pointer">
+                      <Plus className="w-4 h-4 inline -mt-0.5" /> {L("បន្ថែម", "Add")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setGallery(STUDIO_PRESETS); if (!card.cover_image_url) patch({ cover_image_url: STUDIO_PRESETS[0] }); }}
+                      className="we-icon-btn h-11 px-4 rounded-xl text-[12.5px] font-semibold whitespace-nowrap"
+                    >
+                      <Sparkles className="w-4 h-4 text-amber-600" /> {L("រូបគំរូ", "Sample set")}
+                    </button>
+                  </div>
+                </div>
+
+                {galleryList.length === 0 ? (
+                  <div className="p-10 text-center rounded-3xl bg-stone-900/[0.03] dark:bg-white/[0.03] text-[13px] text-stone-500">
+                    {L("មិនទាន់មានរូបថតនៅឡើយទេ", "No photos yet — your gallery will appear here")}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {galleryList.map((url, idx) => {
+                      const isCover = card.cover_image_url === url;
                       return (
-                        <div
-                          key={tpl.id}
-                          onClick={() => handleSelectTemplate(tpl)}
-                          className={`relative rounded-2xl p-3 border-2 transition cursor-pointer flex flex-col justify-between group overflow-hidden ${
-                            isSelected
-                              ? "border-amber-600 bg-amber-50/50 dark:bg-amber-950/30 shadow-md ring-2 ring-amber-500/20"
-                              : "border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:border-amber-400 hover:shadow-xs"
+                        <figure key={url + idx} className="we-rise group relative aspect-[3/4] rounded-2xl overflow-hidden bg-stone-200 dark:bg-stone-800 ring-1 ring-black/5" style={{ animationDelay: `${Math.min(idx, 12) * 30}ms` }}>
+                          <img src={url} alt={`Photo ${idx + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover transition duration-700 group-hover:scale-105" />
+                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/55 backdrop-blur text-[10px] font-mono text-white font-bold">#{idx + 1}</span>
+                          {isCover && <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-amber-400 text-amber-950 text-[10px] font-bold">Cover</span>}
+
+                          <figcaption className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/85 via-black/50 to-transparent opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition duration-300 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex gap-1">
+                                <button type="button" disabled={idx === 0} onClick={() => handleMoveGalleryImage(idx, "left")} className="w-7 h-7 rounded-lg bg-white/20 hover:bg-white/35 text-white flex items-center justify-center disabled:opacity-30 cursor-pointer" title={L("រំកិលទៅមុខ", "Move left")}>
+                                  <ArrowLeft className="w-3.5 h-3.5" />
+                                </button>
+                                <button type="button" disabled={idx === galleryList.length - 1} onClick={() => handleMoveGalleryImage(idx, "right")} className="w-7 h-7 rounded-lg bg-white/20 hover:bg-white/35 text-white flex items-center justify-center disabled:opacity-30 cursor-pointer" title={L("រំកិលទៅក្រោយ", "Move right")}>
+                                  <ArrowRight className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                              <button type="button" onClick={() => setGallery(galleryList.filter((_, i) => i !== idx))} className="w-7 h-7 rounded-lg bg-rose-500/80 hover:bg-rose-500 text-white flex items-center justify-center cursor-pointer" title={L("លុប", "Remove")}>
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-3 gap-1 text-[10px] font-bold">
+                              <button type="button" onClick={() => patch({ cover_image_url: url })} className="py-1 rounded-md bg-amber-400 text-amber-950 hover:bg-amber-300 cursor-pointer">Cover</button>
+                              <button type="button" onClick={() => patch({ groom_image_url: url })} className="py-1 rounded-md bg-white/90 text-stone-900 hover:bg-white cursor-pointer">{L("កំលោះ", "Groom")}</button>
+                              <button type="button" onClick={() => patch({ bride_image_url: url })} className="py-1 rounded-md bg-white/90 text-stone-900 hover:bg-white cursor-pointer">{L("ក្រមុំ", "Bride")}</button>
+                            </div>
+                          </figcaption>
+                        </figure>
+                      );
+                    })}
+                  </div>
+                )}
+              </Panel>
+            )}
+
+            {/* SCHEDULE */}
+            {activeTab === "schedule" && (
+              <Panel
+                icon={Clock}
+                title={L("កាលវិភាគពិធីពេលព្រឹក", "Morning ceremony programme")}
+                subtitle={L("រៀបចំលំដាប់ពិធីតាមប្រពៃណីខ្មែរ", "Order each traditional rite of the day")}
+                action={
+                  <button
+                    type="button"
+                    onClick={() => setAgenda([...parsedAgenda, { time: "08:00 ព្រឹក", title: L("កម្មវិធីថ្មី", "New item"), description: "" }])}
+                    className="we-primary h-9 px-3.5 rounded-xl text-[12px] font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  >
+                    <Plus className="w-4 h-4" /> {L("បន្ថែម", "Add")}
+                  </button>
+                }
+              >
+                <ol className="relative space-y-3 before:absolute before:left-[19px] before:top-3 before:bottom-3 before:w-px before:bg-gradient-to-b before:from-amber-400 before:to-amber-200/0">
+                  {parsedAgenda.map((item, idx) => (
+                    <li key={idx} className="we-rise relative pl-12" style={{ animationDelay: `${idx * 40}ms` }}>
+                      <span className="absolute left-2 top-4 w-[23px] h-[23px] rounded-full bg-white dark:bg-stone-900 ring-2 ring-amber-500 flex items-center justify-center text-[10px] font-bold text-amber-700">
+                        {idx + 1}
+                      </span>
+                      <div className="p-4 rounded-2xl ring-1 ring-stone-200/80 dark:ring-white/10 bg-white/70 dark:bg-white/[0.03] space-y-2.5 hover:ring-amber-400/50 transition">
+                        <div className="flex gap-2">
+                          <input className={`${inputCls} !w-36 font-semibold`} value={item.time} onChange={(e) => handleAgendaChange(idx, "time", e.target.value)} placeholder="07:00 ព្រឹក" />
+                          <input className={`${inputCls} font-bold`} value={item.title} onChange={(e) => handleAgendaChange(idx, "title", e.target.value)} placeholder={L("ពិធីហែជំនូន", "Ceremony title")} />
+                          <button type="button" onClick={() => setAgenda(parsedAgenda.filter((_, i) => i !== idx))} className="shrink-0 w-11 h-11 rounded-xl text-stone-400 hover:text-rose-600 hover:bg-rose-500/10 flex items-center justify-center transition cursor-pointer" title={L("លុប", "Remove")}>
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <textarea rows={2} className={textareaCls} value={item.description} onChange={(e) => handleAgendaChange(idx, "description", e.target.value)} placeholder={L("ការពិពណ៌នា...", "Description...")} />
+                      </div>
+                    </li>
+                  ))}
+                  {parsedAgenda.length === 0 && (
+                    <li className="p-8 text-center text-[13px] text-stone-500">{L("មិនទាន់មានកម្មវិធី", "No programme items yet")}</li>
+                  )}
+                </ol>
+              </Panel>
+            )}
+
+            {/* VENUE */}
+            {activeTab === "venue" && (
+              <Panel icon={MapPin} title={L("ទីកន្លែងពិធីពិសាភោជនាហារ", "Reception venue")} subtitle={L("ភ្ញៀវអាចបើកផែនទីដោយចុចតែម្តង", "Guests open directions with one tap")}>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <Field label={L("ឈ្មោះទីកន្លែង / សណ្ឋាគារ", "Venue name")}>
+                      <input className={inputCls} value={parsedEvening.venue} onChange={(e) => handleEveningChange("venue", e.target.value)} />
+                    </Field>
+                  </div>
+                  <Field label={L("សាល ឬ អាគារ", "Hall / building")}>
+                    <input className={inputCls} value={parsedEvening.hall || ""} onChange={(e) => handleEveningChange("hall", e.target.value)} placeholder={L("ឧ. អាគារ A", "e.g. Hall A")} />
+                  </Field>
+                  <Field label={L("ម៉ោង", "Time")}>
+                    <input className={inputCls} value={parsedEvening.time || ""} onChange={(e) => handleEveningChange("time", e.target.value)} />
+                  </Field>
+                  <div className="sm:col-span-2">
+                    <Field label={L("អាសយដ្ឋាន", "Address")}>
+                      <textarea rows={2} className={textareaCls} value={parsedEvening.address} onChange={(e) => handleEveningChange("address", e.target.value)} />
+                    </Field>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Field label="Google Maps URL" error={!isSafeUrl(parsedEvening.map_url) ? L("ត្រូវចាប់ផ្តើមដោយ https://", "Must start with https://") : undefined}>
+                      <input className={`${inputCls} font-mono`} value={parsedEvening.map_url} onChange={(e) => handleEveningChange("map_url", e.target.value)} placeholder="https://maps.google.com/?q=..." />
+                    </Field>
+                  </div>
+                </div>
+                {isSafeUrl(parsedEvening.map_url) && parsedEvening.map_url && (
+                  <a href={parsedEvening.map_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-amber-700 dark:text-amber-400 hover:underline">
+                    <MapPin className="w-4 h-4" /> {L("សាកល្បងបើកផែនទី", "Test the map link")} <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </Panel>
+            )}
+
+            {/* MUSIC */}
+            {activeTab === "music" && (
+              <Panel icon={Music} title={L("បទភ្លេងការ", "Wedding music")} subtitle={L("ស្កេនបទពី YouTube ឬជ្រើសរើសភ្លេងការបុរាណខ្មែរ", "Scan a YouTube song or pick a classic Khmer wedding tune")}>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+                    <input
+                      className={`${inputCls} pl-10 font-mono`}
+                      value={youtubeInput}
+                      onChange={(e) => setYoutubeInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleScanYoutube()}
+                      placeholder="https://youtu.be/..."
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleScanYoutube}
+                    disabled={isScanningYoutube || !youtubeInput.trim()}
+                    className="we-primary h-11 px-5 rounded-xl text-[12.5px] font-bold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isScanningYoutube ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radio className="w-4 h-4" />}
+                    {isScanningYoutube ? L("កំពុងស្កេន...", "Scanning...") : L("ស្កេនបទ", "Scan song")}
+                  </button>
+                </div>
+
+                {scannedSong && scannedSong.valid && (
+                  <div className="we-rise relative overflow-hidden rounded-3xl bg-[#1c1610] text-white p-4 flex gap-4 items-center">
+                    {scannedSong.thumbnail_url && (
+                      <img src={scannedSong.thumbnail_url} alt="" className="w-24 h-16 rounded-xl object-cover ring-1 ring-white/10" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                        <span className="flex items-end gap-0.5 h-3">
+                          <span className="we-eq w-0.5 bg-amber-300" /><span className="we-eq w-0.5 bg-amber-300 [animation-delay:.2s]" /><span className="we-eq w-0.5 bg-amber-300 [animation-delay:.4s]" />
+                        </span>
+                        {card.music_url === scannedSong.music_url ? L("បានភ្ជាប់ក្នុងធៀបការ", "Linked to card") : L("បទដែលបានស្កេន", "Scanned song")}
+                      </span>
+                      <h4 className="text-[14px] font-bold truncate mt-1">{scannedSong.title}</h4>
+                      <p className="text-[11.5px] text-white/60 truncate">{scannedSong.author_name}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <h4 className="text-[12px] font-bold uppercase tracking-[0.14em] text-stone-500 flex items-center gap-1.5 mb-3">
+                    <Headphones className="w-3.5 h-3.5" /> {L("ភ្លេងការបុរាណខ្មែរ", "Curated classics")}
+                  </h4>
+                  <div className="grid sm:grid-cols-2 gap-2.5">
+                    {curatedSongs.map((song) => {
+                      const isSelected = !!card.music_url?.includes(song.video_id);
+                      return (
+                        <button
+                          key={song.id}
+                          type="button"
+                          onClick={() => handleSelectCuratedSong(song)}
+                          className={`group flex items-center gap-3 p-2.5 pr-3 rounded-2xl text-left transition-all duration-300 cursor-pointer ring-1 ${
+                            isSelected ? "ring-amber-500 bg-amber-500/10 shadow-[0_10px_30px_-18px_rgba(180,120,20,0.9)]" : "ring-stone-200/80 dark:ring-white/10 hover:ring-amber-400/60 hover:-translate-y-0.5"
                           }`}
                         >
-                          {/* Thumbnail with Real Photo */}
-                          <div className="relative aspect-[16/10] rounded-xl overflow-hidden mb-2 bg-stone-100 dark:bg-stone-800">
-                            <img
-                              src={tpl.thumbnailUrl}
-                              alt={tpl.nameKm}
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                            />
-                            
-                            {/* Flower Badge & Category */}
-                            <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/65 backdrop-blur-md text-white text-[10px] font-bold">
-                              <WeddingFlowerIcon type={tpl.flowerType} className="w-3.5 h-3.5 text-amber-300" />
-                              <span>{tpl.badgeTextKm}</span>
-                            </div>
-
-                            {isSelected && (
-                              <div className="absolute top-2 right-2 p-1 rounded-full bg-amber-600 text-white shadow-md">
-                                <Check className="w-3.5 h-3.5" />
-                              </div>
-                            )}
-                          </div>
-
-                          <div>
-                            <div className="flex items-center justify-between gap-1 mb-1">
-                              <h4 className="font-bold text-xs sm:text-sm text-stone-900 dark:text-white truncate">
-                                {lang === "km" ? tpl.nameKm : tpl.nameEn}
-                              </h4>
-                              <div className="w-3.5 h-3.5 rounded-full shrink-0 border border-black/10 shadow-xs" style={{ backgroundColor: tpl.accentColor }} />
-                            </div>
-                            <p className="text-[11px] text-stone-500 dark:text-stone-400 line-clamp-2 leading-relaxed">
-                              {lang === "km" ? tpl.taglineKm : tpl.taglineEn}
-                            </p>
-                          </div>
-
-                          <div className="mt-3 pt-2 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between">
-                            <span className="text-[10px] text-stone-400 font-mono">
-                              {tpl.id}
-                            </span>
-                            <span
-                              className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition ${
-                                isSelected
-                                  ? "bg-amber-600 text-white"
-                                  : "bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 group-hover:bg-amber-100 group-hover:text-amber-800"
-                              }`}
-                            >
-                              {isSelected ? (lang === "km" ? "✓ កំពុងប្រើ" : "Active") : (lang === "km" ? "ជ្រើសរើស" : "Select")}
-                            </span>
-                          </div>
-                        </div>
+                          <span className="relative w-11 h-11 rounded-xl overflow-hidden shrink-0">
+                            <img src={song.thumbnail_url} alt="" loading="lazy" className={`w-full h-full object-cover ${isSelected ? "animate-spin-slow rounded-full" : ""}`} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[10.5px] text-amber-700 dark:text-amber-400 font-semibold truncate">{song.category}</span>
+                            <span className="block text-[12.5px] font-bold truncate">{L(song.title_km, song.title_en)}</span>
+                          </span>
+                          {isSelected ? <CheckCircle2 className="w-5 h-5 text-amber-600 shrink-0" /> : <Plus className="w-4 h-4 text-stone-400 group-hover:text-amber-600 shrink-0" />}
+                        </button>
                       );
                     })}
                   </div>
                 </div>
-              )}
 
-              {/* TAB 1: DETAILS */}
-              {activeTab === "details" && (
-                <div className="p-5 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-5">
-                  <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400 font-serif flex items-center gap-2">
-                    <Heart className="w-4 h-4" />
-                    <span>ព័ត៌មានកូនកំលោះ និងកូនក្រមុំ</span>
-                  </h3>
+                <Field label={L("ឬបញ្ចូល URL Audio / MP3 ផ្ទាល់", "Or a direct MP3 link")} error={!isSafeUrl(card.music_url) ? L("Link មិនត្រឹមត្រូវ", "Invalid link") : undefined}>
+                  <input
+                    className={`${inputCls} font-mono`}
+                    value={card.music_url || ""}
+                    onChange={(e) => { patch({ music_url: e.target.value }); setYoutubeInput(e.target.value); }}
+                    placeholder="https://.../wedding-audio.mp3"
+                  />
+                </Field>
+              </Panel>
+            )}
 
-                  {/* Groom Section */}
-                  <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-stone-800/40 border border-amber-200/50 space-y-3">
-                    <span className="text-xs font-bold uppercase text-amber-700">ខាងកូនប្រុស</span>
-                    <div>
-                      <label className="block text-xs font-semibold mb-1">ឈ្មោះកូនប្រុស</label>
-                      <input
-                        type="text"
-                        value={card.groom_name}
-                        onChange={(e) => setCard({ ...card, groom_name: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold mb-1">តួនាទី (ឧ. កូនប្រុសច្បង, កូនប្រុសពៅ)</label>
-                      <input
-                        type="text"
-                        value={card.groom_title}
-                        onChange={(e) => setCard({ ...card, groom_title: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold mb-1">ឈ្មោះមាតាបិតាខាងប្រុស</label>
-                      <input
-                        type="text"
-                        value={card.groom_parents}
-                        onChange={(e) => setCard({ ...card, groom_parents: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold mb-1">រូបថតកូនប្រុស (Image URL)</label>
-                      <input
-                        type="text"
-                        value={card.groom_image_url || ""}
-                        onChange={(e) => setCard({ ...card, groom_image_url: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
-                      />
-                    </div>
+            {/* GIFT */}
+            {activeTab === "gift" && (
+              <Panel icon={QrCode} title={L("ចំណងដៃតាមអេឡិចត្រូនិក", "Digital gift (KHQR)")} subtitle={L("ABA / Bakong KHQR សម្រាប់ភ្ញៀវចងដៃពីចម្ងាយ", "ABA / Bakong KHQR so guests can send a gift from anywhere")}>
+                <div className="grid sm:grid-cols-[1fr_200px] gap-6 items-start">
+                  <div className="space-y-4">
+                    <Field label={L("ឈ្មោះម្ចាស់គណនី", "Account name")}>
+                      <input className={`${inputCls} font-mono uppercase`} value={card.khqr_account_name || ""} onChange={(e) => patch({ khqr_account_name: e.target.value })} placeholder="CHEA VISAL & SOK SOVANNARY" />
+                    </Field>
+                    <Field label={L("លេខគណនី", "Account number")}>
+                      <input className={`${inputCls} font-mono`} value={card.khqr_account_number || ""} onChange={(e) => patch({ khqr_account_number: e.target.value })} placeholder="000 123 456 (ABA Bank)" />
+                    </Field>
+                    <Field label={L("Link រូប QR", "QR image link")} error={!isSafeUrl(card.khqr_image_url) ? L("Link មិនត្រឹមត្រូវ", "Invalid link") : undefined}>
+                      <input className={`${inputCls} font-mono`} value={card.khqr_image_url || ""} onChange={(e) => patch({ khqr_image_url: e.target.value })} placeholder="https://..." />
+                    </Field>
                   </div>
-
-                  {/* Bride Section */}
-                  <div className="p-4 rounded-2xl bg-rose-50/50 dark:bg-stone-800/40 border border-rose-200/50 space-y-3">
-                    <span className="text-xs font-bold uppercase text-rose-700">ខាងកូនស្រី</span>
-                    <div>
-                      <label className="block text-xs font-semibold mb-1">ឈ្មោះកូនស្រី</label>
-                      <input
-                        type="text"
-                        value={card.bride_name}
-                        onChange={(e) => setCard({ ...card, bride_name: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold mb-1">តួនាទី (ឧ. កូនស្រីច្បង, កូនស្រីពៅ)</label>
-                      <input
-                        type="text"
-                        value={card.bride_title}
-                        onChange={(e) => setCard({ ...card, bride_title: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold mb-1">ឈ្មោះមាតាបិតាខាងស្រី</label>
-                      <input
-                        type="text"
-                        value={card.bride_parents}
-                        onChange={(e) => setCard({ ...card, bride_parents: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold mb-1">រូបថតកូនស្រី (Image URL)</label>
-                      <input
-                        type="text"
-                        value={card.bride_image_url || ""}
-                        onChange={(e) => setCard({ ...card, bride_image_url: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Dates */}
-                  <div className="space-y-3 pt-2">
-                    <div>
-                      <label className="block text-xs font-semibold mb-1">ថ្ងៃខែឆ្នាំតាមចន្ទគតិខ្មែរ</label>
-                      <input
-                        type="text"
-                        value={card.khmer_date}
-                        onChange={(e) => setCard({ ...card, khmer_date: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-semibold mb-1">កាលបរិច្ឆេទ (Solar Date)</label>
-                        <input
-                          type="date"
-                          value={card.solar_date}
-                          onChange={(e) => setCard({ ...card, solar_date: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold mb-1">ម៉ោងពិធីពិសាភោជនាហារ</label>
-                        <input
-                          type="text"
-                          value={card.solar_time}
-                          onChange={(e) => setCard({ ...card, solar_time: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-              )}
-
-              {/* TAB: PHOTOS & MULTI-IMAGE GALLERY (Supports 5 to 20+ Photos) */}
-              {activeTab === "photos" && (
-                <div className="p-5 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-6">
-                  {/* Section Title */}
-                  <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-stone-800">
-                    <div>
-                      <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400 font-serif flex items-center gap-2">
-                        <ImageIcon className="w-4 h-4 text-amber-600" />
-                        <span>📸 គ្រប់គ្រងរូបថត &amp; Love Story Gallery</span>
-                      </h3>
-                      <p className="text-xs text-stone-500 mt-0.5">
-                        ផ្ទុករូបថតផ្ទាល់ចូលប្រព័ន្ធពី ៥ ទៅ ២០+ រូប ដោយស្វ័យប្រវត្តិកែសម្រួលគុណភាព (Direct Database &amp; System Storage)
-                      </p>
-                    </div>
-                    <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 border border-amber-300">
-                      សរុប {galleryList.length} រូប
-                    </span>
-                  </div>
-
-                  {/* 1. VIP Key Portraits (Cover, Groom, Bride) */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900 dark:text-amber-300">
-                      រូបថតសំខាន់ៗលើធៀបការ (Key Wedding Portraits)
-                    </h4>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {/* Cover Photo */}
-                      <div className="p-3 rounded-2xl bg-amber-50/60 dark:bg-stone-800/40 border border-amber-200/70 text-center flex flex-col justify-between">
-                        <div>
-                          <span className="text-[11px] font-bold text-amber-900 dark:text-amber-200 block mb-2">
-                            ✨ រូបក្របទំព័រមុខ (Cover Arch)
-                          </span>
-                          <div className="relative aspect-[3/4] max-w-[140px] mx-auto rounded-t-full rounded-b-xl overflow-hidden border-2 border-amber-300 shadow-md mb-2 bg-stone-100">
-                            {card.cover_image_url ? (
-                              <img src={card.cover_image_url} alt="Cover" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs">គ្មានរូប</div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <input
-                            type="file"
-                            ref={coverInputRef}
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              if (e.target.files?.[0]) handleUploadSingleField("cover_image_url", e.target.files[0]);
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => coverInputRef.current?.click()}
-                            disabled={uploading}
-                            className="w-full py-1.5 px-2 rounded-lg bg-amber-700 hover:bg-amber-800 text-white text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
-                          >
-                            <Camera className="w-3 h-3" />
-                            <span>ផ្លាស់ប្តូររូបភាព</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Groom Photo */}
-                      <div className="p-3 rounded-2xl bg-amber-50/60 dark:bg-stone-800/40 border border-amber-200/70 text-center flex flex-col justify-between">
-                        <div>
-                          <span className="text-[11px] font-bold text-amber-900 dark:text-amber-200 block mb-2">
-                            🤵 លោកកូនកំលោះ (Groom)
-                          </span>
-                          <div className="relative aspect-[3/4] max-w-[140px] mx-auto rounded-t-full rounded-b-xl overflow-hidden border-2 border-amber-300 shadow-md mb-2 bg-stone-100">
-                            {card.groom_image_url ? (
-                              <img src={card.groom_image_url} alt="Groom" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs">គ្មានរូប</div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <input
-                            type="file"
-                            ref={groomInputRef}
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              if (e.target.files?.[0]) handleUploadSingleField("groom_image_url", e.target.files[0]);
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => groomInputRef.current?.click()}
-                            disabled={uploading}
-                            className="w-full py-1.5 px-2 rounded-lg bg-amber-700 hover:bg-amber-800 text-white text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
-                          >
-                            <Camera className="w-3 h-3" />
-                            <span>រូបកូនកំលោះ</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Bride Photo */}
-                      <div className="p-3 rounded-2xl bg-rose-50/60 dark:bg-stone-800/40 border border-rose-200/70 text-center flex flex-col justify-between">
-                        <div>
-                          <span className="text-[11px] font-bold text-rose-900 dark:text-rose-200 block mb-2">
-                            👰 អ្នកកូនក្រមុំ (Bride)
-                          </span>
-                          <div className="relative aspect-[3/4] max-w-[140px] mx-auto rounded-t-full rounded-b-xl overflow-hidden border-2 border-rose-300 shadow-md mb-2 bg-stone-100">
-                            {card.bride_image_url ? (
-                              <img src={card.bride_image_url} alt="Bride" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs">គ្មានរូប</div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <input
-                            type="file"
-                            ref={brideInputRef}
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              if (e.target.files?.[0]) handleUploadSingleField("bride_image_url", e.target.files[0]);
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => brideInputRef.current?.click()}
-                            disabled={uploading}
-                            className="w-full py-1.5 px-2 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
-                          >
-                            <Camera className="w-3 h-3" />
-                            <span>រូបកូនក្រមុំ</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 2. Multi-Image Direct Upload Area */}
-                  <div className="space-y-3 pt-2">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900 dark:text-amber-300">
-                        អាល់ប៊ុមរូបថតស្នេហា (Love Story Gallery: 5 ទៅ 20+ រូប)
-                      </h4>
-                      <button
-                        type="button"
-                        onClick={handleLoadPresetStudioPhotos}
-                        className="text-[11px] text-amber-700 hover:text-amber-900 font-semibold underline cursor-pointer"
-                      >
-                        + ដាក់រូបគំរូ Studio ១០ សន្លឹក
-                      </button>
-                    </div>
-
-                    {/* Drag & Drop File Picker */}
-                    <div
-                      onClick={() => multiFileInputRef.current?.click()}
-                      className="border-2 border-dashed border-amber-300 dark:border-amber-700/60 rounded-3xl p-6 text-center bg-amber-50/40 dark:bg-stone-800/30 hover:bg-amber-100/40 transition cursor-pointer group"
-                    >
-                      <input
-                        type="file"
-                        ref={multiFileInputRef}
-                        multiple
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => handleUploadMultipleGallery(e.target.files)}
-                      />
-                      <UploadCloud className="w-10 h-10 mx-auto text-amber-600 mb-2 transition transform group-hover:scale-110" />
-                      <h5 className="font-bold text-sm text-stone-900 dark:text-white mb-1">
-                        {uploading
-                          ? `កំពុងផ្ទុករូបភាព... (${uploadProgress.current}/${uploadProgress.total})`
-                          : "ចុចទីនេះដើម្បីជ្រើសរើសរូបថតច្រើនសន្លឹក (Multiple Photos)"}
-                      </h5>
-                      <p className="text-xs text-stone-500">
-                        ជ្រើសរើសបានពី ៥, ១០ រហូតដល់ ២០+ រូបក្នុងពេលតែមួយ (JPG, PNG, WebP)
-                      </p>
-                      {uploading && (
-                        <div className="w-48 mx-auto mt-3 h-2 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-amber-600 transition-all duration-300"
-                            style={{ width: `${(uploadProgress.current / Math.max(1, uploadProgress.total)) * 100}%` }}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Or Add by URL */}
-                    <div className="flex items-center gap-2 pt-1">
-                      <input
-                        type="text"
-                        value={newGalleryUrl}
-                        onChange={(e) => setNewGalleryUrl(e.target.value)}
-                        placeholder="ឬបិទភ្ជាប់តំណរូបភាព (Paste Image URL here)..."
-                        className="flex-1 px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddGalleryUrl}
-                        className="px-3.5 py-2 rounded-xl bg-stone-800 hover:bg-stone-900 text-white text-xs font-bold transition cursor-pointer"
-                      >
-                        + បន្ថែម URL
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 3. Image Grid Management (Order, Delete, Set As) */}
-                  <div className="space-y-3 pt-2">
-                    <span className="text-xs font-semibold text-stone-700 dark:text-stone-300 block">
-                      បញ្ជីរូបថតបច្ចុប្បន្ន ({galleryList.length} រូប) — អាចរុញសណ្តាប់ធ្នាប់ (Reorder) ឬកំណត់ជារូបសំខាន់៖
-                    </span>
-
-                    {galleryList.length === 0 ? (
-                      <div className="p-6 text-center rounded-2xl bg-stone-50 dark:bg-stone-800/40 text-xs text-stone-500">
-                        មិនទាន់មានរូបថតក្នុង Gallery នៅឡើយទេ។ សូមចុចផ្ទុករូបភាពខាងលើ!
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {galleryList.map((url, idx) => {
-                          const isCover = card.cover_image_url === url;
-                          return (
-                            <div
-                              key={idx}
-                              className="group relative rounded-2xl overflow-hidden border-2 border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 shadow-xs flex flex-col justify-between"
-                            >
-                              {/* Thumbnail */}
-                              <div className="relative aspect-[3/4] w-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
-                                <img src={url} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
-                                
-                                {/* Badge Number */}
-                                <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs text-[10px] font-mono text-white font-bold">
-                                  #{idx + 1}
-                                </div>
-
-                                {isCover && (
-                                  <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md bg-amber-600 text-white text-[9px] font-bold">
-                                    Cover
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Controls */}
-                              <div className="p-2 space-y-1.5 bg-stone-50 dark:bg-stone-800/60">
-                                {/* Reorder left / right & Delete */}
-                                <div className="flex items-center justify-between gap-1">
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      type="button"
-                                      disabled={idx === 0}
-                                      onClick={() => handleMoveGalleryImage(idx, "left")}
-                                      className="p-1 rounded bg-white dark:bg-stone-700 border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300 disabled:opacity-30 cursor-pointer"
-                                      title="រំកិលទៅមុខ"
-                                    >
-                                      <ArrowLeft className="w-3 h-3" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={idx === galleryList.length - 1}
-                                      onClick={() => handleMoveGalleryImage(idx, "right")}
-                                      className="p-1 rounded bg-white dark:bg-stone-700 border border-stone-300 dark:border-stone-600 text-stone-700 dark:text-stone-300 disabled:opacity-30 cursor-pointer"
-                                      title="រំកិលទៅក្រោយ"
-                                    >
-                                      <ArrowRight className="w-3 h-3" />
-                                    </button>
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveGalleryImage(idx)}
-                                    className="p-1 text-rose-500 hover:text-rose-700 cursor-pointer"
-                                    title="លុបរូបនេះចេញ"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-
-                                {/* Set as Quick Action */}
-                                <div className="flex items-center gap-1 pt-1 border-t border-stone-200 dark:border-stone-700 text-[10px]">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSetGalleryImageAs(url, "cover")}
-                                    className="flex-1 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold transition text-center cursor-pointer"
-                                  >
-                                    ដាក់ Cover
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSetGalleryImageAs(url, "groom")}
-                                    className="py-0.5 px-1.5 rounded bg-stone-200 hover:bg-stone-300 text-stone-800 font-medium transition cursor-pointer"
-                                    title="ដាក់ជារូបកូនកំលោះ"
-                                  >
-                                    កំលោះ
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSetGalleryImageAs(url, "bride")}
-                                    className="py-0.5 px-1.5 rounded bg-rose-100 hover:bg-rose-200 text-rose-900 font-medium transition cursor-pointer"
-                                    title="ដាក់ជារូបកូនក្រមុំ"
-                                  >
-                                    ក្រមុំ
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-              )}
-
-              {/* TAB 2: SCHEDULE */}
-              {activeTab === "schedule" && (
-                <div className="p-5 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400 font-serif flex items-center gap-2">
-                      <Clock className="w-4 h-4" />
-                      <span>កាលវិភាគពិធីពេលព្រឹក</span>
-                    </h3>
+                  <div className="text-center">
+                    <input type="file" ref={khqrInputRef} accept="image/*" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleUploadSingleField("khqr_image_url", e.target.files[0]); e.target.value = ""; }} />
                     <button
-                      onClick={addAgendaItem}
-                      className="flex items-center gap-1 px-3 py-1 rounded-xl bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition cursor-pointer"
+                      type="button"
+                      onClick={() => khqrInputRef.current?.click()}
+                      className="group relative w-full aspect-square rounded-3xl overflow-hidden bg-white ring-1 ring-stone-200 dark:ring-white/10 shadow-[0_20px_40px_-24px_rgba(0,0,0,0.5)] cursor-pointer"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>បន្ថែមកម្មវិធី</span>
+                      {card.khqr_image_url ? (
+                        <img src={card.khqr_image_url} alt="KHQR" className="w-full h-full object-contain p-3" />
+                      ) : (
+                        <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-stone-400 text-[12px]">
+                          <QrCode className="w-8 h-8" /> {L("ផ្ទុក QR", "Upload QR")}
+                        </span>
+                      )}
+                      <span className="absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[12px] font-bold gap-1.5">
+                        <UploadCloud className="w-4 h-4" /> {L("ផ្ទុករូប", "Upload")}
+                      </span>
                     </button>
                   </div>
-
-                  <div className="space-y-3">
-                    {parsedAgenda.map((item, idx) => (
-                      <div key={idx} className="p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200 dark:border-stone-700 space-y-2 relative">
-                        <div className="flex items-center justify-between gap-2">
-                          <input
-                            type="text"
-                            value={item.time}
-                            onChange={(e) => handleAgendaChange(idx, "time", e.target.value)}
-                            placeholder="07:00 ព្រឹក"
-                            className="w-32 px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-600 text-xs font-semibold bg-white dark:bg-stone-900"
-                          />
-                          <button
-                            onClick={() => removeAgendaItem(idx)}
-                            className="p-1 text-rose-500 hover:text-rose-700 cursor-pointer"
-                            title="លុប"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        <input
-                          type="text"
-                          value={item.title}
-                          onChange={(e) => handleAgendaChange(idx, "title", e.target.value)}
-                          placeholder="ចំណងជើងពិធី (ឧ. ពិធីហែកំណត់)"
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-600 text-xs font-bold bg-white dark:bg-stone-900"
-                        />
-                        <textarea
-                          rows={2}
-                          value={item.description}
-                          onChange={(e) => handleAgendaChange(idx, "description", e.target.value)}
-                          placeholder="ការពិពណ៌នា..."
-                          className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 dark:border-stone-600 text-xs bg-white dark:bg-stone-900"
-                        />
-                      </div>
-                    ))}
-                  </div>
                 </div>
-              )}
+              </Panel>
+            )}
 
-              {/* TAB 3: VENUE & GOOGLE MAPS */}
-              {activeTab === "venue" && (
-                <div className="p-5 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
-                  <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400 font-serif flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    <span>ទីកន្លែងពិធីពិសាភោជនាហារ និងផែនទី</span>
-                  </h3>
-
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">ឈ្មោះទីកន្លែង / សណ្ឋាគារ / រោងការ</label>
+            {/* SETTINGS */}
+            {activeTab === "settings" && (
+              <Panel icon={Settings} title={L("ការកំណត់ & តំណភ្ជាប់", "Settings & link")} subtitle={L("គ្រប់គ្រងការផ្សព្វផ្សាយ និងមុខងារសម្រាប់ភ្ញៀវ", "Control publishing and guest features")}>
+                <Field label={L("តំណភ្ជាប់ផ្ទាល់ខ្លួន", "Custom link")} hint={L("អក្សរតូច លេខ - និង _ ប៉ុណ្ណោះ", "Lowercase letters, numbers, - and _ only")}>
+                  <div className="flex items-stretch rounded-xl overflow-hidden ring-1 ring-stone-200 dark:ring-white/10 focus-within:ring-2 focus-within:ring-amber-500 transition">
+                    <span className="px-3.5 flex items-center bg-stone-100 dark:bg-white/5 text-stone-500 text-[12.5px] font-mono">/wedding/</span>
                     <input
-                      type="text"
-                      value={parsedEvening.venue}
-                      onChange={(e) => handleEveningChange("venue", e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
+                      className="flex-1 h-11 px-3 bg-white dark:bg-transparent text-[13px] font-mono outline-none"
+                      value={card.slug}
+                      maxLength={60}
+                      onChange={(e) => patch({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, "") })}
                     />
+                    <button type="button" onClick={handleCopyLink} className="px-3.5 bg-stone-100 dark:bg-white/5 hover:bg-amber-500/15 transition cursor-pointer" title={L("ចម្លង", "Copy")}>
+                      {copiedLink ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                    </button>
                   </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">សាល ឬ អាគារ (Hall / Building)</label>
-                    <input
-                      type="text"
-                      value={parsedEvening.hall || ""}
-                      onChange={(e) => handleEveningChange("hall", e.target.value)}
-                      placeholder="ឧ. អាគារ A ឬ សាលកែវមរកត"
-                      className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">អាសយដ្ឋានទីតាំង</label>
-                    <textarea
-                      rows={2}
-                      value={parsedEvening.address}
-                      onChange={(e) => handleEveningChange("address", e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">Google Maps URL</label>
-                    <input
-                      type="text"
-                      value={parsedEvening.map_url}
-                      onChange={(e) => handleEveningChange("map_url", e.target.value)}
-                      placeholder="https://maps.google.com/?q=..."
-                      className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-mono"
-                    />
-                  </div>
+                </Field>
+                <div className="space-y-2.5">
+                  <Toggle checked={card.is_published} onChange={(v) => patch({ is_published: v })} title={L("ផ្សព្វផ្សាយជាសាធារណៈ", "Publish invitation")} desc={L("ភ្ញៀវអាចបើកមើលតាម Link", "Anyone with the link can view it")} />
+                  <Toggle checked={card.enable_rsvp} onChange={(v) => patch({ enable_rsvp: v })} title={L("ឆ្លើយតបការចូលរួម (RSVP)", "Guest RSVP")} desc={L("ភ្ញៀវបញ្ជាក់ការចូលរួម និងចំនួនមនុស្ស", "Guests confirm attendance and party size")} />
+                  <Toggle checked={card.enable_wishes} onChange={(v) => patch({ enable_wishes: v })} title={L("សៀវភៅពាក្យជូនពរ", "Guestbook wishes")} desc={L("ភ្ញៀវផ្ញើពាក្យជូនពរដល់គូស្វាមីភរិយា", "Guests leave blessings for the couple")} />
                 </div>
-              )}
+              </Panel>
+            )}
+          </main>
+        )}
 
-              {/* TAB 4: WEDDING MUSIC & YOUTUBE SCANNER */}
-              {activeTab === "music" && (
-                <div className="p-5 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-6">
-                  <div>
-                    <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400 font-serif flex items-center gap-2">
-                      <Music className="w-4 h-4 text-amber-600" />
-                      <span>{lang === "km" ? "បទភ្លេងការ និងតន្ត្រីប្រពៃណី (Wedding Music Studio)" : "Wedding Music Studio & YouTube Scanner"}</span>
-                    </h3>
-                    <p className="text-xs text-stone-500 mt-1">
-                      {lang === "km"
-                        ? "អ្នកអាចស្កេនបទចម្រៀងពី YouTube ឬជ្រើសរើសបទភ្លេងការបុរាណខ្មែរពេញនិយមខាងក្រោម ដើម្បីចាក់អមជាមួយធៀបការឌីជីថលរបស់អ្នក។"
-                        : "Scan any YouTube video/song link or pick from curated traditional Khmer wedding classics below."}
-                    </p>
-                  </div>
-
-                  {/* YouTube Scanner Input */}
-                  <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-500/20 space-y-3">
-                    <label className="block text-xs font-bold text-stone-800 dark:text-stone-200">
-                      {lang === "km" ? "បញ្ចូល Link ចម្រៀង YouTube (YouTube URL)" : "Paste YouTube Song Link"}
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={youtubeInput}
-                        onChange={(e) => setYoutubeInput(e.target.value)}
-                        placeholder="https://www.youtube.com/watch?v=... ឬ https://youtu.be/..."
-                        className="flex-1 px-3.5 py-2.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-mono"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleScanYoutube}
-                        disabled={isScanningYoutube || !youtubeInput.trim()}
-                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50 shadow-sm"
-                      >
-                        {isScanningYoutube ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            <span>{lang === "km" ? "កំពុងស្កេន..." : "Scanning..."}</span>
-                          </>
-                        ) : (
-                          <>
-                            <Search className="w-3.5 h-3.5" />
-                            <span>{lang === "km" ? "ស្កេនបទចម្រៀង" : "Scan Song"}</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Scanned YouTube Song Live Card */}
-                  {scannedSong && (
-                    <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-50/60 dark:bg-amber-950/40 space-y-3 animate-fade-in">
-                      <div className="flex items-center justify-between">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-bold uppercase tracking-wider">
-                          <Radio className="w-3 h-3 animate-pulse" />
-                          {lang === "km" ? "បទចម្រៀងដែលបានស្កេន" : "Scanned YouTube Song"}
-                        </span>
-                        {card.music_url === scannedSong.music_url && (
-                          <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
-                            <Check className="w-3.5 h-3.5" />
-                            {lang === "km" ? "បានភ្ជាប់ក្នុងធៀបការ" : "Linked to Card"}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex gap-3 items-center">
-                        {scannedSong.thumbnail_url && (
-                          <img
-                            src={scannedSong.thumbnail_url}
-                            alt="YouTube Thumbnail"
-                            className="w-20 h-14 object-cover rounded-xl border border-amber-500/30 shadow-xs"
-                          />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate">
-                            {scannedSong.title}
-                          </h4>
-                          <p className="text-[11px] text-stone-500 truncate">
-                            {scannedSong.author_name}
-                          </p>
-                          <p className="text-[10px] text-amber-600 font-mono truncate mt-0.5">
-                            {scannedSong.music_url}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Embedded Test Player */}
-                      {scannedSong.video_id && (
-                        <div className="pt-2 border-t border-amber-500/20">
-                          <iframe
-                            className="w-full h-32 rounded-xl border border-stone-200 dark:border-stone-800"
-                            src={`https://www.youtube.com/embed/${scannedSong.video_id}`}
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            title="YouTube Preview"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Curated Traditional Khmer Wedding Classics */}
-                  <div className="space-y-3 pt-2">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center gap-1.5 font-serif">
-                        <Headphones className="w-3.5 h-3.5 text-amber-600" />
-                        <span>{lang === "km" ? "ភ្លេងការបុរាណខ្មែរពេញនិយម (Curated Classics)" : "Curated Khmer Wedding Classics"}</span>
-                      </h4>
-                      <span className="text-[10px] text-stone-400">
-                        {lang === "km" ? "ចុចជ្រើសរើសភ្លាមៗ" : "1-Click Select"}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {curatedSongs.map((song) => {
-                        const isSelected = card.music_url?.includes(song.video_id);
-                        return (
-                          <div
-                            key={song.id}
-                            className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-2.5 ${
-                              isSelected
-                                ? "border-amber-500 bg-amber-500/10 shadow-xs"
-                                : "border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-800/40 hover:border-amber-400"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 border border-amber-500/30">
-                                <img
-                                  src={song.thumbnail_url}
-                                  alt={song.title_km}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="text-[10px] text-amber-600 font-semibold leading-tight">
-                                  {song.category}
-                                </div>
-                                <div className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate leading-tight mt-0.5">
-                                  {lang === "km" ? song.title_km : song.title_en}
-                                </div>
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => handleSelectCuratedSong(song)}
-                              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold shrink-0 transition cursor-pointer ${
-                                isSelected
-                                  ? "bg-amber-600 text-white"
-                                  : "bg-white dark:bg-stone-700 text-stone-700 dark:text-stone-200 border border-stone-200 dark:border-stone-600 hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                              }`}
-                            >
-                              {isSelected ? (
-                                <span className="flex items-center gap-1">
-                                  <Check className="w-3 h-3" />
-                                  <span>{lang === "km" ? "កំពុងប្រើ" : "Active"}</span>
-                                </span>
-                              ) : (
-                                <span>{lang === "km" ? "ជ្រើសរើស" : "Select"}</span>
-                              )}
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Manual Audio / MP3 Fallback */}
-                  <div className="pt-2 border-t border-stone-200 dark:border-stone-800">
-                    <label className="block text-[11px] font-semibold text-stone-500 mb-1">
-                      {lang === "km" ? "ឬបញ្ចូល URL Audio / MP3 ផ្ទាល់" : "Or Direct MP3 Audio URL"}
-                    </label>
-                    <input
-                      type="text"
-                      value={card.music_url || ""}
-                      onChange={(e) => {
-                        setCard({ ...card, music_url: e.target.value });
-                        setYoutubeInput(e.target.value);
-                      }}
-                      placeholder="https://.../wedding-audio.mp3"
-                      className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-mono"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 5: DIGITAL GIFT KHQR */}
-              {activeTab === "gift" && (
-                <div className="p-5 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
-                  <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400 font-serif flex items-center gap-2">
-                    <QrCode className="w-4 h-4" />
-                    <span>ចំណងដៃតាមអេឡិចត្រូនិក (ABA / Bakong KHQR)</span>
-                  </h3>
-
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">ឈ្មោះម្ចាស់គណនី (Account Name)</label>
-                    <input
-                      type="text"
-                      value={card.khqr_account_name || ""}
-                      onChange={(e) => setCard({ ...card, khqr_account_name: e.target.value })}
-                      placeholder="CHEA VISAL & SOK SOVANNARY"
-                      className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-mono uppercase"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">លេខគណនីធនាគារ (Account Number)</label>
-                    <input
-                      type="text"
-                      value={card.khqr_account_number || ""}
-                      onChange={(e) => setCard({ ...card, khqr_account_number: e.target.value })}
-                      placeholder="000 123 456 (ABA Bank)"
-                      className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">រូបភាព QR Code (Image URL)</label>
-                    <input
-                      type="text"
-                      value={card.khqr_image_url || ""}
-                      onChange={(e) => setCard({ ...card, khqr_image_url: e.target.value })}
-                      placeholder="https://..."
-                      className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-mono"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 5: SETTINGS */}
-              {activeTab === "settings" && (
-                <div className="p-5 bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
-                  <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400 font-serif flex items-center gap-2">
-                    <Settings className="w-4 h-4" />
-                    <span>ការកំណត់ទូទៅ និងតំណភ្ជាប់</span>
-                  </h3>
-
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">តំណភ្ជាប់ផ្ទាល់ខ្លួន (Custom Slug)</label>
-                    <div className="flex items-center">
-                      <span className="px-3 py-2 bg-stone-100 dark:bg-stone-800 text-stone-500 rounded-l-xl border border-r-0 border-stone-300 dark:border-stone-700 text-xs font-mono">
-                        /wedding/
-                      </span>
-                      <input
-                        type="text"
-                        value={card.slug}
-                        onChange={(e) => setCard({ ...card, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, "") })}
-                        className="w-full px-3 py-2 rounded-r-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">បទភ្លេងការ (Music Audio URL)</label>
-                    <input
-                      type="text"
-                      value={card.music_url || ""}
-                      onChange={(e) => setCard({ ...card, music_url: e.target.value })}
-                      placeholder="https://.../music.mp3"
-                      className="w-full px-3 py-2 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-mono"
-                    />
-                  </div>
-
-                  <div className="space-y-3 pt-2">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={card.enable_rsvp}
-                        onChange={(e) => setCard({ ...card, enable_rsvp: e.target.checked })}
-                        className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
-                      />
-                      <span className="text-xs font-semibold">បើកឱ្យភ្ញៀវឆ្លើយតបការចូលរួម (Enable RSVP)</span>
-                    </label>
-
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={card.enable_wishes}
-                        onChange={(e) => setCard({ ...card, enable_wishes: e.target.checked })}
-                        className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
-                      />
-                      <span className="text-xs font-semibold">បើកសៀវភៅពាក្យជូនពរពីភ្ញៀវ (Enable Guestbook Wishes)</span>
-                    </label>
-
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={card.is_published}
-                        onChange={(e) => setCard({ ...card, is_published: e.target.checked })}
-                        className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
-                      />
-                      <span className="text-xs font-semibold">ផ្សព្វផ្សាយជាសាធារណៈ (Publish Card)</span>
-                    </label>
-                  </div>
-                </div>
-              )}
-
+        {/* ─── Live preview ─── */}
+        {showPreview && (
+          <aside className={`min-w-0 ${viewMode === "split" ? "lg:sticky lg:top-[calc(var(--we-top,0px)+88px)] lg:self-start" : ""}`}>
+            <div className="flex items-center justify-between gap-3 mb-3 px-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="relative flex w-2 h-2">
+                  <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ backgroundColor: activeTemplate.accentColor }} />
+                  <span className="relative inline-flex w-2 h-2 rounded-full" style={{ backgroundColor: activeTemplate.accentColor }} />
+                </span>
+                <span className="text-[12px] font-bold truncate">
+                  {L("មើលផ្ទាល់", "Live")} · <span className="text-stone-500 font-semibold">{L(activeTemplate.nameKm, activeTemplate.nameEn)}</span>
+                </span>
+              </div>
+              <div className="flex p-0.5 rounded-xl bg-stone-900/[0.05] dark:bg-white/[0.06]">
+                {([["mobile", Smartphone], ["desktop", Monitor]] as const).map(([d, Icon]) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDevice(d)}
+                    aria-pressed={device === d}
+                    className={`w-8 h-7 rounded-lg flex items-center justify-center transition cursor-pointer ${device === d ? "bg-white dark:bg-stone-800 shadow-sm text-stone-900 dark:text-white" : "text-stone-400 hover:text-stone-700"}`}
+                    title={d}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
 
-          {/* ===============================================================
-              RIGHT COLUMN: LIVE MOBILE FRAME PREVIEW
-             =============================================================== */}
-          {(viewMode === "split" || viewMode === "preview") && (
-            <div className={`${viewMode === "split" ? "lg:col-span-6 xl:col-span-7" : "max-w-2xl mx-auto w-full"}`}>
-              <div className="sticky top-20">
-                <div className="p-3 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm mb-3 flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-800 dark:text-amber-400 font-serif flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>ការបង្ហាញផ្ទាល់ (Live Preview - &quot;Royal Khmer Gold&quot;)</span>
-                  </span>
-                  <span className="text-[10px] text-stone-500 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded-full font-mono">
-                    Template: Premier Royal Khmer
-                  </span>
-                </div>
-
-                {/* Mobile Preview Frame */}
-                <div className="rounded-3xl border-4 border-stone-300 dark:border-stone-800 overflow-hidden shadow-2xl max-h-[82vh] overflow-y-auto">
-                  <PremierRoyalKhmerCard card={card} isPreview={true} />
+            <div
+              className={`mx-auto transition-[max-width] duration-700 [transition-timing-function:cubic-bezier(.22,1,.36,1)] ${
+                device === "mobile" ? "max-w-[400px]" : viewMode === "preview" ? "max-w-[1180px]" : "max-w-full"
+              }`}
+            >
+              <div className={device === "mobile" ? "we-phone p-[10px] rounded-[48px]" : "we-browser rounded-2xl overflow-hidden"}>
+                {device === "desktop" && (
+                  <div className="h-9 px-3 flex items-center gap-1.5 bg-stone-100 dark:bg-stone-800 border-b border-stone-200 dark:border-white/10">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-400" /><span className="w-2.5 h-2.5 rounded-full bg-amber-400" /><span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                    <span className="ml-3 flex-1 h-6 rounded-md bg-white dark:bg-stone-900 text-[10.5px] text-stone-500 font-mono flex items-center px-2.5 truncate">
+                      <ShieldCheck className="w-3 h-3 mr-1.5 text-emerald-600 shrink-0" />{invitationUrl.replace(/^https?:\/\//, "")}
+                    </span>
+                  </div>
+                )}
+                {/* The card renders inside an iframe so it lays out at a real
+                    device width and its fixed layers (petals, corner buttons,
+                    modals) stay inside the device instead of covering the editor */}
+                <div
+                  ref={stageRef}
+                  className={`relative overflow-hidden bg-[#f4eee3] ${device === "mobile" ? "rounded-[38px]" : ""}`}
+                  style={{ height: viewMode === "preview" ? "calc(100vh - 150px)" : "min(calc(100vh - 150px), 820px)" }}
+                >
+                  {device === "mobile" && (
+                    <span aria-hidden="true" className="absolute top-2 left-1/2 -translate-x-1/2 z-[60] w-24 h-6 rounded-full bg-black pointer-events-none" />
+                  )}
+                  <iframe
+                    ref={frameRef}
+                    src="/wedding/preview-frame"
+                    title={L("មើលធៀបការផ្ទាល់", "Live invitation preview")}
+                    className={`absolute top-0 left-0 border-0 bg-[#f4eee3] origin-top-left transition-opacity duration-500 ${frameReady ? "opacity-100" : "opacity-0"}`}
+                    style={
+                      device === "desktop" && stageSize.w > 0
+                        ? { width: DESKTOP_WIDTH, height: stageSize.h / (stageSize.w / DESKTOP_WIDTH), transform: `scale(${stageSize.w / DESKTOP_WIDTH})` }
+                        : { width: "100%", height: "100%" }
+                    }
+                  />
+                  {!frameReady && (
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-amber-600" />
+                    </span>
+                  )}
+                  {themeSwap > 0 && (
+                    <span
+                      key={themeSwap}
+                      aria-hidden="true"
+                      className="we-theme-wipe absolute inset-0 z-[70] pointer-events-none"
+                      style={{ background: `radial-gradient(circle at 50% 30%, ${activeTemplate.palette[1] || "#fff"} 0%, ${activeTemplate.accentColor} 70%)` }}
+                    />
+                  )}
                 </div>
               </div>
             </div>
-          )}
-
-        </div>
-
+          </aside>
+        )}
       </div>
 
-      {/* Share & QR Code Modal */}
-      <WeddingShareModal
-        card={card}
-        isOpen={showShareModal}
-        onClose={() => setShowShareModal(false)}
-      />
+      {/* Toasts */}
+      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[80] flex flex-col items-center gap-2 pointer-events-none" aria-live="polite">
+        {toasts.map((tst) => (
+          <div
+            key={tst.id}
+            className={`we-toast pointer-events-auto flex items-center gap-2.5 pl-3 pr-4 py-2.5 rounded-2xl text-[12.5px] font-semibold shadow-[0_18px_40px_-12px_rgba(0,0,0,0.45)] ring-1 backdrop-blur-xl ${
+              tst.kind === "error" ? "bg-rose-600/95 text-white ring-rose-400/40" : "bg-[#1c1610]/95 text-amber-50 ring-amber-400/25"
+            }`}
+          >
+            {tst.kind === "error" ? <AlertCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4 text-amber-300" />}
+            {tst.text}
+          </div>
+        ))}
+      </div>
 
+      <WeddingShareModal card={card} isOpen={showShareModal} onClose={() => setShowShareModal(false)} />
     </div>
   );
 }
