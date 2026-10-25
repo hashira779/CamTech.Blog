@@ -154,6 +154,11 @@ function Defs() {
           <stop offset="0.4" stopColor="#FFDA92" stopOpacity="0.5" />
           <stop offset="1" stopColor="#FFDA92" stopOpacity="0" />
         </radialGradient>
+        <radialGradient id="ve-name-glow" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#FFF8EC" stopOpacity="0.92" />
+          <stop offset="0.6" stopColor="#FFF8EC" stopOpacity="0.6" />
+          <stop offset="1" stopColor="#FFF8EC" stopOpacity="0" />
+        </radialGradient>
         <linearGradient id="ve-facade" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#FFFBF3" />
           <stop offset="1" stopColor="#EADBC1" />
@@ -462,14 +467,15 @@ function GatePlane() {
       <Drape x={1280} y={110} w={260} h={790} side={1} seed={42} />
       {[170, 1430].map((x, i) => (
         <g key={x}>
-          <Strip x={x - 60} y={150} w={120} h={690} />
-          <FlowerWall x={x - 70} y={130} w={140} h={720} cell={40} seed={43 + i} ground="#D9C3B4" />
-          <rect x={x - 84} y="840" width="168" height="60" fill="url(#ve-stone)" />
-          <rect x={x - 84} y="840" width="168" height="6" fill="url(#ve-gold-h)" />
+          <WhiteColumn x={x} top={130} bottom={900} w={96} />
+          <Strip x={x - 30} y={200} w={60} h={620} />
+          <Garland a={[x - 30, 200]} b={[x + 30, 820]} sag={0} n={13} size={78} seed={43 + i} />
+          <FlowerBank x={x} y={900} w={220} h={120} n={16} seed={47 + i} />
         </g>
       ))}
-      <FlowerWall x={60} y={70} w={1480} h={92} cell={38} seed={45} ground="#D9C3B4" />
-      <Garland a={[220, 150]} b={[1380, 150]} sag={110} n={44} size={66} seed={46} />
+      <path d="M0 0 L1600 0 L1600 96 Q800 200 0 96 Z" fill="url(#ve-fold)" />
+      <path d="M0 0 L1600 0 L1600 96 Q800 200 0 96 Z" fill="url(#ve-drape-shade)" />
+      <Garland a={[170, 120]} b={[1430, 120]} sag={90} n={38} size={60} seed={46} />
       <Flower kind="spray" x={330} y={262} size={90} rot={-6} />
       <Flower kind="spray" x={1270} y={262} size={90} rot={6} flip />
       {Array.from({ length: 21 }, (_, i) => 120 + i * 68).map((x) => (
@@ -538,6 +544,8 @@ function HallInteriorPlane({ portrait }: { portrait?: string }) {
       <g transform="matrix(-1 0 0 1 1600 0)"><SideWall seed={4} /></g>
       {/* The back wall: a wall of flowers (or the couple's own tile) */}
       {own.wall_pattern ? <WallSilk x="520" y="250" width="560" height="390" /> : <FlowerWall x={520} y={250} w={560} h={390} cell={30} seed={7} />}
+      <rect x="520" y="250" width="560" height="390" fill="#FFF6EA" fillOpacity="0.32" />
+      <ellipse cx="800" cy="330" rx="200" ry="92" fill="url(#ve-name-glow)" />
       <rect x="520" y="250" width="560" height="390" fill="url(#ve-wall-shade)" />
       <Crystals x0={606} x1={1000} y={250} len={150} seed={3} />
       <Drape x={520} y={250} w={110} h={390} side={-1} seed={51} />
@@ -613,7 +621,7 @@ const at = (x: number, y: number, w: number) => ({
 });
 
 function StageNames({ groom, bride, portrait }: { groom: string; bride: string; portrait: boolean }) {
-  const gold = "bg-[linear-gradient(170deg,#FFF1C4_0%,#E9C463_45%,#B98A2E_100%)] bg-clip-text text-transparent";
+  const gold = "bg-[linear-gradient(170deg,#D9A845_0%,#B07F27_50%,#7E5617_100%)] bg-clip-text text-transparent";
   const lines = (cls: string) => (
     <>
       <span className={`block ${cls}`}>{groom}</span>
@@ -628,7 +636,7 @@ function StageNames({ groom, bride, portrait }: { groom: string; bride: string; 
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-[1] [container-type:size] will-change-transform">
       <div className="absolute text-center font-moul" style={{ ...at(560, portrait ? 268 : 312, 480), fontSize: `calc(${portrait ? 17 : 24} * ${UNIT})`, lineHeight: 1.7 }}>
-        <div className="text-transparent [text-shadow:0_1px_6px_rgba(50,15,10,0.85)]">{lines("")}</div>
+        <div className="text-transparent [text-shadow:0_0_8px_rgba(255,248,236,0.95)]">{lines("")}</div>
         <div className="absolute inset-0">{lines(gold)}</div>
       </div>
     </div>
