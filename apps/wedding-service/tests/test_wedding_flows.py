@@ -221,3 +221,36 @@ def test_slug_check_reports_each_link(client):
 
 def test_slug_check_needs_sign_in(client):
     assert client.get(f"{API}/my-card/slug-check", params={"slug": "abc"}).status_code == 401
+
+
+def test_a_renamed_link_keeps_working_for_guests(client):
+    headers, _ = sign_in(client)
+    publish(client, headers, slug="heng-bopha-first")
+    client.put(f"{API}/my-card", headers=headers, json={"slug": "heng-bopha-wedding"})
+    old = client.get(f"{API}/card/heng-bopha-first")
+    assert old.status_code == 200
+    # The old link answers with the card's current link, so the page can redirect
+    assert old.json()["slug"] == "heng-bopha-wedding"
+    wish = {"guest_name": "Dara", "attendance": "attending", "guest_count": 2, "blessing_message": "Congratulations"}
+    assert client.post(f"{API}/card/heng-bopha-first/wish", json=wish).status_code == 201
+
+
+def test_another_couple_cannot_take_a_link_guests_still_hold(client):
+    headers, _ = sign_in(client)
+    publish(client, headers, slug="sok-dara-wedding")
+    client.put(f"{API}/my-card", headers=headers, json={"slug": "sok-dara-2027"})
+    other, _ = sign_in(client, phone="098765432")
+    res = client.put(f"{API}/my-card", headers=other, json={"slug": "sok-dara-wedding"})
+    assert res.status_code == 409
+    check = client.get(f"{API}/my-card/slug-check", headers=other, params={"slug": ["sok-dara-wedding"]})
+    assert check.json()[0]["available"] is False
+
+
+def test_a_couple_can_move_back_to_their_old_link(client):
+    headers, _ = sign_in(client)
+    publish(client, headers, slug="chan-vanna-wedding")
+    client.put(f"{API}/my-card", headers=headers, json={"slug": "chan-vanna-2027"})
+    res = client.put(f"{API}/my-card", headers=headers, json={"slug": "chan-vanna-wedding"})
+    assert res.status_code == 200 and res.json()["slug"] == "chan-vanna-wedding"
+    # The link they left is now the alias, and still reaches them
+    assert client.get(f"{API}/card/chan-vanna-2027").json()["slug"] == "chan-vanna-wedding"

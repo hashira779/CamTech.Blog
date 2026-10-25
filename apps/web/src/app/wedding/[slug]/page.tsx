@@ -1,12 +1,13 @@
 import React, { cache } from "react";
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { fetchPublicWeddingCard } from "@/lib/wedding-api";
 import { PremierRoyalKhmerCard } from "@/components/wedding/PremierRoyalKhmerCard";
 import { WeddingCard } from "@/types/wedding";
 
 interface WeddingCardPageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 type Lookup = { card: WeddingCard | null; unavailable: boolean };
@@ -70,7 +71,7 @@ export async function generateMetadata({ params }: WeddingCardPageProps): Promis
   };
 }
 
-export default async function WeddingCardPage({ params }: WeddingCardPageProps) {
+export default async function WeddingCardPage({ params, searchParams }: WeddingCardPageProps) {
   const { slug } = await params;
   const { card, unavailable } = await lookupCard(slug);
 
@@ -90,6 +91,17 @@ export default async function WeddingCardPage({ params }: WeddingCardPageProps) 
     );
   }
   if (!card) notFound();
+
+  // An old link (the couple renamed it): send guests on to the current one,
+  // keeping ?guest= and anything else they were given
+  if (card.slug !== decodeURIComponent(slug).toLowerCase()) {
+    const query = new URLSearchParams();
+    for (const [k, v] of Object.entries(await searchParams)) {
+      for (const one of Array.isArray(v) ? v : v === undefined ? [] : [v]) query.append(k, one);
+    }
+    const qs = query.toString();
+    redirect(`/wedding/${encodeURIComponent(card.slug)}${qs ? `?${qs}` : ""}`);
+  }
 
   return (
     <div className="min-h-screen bg-[#f7f3ed]">

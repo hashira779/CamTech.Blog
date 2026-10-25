@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import WeddingUser, WeddingCard, WeddingWish
+from models import WeddingUser, WeddingCard, WeddingWish, WeddingSlugAlias
 from schemas import (
     WeddingAuthRequest,
     WeddingAuthResponse,
@@ -154,6 +154,24 @@ def get_or_create_card(db: Session, user: WeddingUser) -> WeddingCard:
     return card or create_default_card(db, user)
 
 
+def find_card_by_slug(db: Session, raw: str) -> Optional[WeddingCard]:
+    """The card for a public link: its current slug, or one it used before."""
+    slug = clean_slug(raw)
+    card = db.query(WeddingCard).filter(WeddingCard.slug == slug).first()
+    if card:
+        return card
+    alias = db.query(WeddingSlugAlias).filter(WeddingSlugAlias.slug == slug).first()
+    return db.get(WeddingCard, alias.card_id) if alias else None
+
+
+def slug_taken_by_other(db: Session, slug: str, card_id: str) -> bool:
+    """A slug is taken if another card uses it now, or used it before (its
+    guests may still hold that link)."""
+    if db.query(WeddingCard.id).filter(WeddingCard.slug == slug, WeddingCard.id != card_id).first():
+        return True
+    return bool(db.query(WeddingSlugAlias.slug).filter(WeddingSlugAlias.slug == slug, WeddingSlugAlias.card_id != card_id).first())
+
+
 @router.get("/health")
 def health_check():
     return {"status": "ok", "service": "wedding-microservice", "version": "1.1.0"}
@@ -261,9 +279,16 @@ def update_my_card(
         new_slug = clean_slug(update_dict["slug"])
         if new_slug != card.slug:
             validate_slug(new_slug)
-            taken = db.query(WeddingCard).filter(WeddingCard.slug == new_slug, WeddingCard.id != card.id).first()
+            taken = slug_taken_by_other(db, new_slug, card.id)
             if taken:
                 raise HTTPException(status_code=409, detail="តំណភ្ជាប់ (Slug) នេះមានអ្នកប្រើរួចហើយ (This link is already taken)")
+            # Keep the old link alive for guests who already have it, and
+            # drop an alias if the couple is moving back to that link
+            if not db.get(WeddingSlugAlias, card.slug):
+                db.add(WeddingSlugAlias(slug=card.slug, card_id=card.id))
+            reclaimed = db.get(WeddingSlugAlias, new_slug)
+            if reclaimed and reclaimed.card_id == card.id:
+                db.delete(reclaimed)
         update_dict["slug"] = new_slug
 
     for field, value in update_dict.items():
@@ -306,7 +331,7 @@ def check_slugs(
             reason = "reserved" if s in RESERVED_SLUGS else "invalid"
             results.append(SlugCheckResult(slug=s, available=False, reason=reason))
             continue
-        taken = db.query(WeddingCard.id).filter(WeddingCard.slug == s).first()
+        taken = slug_taken_by_other(db, s, card.id)
         results.append(SlugCheckResult(slug=s, available=not taken, reason="taken" if taken else "free"))
     return results
 
@@ -363,7 +388,7 @@ def delete_my_response(
 
 @router.get("/card/{slug}", response_model=WeddingCardResponse)
 def get_public_card(slug: str, db: Session = Depends(get_db)):
-    card = db.query(WeddingCard).filter(WeddingCard.slug == clean_slug(slug)).first()
+    card = find_card_by_slug(db, slug)
     # Drafts are indistinguishable from missing cards to the public
     if not card or not card.is_published:
         raise HTTPException(status_code=404, detail="Wedding card not found")
@@ -377,7 +402,7 @@ def add_wish(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    card = db.query(WeddingCard).filter(WeddingCard.slug == clean_slug(slug)).first()
+    card = find_card_by_slug(db, slug)
     if not card or not card.is_published:
         raise HTTPException(status_code=404, detail="Wedding card not found")
     if not card.enable_wishes and not card.enable_rsvp:

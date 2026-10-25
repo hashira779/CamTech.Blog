@@ -83,3 +83,13 @@ class WeddingWish(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     card = relationship("WeddingCard", back_populates="wishes")
+
+
+class WeddingSlugAlias(Base):
+    """A link a card used before it was renamed. Shared links keep working:
+    the public page follows the alias to the card's current link."""
+    __tablename__ = "wedding_slug_aliases"
+
+    slug = Column(String(100), primary_key=True)
+    card_id = Column(String(36), ForeignKey("wedding_cards.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
