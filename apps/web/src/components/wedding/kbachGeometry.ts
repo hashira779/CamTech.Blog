@@ -328,31 +328,55 @@ function segsPath(segs: Seg[]) {
     opening is a "ground" shape, so the silk colour shows through it. */
 export function gable(): Shape[] {
   const out: Shape[] = [];
-  // Flames along the outer edge, the left ones mirrored to lean outward
+  // A crest of flames along the outer edge: many, fine and close-set,
+  // growing a little toward the feet; notched and plain ones alternate,
+  // and the left ones are mirrored so every tip throws outward
   const flames: Shape[] = [];
-  for (let i = 0; i < 9; i++) {
-    const t = 0.05 + (i * 0.86) / 8;
+  const n = 15;
+  for (let i = 0; i < n; i++) {
+    const t = 0.03 + (i * 0.9) / (n - 1);
     const [x, y] = bez(OUTER_L, t);
     const phi = (bezAngle(OUTER_L, t) * 180) / Math.PI;
-    const s = 0.5 - i * 0.02;
-    flames.push(...place(i % 2 ? tongue() : flame(), x, y, phi * 0.55 + 6, -s, s));
+    const s = 0.34 - (i * 0.1) / (n - 1);
+    flames.push(...place(i % 2 ? tongue() : flame(), x, y, phi * 0.55 + 4, -s, s));
   }
   out.push(...bilateral(flames));
-  out.push(...place(lancet(), 0, -1.96, 0, 0.5));
-  out.push(...place(bud(), 0, -1.86, 0, 0.36));
-  // Naga crests at the feet
-  out.push(...place(naga(), -0.86, 0.02, 0, 0.56));
-  out.push(...place(naga(), 0.86, 0.02, 0, -0.56, 0.56));
-  // Gold body between the flames and the frame, with an engraved border
+  // Finial: a tall lancet over a lotus bud over a small pka chan
+  out.push(...place(lancet(), 0, -1.98, 0, 0.46));
+  out.push(...place(bud(), 0, -1.9, 0, 0.3));
+  out.push(...place(pkaChan(), 0, -1.92, 45, 0.07));
+  // Naga crests at the feet, turning outward
+  out.push(...place(naga(), -0.88, 0.02, 0, 0.44));
+  out.push(...place(naga(), 0.88, 0.02, 0, -0.44, 0.44));
+  // Gold body between the crest and the frame
   const outer = `${cubicD(OUTER_L)} C${-OUTER_L[2][0]} ${OUTER_L[2][1]} ${-OUTER_L[1][0]} ${OUTER_L[1][1]} ${-OUTER_L[0][0]} ${OUTER_L[0][1]} Z`;
   out.push({ d: outer, role: "gold", w: 0.02 });
-  out.push({ d: "M-0.82 0 C-0.82 -0.86 -0.42 -1.24 0 -1.9 C0.42 -1.24 0.82 -0.86 0.82 0", role: "line", w: 0.016 });
-  // The opening, then its frame: a broad gold band, crimson inside it,
-  // and the cord
+  // Carved into it: an engraved border, a running band of small lancets
+  // standing out from it like a relief, and pka chan bosses spaced along
+  // the middle of the band
+  const INNER: Cubic = [[-0.84, 0], [-0.84, -0.87], [-0.43, -1.26], [0, -1.93]];
+  const MID: Cubic = [[-0.76, 0], [-0.76, -0.82], [-0.39, -1.18], [0, -1.83]];
+  out.push({ d: "M-0.84 0 C-0.84 -0.87 -0.43 -1.26 0 -1.93 C0.43 -1.26 0.84 -0.87 0.84 0", role: "line", w: 0.012 });
+  const relief: Shape[] = [];
+  for (let i = 0; i < 22; i++) {
+    const t = 0.03 + (i * 0.92) / 21;
+    const [x, y] = bez(INNER, t);
+    const phi = (bezAngle(INNER, t) * 180) / Math.PI;
+    relief.push(...place(lancet(), x, y, phi * 0.85, 0.075));
+  }
+  for (const t of [0.16, 0.42, 0.68]) {
+    const [x, y] = bez(MID, t);
+    relief.push(...place(pkaChan(), x, y, 45, 0.055));
+  }
+  out.push(...bilateral(relief));
+  out.push({ d: "M-0.7 0 C-0.7 -0.78 -0.36 -1.12 0 -1.78 C0.36 -1.12 0.7 -0.78 0.7 0", role: "line", w: 0.01 });
+  // The opening, then its frame: a slim gold band, crimson inside it, a
+  // fine twisted cord, and a hairline of gold just inside the opening
   const frame = `M-0.62 0 ${segsPath(OPEN_L)} ${segsPath(OPEN_R)}`;
   out.push({ d: `${frame} Z`, role: "ground" });
-  out.push({ d: frame, role: "rope", w: 0.22 });
-  out.push({ d: frame, role: "red", w: 0.13 });
-  out.push(...ropeAlong([...OPEN_L, ...OPEN_R], 0.036, 0.055));
+  out.push({ d: frame, role: "rope", w: 0.15 });
+  out.push({ d: frame, role: "red", w: 0.085 });
+  out.push(...ropeAlong([...OPEN_L, ...OPEN_R], 0.026, 0.04));
+  out.push(...place([{ d: frame, role: "rope", w: 0.012 }], 0, 0, 0, 0.86, 0.95));
   return out;
 }

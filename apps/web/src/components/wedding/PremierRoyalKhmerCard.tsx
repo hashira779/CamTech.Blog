@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useSyncExternalStore } from "react";
-import { Cormorant_Garamond, Noto_Serif_Khmer, Pinyon_Script } from "next/font/google";
+import { Cormorant_Garamond, Kantumruy_Pro, Pinyon_Script } from "next/font/google";
 import { WeddingCard, WeddingAgendaItem, WeddingReception, WeddingWish } from "@/types/wedding";
 import { postWeddingWish, extractYouTubeVideoId } from "@/lib/wedding-api";
 import { WeddingShareModal } from "./WeddingShareModal";
@@ -14,6 +14,10 @@ import { KbachArch, KbachBorder, KbachBurst, KbachChan, KbachCorner, KBACH_LATTI
 import { RedThread, CeremonyIcon, type CeremonyIconName } from "./KhmerArt";
 import { AngkorBlessing } from "./AngkorBlessing";
 import { VenueEntrance } from "./VenueEntrance";
+import { PhotoInvitation } from "./PhotoInvitation";
+import { KhmerCouple } from "./KhmerCouple";
+import { Flower, GoldFrame } from "./InvitationDecor";
+import { CoupleNames, PersonName } from "./CoupleNames";
 import confetti from "canvas-confetti";
 import {
   MapPin,
@@ -26,8 +30,9 @@ import {
   Plus
 } from "lucide-react";
 
-/* The invitation's own type, set like printed stationery: a Garamond for Latin
-   display, a Khmer serif for Khmer copy, and a pen script for a few accents.
+/* The invitation's own type: a Garamond for Latin display, Kantumruy Pro
+   (a clean modern Khmer face) for all Khmer copy and names, and a pen
+   script for a few English accents.
    All self-hosted by next/font like the site fonts. */
 // Only the weights the card uses (measured: 300, 400, 600 and italic 300/400).
 // Decorative Latin display: not preloaded, swap keeps text visible meanwhile
@@ -40,9 +45,9 @@ const wcDisplay = Cormorant_Garamond({
   preload: false,
 });
 // Khmer body and names: preloaded, it carries the invitation's content
-const wcKhmer = Noto_Serif_Khmer({
+const wcKhmer = Kantumruy_Pro({
   subsets: ["khmer", "latin"],
-  weight: ["400", "600"],
+  weight: ["300", "400", "500", "600", "700"],
   variable: "--font-wc-khmer",
   display: "swap",
 });
@@ -516,7 +521,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   const t = {
     km: {
       auspiciousTitle: "សិរីសួស្តី អាពាហ៍ពិពាហ៍",
-      auspiciousBlessing: "ជយោហោតុ សិរីសួស្តី ជ័យមង្គល វិបុលសុខ មហាប្រសើរ",
+      auspiciousBlessing: "សិរីសួស្ដី ជ័យមង្គល",
       invitationHonor: "យើងខ្ញុំមានកិត្តិយសសូមគោរពអញ្ជើញ ឯកឧត្តម លោកជំទាវ លោក លោកស្រី អ្នកនាងកញ្ញា អញ្ជើញចូលរួមជាអធិបតី និងជាភ្ញៀវកិត្តិយស ក្នុងពិធីរៀបអាពាហ៍ពិពាហ៍កូនប្រុស កូនស្រីរបស់យើងខ្ញុំ",
       invitedHonoredGuest: "សូមគោរពអញ្ជើញ ភ្ញៀវកិត្តិយសដ៏ខ្ពង់ខ្ពស់",
       groomParentsTitle: "មាតាបិតាខាងកូនប្រុស",
@@ -826,7 +831,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
               {lang === "km" ? "លិខិតអញ្ជើញ" : "You are invited"}
             </p>
             <h1 className={`mt-2 wc-display text-[clamp(22px,5.4vw,34px)] text-[#fbf3e1] ${hasKhmer(card.groom_name + card.bride_name) ? "wc-km-lh" : "leading-tight"}`}>
-              {card.groom_name} <span className="italic text-[var(--env-foil)]">&amp;</span> {card.bride_name}
+              <CoupleNames groom={card.groom_name} bride={card.bride_name} ampClassName="not-italic font-sans text-[0.8em] align-middle text-[var(--env-foil)]" />
             </h1>
             <p className="mt-3 text-[13px] sm:text-sm text-white/70 wc-km-lh">
               {lang === "km" ? "សូមគោរពអញ្ជើញ" : "Respectfully inviting"}
@@ -848,7 +853,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                 <KhmerCornerFiligree position="top-right" className="absolute top-1.5 right-1.5 w-5 h-5 text-[var(--wc-link)] opacity-70" />
                 <span className="wc-smallcaps text-[10px] text-[var(--wc-link)]">{ui.weddingOf}</span>
                 <span className={`wc-display text-2xl sm:text-[28px] ${hasKhmer(card.groom_name + card.bride_name) ? "wc-km-lh" : "leading-tight"}`}>
-                  {card.groom_name} <span className="italic text-[var(--wc-link)]">&amp;</span> {card.bride_name}
+                  <CoupleNames groom={card.groom_name} bride={card.bride_name} ampClassName="italic text-[var(--wc-link)]" />
                 </span>
                 <span className="text-[11px] text-[#6b6157] wc-km-lh">{card.khmer_date || card.solar_date}</span>
                 <span className="mt-1.5 text-[11px] text-[#2b2520] truncate max-w-full">
@@ -939,48 +944,19 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         {/* =====================================================================
             I. THE INVITATION: a printed letter with the parents' names
            ===================================================================== */}
-        <section className="px-5 sm:px-6 py-24 sm:py-32" style={{ backgroundImage: KBACH_LATTICE_BG }}>
-          <p className={`${sectionLabel} text-center mb-8`}>{ui.s1}</p>
-          <div className="wc-reveal relative max-w-[720px] mx-auto bg-[#fffdf8] wc-grain border border-[color-mix(in_oklab,var(--wc-accent)_35%,transparent)] px-6 sm:px-16 py-16 sm:py-20 text-center shadow-[0_24px_50px_-30px_rgba(60,45,30,0.45)]">
-            <div aria-hidden="true" className="absolute inset-2.5 border border-[color-mix(in_oklab,var(--wc-accent)_22%,transparent)] pointer-events-none" />
-            {/* Kbach flame-leaf sprays turning round each corner of the letter card */}
-            <KbachCorner className="absolute top-3 left-3 w-16 h-16 sm:w-20 sm:h-20 pointer-events-none" />
-            <KbachCorner flip="x" className="absolute top-3 right-3 w-16 h-16 sm:w-20 sm:h-20 pointer-events-none" />
-            <KbachCorner flip="y" className="absolute bottom-3 left-3 w-16 h-16 sm:w-20 sm:h-20 pointer-events-none" />
-            <KbachCorner flip="xy" className="absolute bottom-3 right-3 w-16 h-16 sm:w-20 sm:h-20 pointer-events-none" />
-
-            <p className={lang === "km" ? "font-moul text-[22px] sm:text-[26px] text-[var(--wc-link)] leading-[1.7]" : "wc-script text-[44px] sm:text-[52px] text-[var(--wc-link)] leading-none"}>
-              {ui.invite}
-            </p>
-            <KbachBorder className="mx-auto my-6 w-72 sm:w-[22rem] h-auto" />
-            <p className="wc-khmer text-[16px] sm:text-[17px] leading-[2.1] text-[#3a332c] max-w-[520px] mx-auto">{t.invitationHonor}</p>
-
-            <div className="mt-12 grid grid-cols-[1fr_auto_1fr] items-start gap-4 sm:gap-8">
-              {[
-                { parentsTitle: t.groomParentsTitle, parents: card.groom_parents, title: t.groomTitle, name: card.groom_name },
-                null,
-                { parentsTitle: t.brideParentsTitle, parents: card.bride_parents, title: t.brideTitle, name: card.bride_name },
-              ].map((p, i) =>
-                p ? (
-                  <div key={i}>
-                    <p className="wc-smallcaps text-[#6b6157]">{p.parentsTitle}</p>
-                    <p className="mt-2 wc-khmer text-[15px] leading-[1.9] text-[#2b2520]">{p.parents}</p>
-                    <p className="mt-6 text-[13px] text-[#6b6157]">{p.title}</p>
-                    <p className="wc-display text-[26px] sm:text-[32px] leading-tight text-[#2b2520] break-words">{p.name}</p>
-                  </div>
-                ) : (
-                  <div key={i} className="self-stretch flex flex-col items-center">
-                    <span className="flex-1 w-px bg-[color-mix(in_oklab,var(--wc-accent)_35%,transparent)]" />
-                    <span className="wc-display italic text-[30px] text-[var(--wc-link)] leading-none py-2">&amp;</span>
-                    <span className="flex-1 w-px bg-[color-mix(in_oklab,var(--wc-accent)_35%,transparent)]" />
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-          <p className="mt-8 text-center wc-display italic text-[17px] text-[#6b6157]">{t.auspiciousBlessing}</p>
-          <KbachChan className="mx-auto mt-16 w-12 h-12" />
-        </section>
+        <PhotoInvitation
+          lang={lang}
+          label={ui.s1}
+          invite={ui.invite}
+          honor={t.invitationHonor}
+          blessing={t.auspiciousBlessing}
+          groom={{ name: groomName, title: t.groomTitle, parents: card.groom_parents, parentsTitle: t.groomParentsTitle }}
+          bride={{ name: brideName, title: t.brideTitle, parents: card.bride_parents, parentsTitle: t.brideParentsTitle }}
+          dateLine={`${weekdayName}${weekdayName ? " · " : ""}${prettyDate}`}
+          timeLine={card.solar_time ? `${ui.at} ${card.solar_time}` : undefined}
+          venue={[eveningReception.venue, eveningReception.hall].filter(Boolean).join(" · ") || undefined}
+          portrait={couplePortrait}
+        />
 
         {/* =====================================================================
             II. THE COUPLE: two prints, laid off-grid
@@ -1006,7 +982,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                   </button>
                   <figcaption className={`mt-5 ${p.capCls}`}>
                     <span className="wc-smallcaps text-[#6b6157]">{p.role}</span>
-                    <span className="block mt-1 wc-display text-[32px] sm:text-[40px] leading-tight text-[#2b2520]">{p.name}</span>
+                    <span className="block mt-1 wc-display text-[32px] sm:text-[40px] leading-tight text-[#2b2520]"><PersonName name={p.name} /></span>
                   </figcaption>
                 </figure>
               ))}
@@ -1020,7 +996,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         {/* =====================================================================
             III. THE DATE: big numeral + the month's calendar page
            ===================================================================== */}
-        <section className="px-5 sm:px-6 py-24 sm:py-32 border-y border-[#2b2520]/10">
+        <section className="relative overflow-clip px-5 sm:px-6 py-24 sm:py-32">
           <div className="max-w-[1080px] mx-auto grid md:grid-cols-2 gap-14 items-center">
             <div className="wc-reveal">
               <p className={sectionLabel}>{ui.s3}</p>
@@ -1052,7 +1028,12 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             </div>
 
             {dateValid && (
-              <div className="wc-reveal bg-[#fffdf8] wc-grain border border-[#2b2520]/10 p-6 sm:p-9 shadow-[0_24px_50px_-30px_rgba(60,45,30,0.45)] md:rotate-[0.6deg]">
+              <div className="relative mx-3 sm:mx-6">
+              <Flower name="orchid-white" from="r" delay={0.2} className="z-20 -right-[14%] -top-[26%] w-[34%] max-w-[180px] -scale-x-100" />
+              <Flower name="rose-white" delay={0.35} className="z-20 -left-[14%] -bottom-[20%] w-[26%] max-w-[130px] -rotate-[12deg]" />
+              <Flower name="plumeria" delay={0.45} className="z-20 left-[6%] -bottom-[15%] w-[11%] max-w-[56px] rotate-[20deg]" />
+              <div className="wc-reveal relative bg-[#fffdf8] wc-grain p-8 sm:p-11 shadow-[0_30px_60px_-34px_rgba(60,45,30,0.5)]">
+                <GoldFrame corner="w-12 h-12 sm:w-14 sm:h-14" />
                 <div className="flex items-baseline justify-between mb-6">
                   <span className="wc-display text-[26px] text-[#2b2520]">{monthName}</span>
                   <span className="text-[13px] text-[#6b6157] tabular-nums">{evYear}</span>
@@ -1073,6 +1054,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                   )}
                 </div>
               </div>
+              </div>
             )}
           </div>
         </section>
@@ -1080,8 +1062,11 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         {/* =====================================================================
             IV. THE PROGRAMME: printed like a menu, on dark card stock
            ===================================================================== */}
-        <section className="px-5 sm:px-6 py-24 sm:py-32 bg-[var(--wc-deep)] wc-grain text-[#f3ece0]">
-          <div className="max-w-[880px] mx-auto">
+        <section className="relative overflow-clip px-5 sm:px-6 py-24 sm:py-32 bg-[var(--wc-deep)] wc-grain text-[#f3ece0]">
+          <Flower name="orchid-spray" sway delay={0.1} className="z-20 right-[2%] -top-[2%] w-[26%] max-w-[200px] -scale-x-100" />
+          <Flower name="jasmine" delay={0.3} className="z-20 -left-[4%] -bottom-[2%] w-[32%] max-w-[260px]" />
+          <div className="relative max-w-[920px] mx-auto px-5 sm:px-12 py-14 sm:py-16">
+            <GoldFrame tone="dark" />
             <p className="wc-smallcaps text-[var(--wc-light)]">{ui.s4}</p>
             <KbachBorder className="mt-3 w-48 sm:w-56 h-auto" />
             <h2 className="wc-reveal mt-4 wc-display font-light text-[clamp(40px,6vw,68px)] leading-[1.05]">{ui.programTitle}</h2>
@@ -1109,15 +1094,15 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                 <h3 className="wc-smallcaps text-[var(--wc-light)] pb-4 border-b border-white/15">{ui.evening}</h3>
                 <p className="mt-6 wc-display font-light text-[56px] leading-none">{eveningReception.time}</p>
                 <p className="mt-2 wc-khmer text-[17px] text-white/85">{t.eveningProgram}</p>
-                <div className="mt-8 flex gap-3">
-                  <MapPin className="w-5 h-5 mt-1 shrink-0 text-[var(--wc-light)]" strokeWidth={1.5} />
-                  <div>
-                    <p className="wc-display text-[24px] leading-snug">{eveningReception.venue}</p>
-                    {eveningReception.hall && <p className="mt-1 text-[15px] text-white/80">{eveningReception.hall}</p>}
-                    <p className="mt-1 text-[14px] leading-relaxed text-white/60">{eveningReception.address}</p>
-                  </div>
+                <div className="relative mt-8 px-6 py-7 text-center">
+                  <div aria-hidden="true" className="absolute inset-0 border border-[#D9B45A]/60" />
+                  <div aria-hidden="true" className="absolute inset-1.5 border border-[#D9B45A]/25" />
+                  <KbachChan className="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8" />
+                  <p className="wc-khmer text-[22px] sm:text-[24px] font-semibold leading-snug text-[#FBEFCF]">{eveningReception.venue}</p>
+                  {eveningReception.hall && <p className="mt-1 wc-khmer text-[15px] text-[#F1D683]/90">{eveningReception.hall}</p>}
+                  <p className="mt-2 wc-khmer text-[14px] leading-relaxed text-white/65">{eveningReception.address}</p>
                 </div>
-                <div className="mt-6 pl-8 flex flex-wrap gap-x-6 gap-y-2 text-[15px]">
+                <div className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[15px]">
                   {eveningReception.map_url && isSafeUrl(eveningReception.map_url) && (
                     <a href={eveningReception.map_url} target="_blank" rel="noopener noreferrer" className="wc-link !text-[var(--wc-light)]">
                       {t.openMap}
@@ -1255,15 +1240,16 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
             VIII. KINDLY REPLY: a paper reply card
            ===================================================================== */}
         {(card.enable_wishes || card.enable_rsvp) && (
-          <section className="px-5 sm:px-6 pb-24 sm:pb-32">
+          <section className="relative overflow-clip px-5 sm:px-6 pt-8 pb-24 sm:pb-32">
             <p className={`${sectionLabel} text-center`}>{ui.s8}</p>
             <KbachBorder className="mx-auto mt-3 mb-8 w-48 sm:w-56 h-auto" />
-            <div className="wc-reveal relative max-w-[600px] mx-auto bg-[#fffdf8] wc-grain border border-[#2b2520]/15 px-6 sm:px-14 py-12 sm:py-16 shadow-[0_24px_50px_-30px_rgba(60,45,30,0.45)]">
-              <KbachCorner className="absolute top-2 left-2 w-14 h-14 sm:w-16 sm:h-16 pointer-events-none" />
-              <KbachCorner flip="x" className="absolute top-2 right-2 w-14 h-14 sm:w-16 sm:h-16 pointer-events-none" />
-              <KbachCorner flip="y" className="absolute bottom-2 left-2 w-14 h-14 sm:w-16 sm:h-16 pointer-events-none" />
-              <KbachCorner flip="xy" className="absolute bottom-2 right-2 w-14 h-14 sm:w-16 sm:h-16 pointer-events-none" />
-              <div aria-hidden="true" className="absolute inset-2.5 border border-[#2b2520]/10 pointer-events-none" />
+            <div className="relative max-w-[600px] mx-auto">
+            <Flower name="rose-white" delay={0.1} className="z-20 -left-[9%] -top-[5%] w-[24%] max-w-[150px] -rotate-[10deg]" />
+            <Flower name="plumeria" delay={0.2} className="z-20 left-[11%] -top-[4%] w-[10%] max-w-[60px] rotate-[24deg]" />
+            <Flower name="plumeria-pink" from="r" delay={0.25} className="z-20 -right-[8%] -top-[4%] w-[24%] max-w-[150px] rotate-[12deg]" />
+            <Flower name="orchid-white" from="r" delay={0.4} className="z-20 -right-[10%] -bottom-[4%] w-[30%] max-w-[190px] -scale-x-100" />
+            <div className="wc-reveal relative bg-[#fffdf8] wc-grain px-7 sm:px-14 py-14 sm:py-16 shadow-[0_30px_60px_-34px_rgba(60,45,30,0.5)]">
+              <GoldFrame />
 
               {wishSuccess ? (
                 <div role="status" className="text-center py-10">
@@ -1373,6 +1359,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                 </form>
               )}
             </div>
+            </div>
 
             {card.enable_wishes && wishesList.length > 0 && (
               <div className="max-w-[1080px] mx-auto mt-20">
@@ -1397,14 +1384,17 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         <AngkorBlessing label={ui.blessing} line={ui.blessingLine} labelClassName={sectionLabel} />
 
         {/* Sign-off */}
-        <footer className="px-6 pt-20 pb-24 text-center border-t border-[#2b2520]/10">
-          {/* Kbach arch crowning the couple's monogram */}
-          <KbachArch className="mx-auto -mb-2 w-24 h-28" />
-          <span className="mx-auto w-20 h-20 rounded-full border border-[var(--wc-link)]/50 flex items-center justify-center wc-display italic text-[24px] text-[var(--wc-link)]">
-            {monogramInitials.replace(/\s/g, "")}
-          </span>
+        <footer className="relative overflow-clip px-6 pt-20 pb-24 text-center">
+          {/* The bride and groom in a gold-ringed medallion, flowers either side */}
+          <div className="relative mx-auto w-fit">
+            <Flower name="rose-white" delay={0.1} className="z-10 -left-[78%] top-[52%] w-[100%] -rotate-[18deg]" />
+            <Flower name="orchid-white" from="r" delay={0.2} className="z-10 -right-[92%] top-[46%] w-[112%] -scale-x-100 rotate-[8deg]" />
+            <span className="relative z-20 mx-auto w-32 h-32 rounded-full bg-[#fffdf8] shadow-[0_0_0_1.5px_#C9A24A,0_0_0_6px_#fffdf8,0_0_0_7px_rgba(201,162,74,0.5)] flex items-end justify-center overflow-hidden">
+              <KhmerCouple className="w-[86%] h-auto -mb-[2%]" />
+            </span>
+          </div>
           <p className={lang === "km" ? "mt-8 wc-khmer text-[18px] text-[#6b6157]" : "mt-8 wc-script text-[44px] leading-none text-[#3a332c]"}>{ui.withLove}</p>
-          <p className="mt-3 wc-display text-[26px] text-[#2b2520]">{card.groom_name} &amp; {card.bride_name}</p>
+          <p className="mt-3 wc-display text-[26px] text-[#2b2520]"><CoupleNames groom={card.groom_name} bride={card.bride_name} /></p>
           <p className="mt-2 text-[13px] text-[#6b6157]">{card.khmer_date}</p>
           <p className="mt-10 text-[11px] text-[#6b6157]/80">{ui.madeWith}</p>
         </footer>

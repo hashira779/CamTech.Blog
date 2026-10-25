@@ -2459,3 +2459,48 @@ html.js .kb-anim:not([data-in]) .kb-bloom { opacity: 0; transform: rotate(-90deg
   100% { transform: translate3d(-4px, 112vh, 0) rotate(360deg); }
 }
 @media (prefers-reduced-motion: reduce) { .ve-petal { display: none; } }
+.ve-petal--rose { background: radial-gradient(circle at 30% 30%, #ffe9e7 0%, #f3b4b6 55%, #c8687a 100%); }
+
+/* ---------- Photo invitation (PhotoInvitation.tsx) ----------
+   Driven by the section's place on screen: the card rises, the photo is
+   unveiled from below, flowers drift in from their side at staggered
+   depths (--pi-d), then the orchid spray sways gently in moving air.
+   Without scroll timelines everything is simply shown. */
+.pi-sway { animation: pi-sway 7s ease-in-out infinite alternate; }
+@keyframes pi-sway { from { transform: rotate(-1.6deg); } to { transform: rotate(1.8deg); } }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .pi-card { animation: pi-rise linear both; animation-timeline: view(); animation-range: entry 0% cover 30%; }
+    .pi-photo { animation: pi-unveil linear both; animation-timeline: view(); animation-range: entry 10% cover 40%; }
+    .pi-photo-img { animation: pi-settle linear both; animation-timeline: view(); animation-range: entry 0% exit 100%; }
+    .pi-words, .pi-text { animation: pi-rise linear both; animation-timeline: view(); animation-range: entry 15% cover 35%; }
+    .pi-in-l, .pi-in-r { animation-name: pi-from-l; animation-timing-function: linear; animation-fill-mode: both; animation-timeline: view(); animation-range: entry calc(var(--pi-d, 0) * 60%) cover calc(25% + var(--pi-d, 0) * 25%); }
+    .pi-in-r { animation-name: pi-from-r; }
+    /* The orchid both drifts in and sways: the sway runs on its own
+       wrapper-less transform via the individual rotate property */
+    .pi-sway { animation: pi-from-l linear both, pi-sway-r 7s ease-in-out infinite alternate; animation-timeline: view(), auto; animation-range: entry 0% cover 35%, normal; }
+  }
+}
+@keyframes pi-rise { from { opacity: 0; transform: translateY(48px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes pi-unveil { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes pi-settle { from { transform: scale(1.14) translateY(-3%); } to { transform: scale(1) translateY(3%); } }
+@keyframes pi-from-l { from { opacity: 0; translate: -40% 12%; } to { opacity: 1; translate: 0 0; } }
+@keyframes pi-from-r { from { opacity: 0; translate: 40% 12%; } to { opacity: 1; translate: 0 0; } }
+@keyframes pi-sway-r { from { rotate: -1.6deg; } to { rotate: 1.8deg; } }
+@media (prefers-reduced-motion: reduce) { .pi-sway { animation: none; } }
+
+/* Photo invitation: names in gold leaf, a band of light passing over the
+   gilded card every few seconds, and the monogram rising into the arch */
+.pi-gold {
+  background: linear-gradient(170deg, #FFF3CF 0%, #F0CE72 40%, #D3A44A 70%, #F6DE96 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.pi-shine { animation: pi-shine 7s cubic-bezier(0.45, 0, 0.25, 1) 1.5s infinite; transform: translateX(0) skewX(-14deg); }
+@keyframes pi-shine { 0% { transform: translateX(0) skewX(-14deg); } 38%, 100% { transform: translateX(420%) skewX(-14deg); } }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .pi-mono { animation: pi-mono linear both; animation-timeline: view(); animation-range: entry 20% cover 45%; }
+  }
+}
+@keyframes pi-mono { from { opacity: 0; transform: scale(0.86) translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pi-shine { animation: none; display: none; } }

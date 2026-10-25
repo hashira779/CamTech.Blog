@@ -1,0 +1,12 @@
+Flower photographs used on the wedding invitation (PhotoInvitation.tsx).
+All are CC0 (public domain dedication) on Wikimedia Commons; cut out from
+their dark backgrounds and saved as transparent WebP.
+
+rose-white.webp      File:Fragile white rose (Unsplash).jpg
+orchid-spray.webp    File:White orchids on black (Unsplash).jpg   (cropped)
+orchid-white.webp    File:White Orchid2.jpg
+jasmine.webp         File:ياسمين متفتح.jpg
+plumeria-pink.webp   File:Plumeria flowers in close-up (Unsplash).jpg
+plumeria.webp        File:Star-shaped plumeria (Unsplash).jpg
+
+https://commons.wikimedia.org/wiki/<file name>

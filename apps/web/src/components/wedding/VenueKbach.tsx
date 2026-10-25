@@ -26,7 +26,9 @@ const r2 = (v: number) => Math.round(v * 100) / 100;
 
 /* ─── Painting ──────────────────────────────────────────────────────────── */
 
-const EDGE = "#6E4A12";
+const EDGE = "#8A6424";
+/* Edges and engraving at half their drawn width: fine, like cast metal */
+const FINE = 0.5;
 
 /** Paint a motif: gold bodies with a dark edge and a soft shadow below,
     engraved lines, highlights, and the ground colour where it shows */
@@ -38,12 +40,12 @@ export function Paint({ shapes, ground = "#5A1414" }: { shapes: Shape[]; ground?
           case "gold":
             return (
               <g key={i}>
-                <path d={s.d} fill="#2E1C06" fillOpacity="0.4" transform="translate(0.03 0.04)" />
-                <path d={s.d} fill="url(#ve-k-gold)" stroke={EDGE} strokeWidth={s.w ?? 0.02} strokeLinejoin="round" />
+                <path d={s.d} fill="#2E1C06" fillOpacity="0.28" transform="translate(0.018 0.026)" />
+                <path d={s.d} fill="url(#ve-k-gold)" stroke={EDGE} strokeWidth={(s.w ?? 0.02) * FINE} strokeLinejoin="round" />
               </g>
             );
           case "line":
-            return <path key={i} d={s.d} fill="none" stroke="#7A5418" strokeWidth={s.w} strokeLinecap="round" strokeLinejoin="round" />;
+            return <path key={i} d={s.d} fill="none" stroke="#8A6424" strokeOpacity="0.8" strokeWidth={(s.w ?? 0.02) * FINE * 1.3} strokeLinecap="round" strokeLinejoin="round" />;
           case "shine":
             return <path key={i} d={s.d} fill="#FFF4CC" fillOpacity="0.55" />;
           case "ground":
@@ -53,7 +55,7 @@ export function Paint({ shapes, ground = "#5A1414" }: { shapes: Shape[]; ground?
           case "rope":
             return (
               <g key={i}>
-                <path d={s.d} fill="none" stroke={EDGE} strokeWidth={(s.w ?? 0.1) * 1.18} strokeLinecap="round" strokeLinejoin="round" />
+                <path d={s.d} fill="none" stroke={EDGE} strokeWidth={(s.w ?? 0.1) * 1.08} strokeLinecap="round" strokeLinejoin="round" />
                 <path d={s.d} fill="none" stroke="url(#ve-k-gold)" strokeWidth={s.w} strokeLinecap="round" strokeLinejoin="round" />
               </g>
             );
@@ -117,7 +119,8 @@ export function Piece({ id, x, y, s = 1, flip = false, rotate = 0, slot }: { id:
       </g>
     );
   }
-  return <use href={`#ve-k-${id}`} transform={transform} />;
+  // Nothing is drawn in place of a piece the couple haven't uploaded
+  return null;
 }
 
 /** Flame tongues climbing a curve p0..p3 on its outer side; with `mirror`,
@@ -141,7 +144,22 @@ export function line(a: Pt, b: Pt): [Pt, Pt, Pt, Pt] {
 /** A carved border band (gold kbach on maroon), any size: the pattern is
     32 units tall, so the band is drawn at that height and scaled */
 export function Band({ x, y, w, h, vertical = false }: { x: number; y: number; w: number; h: number; vertical?: boolean }) {
-  const fill = useContext(OrnamentContext).border ? "url(#ve-o-border)" : "url(#ve-k-band)";
+  const own = useContext(OrnamentContext).border;
+  if (!own) {
+    // Without their own border: a plain double gold rule
+    return vertical ? (
+      <g>
+        <rect x={r2(x + w * 0.2)} y={y} width={r2(Math.max(1, w * 0.12))} height={h} fill="url(#ve-gold-h)" />
+        <rect x={r2(x + w * 0.68)} y={y} width={r2(Math.max(1, w * 0.12))} height={h} fill="url(#ve-gold-h)" />
+      </g>
+    ) : (
+      <g>
+        <rect x={x} y={r2(y + h * 0.2)} width={w} height={r2(Math.max(1, h * 0.12))} fill="url(#ve-gold-h)" />
+        <rect x={x} y={r2(y + h * 0.68)} width={w} height={r2(Math.max(1, h * 0.12))} fill="url(#ve-gold-h)" />
+      </g>
+    );
+  }
+  const fill = "url(#ve-o-border)";
   if (vertical) {
     const s = w / 32;
     return (
@@ -162,10 +180,11 @@ export function Band({ x, y, w, h, vertical = false }: { x: number; y: number; w
     down a rect (the pattern is 64 wide, so it is scaled to the width) */
 export function Strip({ x, y, w, h }: { x: number; y: number; w: number; h: number }) {
   const own = useContext(OrnamentContext).post_strip;
+  if (!own) return null;
   const s = w / 64;
   return (
     <g transform={`translate(${r2(x)} ${r2(y)}) scale(${r2(s)})`}>
-      <rect width="64" height={r2(h / s)} fill={own ? "url(#ve-o-strip)" : "url(#ve-k-strip)"} />
+      <rect width="64" height={r2(h / s)} fill="url(#ve-o-strip)" />
     </g>
   );
 }
@@ -204,10 +223,10 @@ function build() {
   return (
     <>
       <linearGradient id="ve-k-gold" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor="#FFF0B0" />
-        <stop offset="0.35" stopColor="#E8C15A" />
-        <stop offset="0.7" stopColor="#B8862B" />
-        <stop offset="1" stopColor="#7A5418" />
+        <stop offset="0" stopColor="#FFF7D6" />
+        <stop offset="0.3" stopColor="#F2D37A" />
+        <stop offset="0.62" stopColor="#D1A240" />
+        <stop offset="1" stopColor="#94692A" />
       </linearGradient>
       {def("leaf", tongue())}
       {def("flame", flame())}
