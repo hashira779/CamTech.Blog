@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import WeddingUser, WeddingCard, WeddingWish, WeddingSlugAlias
+from models import WeddingUser, WeddingCard, WeddingWish, WeddingSlugAlias, WeddingCardOrnament
 from schemas import (
     WeddingAuthRequest,
     WeddingAuthResponse,
@@ -67,6 +67,7 @@ def serialize_card(card: WeddingCard, include_wishes: bool = True) -> WeddingCar
     the public view (name + message); headcounts and phones stay owner-only."""
     data = {c.name: getattr(card, c.name) for c in card.__table__.columns}
     data["theme"] = data.get("theme") or DEFAULT_THEME
+    data["ornaments"] = {o.slot: o.image_url for o in card.ornaments}
     data["wishes"] = []
     if include_wishes and card.enable_wishes:
         data["wishes"] = [
@@ -290,6 +291,20 @@ def update_my_card(
             if reclaimed and reclaimed.card_id == card.id:
                 db.delete(reclaimed)
         update_dict["slug"] = new_slug
+
+    # Ornament images live in their own table: replace the stored set with
+    # the one sent, keeping rows (and their timestamps) that didn't change
+    ornaments = update_dict.pop("ornaments", None)
+    if ornaments is not None:
+        current = {o.slot: o for o in card.ornaments}
+        for slot, row in current.items():
+            if slot not in ornaments:
+                card.ornaments.remove(row)
+            elif row.image_url != ornaments[slot]:
+                row.image_url = ornaments[slot]
+        for slot, url in ornaments.items():
+            if slot not in current:
+                card.ornaments.append(WeddingCardOrnament(slot=slot, image_url=url))
 
     for field, value in update_dict.items():
         if isinstance(value, str):

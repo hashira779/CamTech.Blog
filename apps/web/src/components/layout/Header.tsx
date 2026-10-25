@@ -51,9 +51,14 @@ function useFolded(threshold = 96) {
 
   useEffect(() => {
     let frame = 0;
+    let last: boolean | null = null;
     const measure = () => {
       frame = 0;
-      setFolded((window.scrollY || document.documentElement.scrollTop || 0) > threshold);
+      const next = (window.scrollY || document.documentElement.scrollTop || 0) > threshold;
+      // Only when it flips: setting the same value still costs a header render on every scroll frame
+      if (next === last) return;
+      last = next;
+      setFolded(next);
     };
     const onScroll = () => {
       if (!frame) frame = window.requestAnimationFrame(measure);

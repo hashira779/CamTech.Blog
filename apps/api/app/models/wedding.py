@@ -68,6 +68,7 @@ class WeddingCard(Base):
 
     owner = relationship("WeddingUser", back_populates="cards")
     wishes = relationship("WeddingWish", back_populates="card", cascade="all, delete-orphan", order_by="desc(WeddingWish.created_at)")
+    ornaments = relationship("WeddingCardOrnament", cascade="all, delete-orphan", order_by="WeddingCardOrnament.slot")
 
 
 class WeddingWish(Base):
@@ -93,3 +94,15 @@ class WeddingSlugAlias(Base):
     slug = Column(String(100), primary_key=True)
     card_id = Column(String(36), ForeignKey("wedding_cards.id", ondelete="CASCADE"), nullable=False, index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class WeddingCardOrnament(Base):
+    """A kbach ornament image the couple uploaded for one place in the
+    wedding-hall scene (the stage arch, the borders, the pendants...). A
+    place without one keeps the scene's own drawing."""
+    __tablename__ = "wedding_card_ornaments"
+
+    card_id = Column(String(36), ForeignKey("wedding_cards.id", ondelete="CASCADE"), primary_key=True)
+    slot = Column(String(40), primary_key=True)
+    image_url = Column(String(500), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

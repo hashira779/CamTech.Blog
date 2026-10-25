@@ -261,3 +261,42 @@ def test_names_are_tidied_of_zero_width_characters_and_extra_spaces(client):
     card = publish(client, headers, groom_name="ង៉ាម​     សាន់ដេ", bride_name="  យាន  សុផាន់ណា ")
     assert card["groom_name"] == "ង៉ាម សាន់ដេ"
     assert card["bride_name"] == "យាន សុផាន់ណា"
+
+
+# ---------------------------------------------------------------- kbach ornaments
+
+def test_couple_sets_replaces_and_removes_ornament_images(client):
+    headers, _ = sign_in(client)
+    card = publish(client, headers, ornaments={"stage_arch": "/uploads/arch.png", "border": "https://cdn.example.com/b.png"})
+    assert card["ornaments"] == {"stage_arch": "/uploads/arch.png", "border": "https://cdn.example.com/b.png"}
+
+    # What is sent is the whole set: a changed link replaces, a missing slot goes back to the drawing
+    card = publish(client, headers, ornaments={"stage_arch": "/uploads/arch-2.png", "pendant": "/uploads/p.png"})
+    assert card["ornaments"] == {"stage_arch": "/uploads/arch-2.png", "pendant": "/uploads/p.png"}
+
+    # An empty link removes that slot; leaving `ornaments` out of an update keeps them all
+    card = publish(client, headers, ornaments={"stage_arch": "/uploads/arch-2.png", "pendant": ""})
+    assert card["ornaments"] == {"stage_arch": "/uploads/arch-2.png"}
+    card = publish(client, headers, title="Still here")
+    assert card["ornaments"] == {"stage_arch": "/uploads/arch-2.png"}
+
+    # Guests get them with the public card
+    public = client.get(f"{API}/card/{card['slug']}").json()
+    assert public["ornaments"] == {"stage_arch": "/uploads/arch-2.png"}
+
+
+def test_ornaments_refuse_unknown_places_and_unsafe_links(client):
+    headers, _ = sign_in(client)
+    for bad in ({"roof_dragon": "/uploads/x.png"}, {"border": "javascript:alert(1)"}, {"border": "data:image/png;base64,AAAA"}):
+        res = client.put(f"{API}/my-card", headers=headers, json={"ornaments": bad})
+        assert res.status_code == 422, (bad, res.text)
+    assert client.get(f"{API}/my-card", headers=headers).json()["ornaments"] == {}
+
+
+def test_each_couple_only_changes_their_own_ornaments(client):
+    alice, _ = sign_in(client, phone="011111111")
+    bob, _ = sign_in(client, phone="022222222")
+    publish(client, alice, ornaments={"flower": "/uploads/alice.png"})
+    publish(client, bob, ornaments={"flower": "/uploads/bob.png"})
+    assert client.get(f"{API}/my-card", headers=alice).json()["ornaments"] == {"flower": "/uploads/alice.png"}
+    assert client.get(f"{API}/my-card", headers=bob).json()["ornaments"] == {"flower": "/uploads/bob.png"}

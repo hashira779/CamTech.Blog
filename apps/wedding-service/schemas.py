@@ -1,7 +1,7 @@
 import json
 import re
 from datetime import datetime, timezone
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Dict
 from pydantic import BaseModel, Field, field_validator
 
 from security import is_safe_url
@@ -43,6 +43,14 @@ def _check_url(value: Optional[str]) -> Optional[str]:
     return value
 
 
+# Places in the wedding-hall scene where a couple can put their own kbach
+# ornament image (a transparent PNG). Mirrors apps/web/src/lib/wedding-ornaments.ts
+ORNAMENT_SLOTS = (
+    "stage_arch", "stage_center", "wall_panel", "post_strip", "border",
+    "pendant", "gable", "naga", "wall_pattern", "flower",
+)
+
+
 class WeddingCardUpdate(BaseModel):
     title: Optional[str] = Field(None, max_length=255)
     slug: Optional[str] = Field(None, max_length=60)
@@ -69,6 +77,27 @@ class WeddingCardUpdate(BaseModel):
     enable_rsvp: Optional[bool] = None
     enable_wishes: Optional[bool] = None
     is_published: Optional[bool] = None
+
+    # The full set of ornament images: what is sent replaces what was stored,
+    # and a slot left out (or sent empty) goes back to the scene's drawing
+    ornaments: Optional[Dict[str, Optional[str]]] = None
+
+    @field_validator("ornaments")
+    @classmethod
+    def _ornaments(cls, v: Optional[Dict[str, Optional[str]]]) -> Optional[Dict[str, str]]:
+        if v is None:
+            return None
+        out: Dict[str, str] = {}
+        for slot, url in v.items():
+            if slot not in ORNAMENT_SLOTS:
+                raise ValueError(f"Unknown ornament place: {slot}")
+            url = (url or "").strip()
+            if not url:
+                continue
+            if len(url) > 500 or not is_safe_url(url):
+                raise ValueError(f"Invalid image link for {slot}")
+            out[slot] = url
+        return out
 
     @field_validator("groom_image_url", "bride_image_url", "cover_image_url", "music_url", "khqr_image_url")
     @classmethod
@@ -225,6 +254,7 @@ class WeddingCardResponse(_UtcTimes):
     enable_wishes: bool
     is_published: bool
     wishes: Optional[List[WeddingWishPublic]] = []
+    ornaments: Dict[str, str] = {}
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

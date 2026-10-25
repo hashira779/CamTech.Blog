@@ -157,8 +157,8 @@ function cubicD(t: number, a: number, b: number, c: number, d: number) {
 /* Leaves along a curve, on its outer (left-of-travel) side. A leaf's
    rotation 0 points up; the outward normal of a curve heading at angle φ
    works out to rotate(φ), and `lean` pulls each flame toward upright */
-type Pt = readonly [number, number];
-function leavesAlong(p0: Pt, p1: Pt, p2: Pt, p3: Pt, n: number, from: number, to: number, big: number, small: number, lean: number, offset: number) {
+export type Pt = readonly [number, number];
+export function leavesAlong(p0: Pt, p1: Pt, p2: Pt, p3: Pt, n: number, from: number, to: number, big: number, small: number, lean: number, offset: number) {
   return Array.from({ length: n }, (_, i) => {
     const t = from + ((to - from) * i) / (n - 1);
     const x = cubic(t, p0[0], p1[0], p2[0], p3[0]);

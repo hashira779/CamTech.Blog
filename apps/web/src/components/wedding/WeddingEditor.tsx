@@ -16,6 +16,7 @@ import { WEDDING_TEMPLATES, getTemplateById, WeddingTemplateDefinition } from "@
 import { isSafeUrl } from "@/lib/safe-url";
 import { WeddingFlowerIcon } from "./WeddingFlowers";
 import { WeddingShareModal } from "./WeddingShareModal";
+import { WeddingOrnamentsPanel } from "./WeddingOrnamentsPanel";
 import { WeddingLinkBox } from "./WeddingLinkBox";
 import confetti from "canvas-confetti";
 import {
@@ -66,7 +67,7 @@ interface WeddingEditorProps {
   onLogout: () => void;
 }
 
-type TabId = "templates" | "details" | "photos" | "schedule" | "venue" | "music" | "gift" | "guests" | "settings";
+type TabId = "templates" | "details" | "photos" | "kbach" | "schedule" | "venue" | "music" | "gift" | "guests" | "settings";
 type ViewMode = "editor" | "split" | "preview";
 type Toast = { id: number; kind: "success" | "error" | "info"; text: string };
 
@@ -592,6 +593,7 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
     { id: "templates", km: "គំរូរចនា", en: "Templates", icon: Palette },
     { id: "details", km: "កូនកំលោះ & ក្រមុំ", en: "Couple", icon: Heart },
     { id: "photos", km: "រូបថត & Gallery", en: "Photos", icon: ImageIcon },
+    { id: "kbach", km: "ក្បាច់ខ្មែរ", en: "Kbach", icon: Crown },
     { id: "schedule", km: "កាលវិភាគ", en: "Schedule", icon: Clock },
     { id: "venue", km: "ទីកន្លែង", en: "Venue", icon: MapPin },
     { id: "music", km: "បទភ្លេង", en: "Music", icon: Music },
@@ -1078,6 +1080,31 @@ export function WeddingEditor({ initialCard, token, onLogout }: WeddingEditorPro
                     })}
                   </div>
                 )}
+              </Panel>
+            )}
+
+            {/* KBACH ORNAMENTS */}
+            {activeTab === "kbach" && (
+              <Panel
+                icon={Crown}
+                title={L("ក្បាច់ខ្មែរ របស់អ្នក", "Your kbach ornaments")}
+                subtitle={L(
+                  "ដាក់រូប PNG ផ្ទៃថ្លា សម្រាប់កន្លែងនីមួយៗក្នុងរោងការ។ កន្លែងណាមិនទាន់ដាក់ នឹងប្រើក្បាច់ដើម។",
+                  "Upload a transparent PNG for any place in the wedding hall. Places you leave empty keep the built-in drawing."
+                )}
+                action={
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-stone-900/5 dark:bg-white/10 whitespace-nowrap">
+                    {Object.keys(card.ornaments ?? {}).length}/10
+                  </span>
+                }
+              >
+                <WeddingOrnamentsPanel
+                  ornaments={card.ornaments ?? {}}
+                  token={token}
+                  lang={lang}
+                  onSave={(next) => persistPhotos({ ornaments: next })}
+                  notify={notify}
+                />
               </Panel>
             )}
 

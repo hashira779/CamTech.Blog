@@ -1,3 +1,5 @@
+import type { WeddingOrnaments } from "@/lib/wedding-ornaments";
+
 export interface WeddingAgendaItem {
   time: string;
   title: string;
@@ -66,6 +68,8 @@ export interface WeddingCard {
   enable_wishes: boolean;
   is_published: boolean;
   wishes?: WeddingWish[];
+  /** The couple's own kbach ornament images for the wedding-hall scene */
+  ornaments?: WeddingOrnaments;
   created_at?: string;
   updated_at?: string;
 }

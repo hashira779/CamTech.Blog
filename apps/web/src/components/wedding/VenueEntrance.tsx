@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
+import type { WeddingOrnaments } from "@/lib/wedding-ornaments";
+import { Band, Crest, KbachDefs, LeavesAlong, Leaf, OrnamentContext, Piece, Strip, line, type OrnamentImage, type OrnamentImages } from "./VenueKbach";
 
 /* The opening of the invitation: arriving at a Khmer wedding hall.
 
@@ -32,6 +34,8 @@ export interface VenueEntranceProps {
   portrait?: string;
   khmerNames: boolean;
   scrollHint: string;
+  /** The couple's own kbach ornament images, by place in the scene */
+  ornaments?: WeddingOrnaments;
 }
 
 /* ─── Shared bits ───────────────────────────────────────────────────────── */
@@ -113,6 +117,10 @@ function Defs() {
           <stop offset="0" stopColor="#CDB48C" />
           <stop offset="1" stopColor="#EBDBBF" />
         </linearGradient>
+        <radialGradient id="ve-wall-shade" cx="0.5" cy="0.45" r="0.75">
+          <stop offset="0.35" stopColor="#1A0806" stopOpacity="0" />
+          <stop offset="1" stopColor="#1A0806" stopOpacity="0.45" />
+        </radialGradient>
         <linearGradient id="ve-ceiling" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#3B2414" />
           <stop offset="1" stopColor="#7A5634" />
@@ -144,29 +152,33 @@ function Defs() {
           <stop offset="0.4" stopColor="#FFDA92" stopOpacity="0.5" />
           <stop offset="1" stopColor="#FFDA92" stopOpacity="0" />
         </radialGradient>
+        <linearGradient id="ve-chair-cover" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#E9DFCC" />
+          <stop offset="0.4" stopColor="#FFFCF4" />
+          <stop offset="1" stopColor="#D9CBB0" />
+        </linearGradient>
+        {/* Guest chair in an ivory cover, a gold sash tied in a bow at the
+            back; feet at the origin, ~50 tall */}
+        <g id="ve-chair">
+          <ellipse cx="0" cy="-1" rx="19" ry="3" fill="#5E4520" fillOpacity="0.22" />
+          <path d="M-15 -25 L15 -25 L17.5 -2 L-17.5 -2 Z" fill="url(#ve-chair-cover)" />
+          <path d="M-7 -24 L-8 -3 M0 -24 L0 -3 M7 -24 L8 -3" stroke="#C9B898" strokeWidth="0.8" strokeOpacity="0.7" />
+          <path d="M-13 -25 L-13 -44 C-13 -52 13 -52 13 -44 L13 -25 Z" fill="url(#ve-chair-cover)" stroke="#D3C19C" strokeWidth="0.6" />
+          <rect x="-13" y="-33" width="26" height="6" fill="url(#ve-gold-h)" />
+          <path d="M0 -30 C-6 -37 -12 -34 -9 -29 C-7 -26 -3 -28 0 -30 Z M0 -30 C6 -37 12 -34 9 -29 C7 -26 3 -28 0 -30 Z" fill="url(#ve-gold)" stroke="#8C6D37" strokeWidth="0.5" />
+          <path d="M-1 -29 L-4 -16 L-1.5 -17.5 Z M1 -29 L4 -16 L1.5 -17.5 Z" fill="url(#ve-gold)" />
+          <circle cx="0" cy="-30" r="1.8" fill="#F1D683" />
+        </g>
+        <KbachDefs />
         <clipPath id="ve-portrait-clip">
-          <ellipse cx="800" cy="408" rx="64" ry="84" />
+          <ellipse cx="800" cy="476" rx="60" ry="80" />
+        </clipPath>
+        <clipPath id="ve-door-clip">
+          <path d="M752 522 L752 438 Q800 404 848 438 L848 522 Z" />
         </clipPath>
       </defs>
     </svg>
   );
-}
-
-/* Flame-leaf (kbach phni tes) along a pediment edge, as a run of small arcs */
-function kbachEdge(x0: number, y0: number, x1: number, y1: number, n: number) {
-  let d = "";
-  for (let i = 0; i < n; i++) {
-    const t0 = i / n, t1 = (i + 1) / n;
-    const ax = x0 + (x1 - x0) * t0, ay = y0 + (y1 - y0) * t0;
-    const bx = x0 + (x1 - x0) * t1, by = y0 + (y1 - y0) * t1;
-    const mx = (ax + bx) / 2, my = (ay + by) / 2;
-    // Curl outward from the edge then back, with a flame tip
-    const nx = -(by - ay), ny = bx - ax;
-    const len = Math.hypot(nx, ny) || 1;
-    const k = 0.9;
-    d += `M${ax.toFixed(1)} ${ay.toFixed(1)} Q${(mx + (nx / len) * 10 * k).toFixed(1)} ${(my + (ny / len) * 10 * k).toFixed(1)} ${bx.toFixed(1)} ${by.toFixed(1)} `;
-  }
-  return d;
 }
 
 /* A flared Khmer roof tier: eaves sweeping up at both ends into chovea */
@@ -202,21 +214,32 @@ function Column({ x, top, bottom, w, shade = 1 }: { x: number; top: number; bott
   const capH = w * 0.9;
   const baseH = w * 0.55;
   return (
-    <g opacity={shade}>
+    <g opacity={shade === 1 ? undefined : shade}>
       <rect x={x - w * 0.62} y={bottom - baseH} width={w * 1.24} height={baseH} fill="url(#ve-gold)" />
       <rect x={x - w / 2} y={top + capH} width={w} height={bottom - baseH - top - capH} fill="url(#ve-stone-side)" />
       {/* Carved bands */}
       {[0.22, 0.5, 0.78].map((f) => (
-        <rect key={f} x={x - w / 2} y={top + capH + (bottom - baseH - top - capH) * f} width={w} height={Math.max(2, w * 0.1)} fill="url(#ve-gold-h)" opacity="0.85" />
+        <rect key={f} x={x - w / 2} y={top + capH + (bottom - baseH - top - capH) * f} width={w} height={Math.max(2, w * 0.1)} fill="url(#ve-gold-h)" fillOpacity="0.85" />
       ))}
       {/* Fluting shadow */}
-      <rect x={x + w * 0.18} y={top + capH} width={w * 0.32} height={bottom - baseH - top - capH} fill="#8C6D37" opacity="0.18" />
+      <rect x={x + w * 0.18} y={top + capH} width={w * 0.32} height={bottom - baseH - top - capH} fill="#8C6D37" fillOpacity="0.18" />
+      {/* Wide shafts carry a carved strip: pka chan flowers between the bands */}
+      {w >= 28 && [0.36, 0.64].map((f) => (
+        <Piece key={f} id="chan" x={x} y={top + capH + (bottom - baseH - top - capH) * f} s={(w / 70) * 0.85} />
+      ))}
+      {w >= 28 && [0.22, 0.5, 0.78].map((f) => (
+        <g key={f}>
+          <Leaf x={x - w * 0.2} y={top + capH + (bottom - baseH - top - capH) * f + w * 0.1} size={w * 0.24} angle={200} notched />
+          <Piece id="lancet" x={x} y={top + capH + (bottom - baseH - top - capH) * f + w * 0.1} s={w * 0.32} rotate={180} />
+          <Leaf x={x + w * 0.2} y={top + capH + (bottom - baseH - top - capH) * f + w * 0.1} size={w * 0.24} angle={160} flip notched />
+        </g>
+      ))}
       {/* Lotus capital: petals opening upward to the beam */}
       <path
         d={`M${x - w * 0.5} ${top + capH} C${x - w * 0.9} ${top + capH * 0.6} ${x - w * 0.85} ${top + capH * 0.15} ${x - w * 0.95} ${top} L${x + w * 0.95} ${top} C${x + w * 0.85} ${top + capH * 0.15} ${x + w * 0.9} ${top + capH * 0.6} ${x + w * 0.5} ${top + capH} Z`}
         fill="url(#ve-gold)"
       />
-      <path d={`M${x - w * 0.3} ${top + capH} C${x - w * 0.35} ${top + capH * 0.5} ${x} ${top + capH * 0.2} ${x} ${top + capH * 0.1} C${x} ${top + capH * 0.2} ${x + w * 0.35} ${top + capH * 0.5} ${x + w * 0.3} ${top + capH}`} fill="none" stroke="#8C6D37" strokeWidth={Math.max(0.8, w * 0.04)} opacity="0.7" />
+      <path d={`M${x - w * 0.3} ${top + capH} C${x - w * 0.35} ${top + capH * 0.5} ${x} ${top + capH * 0.2} ${x} ${top + capH * 0.1} C${x} ${top + capH * 0.2} ${x + w * 0.35} ${top + capH * 0.5} ${x + w * 0.3} ${top + capH}`} fill="none" stroke="#8C6D37" strokeWidth={Math.max(0.8, w * 0.04)} strokeOpacity="0.7" />
     </g>
   );
 }
@@ -246,12 +269,23 @@ function Flowers({ x, y, s = 1, seed = 1 }: { x: number; y: number; s?: number; 
       {blooms.map((b, i) => (
         <g key={i}>
           <circle cx={x + b.dx} cy={y + b.dy} r={b.rr} fill={b.c} />
-          <circle cx={x + b.dx - b.rr * 0.25} cy={y + b.dy - b.rr * 0.25} r={b.rr * 0.45} fill="#fff" opacity="0.5" />
-          <circle cx={x + b.dx + b.rr * 0.2} cy={y + b.dy + b.rr * 0.3} r={b.rr * 0.35} fill="#B7826A" opacity="0.25" />
+          <circle cx={x + b.dx - b.rr * 0.25} cy={y + b.dy - b.rr * 0.25} r={b.rr * 0.45} fill="#fff" fillOpacity="0.5" />
+          <circle cx={x + b.dx + b.rr * 0.2} cy={y + b.dy + b.rr * 0.3} r={b.rr * 0.35} fill="#B7826A" fillOpacity="0.25" />
+          <path
+            d={`M${r2(x + b.dx - b.rr * 0.55)} ${r2(y + b.dy)} C${r2(x + b.dx - b.rr * 0.55)} ${r2(y + b.dy - b.rr * 0.7)} ${r2(x + b.dx + b.rr * 0.55)} ${r2(y + b.dy - b.rr * 0.7)} ${r2(x + b.dx + b.rr * 0.5)} ${r2(y + b.dy)} C${r2(x + b.dx + b.rr * 0.45)} ${r2(y + b.dy + b.rr * 0.45)} ${r2(x + b.dx - b.rr * 0.25)} ${r2(y + b.dy + b.rr * 0.4)} ${r2(x + b.dx - b.rr * 0.2)} ${r2(y + b.dy)} C${r2(x + b.dx - b.rr * 0.15)} ${r2(y + b.dy - b.rr * 0.3)} ${r2(x + b.dx + b.rr * 0.25)} ${r2(y + b.dy - b.rr * 0.25)} ${r2(x + b.dx + b.rr * 0.2)} ${r2(y + b.dy + b.rr * 0.05)}`}
+            fill="none" stroke="#9A5A4A" strokeOpacity="0.45" strokeWidth={r2(b.rr * 0.12)} strokeLinecap="round"
+          />
         </g>
       ))}
     </g>
   );
+}
+
+/* Gold-on-red silk for the wall behind the stage: the couple's own tile if
+   they uploaded one, otherwise the drawn pka chan lattice */
+function WallSilk(props: React.SVGProps<SVGRectElement>) {
+  const own = useContext(OrnamentContext).wall_pattern;
+  return <rect {...props} fill={own ? "url(#ve-o-wall)" : "url(#ve-k-lattice)"} />;
 }
 
 /* ─── Exterior planes ───────────────────────────────────────────────────── */
@@ -261,7 +295,7 @@ function SkyPlane() {
     <svg viewBox={VB} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 w-full h-full" aria-hidden="true">
       <rect width="1600" height="900" fill="url(#ve-sky)" />
       <circle cx="800" cy="300" r="300" fill="url(#ve-sun)" />
-      <circle cx="800" cy="300" r="56" fill="#FFF3D0" opacity="0.8" />
+      <circle cx="800" cy="300" r="56" fill="#FFF3D0" fillOpacity="0.8" />
     </svg>
   );
 }
@@ -309,25 +343,35 @@ function HallPlane() {
         const t = (i + 1) / 11;
         const y = 560 + 340 * t * t;
         const half = 30 + 210 * t * t;
-        return <line key={i} x1={800 - half} y1={y} x2={800 + half} y2={y} stroke="#B99E74" strokeWidth={0.6 + t * 1.6} opacity="0.55" />;
+        return <line key={i} x1={800 - half} y1={y} x2={800 + half} y2={y} stroke="#B99E74" strokeWidth={0.6 + t * 1.6} strokeOpacity="0.55" />;
       })}
       {/* Platform and steps */}
       <rect x="410" y="520" width="780" height="42" fill="url(#ve-stone)" />
-      <rect x="410" y="520" width="780" height="5" fill="url(#ve-gold-h)" opacity="0.8" />
+      <Band x={410} y={527} w={780} h={14} />
+      <rect x="410" y="520" width="780" height="5" fill="url(#ve-gold-h)" fillOpacity="0.8" />
       {[0, 1, 2, 3].map((i) => (
         <rect key={i} x={735 - i * 8} y={530 + i * 8} width={130 + i * 16} height="8" fill={i % 2 ? "#E6D6B9" : "#F3E8D3"} />
       ))}
       {/* Colonnade: warm interior between the columns, the doorway brightest */}
       <rect x="440" y="404" width="720" height="118" fill="url(#ve-bay)" />
-      <path d="M752 522 L752 438 Q800 404 848 438 L848 522 Z" fill="url(#ve-door)" />
+      {/* Through the doorway: the gilded stage at the far end of the hall,
+          so the camera walks toward something real, not a blank glow */}
+      <g clipPath="url(#ve-door-clip)">
+        <WallSilk x="752" y="404" width="96" height="118" />
+        <Piece id="gable" x={800} y={521} s={30} />
+        <rect x="752" y="404" width="96" height="118" fill="url(#ve-door)" fillOpacity="0.55" />
+      </g>
       {colsX.map((x) => (
         <Column key={x} x={x} top={404} bottom={522} w={18} />
       ))}
       <Column x={740} top={404} bottom={522} w={22} />
       <Column x={860} top={404} bottom={522} w={22} />
       {/* Beam with kbach frieze */}
-      <rect x="420" y="396" width="760" height="12" fill="url(#ve-gold-h)" />
-      <path d={kbachEdge(430, 408, 1170, 408, 46)} fill="none" stroke="#8C6D37" strokeWidth="1.4" />
+      <Band x={420} y={394} w={760} h={16} />
+      {/* Flame pendants hanging between the columns */}
+      {[492, 572, 652, 800, 948, 1028, 1108].map((x) => (
+        <Piece key={x} id="pendant" x={x} y={411} s={0.42} />
+      ))}
       {/* Roof tiers, back to front, with gold eaves and chovea */}
       {roofs.slice().reverse().map((rf, i) => (
         <g key={i}>
@@ -339,16 +383,18 @@ function HallPlane() {
       {/* Roof tiles: fine lines following the slope */}
       {Array.from({ length: 22 }, (_, i) => {
         const x = 420 + i * 36;
-        return <line key={i} x1={x} y1={404} x2={800 + (x - 800) * 0.8} y2={344} stroke="#5A1A10" strokeWidth="1" opacity="0.35" />;
+        return <line key={i} x1={x} y1={404} x2={800 + (x - 800) * 0.8} y2={344} stroke="#5A1A10" strokeWidth="1" strokeOpacity="0.35" />;
       })}
       {/* Pediment: gilded triangle with kbach edge and lotus boss */}
       <path d="M690 344 L800 238 L910 344 Z" fill="url(#ve-gold)" />
-      <path d="M708 338 L800 252 L892 338 Z" fill="#7A2A1A" />
-      <path d={kbachEdge(708, 338, 800, 252, 9) + kbachEdge(800, 252, 892, 338, 9)} fill="none" stroke="#F1D683" strokeWidth="1.6" />
-      <circle cx="800" cy="306" r="17" fill="url(#ve-gold)" />
-      {Array.from({ length: 8 }, (_, i) => (
-        <ellipse key={i} cx="800" cy="294" rx="4" ry="10" fill="#F1D683" transform={`rotate(${i * 45} 800 306)`} />
-      ))}
+      <path d="M708 338 L800 252 L892 338 Z" fill="#5A1414" />
+      {/* Flames climbing both rakes, naga-tail scrolls at their feet, and a
+          diamond rosette in the gable */}
+      <LeavesAlong p={line([690, 344], [800, 238])} n={11} big={26} small={15} from={0.1} to={0.9} mirror={800} />
+      <Piece id="naga" x={692} y={348} s={0.62} />
+      <Piece id="naga" x={908} y={348} s={0.62} flip />
+      <Piece id="rosette" slot="gable" x={800} y={308} s={0.4} />
+      <Crest x0={640} x1={960} y={237} size={20} />
       {/* Spire */}
       {spire(800, 240, 120, 18).map((d, i) => <path key={i} d={d} fill="url(#ve-gold)" />)}
     </svg>
@@ -370,8 +416,8 @@ function PathPlane() {
           <circle cx={p.x} cy={p.y - 112 * p.s} r={34 * p.s} fill="url(#ve-lamp)" />
           <rect x={p.x - 3 * p.s} y={p.y - 100 * p.s} width={6 * p.s} height={100 * p.s} fill="url(#ve-gold)" />
           <path d={`M${p.x - 12 * p.s} ${p.y - 100 * p.s} L${p.x} ${p.y - 128 * p.s} L${p.x + 12 * p.s} ${p.y - 100 * p.s} Z`} fill="url(#ve-gold)" />
-          <rect x={p.x - 9 * p.s} y={p.y - 122 * p.s} width={18 * p.s} height={20 * p.s} fill="#FFE7B0" opacity="0.9" />
-          <ellipse cx={p.x} cy={p.y} rx={16 * p.s} ry={4 * p.s} fill="#5E4520" opacity="0.25" />
+          <rect x={p.x - 9 * p.s} y={p.y - 122 * p.s} width={18 * p.s} height={20 * p.s} fill="#FFE7B0" fillOpacity="0.9" />
+          <ellipse cx={p.x} cy={p.y} rx={16 * p.s} ry={4 * p.s} fill="#5E4520" fillOpacity="0.25" />
         </g>
       ))}
       <Flowers x={700} y={548} s={0.7} seed={3} />
@@ -386,16 +432,21 @@ function GatePlane() {
     <g>
       <rect x={x - 70} y="150" width="140" height="750" fill="url(#ve-stone-side)" />
       <rect x={x - 82} y="820" width="164" height="80" fill="url(#ve-stone)" />
-      {[260, 420, 580, 740].map((y) => (
-        <g key={y}>
-          <rect x={x - 70} y={y} width="140" height="10" fill="url(#ve-gold-h)" />
-          <path d={kbachEdge(x - 66, y + 10, x + 66, y + 10, 8)} fill="none" stroke="#8C6D37" strokeWidth="1.4" />
-        </g>
+      {/* Gilded capital and base rings, flames hanging from the capital */}
+      {[200, 780].map((y) => (
+        <rect key={y} x={x - 70} y={y} width="140" height="12" fill="url(#ve-gold-h)" />
       ))}
-      {/* Apsara-panel recess: a carved niche with a lotus */}
-      <path d={`M${x - 40} 640 L${x - 40} 470 Q${x} 430 ${x + 40} 470 L${x + 40} 640 Z`} fill="#CDB792" />
-      <path d={`M${x} 600 C${x - 18} 580 ${x - 16} 548 ${x} 520 C${x + 16} 548 ${x + 18} 580 ${x} 600 Z`} fill="url(#ve-gold)" />
-      <rect x={x - 70} y="150" width="18" height="750" fill="#7E6542" opacity="0.18" />
+      {[-48, -16, 16, 48].map((dx) => (
+        <Piece key={dx} id="pendant" x={x + dx} y={214} s={0.62} />
+      ))}
+      {/* Carved door-post strip down the shaft, bordered in kbach, with a
+          teardrop panel crowning it */}
+      <rect x={x - 54} y="300" width="108" height="460" fill="#E4D3B2" />
+      <Band x={x - 54} y={300} w={12} h={460} vertical />
+      <Band x={x + 42} y={300} w={12} h={460} vertical />
+      <Strip x={x - 38} y={300} w={76} h={460} />
+      <Piece id="tear" x={x} y={278} s={0.4} />
+      <rect x={x - 70} y="150" width="18" height="750" fill="#7E6542" fillOpacity="0.18" />
     </g>
   );
   return (
@@ -404,10 +455,21 @@ function GatePlane() {
       {pillar(1440)}
       {/* Lintel with a tiered kbach pediment */}
       <rect x="80" y="110" width="1440" height="56" fill="url(#ve-stone)" />
-      <rect x="80" y="160" width="1440" height="8" fill="url(#ve-gold-h)" />
-      <path d={kbachEdge(90, 110, 1510, 110, 70)} fill="none" stroke="#8C6D37" strokeWidth="2" />
-      <path d="M560 112 Q800 -20 1040 112 Z" fill="url(#ve-stone)" />
-      <path d={kbachEdge(570, 110, 800, 8, 14) + kbachEdge(800, 8, 1030, 110, 14)} fill="none" stroke="url(#ve-gold-h)" strokeWidth="3" />
+      <Band x={80} y={118} w={1440} h={36} />
+      <rect x="80" y="110" width="1440" height="6" fill="url(#ve-gold-h)" />
+      <rect x="80" y="158" width="1440" height="10" fill="url(#ve-gold-h)" />
+      {/* Pendants of flame-leaves along the underside of the lintel */}
+      {Array.from({ length: 19 }, (_, i) => 224 + i * 64).map((x) => (
+        <Piece key={x} id="pendant" x={x} y={170} s={0.55} />
+      ))}
+      {/* Pediment: gilded rim lined with climbing flames, a flame finial */}
+      <path d="M560 112 Q800 -20 1040 112 Z" fill="url(#ve-gold)" />
+      <path d="M584 112 Q800 -2 1016 112 Z" fill="url(#ve-stone)" />
+      <Crest x0={90} x1={566} y={111} size={34} />
+      <Crest x0={1034} x1={1510} y={111} size={34} />
+      <LeavesAlong p={[[560, 112], [640, 68], [720, 46], [800, 46]]} n={11} big={40} small={22} from={0.06} to={0.9} offset={2} mirror={800} />
+      <Piece id="lancet" x={800} y={50} s={52} />
+      <Piece id="rosette" slot="gable" x={800} y={84} s={0.4} />
       {/* Jasmine garland swagged under the lintel */}
       {[[230, 800], [800, 1370]].map(([a, b], i) => (
         <g key={i}>
@@ -425,6 +487,39 @@ function GatePlane() {
 
 /* ─── Interior planes ───────────────────────────────────────────────────── */
 
+
+/* The left wall's carved panels (the right wall is its mirror): gilded
+   frames in perspective, each holding a teardrop panel between two pka
+   chan, over a gold dado line. The wall runs from x=0 (near, 900 tall) to
+   x=520 (far, 390 tall) */
+function SideWallPanels() {
+  const top = (x: number) => (250 * x) / 520;
+  const bot = (x: number) => 900 - (260 * x) / 520;
+  const panels = [[228, 292], [372, 418], [452, 488]];
+  return (
+    <g>
+      {[0.1, 0.86].map((f) => (
+        <line key={f} x1="0" y1={900 * f} x2="520" y2={250 + 390 * f} stroke="#B08A3E" strokeWidth={f < 0.5 ? 3 : 5} strokeOpacity="0.75" />
+      ))}
+      {panels.map(([x1, x2]) => {
+        const h1 = bot(x1) - top(x1), h2 = bot(x2) - top(x2);
+        const quad = (f0: number, f1: number) =>
+          `M${x1} ${top(x1) + h1 * f0} L${x2} ${top(x2) + h2 * f0} L${x2} ${top(x2) + h2 * f1} L${x1} ${top(x1) + h1 * f1} Z`;
+        const cx = (x1 + x2) / 2, ch = bot(cx) - top(cx);
+        return (
+          <g key={x1}>
+            <path d={quad(0.16, 0.8)} fill="url(#ve-gold)" />
+            <path d={quad(0.18, 0.78)} fill="#5A1414" />
+            <Piece id="tear" x={cx} y={top(cx) + ch * 0.47} s={ch / 580} />
+            <Piece id="chan" x={cx} y={top(cx) + ch * 0.27} s={ch / 1100} />
+            <Piece id="chan" x={cx} y={top(cx) + ch * 0.68} s={ch / 1100} />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
 /* Far plane: walls, coffered ceiling, polished floor, aisle and the stage */
 function HallInteriorPlane({ portrait }: { portrait?: string }) {
   return (
@@ -433,26 +528,44 @@ function HallInteriorPlane({ portrait }: { portrait?: string }) {
       <path d="M0 0 L1600 0 L1080 250 L520 250 Z" fill="url(#ve-ceiling)" />
       {Array.from({ length: 9 }, (_, i) => {
         const x = (1600 / 8) * i;
-        return <line key={i} x1={x} y1="0" x2={520 + (560 / 8) * i} y2="250" stroke="#C9A56A" strokeWidth="1.2" opacity="0.4" />;
+        return <line key={i} x1={x} y1="0" x2={520 + (560 / 8) * i} y2="250" stroke="#C9A56A" strokeWidth="1.2" strokeOpacity="0.4" />;
       })}
       {[60, 130, 190].map((y, i) => {
         const t = y / 250;
-        return <line key={i} x1={520 * t} y1={y} x2={1600 - 520 * t} y2={y} stroke="#C9A56A" strokeWidth="1.2" opacity="0.4" />;
+        return <line key={i} x1={520 * t} y1={y} x2={1600 - 520 * t} y2={y} stroke="#C9A56A" strokeWidth="1.2" strokeOpacity="0.4" />;
       })}
+      {/* Gilded rosettes where the coffer beams cross, smaller with depth */}
+      {[60, 130, 190].flatMap((y, row) =>
+        Array.from({ length: 7 }, (_, k) => {
+          const i = k + 1;
+          const t = y / 250;
+          const x = (1600 / 8) * i + (520 + (560 / 8) * i - (1600 / 8) * i) * t;
+          return <Piece key={`${row}-${i}`} id="chan" x={x} y={y} s={0.75 - t * 0.45} />;
+        })
+      )}
       <path d="M0 0 L520 250 L520 640 L0 900 Z" fill="url(#ve-wall-side)" />
       <path d="M1600 0 L1080 250 L1080 640 L1600 900 Z" fill="url(#ve-wall-side-r)" />
-      <rect x="520" y="250" width="560" height="390" fill="url(#ve-wall)" />
+      <SideWallPanels />
+      <g transform="matrix(-1 0 0 1 1600 0)"><SideWallPanels /></g>
+      {/* Back wall hung with gold-on-red kbach silk, bordered along the top */}
+      <WallSilk x="520" y="250" width="560" height="390" />
+      <rect x="520" y="250" width="560" height="390" fill="url(#ve-wall-shade)" />
+      <Band x={520} y={250} w={560} h={18} />
       <path d="M0 900 L520 640 L1080 640 L1600 900 Z" fill="url(#ve-floor)" />
       {/* Polished floor: the stage light reflected */}
       <path d="M640 640 L960 640 L1100 900 L500 900 Z" fill="url(#ve-floor-glow)" />
       {Array.from({ length: 7 }, (_, i) => {
         const t = (i + 1) / 8;
         const y = 640 + 260 * t * t;
-        return <line key={i} x1={520 - 520 * t * t} y1={y} x2={1080 + 520 * t * t} y2={y} stroke="#8C6D37" strokeWidth="0.8" opacity="0.25" />;
+        return <line key={i} x1={520 - 520 * t * t} y1={y} x2={1080 + 520 * t * t} y2={y} stroke="#8C6D37" strokeWidth="0.8" strokeOpacity="0.25" />;
       })}
       {/* Aisle runner to the stage */}
       <path d="M760 640 L840 640 L960 900 L640 900 Z" fill="url(#ve-aisle)" />
-      <path d="M760 640 L640 900 M840 640 L960 900" stroke="#D4AF37" strokeWidth="2" opacity="0.8" />
+      <path d="M760 640 L640 900 M840 640 L960 900" stroke="#D4AF37" strokeWidth="2" strokeOpacity="0.8" />
+      <path d="M772 640 L666 900 M828 640 L934 900" stroke="#D4AF37" strokeWidth="1" strokeOpacity="0.6" />
+      {[0.12, 0.3, 0.52, 0.78].map((t) => (
+        <Piece key={t} id="chan" x={800} y={640 + 260 * t * t + 6} s={0.3 + t * 1.1} />
+      ))}
       {/* Guest chairs in rows either side of the aisle */}
       {[0.25, 0.42, 0.6, 0.8].flatMap((t, row) => {
         const y = 640 + 260 * t * t;
@@ -463,8 +576,7 @@ function HallInteriorPlane({ portrait }: { portrait?: string }) {
             const x = 800 + side * (halfAisle + 26 * s + k * 52 * s);
             return (
               <g key={`${row}-${side}-${k}`}>
-                <rect x={x - 16 * s} y={y - 48 * s} width={32 * s} height={44 * s} rx={6 * s} fill="#FBF6EC" stroke="#D8C49C" strokeWidth={0.8} />
-                <rect x={x - 16 * s} y={y - 48 * s} width={32 * s} height={8 * s} rx={4 * s} fill="url(#ve-gold-h)" opacity="0.7" />
+                <use href="#ve-chair" transform={`translate(${Math.round(x * 100) / 100} ${Math.round(y * 100) / 100}) scale(${Math.round(s * 1000) / 1000})`} />
               </g>
             );
           })
@@ -472,27 +584,30 @@ function HallInteriorPlane({ portrait }: { portrait?: string }) {
       })}
       {/* Stage: raised platform with steps */}
       <rect x="590" y="590" width="420" height="52" fill="url(#ve-stone)" />
+      <Band x={590} y={596} w={420} h={16} />
       <rect x="590" y="588" width="420" height="5" fill="url(#ve-gold-h)" />
       {[0, 1, 2].map((i) => (
         <rect key={i} x={730 - i * 10} y={612 + i * 10} width={140 + i * 20} height="10" fill={i % 2 ? "#E9DCC3" : "#F6EEDD"} />
       ))}
-      {/* Backdrop: a Khmer arch, gold frame over deep red silk */}
-      <circle cx="800" cy="420" r="240" fill="url(#ve-stage-light)" />
-      <path d="M640 588 L640 380 Q640 300 720 268 Q776 246 800 196 Q824 246 880 268 Q960 300 960 380 L960 588 Z" fill="url(#ve-gold)" />
-      <path d="M660 588 L660 384 Q660 316 728 288 Q780 266 800 226 Q820 266 872 288 Q940 316 940 384 L940 588 Z" fill="url(#ve-silk)" />
-      <path d={kbachEdge(640, 380, 720, 268, 6) + kbachEdge(720, 268, 800, 196, 6) + kbachEdge(800, 196, 880, 268, 6) + kbachEdge(880, 268, 960, 380, 6)} fill="none" stroke="#F1D683" strokeWidth="2" />
-      {/* The couple's portrait, if they've given one; otherwise a lotus medallion */}
-      <ellipse cx="800" cy="408" rx="72" ry="92" fill="url(#ve-gold)" />
+      {/* Backdrop: a gilded Khmer gable (khlong thvear) lined with climbing
+          flames, naga-tail scrolls at its feet, and a stepped frame of gold,
+          crimson and beads round red silk */}
+      <circle cx="800" cy="420" r="260" fill="url(#ve-stage-light)" />
+      <Piece id="gable" x={800} y={592} s={155} />
+      {/* The couple's portrait, if they've given one, in a ring of flames;
+          otherwise a great diamond rosette */}
       {portrait ? (
-        <image href={portrait} x="736" y="324" width="128" height="168" preserveAspectRatio="xMidYMid slice" clipPath="url(#ve-portrait-clip)" />
-      ) : (
         <g>
-          <ellipse cx="800" cy="408" rx="64" ry="84" fill="#7A1A1E" />
-          {Array.from({ length: 8 }, (_, i) => (
-            <ellipse key={i} cx="800" cy="384" rx="9" ry="24" fill="url(#ve-gold)" transform={`rotate(${i * 45} 800 408)`} />
-          ))}
-          <circle cx="800" cy="408" r="12" fill="#F1D683" />
+          {Array.from({ length: 22 }, (_, i) => {
+            const a = (i / 22) * Math.PI * 2;
+            return <Leaf key={i} x={800 + Math.sin(a) * 66} y={476 - Math.cos(a) * 84} size={18} angle={(a * 180) / Math.PI} notched={i % 2 === 0} />;
+          })}
+          <ellipse cx="800" cy="476" rx="66" ry="84" fill="url(#ve-gold)" />
+          <image href={portrait} x="740" y="396" width="120" height="160" preserveAspectRatio="xMidYMid slice" clipPath="url(#ve-portrait-clip)" />
+          <ellipse cx="800" cy="476" rx="62" ry="80" fill="none" stroke="#F1D683" strokeWidth="3" strokeDasharray="0 8" strokeLinecap="round" />
         </g>
+      ) : (
+        <Piece id="rosette" slot="stage_center" x={800} y={482} s={1.08} />
       )}
       {/* Flowers banked along the stage and at its corners */}
       <Flowers x={650} y={586} s={1.2} seed={7} />
@@ -511,7 +626,7 @@ function HallMidPlane() {
       {cols.map(([x, t, b, w]) => (
         <Column key={x} x={x} top={t} bottom={b} w={w} />
       ))}
-      {[[800, 262, 0.55], [800, 200, 0.75]].map(([x, y, s], i) => (
+      {[[590, 236, 0.6], [1010, 236, 0.6]].map(([x, y, s], i) => (
         <Chandelier key={i} x={x} y={y} s={s} />
       ))}
     </svg>
@@ -524,8 +639,11 @@ function HallNearPlane() {
     <svg viewBox={VB} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 w-full h-full" aria-hidden="true">
       <Column x={150} top={120} bottom={900} w={70} />
       <Column x={1450} top={120} bottom={900} w={70} />
-      <rect x="0" y="80" width="1600" height="40" fill="url(#ve-gold-h)" opacity="0.9" />
-      <path d={kbachEdge(0, 120, 1600, 120, 64)} fill="none" stroke="#8C6D37" strokeWidth="2" />
+      <rect x="0" y="74" width="1600" height="52" fill="url(#ve-gold-h)" />
+      <Band x={0} y={80} w={1600} h={40} />
+      {Array.from({ length: 24 }, (_, i) => 34 + i * 68).map((x) => (
+        <Piece key={x} id="pendant" x={x} y={126} s={1.5} />
+      ))}
       <Chandelier x={800} y={120} s={1.2} />
     </svg>
   );
@@ -554,10 +672,197 @@ function Chandelier({ x, y, s }: { x: number; y: number; s: number }) {
   );
 }
 
+/* Jasmine petals that drift down once inside the hall: left in %, delay
+   and fall time in s, size factor (.ve-petal in globals.css) */
+export const PETALS = [
+  [6, 0, 13, 1], [14, 5.5, 11, 0.8], [23, 2.2, 15, 1.2], [31, 8, 12, 0.9], [40, 3.6, 14, 1],
+  [48, 9.5, 13, 0.75], [57, 1.2, 12, 1.1], [64, 6.8, 15, 0.85], [72, 4.4, 11, 1.25], [80, 10.6, 13, 0.9],
+  [88, 2.9, 14, 1], [95, 7.6, 12, 0.8], [19, 11.8, 16, 0.7], [69, 12.6, 15, 0.95],
+] as const;
+
+/* ─── Flattening ────────────────────────────────────────────────────────── */
+
+/* Hand the compositor pictures instead of shapes.
+
+   Each depth layer is an inline SVG of hundreds of shapes, and while the
+   camera moves, the browser restyles and re-layerizes every one of them on
+   every frame: on a throttled phone that alone overran the frame (median
+   136 ms, worst 1.9 s while scrolling through the hall). Once the scene has
+   drawn, each layer is copied into a self-contained SVG image, carrying the
+   shared defs it uses, and shown as a single <img>: the same pixels, one
+   paint item (median 68 ms, worst 0.2 s on the same run). The live SVG stays
+   in the DOM, only hidden, so nothing React owns is removed, and a layer is
+   left live if anything in it can't go into the copy (a reference not yet
+   drawn, a photo that can't be fetched). */
+const ALIGN: Record<string, string> = { Min: "0%", Mid: "50%", Max: "100%" };
+
+function fitFor(svg: SVGSVGElement) {
+  const m = /x(Min|Mid|Max)Y(Min|Mid|Max)\s*(meet|slice)?/.exec(svg.getAttribute("preserveAspectRatio") || "xMidYMid meet");
+  if (!m) return null;
+  return { fit: m[3] === "slice" ? "cover" : "contain", position: `${ALIGN[m[1]]} ${ALIGN[m[2]]}` };
+}
+
+/* Each image is fetched once and reused by every layer that shows it */
+const dataUrls = new Map<string, Promise<string>>();
+function toDataUrl(href: string) {
+  let pending = dataUrls.get(href);
+  if (!pending) {
+    pending = fetch(href)
+      .then((res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.blob();
+      })
+      .then(
+        (blob) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(blob);
+          })
+      );
+    pending.catch(() => dataUrls.delete(href));
+    dataUrls.set(href, pending);
+  }
+  return pending;
+}
+
+/* Ids an element's markup points at: <use href="#id"> and url(#id) */
+const REF = /(?:href="#|url\(#)([^")]+)/g;
+function refsIn(markup: string) {
+  return [...markup.matchAll(REF)].map((m) => m[1]);
+}
+
+/** Flattens what it can; returns how many layers are still live (waiting on
+    a reference) and a function that puts every layer back */
+async function flattenLayers(root: HTMLElement, isCancelled: () => boolean) {
+  const restore: (() => void)[] = [];
+  // Every shared definition by id, so each layer copies only what it uses
+  const byId = new Map<string, Element>();
+  for (const defs of root.querySelectorAll("defs")) for (const el of defs.children) if (el.id) byId.set(el.id, el);
+  let pending = 0;
+  for (const layer of root.querySelectorAll<HTMLElement>("[data-layer]")) {
+    const svg = layer.querySelector<SVGSVGElement>(":scope > svg");
+    if (!svg || svg.style.display === "none") continue;
+    const fit = fitFor(svg);
+    const vb = svg.viewBox.baseVal;
+    if (!fit || !vb || !vb.width) continue;
+    // Follow references from the layer through the definitions it reaches
+    const used: Element[] = [];
+    const seen = new Set<string>();
+    const queue = refsIn(svg.outerHTML);
+    let missing = false;
+    while (queue.length) {
+      const id = queue.pop()!;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const def = byId.get(id);
+      if (def) {
+        used.push(def);
+        queue.push(...refsIn(def.outerHTML));
+      } else if (!svg.querySelector(`[id="${CSS.escape(id)}"]`)) {
+        missing = true;
+      }
+    }
+    if (missing) {
+      pending++;
+      continue;
+    }
+    const clone = svg.cloneNode(true) as SVGSVGElement;
+    clone.insertAdjacentHTML("afterbegin", `<defs>${used.map((d) => d.outerHTML).join("")}</defs>`);
+    // An SVG image can't load anything itself: photos and ornament images
+    // go in as data, and a layer whose image can't be fetched stays live
+    let ok = true;
+    for (const im of clone.querySelectorAll("image")) {
+      const href = im.getAttribute("href") || im.getAttribute("xlink:href") || "";
+      if (!href || href.startsWith("data:")) continue;
+      try {
+        im.setAttribute("href", await toDataUrl(href));
+      } catch {
+        ok = false;
+        break;
+      }
+    }
+    if (!ok || isCancelled()) continue;
+    clone.removeAttribute("class");
+    clone.setAttribute("width", String(vb.width));
+    clone.setAttribute("height", String(vb.height));
+    const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml" }));
+    const img = new Image();
+    img.alt = "";
+    img.setAttribute("aria-hidden", "true");
+    img.style.cssText = `position:absolute;inset:0;width:100%;height:100%;object-fit:${fit.fit};object-position:${fit.position};pointer-events:none`;
+    img.src = url;
+    try {
+      await img.decode();
+    } catch {
+      URL.revokeObjectURL(url);
+      continue;
+    }
+    if (isCancelled()) {
+      URL.revokeObjectURL(url);
+      break;
+    }
+    // Swap only once the picture is ready, so nothing flashes
+    layer.appendChild(img);
+    svg.style.display = "none";
+    restore.push(() => {
+      img.remove();
+      svg.style.display = "";
+      URL.revokeObjectURL(url);
+    });
+  }
+  return { pending, undo: () => restore.splice(0).forEach((f) => f()) };
+}
+
+/* The couple's ornament images, loaded to learn each one's proportions.
+   Until a new set has loaded the scene keeps what it was showing; an image
+   that fails to load leaves its place to the drawing */
+const NO_ORNAMENTS: OrnamentImages = {};
+function useOrnamentImages(ornaments?: WeddingOrnaments) {
+  const key = JSON.stringify(ornaments ?? {});
+  const [loaded, setLoaded] = useState<{ key: string; images: OrnamentImages }>({ key: "{}", images: NO_ORNAMENTS });
+  useEffect(() => {
+    if (key === "{}") return;
+    let alive = true;
+    const entries = Object.entries(JSON.parse(key) as Record<string, string>);
+    Promise.all(
+      entries.map(
+        ([slot, url]) =>
+          new Promise<[string, OrnamentImage | null]>((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve([slot, img.naturalWidth && img.naturalHeight ? { url, w: img.naturalWidth, h: img.naturalHeight } : null]);
+            img.onerror = () => resolve([slot, null]);
+            img.src = url;
+          })
+      )
+    ).then((pairs) => {
+      if (alive) setLoaded({ key, images: Object.fromEntries(pairs.filter(([, v]) => v)) as OrnamentImages });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [key]);
+  return key === "{}" ? NO_ORNAMENTS : loaded.images;
+}
+
 /* ─── Component ─────────────────────────────────────────────────────────── */
 
-export function VenueEntrance(props: VenueEntranceProps) {
+/* Memoised: the scene is thousands of shapes and its props are plain
+   strings (and the ornament links, compared by content), so the
+   invitation's own state changes never re-render it */
+function sameProps(a: VenueEntranceProps, b: VenueEntranceProps) {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)] as (keyof VenueEntranceProps)[]);
+  for (const k of keys) {
+    if (k === "ornaments" ? JSON.stringify(a.ornaments ?? {}) !== JSON.stringify(b.ornaments ?? {}) : a[k] !== b[k]) return false;
+  }
+  return true;
+}
+
+export const VenueEntrance = React.memo(function VenueEntrance(props: VenueEntranceProps) {
   const rootRef = useRef<HTMLElement>(null);
+  const ornaments = useOrnamentImages(props.ornaments);
+  const ornamentsKey = JSON.stringify(ornaments);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -568,6 +873,8 @@ export function VenueEntrance(props: VenueEntranceProps) {
       root.querySelector<HTMLElement>("[data-exterior]")!.style.visibility = "hidden";
       root.querySelector<HTMLElement>("[data-title]")!.style.visibility = "hidden";
       root.querySelector<HTMLElement>("[data-hint]")!.style.visibility = "hidden";
+      root.querySelector<HTMLElement>("[data-petals]")!.style.visibility = "hidden";
+      root.querySelector<HTMLElement>("[data-glint]")!.style.visibility = "hidden";
       root.querySelector<HTMLElement>("[data-interior]")!.style.visibility = "visible";
       root.querySelector<HTMLElement>("[data-stage-text]")!.style.visibility = "visible";
       return;
@@ -594,6 +901,8 @@ export function VenueEntrance(props: VenueEntranceProps) {
         gsap.set(q("[data-doorlight]"), { opacity: 0 });
         gsap.set(q("[data-stage-text]"), { autoAlpha: 0, y: 24 });
         gsap.set(q("[data-hint]"), { autoAlpha: 1 });
+        gsap.set(q("[data-petals]"), { autoAlpha: 0 });
+        gsap.set(q("[data-glint]"), { autoAlpha: 0, xPercent: 0 });
 
         const tl = gsap.timeline({
           defaults: { ease: "none" },
@@ -624,6 +933,8 @@ export function VenueEntrance(props: VenueEntranceProps) {
           .set(q("[data-exterior]"), { autoAlpha: 0 }, "inside")
           .set(q("[data-interior]"), { autoAlpha: 1 }, "inside")
           .to(q("[data-doorlight]"), { opacity: 0, duration: 10, ease: "power1.out" }, "inside")
+          // Jasmine petals drifting in the hall once we're inside
+          .to(q("[data-petals]"), { autoAlpha: 1, duration: 8 }, "inside")
           // Walking down the aisle: near planes slide past faster than far ones
           .to(q("[data-in-far]"), { scale: zs(1.35), duration: 40, ease: "power1.out" }, "inside")
           .to(q("[data-in-mid]"), { scale: zs(1.35), duration: 40, ease: "power1.out" }, "inside")
@@ -632,7 +943,11 @@ export function VenueEntrance(props: VenueEntranceProps) {
           .to(q("[data-in-mid]"), { scale: zs(2.1), duration: 30, ease: "power1.inOut" }, "inside+=40")
           .to(q("[data-in-near]"), { scale: 3.2, autoAlpha: 0, duration: 24, ease: "power1.in" }, "inside+=40")
           .addLabel("stage", 84)
-          .to(q("[data-stage-text]"), { autoAlpha: 1, y: 0, duration: 10, stagger: 2, ease: "power2.out" }, "stage");
+          .to(q("[data-stage-text]"), { autoAlpha: 1, y: 0, duration: 10, stagger: 2, ease: "power2.out" }, "stage")
+          // A band of light passes over the gilding as the stage arrives
+          .to(q("[data-glint]"), { autoAlpha: 1, duration: 2 }, "stage")
+          .to(q("[data-glint]"), { xPercent: 270, duration: 14, ease: "power1.inOut" }, "stage")
+          .to(q("[data-glint]"), { autoAlpha: 0, duration: 3 }, "stage+=11");
       }, root);
       cleanup = () => ctx.revert();
     })();
@@ -641,6 +956,32 @@ export function VenueEntrance(props: VenueEntranceProps) {
       cleanup();
     };
   }, []);
+
+  // Flatten the layers in idle time once the scene has drawn; parts drawn
+  // client-only may land a moment later, so layers waiting on them retry
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let cancelled = false;
+    let timer = 0;
+    const undos: (() => void)[] = [];
+    const idle = (fn: () => void) =>
+      "requestIdleCallback" in window ? window.requestIdleCallback(fn, { timeout: 2000 }) : globalThis.setTimeout(fn, 300);
+    const run = (attempt: number) =>
+      idle(async () => {
+        if (cancelled) return;
+        const { pending, undo } = await flattenLayers(root, () => cancelled);
+        undos.push(undo);
+        if (cancelled) undo();
+        else if (pending && attempt < 6) timer = window.setTimeout(() => run(attempt + 1), 500);
+      });
+    run(0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      undos.splice(0).forEach((f) => f());
+    };
+  }, [props.portrait, ornamentsKey]);
 
   const titleCls = props.khmerNames
     ? "font-moul text-[clamp(17px,3vw,34px)] leading-[1.75]"
@@ -651,22 +992,31 @@ export function VenueEntrance(props: VenueEntranceProps) {
   const layer = "absolute inset-0 will-change-transform";
   return (
     <section ref={rootRef} className="relative h-[340vh]" aria-label={`${props.groom} & ${props.bride}`}>
+      <OrnamentContext.Provider value={ornaments}>
       <div className="sticky top-0 h-[100svh] min-h-[560px] overflow-hidden bg-[#2a1a0e]">
         <Defs />
         {/* Exterior */}
         <div data-exterior className="absolute inset-0">
-          <div data-sky className={layer} style={{ transformOrigin: "50% 55%" }}><SkyPlane /></div>
-          <div data-horizon className={layer} style={{ transformOrigin: "50% 58%" }}><HorizonPlane /></div>
-          <div data-hall className={layer} style={{ transformOrigin: "50% 53.5%" }}><HallPlane /></div>
-          <div data-path className={layer} style={{ transformOrigin: "50% 62%" }}><PathPlane /></div>
-          <div data-gate className={layer} style={{ transformOrigin: "50% 55%" }}><GatePlane /></div>
+          <div data-sky data-layer className={layer} style={{ transformOrigin: "50% 55%" }}><SkyPlane /></div>
+          <div data-horizon data-layer className={layer} style={{ transformOrigin: "50% 58%" }}><HorizonPlane /></div>
+          <div data-hall data-layer className={layer} style={{ transformOrigin: "50% 53.5%" }}><HallPlane /></div>
+          <div data-path data-layer className={layer} style={{ transformOrigin: "50% 62%" }}><PathPlane /></div>
+          <div data-gate data-layer className={layer} style={{ transformOrigin: "50% 55%" }}><GatePlane /></div>
         </div>
         {/* Interior: hidden until the camera passes the doorway */}
         <div data-interior className="absolute inset-0 invisible">
-          <div data-in-far className={layer} style={{ transformOrigin: "50% 50%" }}><HallInteriorPlane portrait={props.portrait} /></div>
-          <div data-in-mid className={layer} style={{ transformOrigin: "50% 50%" }}><HallMidPlane /></div>
-          <div data-in-near className={layer} style={{ transformOrigin: "50% 45%" }}><HallNearPlane /></div>
+          <div data-in-far data-layer className={layer} style={{ transformOrigin: "50% 50%" }}><HallInteriorPlane portrait={props.portrait} /></div>
+          <div data-in-mid data-layer className={layer} style={{ transformOrigin: "50% 50%" }}><HallMidPlane /></div>
+          <div data-in-near data-layer className={layer} style={{ transformOrigin: "50% 45%" }}><HallNearPlane /></div>
         </div>
+        {/* Jasmine petals drifting down inside the hall */}
+        <div data-petals aria-hidden="true" className="absolute inset-0 pointer-events-none overflow-hidden invisible">
+          {PETALS.map(([x, d, t, sz], i) => (
+            <span key={i} className="ve-petal" style={{ left: `${x}%`, animationDelay: `${-d}s`, animationDuration: `${t}s`, "--s": sz } as React.CSSProperties} />
+          ))}
+        </div>
+        {/* A band of light sweeping across the gilding as the stage comes into view */}
+        <div data-glint aria-hidden="true" className="absolute inset-y-0 left-[-60%] w-[60%] pointer-events-none opacity-0 bg-[linear-gradient(100deg,rgba(255,244,214,0)_15%,rgba(255,244,214,0.38)_50%,rgba(255,244,214,0)_85%)]" />
         {/* Warm light through the doorway */}
         <div data-doorlight className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_55%,#fff6dc_0%,#ffd893_45%,rgba(255,216,147,0.0)_80%)] opacity-0" />
 
@@ -696,6 +1046,7 @@ export function VenueEntrance(props: VenueEntranceProps) {
         </div>
         <p data-hint className="absolute bottom-4 inset-x-0 text-center text-[12px] text-[#5a3a1a]/70">{props.scrollHint} ↓</p>
       </div>
+      </OrnamentContext.Provider>
     </section>
   );
-}
+}, sameProps);

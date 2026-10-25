@@ -87,6 +87,26 @@ interface PremierRoyalKhmerCardProps {
   isPreview?: boolean;
 }
 
+/* Days and hours until the wedding. Its own component, so the minute tick
+   re-renders this one line and not the whole invitation (the hall scene
+   alone is thousands of shapes) */
+function TimeToGo({ target, format }: { target: number; format: (days: number, hours: number) => string }) {
+  const [left, setLeft] = useState({ days: 0, hours: 0 });
+  useEffect(() => {
+    const update = () => {
+      const diff = Math.max(0, target - Date.now());
+      setLeft((prev) => {
+        const days = Math.floor(diff / 86400000), hours = Math.floor((diff % 86400000) / 3600000);
+        return prev.days === days && prev.hours === hours ? prev : { days, hours };
+      });
+    };
+    update();
+    const timer = setInterval(update, 60000);
+    return () => clearInterval(timer);
+  }, [target]);
+  return <>{format(left.days, left.hours)}</>;
+}
+
 export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalKhmerCardProps) {
   const [isOpen, setIsOpen] = useState(isPreview);
   const [isOpeningAnim, setIsOpeningAnim] = useState(false);
@@ -205,33 +225,6 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
 
   const eventDate = new Date(`${card.solar_date || "2026-11-28"}T${card.solar_time || "17:00"}:00`);
   const pad2 = (n: number) => String(n).padStart(2, "0");
-
-  // Countdown timer logic
-  const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number }>({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0
-  });
-
-  useEffect(() => {
-    const targetDate = new Date(`${card.solar_date || "2026-11-28"}T${card.solar_time || "17:00"}:00`).getTime();
-    const updateCountdown = () => {
-      const now = new Date().getTime();
-      const diff = targetDate - now;
-      if (diff > 0) {
-        setTimeLeft({
-          days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-          minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-          seconds: Math.floor((diff % (1000 * 60)) / 1000),
-        });
-      }
-    };
-    updateCountdown();
-    const timer = setInterval(updateCountdown, 1000);
-    return () => clearInterval(timer);
-  }, [card.solar_date, card.solar_time]);
 
   // Once the invitation is open, prepare the 3D ceremony pieces in the
   // background so they are ready before the guest scrolls down to them
@@ -939,6 +932,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
           venue={[eveningReception.venue, eveningReception.hall].filter(Boolean).join(" · ") || undefined}
           guestLine={customGuestName ? `${t.invitedHonoredGuest} — ${customGuestName}` : undefined}
           portrait={couplePortrait}
+          ornaments={card.ornaments}
           scrollHint={lang === "km" ? "រំកិលចុះ ដើម្បីចូលរោងការ" : "Scroll to enter"}
         />
 
@@ -1043,9 +1037,14 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
               <p className="mt-4 wc-khmer text-[15px] leading-relaxed text-[#6b6157]">{card.khmer_date}</p>
               {card.solar_time && <p className="mt-1 text-[15px] text-[#2b2520]">{ui.at} {card.solar_time}</p>}
               <p className="mt-6 wc-display italic text-[19px] text-[#3a332c] tabular-nums">
-                {lang === "en"
-                  ? `${timeLeft.days} ${t.days.toLowerCase()}, ${timeLeft.hours} ${t.hours.toLowerCase()} ${ui.toGo}`
-                  : `${ui.toGo} ${timeLeft.days} ${t.days} ${timeLeft.hours} ${t.hours}`}
+                <TimeToGo
+                  target={eventDate.getTime()}
+                  format={(days, hours) =>
+                    lang === "en"
+                      ? `${days} ${t.days.toLowerCase()}, ${hours} ${t.hours.toLowerCase()} ${ui.toGo}`
+                      : `${ui.toGo} ${days} ${t.days} ${hours} ${t.hours}`
+                  }
+                />
               </p>
               <a href={buildGoogleCalendarUrl()} target="_blank" rel="noopener noreferrer" className="wc-link mt-6 inline-block text-[15px]">
                 {ui.addCal}

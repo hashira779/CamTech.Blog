@@ -2435,3 +2435,27 @@ html.js .kb-anim:not([data-in]) .kb-bloom { opacity: 0; transform: rotate(-90deg
 @keyframes tv-swap-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .tv-swap-in { animation: tv-swap-in 0.45s cubic-bezier(0.16, 1, 0.3, 1); }
 @media (prefers-reduced-motion: reduce) { .tv-swap-in { animation: none; } }
+
+/* Wedding hall: jasmine petals drifting down once inside (VenueEntrance).
+   Transform-only keyframes, so they run on the compositor. */
+.ve-petal {
+  position: absolute;
+  top: -4%;
+  width: calc(9px * var(--s, 1));
+  height: calc(13px * var(--s, 1));
+  border-radius: 80% 0 80% 0;
+  background: radial-gradient(circle at 30% 30%, #fffdf6 0%, #fbeee2 55%, #ecc9b6 100%);
+  box-shadow: 0 1px 2px rgba(90, 50, 20, 0.18);
+  animation-name: ve-petal-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+@keyframes ve-petal-fall {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  25% { transform: translate3d(22px, 28vh, 0) rotate(90deg); }
+  50% { transform: translate3d(-8px, 56vh, 0) rotate(190deg); }
+  75% { transform: translate3d(18px, 84vh, 0) rotate(280deg); }
+  100% { transform: translate3d(-4px, 112vh, 0) rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) { .ve-petal { display: none; } }
