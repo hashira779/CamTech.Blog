@@ -254,3 +254,10 @@ def test_a_couple_can_move_back_to_their_old_link(client):
     assert res.status_code == 200 and res.json()["slug"] == "chan-vanna-wedding"
     # The link they left is now the alias, and still reaches them
     assert client.get(f"{API}/card/chan-vanna-2027").json()["slug"] == "chan-vanna-wedding"
+
+
+def test_names_are_tidied_of_zero_width_characters_and_extra_spaces(client):
+    headers, _ = sign_in(client)
+    card = publish(client, headers, groom_name="ង៉ាម​     សាន់ដេ", bride_name="  យាន  សុផាន់ណា ")
+    assert card["groom_name"] == "ង៉ាម សាន់ដេ"
+    assert card["bride_name"] == "យាន សុផាន់ណា"

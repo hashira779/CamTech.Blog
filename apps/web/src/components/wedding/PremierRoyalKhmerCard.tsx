@@ -5,14 +5,15 @@ import { Cormorant_Garamond, Noto_Serif_Khmer, Pinyon_Script } from "next/font/g
 import { WeddingCard, WeddingAgendaItem, WeddingReception, WeddingWish } from "@/types/wedding";
 import { postWeddingWish, extractYouTubeVideoId } from "@/lib/wedding-api";
 import { WeddingShareModal } from "./WeddingShareModal";
-import { getTemplateById, getEnvelopeStyle } from "@/lib/wedding-templates";
+import { getTemplateById, getEnvelopeStyle, WEDDING_TEMPLATES } from "@/lib/wedding-templates";
 import { isSafeUrl } from "@/lib/safe-url";
 import { WeddingFlowerIcon, KhmerCornerFiligree } from "./WeddingFlowers";
 import { CeremonyPiece } from "./khmer3d/CeremonyPiece";
 import { HandCircle, HandCheck } from "./WeddingInk";
 import { KbachArch, KbachBorder, KbachBurst, KbachChan, KbachCorner, KBACH_LATTICE_BG } from "./KhmerKbach";
-import { KbachBand, RedThread, CeremonyIcon, type CeremonyIconName } from "./KhmerArt";
+import { RedThread, CeremonyIcon, type CeremonyIconName } from "./KhmerArt";
 import { AngkorBlessing } from "./AngkorBlessing";
+import { VenueEntrance } from "./VenueEntrance";
 import confetti from "canvas-confetti";
 import {
   MapPin,
@@ -192,6 +193,13 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
   }
 
   const heroImage = card.cover_image_url || card.groom_image_url || template.defaultCoverImage;
+  // Names as typed can carry zero-width characters and runs of spaces
+  const cleanName = (n: string) => (n || "").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\s+/g, " ").trim();
+  const groomName = cleanName(card.groom_name);
+  const brideName = cleanName(card.bride_name);
+  // Only a photo the couple gave us goes on the stage; never a template's stock couple
+  const isStockPhoto = (u?: string) => !u || u.includes("images.unsplash.com") || WEDDING_TEMPLATES.some((tpl) => tpl.defaultCoverImage === u);
+  const couplePortrait = !isStockPhoto(card.cover_image_url) ? card.cover_image_url : !isStockPhoto(card.groom_image_url) ? card.groom_image_url : undefined;
   const groomImage = card.groom_image_url || gallery[0] || heroImage;
   const brideImage = card.bride_image_url || gallery[1] || gallery[0] || heroImage;
 
@@ -918,47 +926,21 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
       <main className="relative z-20">
 
         {/* =====================================================================
-            COVER: the photo, with the names set like a magazine cover
+            ARRIVAL: the gate, the path to the wedding hall, inside to the stage
+            (VenueEntrance.tsx). Everything shown comes from this card.
            ===================================================================== */}
-        <section className="relative h-[100svh] min-h-[620px] overflow-clip bg-[#1a1612] text-[#fbf7ef]">
-          <div className="wc-parallax absolute inset-x-0 top-0 h-[118%]">
-            <img src={heroImage} alt={`${card.groom_name} & ${card.bride_name}`} className="wc-kb w-full h-full object-cover" />
-          </div>
-          <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(20,16,12,0.82),rgba(20,16,12,0.2)_55%,rgba(20,16,12,0.35))]" />
-          <div aria-hidden="true" className="pointer-events-none absolute inset-3 sm:inset-5">
-            <span className="wc-frame-line t" />
-            <span className="wc-frame-line r" />
-            <span className="wc-frame-line b" />
-            <span className="wc-frame-line l" />
-          </div>
-          <KbachBand tiles={3} mode="open" className="absolute top-14 sm:top-10 left-1/2 -translate-x-1/2 w-36 h-6 text-[#e9d3a8]" />
-
-          <div className="absolute inset-x-0 bottom-0 max-w-[1080px] mx-auto px-6 pb-24 sm:pb-20">
-            <p className="wc-line d1 wc-smallcaps text-white/75">{ui.weddingOf}</p>
-            <h1 className={`mt-3 wc-display font-light ${hasKhmer(card.groom_name + card.bride_name) ? "wc-km-lh text-[clamp(40px,8vw,104px)]" : "leading-[0.98] text-[clamp(52px,10vw,124px)]"}`}>
-              <span className="wc-line d2 block break-words">{card.groom_name}</span>
-              <span className="wc-line d3 block italic text-[#e9d3a8] text-[0.55em] leading-none my-2 sm:ml-[10vw]">&amp;</span>
-              <span className="wc-line d3 block break-words sm:ml-[16vw]">{card.bride_name}</span>
-            </h1>
-            <div className="wc-line d4 mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-[15px] text-white/85">
-              <span className="w-12 h-px bg-[#e9d3a8]" />
-              <span>{weekdayName}{weekdayName && " · "}{prettyDate}</span>
-              {card.solar_time && <span className="text-white/60">{ui.at} {card.solar_time}</span>}
-              {eveningReception.venue && (
-                <span className="flex items-start gap-1.5 text-white/75 wc-km-lh">
-                  <MapPin className="w-4 h-4 shrink-0 mt-1 text-[#e9d3a8]" aria-hidden="true" />
-                  {eveningReception.venue}
-                </span>
-              )}
-            </div>
-            {customGuestName && (
-              <p className="wc-line d5 mt-5 text-[15px] text-white/85">
-                <span className="text-white/60">{t.invitedHonoredGuest} — </span>
-                <span className="wc-display italic text-xl">{customGuestName}</span>
-              </p>
-            )}
-          </div>
-        </section>
+        <VenueEntrance
+          groom={groomName}
+          bride={brideName}
+          khmerNames={hasKhmer(groomName + brideName)}
+          kicker={ui.weddingOf}
+          dateLine={`${weekdayName}${weekdayName ? " · " : ""}${prettyDate}`}
+          timeLine={card.solar_time ? `${ui.at} ${card.solar_time}` : undefined}
+          venue={[eveningReception.venue, eveningReception.hall].filter(Boolean).join(" · ") || undefined}
+          guestLine={customGuestName ? `${t.invitedHonoredGuest} — ${customGuestName}` : undefined}
+          portrait={couplePortrait}
+          scrollHint={lang === "km" ? "រំកិលចុះ ដើម្បីចូលរោងការ" : "Scroll to enter"}
+        />
 
         {/* =====================================================================
             I. THE INVITATION: a printed letter with the parents' names

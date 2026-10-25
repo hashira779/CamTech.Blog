@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, timezone
 from typing import Optional, List, Literal
 from pydantic import BaseModel, Field, field_validator
@@ -73,6 +74,16 @@ class WeddingCardUpdate(BaseModel):
     @classmethod
     def _urls(cls, v: Optional[str]) -> Optional[str]:
         return _check_url(v)
+
+    @field_validator("groom_name", "bride_name", "groom_title", "bride_title", "groom_parents", "bride_parents")
+    @classmethod
+    def _tidy_names(cls, v: Optional[str]) -> Optional[str]:
+        """Drop zero-width characters and collapse runs of spaces, which
+        pasted or IME-typed names often carry and which show as odd gaps."""
+        if v is None:
+            return v
+        v = re.sub(r"[\u200B-\u200D\uFEFF]", "", v)
+        return re.sub(r"\s+", " ", v).strip()
 
     @field_validator("gallery_images")
     @classmethod
