@@ -452,8 +452,21 @@ function PathPlane() {
           <rect x={p.x - 3 * p.s} y={p.y - 100 * p.s} width={6 * p.s} height={100 * p.s} fill="url(#ve-gold)" />
           <path d={`M${p.x - 12 * p.s} ${p.y - 100 * p.s} L${p.x} ${p.y - 128 * p.s} L${p.x + 12 * p.s} ${p.y - 100 * p.s} Z`} fill="url(#ve-gold)" />
           <rect x={p.x - 9 * p.s} y={p.y - 122 * p.s} width={18 * p.s} height={20 * p.s} fill="#FFE7B0" fillOpacity="0.9" />
+          {/* A ribbon and a posy tied to each lamp post */}
+          <FlowerBank x={p.x} y={p.y - 92 * p.s} w={46 * p.s} h={22 * p.s} n={5} seed={300 + i} />
         </g>
       ))}
+      {/* A canopy of warm lights strung across the path between the lamp posts */}
+      {[0, 2, 4].map((k) => {
+        const a = posts[k], b = posts[k + 1];
+        const ya = a.y - 104 * a.s, sag = 40 * a.s;
+        return (
+          <g key={k}>
+            <Lights a={[a.x, ya]} b={[b.x, ya]} sag={sag} n={14 + k * 3} r={1.6 + a.s} />
+            <Lights a={[a.x, ya + 6 * a.s]} b={[b.x, ya + 6 * a.s]} sag={sag * 1.5} n={12 + k * 3} r={1.3 + a.s * 0.8} />
+          </g>
+        );
+      })}
     </svg>
   );
 }

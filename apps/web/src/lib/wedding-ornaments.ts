@@ -14,6 +14,13 @@ export const ORNAMENT_SLOTS = [
   "naga",
   "wall_pattern",
   "flower",
+  "rite_procession",
+  "rite_blessing",
+  "rite_haircut",
+  "rite_popil",
+  "rite_sampeah",
+  "rite_chongdai",
+  "rite_petals",
 ] as const;
 
 export type OrnamentSlot = (typeof ORNAMENT_SLOTS)[number];
@@ -31,6 +38,8 @@ export interface OrnamentSlotInfo {
   shape: "wide" | "tall" | "square";
   /** Repeated (tiled) rather than placed once */
   tiles?: boolean;
+  /** Kbach for the wedding hall (the default), or a photo for a ceremony */
+  group?: "hall" | "rite";
 }
 
 export const ORNAMENT_SLOT_INFO: OrnamentSlotInfo[] = [
@@ -83,5 +92,40 @@ export const ORNAMENT_SLOT_INFO: OrnamentSlotInfo[] = [
     slot: "flower", km: "ផ្កាចន្ទ", en: "Small flower", shape: "square",
     hintKm: "នៅលើពិដាន ផ្លូវដើរ សសរ និងជញ្ជាំង។ PNG ការ៉េតូច។",
     hintEn: "On the ceiling, aisle, columns and walls. Small square PNG.",
+  },
+  {
+    slot: "rite_procession", km: "ពិធីហែជំនូន", en: "Gift procession", shape: "tall", group: "rite",
+    hintKm: "រូបថតពិធីនេះ ជំនួសវត្ថុ 3D។ រូបបញ្ឈរ ល្អបំផុត។",
+    hintEn: "A photo of this ceremony, in place of its 3D object. Portrait photos fit best.",
+  },
+  {
+    slot: "rite_blessing", km: "ពិធីសូត្រមន្ត", en: "Monks’ blessing", shape: "tall", group: "rite",
+    hintKm: "រូបថតពិធីនេះ ជំនួសវត្ថុ 3D។ រូបបញ្ឈរ ល្អបំផុត។",
+    hintEn: "A photo of this ceremony, in place of its 3D object. Portrait photos fit best.",
+  },
+  {
+    slot: "rite_haircut", km: "ពិធីកាត់សក់បង្កក់សិរី", en: "Hair-cutting", shape: "tall", group: "rite",
+    hintKm: "រូបថតពិធីនេះ ជំនួសវត្ថុ 3D។ រូបបញ្ឈរ ល្អបំផុត។",
+    hintEn: "A photo of this ceremony, in place of its 3D object. Portrait photos fit best.",
+  },
+  {
+    slot: "rite_popil", km: "ពិធីបង្វិលពពិល", en: "Circling the candle", shape: "tall", group: "rite",
+    hintKm: "រូបថតពិធីនេះ ជំនួសវត្ថុ 3D។ រូបបញ្ឈរ ល្អបំផុត។",
+    hintEn: "A photo of this ceremony, in place of its 3D object. Portrait photos fit best.",
+  },
+  {
+    slot: "rite_sampeah", km: "ពិធីសំពះផ្ទឹម", en: "Sampeah Pthem", shape: "tall", group: "rite",
+    hintKm: "រូបថតពិធីនេះ ជំនួសវត្ថុ 3D។ រូបបញ្ឈរ ល្អបំផុត។",
+    hintEn: "A photo of this ceremony, in place of its 3D object. Portrait photos fit best.",
+  },
+  {
+    slot: "rite_chongdai", km: "ពិធីចងដៃ", en: "Knot tying", shape: "tall", group: "rite",
+    hintKm: "រូបថតពិធីនេះ ជំនួសវត្ថុ 3D។ រូបបញ្ឈរ ល្អបំផុត។",
+    hintEn: "A photo of this ceremony, in place of its 3D object. Portrait photos fit best.",
+  },
+  {
+    slot: "rite_petals", km: "ពិធីបាចផ្កាស្លា", en: "Palm-flower shower", shape: "tall", group: "rite",
+    hintKm: "រូបថតពិធីនេះ ជំនួសវត្ថុ 3D។ រូបបញ្ឈរ ល្អបំផុត។",
+    hintEn: "A photo of this ceremony, in place of its 3D object. Portrait photos fit best.",
   },
 ];

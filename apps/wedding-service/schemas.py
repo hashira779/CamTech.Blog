@@ -48,6 +48,9 @@ def _check_url(value: Optional[str]) -> Optional[str]:
 ORNAMENT_SLOTS = (
     "stage_arch", "stage_center", "wall_panel", "post_strip", "border",
     "pendant", "gable", "naga", "wall_pattern", "flower",
+    # A photo for each ceremony, in place of its 3D object
+    "rite_procession", "rite_blessing", "rite_haircut", "rite_popil",
+    "rite_sampeah", "rite_chongdai", "rite_petals",
 )
 
 

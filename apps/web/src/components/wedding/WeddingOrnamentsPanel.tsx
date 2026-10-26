@@ -57,9 +57,17 @@ export function WeddingOrnamentsPanel({ ornaments, token, lang, onSave, notify }
     setBusy(null);
   };
 
+  const groups = [
+    { key: "hall", title: L("ក្បាច់ក្នុងរោងការ", "Wedding-hall kbach"), empty: L("ក្បាច់ដើម · ដាក់ PNG របស់អ្នក", "Built-in drawing · add your PNG") },
+    { key: "rite", title: L("រូបថតពិធីនីមួយៗ", "A photo for each ceremony"), empty: L("វត្ថុ 3D ដើម · ដាក់រូបរបស់អ្នក", "Built-in 3D · add your photo") },
+  ] as const;
   return (
+    <div className="space-y-8">
+      {groups.map((g) => (
+      <section key={g.key}>
+      <h3 className="mb-3 text-[13px] font-bold text-stone-700 dark:text-stone-200">{g.title}</h3>
     <div className="grid sm:grid-cols-2 gap-4">
-      {ORNAMENT_SLOT_INFO.map((info) => {
+      {ORNAMENT_SLOT_INFO.filter((info) => (info.group ?? "hall") === g.key).map((info) => {
         const url = ornaments[info.slot];
         const working = busy === info.slot;
         return (
@@ -98,11 +106,11 @@ export function WeddingOrnamentsPanel({ ornaments, token, lang, onSave, notify }
               aria-label={url ? L(`ប្តូរ ${info.km}`, `Replace ${info.en}`) : L(`ដាក់ ${info.km}`, `Upload ${info.en}`)}
             >
               {url ? (
-                <img src={url} alt={info.en} className={`absolute inset-0 w-full h-full p-2 ${info.tiles ? "object-cover" : "object-contain"}`} />
+                <img src={url} alt={info.en} className={`absolute inset-0 w-full h-full ${info.group === "rite" ? "object-cover" : info.tiles ? "object-cover p-2" : "object-contain p-2"}`} />
               ) : (
                 <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-stone-400 text-[11.5px] font-medium">
                   <UploadCloud className="w-6 h-6" />
-                  {L("ក្បាច់ដើម · ដាក់ PNG របស់អ្នក", "Built-in drawing · add your PNG")}
+                  {g.empty}
                 </span>
               )}
               {working && (
@@ -144,6 +152,9 @@ export function WeddingOrnamentsPanel({ ornaments, token, lang, onSave, notify }
           </div>
         );
       })}
+    </div>
+      </section>
+      ))}
     </div>
   );
 }

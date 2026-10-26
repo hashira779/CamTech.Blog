@@ -7,7 +7,7 @@ import { postWeddingWish, extractYouTubeVideoId } from "@/lib/wedding-api";
 import { WeddingShareModal } from "./WeddingShareModal";
 import { getTemplateById, getEnvelopeStyle, WEDDING_TEMPLATES } from "@/lib/wedding-templates";
 import { isSafeUrl } from "@/lib/safe-url";
-import { WeddingFlowerIcon, KhmerCornerFiligree } from "./WeddingFlowers";
+import { KhmerCornerFiligree } from "./WeddingFlowers";
 import { CeremonyPiece } from "./khmer3d/CeremonyPiece";
 import { HandCircle, HandCheck } from "./WeddingInk";
 import { KbachArch, KbachBorder, KbachBurst, KbachChan, KbachCorner, KBACH_LATTICE_BG } from "./KhmerKbach";
@@ -16,6 +16,7 @@ import { AngkorBlessing } from "./AngkorBlessing";
 import { VenueEntrance } from "./VenueEntrance";
 import { PhotoInvitation } from "./PhotoInvitation";
 import { KhmerCouple } from "./KhmerCouple";
+import { FlowerBank, PhotoFlowerDefs } from "./VenuePhotoFlowers";
 import { Flower, GoldFrame } from "./InvitationDecor";
 import { CoupleNames, PersonName } from "./CoupleNames";
 import confetti from "canvas-confetti";
@@ -74,13 +75,20 @@ const noopSubscribe = () => () => {};
 const CEREMONY_KINDS: CeremonyIconName[] = ["procession", "blessing", "haircut", "popil", "sampeah", "chongdai", "petals"];
 
 /* Fixed positions for the gold dust on the envelope stage (no Math.random in render) */
-const STAGE_DUST = Array.from({ length: 18 }, (_, i) => ({
+const STAGE_DUST = Array.from({ length: 14 }, (_, i) => ({
   left: `${(i * 37 + 11) % 100}%`,
   top: `${(i * 53 + 7) % 100}%`,
-  size: 2 + (i % 3),
+  size: 18 + ((i * 29) % 5) * 14,
   delay: `${(i * 0.7) % 6}s`,
   dur: `${7 + (i % 5) * 1.6}s`,
 }));
+
+/* Petals scattered when the seal breaks: end offset x, y (px), turn, delay */
+const ENV_PETALS = [
+  [-150, -120, 220, 0], [140, -150, -200, 0.05], [-190, 10, 160, 0.1], [180, -20, -140, 0.08], [-90, -190, 260, 0.12],
+  [100, -210, -260, 0.02], [-210, -70, 200, 0.15], [220, -90, -180, 0.06], [-40, -230, 300, 0.1], [40, -170, -220, 0.14],
+  [-160, 80, 140, 0.18], [170, 70, -160, 0.2],
+] as const;
 
 /* Khmer stacks vowels and subscript consonants above and below the line, so
    Khmer names need far more leading than Latin display type */
@@ -863,6 +871,16 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
 
               {/* Front pocket: silk-like material, foil hairline, kbach corners and a passing sheen */}
               <div className="wc-env-pocket absolute inset-0 z-[3] rounded-[4px]">
+                {/* The three folds of the envelope's back: each lit a little
+                    differently, with a fine shadow and highlight along the seams */}
+                <svg viewBox="0 0 300 200" preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 h-full w-full">
+                  <path d="M0 0 L150 112 L0 200 Z" fill="#fff" fillOpacity="0.07" />
+                  <path d="M300 0 L150 112 L300 200 Z" fill="#000" fillOpacity="0.08" />
+                  <path d="M0 200 L150 96 L300 200 Z" fill="#fff" fillOpacity="0.05" />
+                  <path d="M0 200 L150 96 L300 200" fill="none" stroke="#000" strokeOpacity="0.22" strokeWidth="1.6" vectorEffect="non-scaling-stroke" transform="translate(0 1.5)" />
+                  <path d="M0 200 L150 96 L300 200" fill="none" stroke="#fff" strokeOpacity="0.35" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                  <path d="M0 0 L150 112 M300 0 L150 112" fill="none" stroke="#000" strokeOpacity="0.14" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                </svg>
                 <span aria-hidden="true" className="wc-env-foil absolute inset-[7px] rounded-[2px]" />
                 <KhmerCornerFiligree position="bottom-left" className="absolute bottom-2 left-2 w-7 h-7 text-[var(--env-foil)]" />
                 <KhmerCornerFiligree position="bottom-right" className="absolute bottom-2 right-2 w-7 h-7 text-[var(--env-foil)]" />
@@ -876,10 +894,18 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
               </div>
 
               {/* Template flowers bloom out of the envelope as it opens */}
-              <span aria-hidden="true" className="wc-bloom wc-bloom-1 absolute z-[7]"><WeddingFlowerIcon type={template.flowerType} className="w-10 h-10 text-[var(--env-foil)]" /></span>
-              <span aria-hidden="true" className="wc-bloom wc-bloom-2 absolute z-[7]"><WeddingFlowerIcon type={template.flowerType} className="w-8 h-8 text-[var(--env-foil)]" /></span>
-              <span aria-hidden="true" className="wc-bloom wc-bloom-3 absolute z-[7]"><WeddingFlowerIcon type={template.flowerType} className="w-7 h-7 text-[var(--env-foil)]" /></span>
-              <span aria-hidden="true" className="wc-bloom wc-bloom-4 absolute z-[7]"><WeddingFlowerIcon type={template.flowerType} className="w-9 h-9 text-[var(--env-foil)]" /></span>
+              {/* Sprays of flowers tucked over two corners of the envelope */}
+              <svg viewBox="-70 -60 140 80" aria-hidden="true" className="wc-env-spray wc-env-spray-l pointer-events-none absolute z-[7] -left-[9%] -bottom-[12%] w-[46%] h-auto overflow-visible">
+                <defs><PhotoFlowerDefs /></defs>
+                <FlowerBank x={0} y={14} w={120} h={66} n={9} seed={5} />
+              </svg>
+              <svg viewBox="-70 -60 140 80" aria-hidden="true" className="wc-env-spray wc-env-spray-r pointer-events-none absolute z-[7] -right-[8%] -top-[14%] w-[34%] h-auto overflow-visible">
+                <FlowerBank x={0} y={14} w={110} h={58} n={7} seed={9} mix={["rose", "jasmine", "blush", "orchid", "rose"]} />
+              </svg>
+              {/* Petals thrown out as the seal breaks */}
+              {ENV_PETALS.map(([x, y, r, d], i) => (
+                <span key={i} aria-hidden="true" className={`wc-burst-petal pointer-events-none absolute z-[8] ${i % 3 === 1 ? "wc-burst-petal--rose" : ""}`} style={{ "--px": `${x}px`, "--py": `${y}px`, "--pr": `${r}deg`, "--pd": `${d}s` } as React.CSSProperties} />
+              ))}
 
               <KbachBurst className="absolute left-1/2 top-[66%] -translate-x-1/2 -translate-y-1/2 w-72 h-72 z-[8]" />
               <button
@@ -889,7 +915,8 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                 className="wc-seal absolute left-1/2 top-[66%] z-[6] w-[78px] h-[78px] flex items-center justify-center cursor-pointer"
               >
                 <span aria-hidden="true" className="wc-seal-ring absolute inset-0 rounded-full" />
-                <span className="w-[58px] h-[58px] rounded-full border border-[color-mix(in_oklab,var(--env-wax-ink)_45%,transparent)] flex items-center justify-center wc-display italic text-[19px] text-[var(--env-wax-ink)]">
+                <span aria-hidden="true" className="wc-seal-gloss absolute inset-0" />
+                <span className={`relative w-[58px] h-[58px] rounded-full border border-[color-mix(in_oklab,var(--env-wax-ink)_45%,transparent)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.35),0_1px_0_rgba(255,255,255,0.25)] flex items-center justify-center text-[var(--env-wax-ink)] ${hasKhmer(monogramInitials) ? "font-moul text-[15px] leading-none" : "wc-display italic text-[19px]"}`}>
                   {monogramInitials.replace(/\s/g, "")}
                 </span>
               </button>
@@ -1148,6 +1175,11 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                       <span aria-hidden="true" className="absolute inset-[10px] rounded-t-[999px] rounded-b-[6px] border border-[color-mix(in_oklab,var(--wc-accent)_45%,transparent)] pointer-events-none z-[1]" />
                       <KhmerCornerFiligree position="bottom-left" className="absolute bottom-3 left-3 w-7 h-7 text-[var(--wc-link)] opacity-80 z-[1]" />
                       <KhmerCornerFiligree position="bottom-right" className="absolute bottom-3 right-3 w-7 h-7 text-[var(--wc-link)] opacity-80 z-[1]" />
+                      {card.ornaments?.[`rite_${c.icon}`] ? (
+                        // The couple's own photo of this ceremony, in the arch of the niche
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={card.ornaments[`rite_${c.icon}`]} alt={c.km} loading="lazy" decoding="async" className="absolute inset-[10px] h-[calc(100%-20px)] w-[calc(100%-20px)] rounded-t-[999px] rounded-b-[6px] object-cover" />
+                      ) : (
                       <CeremonyPiece
                         kind={c.icon}
                         accent={template.accentColor}
@@ -1155,6 +1187,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                         className="absolute inset-x-0 bottom-[6%] top-[12%]"
                         fallback={<CeremonyIcon name={c.icon} className="w-24 h-24 text-[var(--wc-link)]" />}
                       />
+                      )}
                     </div>
 
                     {/* Its name and meaning */}

@@ -265,6 +265,12 @@ def test_names_are_tidied_of_zero_width_characters_and_extra_spaces(client):
 
 # ---------------------------------------------------------------- kbach ornaments
 
+def test_couple_gives_a_photo_for_a_ceremony(client):
+    headers, _ = sign_in(client)
+    card = publish(client, headers, ornaments={"rite_procession": "/uploads/procession.jpg"})
+    assert card["ornaments"] == {"rite_procession": "/uploads/procession.jpg"}
+
+
 def test_couple_sets_replaces_and_removes_ornament_images(client):
     headers, _ = sign_in(client)
     card = publish(client, headers, ornaments={"stage_arch": "/uploads/arch.png", "border": "https://cdn.example.com/b.png"})

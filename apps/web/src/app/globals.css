@@ -1380,17 +1380,17 @@ html.js .dd-reveal:not([data-revealed="true"]) .rule-fill {
 }
 @keyframes wc-glow { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
 
+/* Out-of-focus lights drifting behind the envelope, like a lit hall */
 .wc-dust {
-  background: var(--env-foil);
-  box-shadow: 0 0 6px 1px color-mix(in oklab, var(--env-foil) 70%, transparent);
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--env-foil) 55%, transparent), color-mix(in oklab, var(--env-foil) 18%, transparent) 70%, transparent);
   opacity: 0;
-  animation: wc-dust 8s ease-in-out infinite;
+  animation: wc-dust 9s ease-in-out infinite;
 }
 @keyframes wc-dust {
-  0% { opacity: 0; transform: translateY(14px) scale(.6); }
-  30% { opacity: .75; }
-  70% { opacity: .45; }
-  100% { opacity: 0; transform: translateY(-46px) scale(1); }
+  0% { opacity: 0; transform: translate3d(0, 20px, 0) scale(.8); }
+  35% { opacity: .55; }
+  70% { opacity: .35; }
+  100% { opacity: 0; transform: translate3d(12px, -40px, 0) scale(1.05); }
 }
 
 .wc-env-intro { transition: opacity calc(.5s * var(--wc-t)) ease, transform calc(.6s * var(--wc-t)) var(--wc-ease); }
@@ -1455,7 +1455,7 @@ html.js .dd-reveal:not([data-revealed="true"]) .rule-fill {
   transform-style: preserve-3d;
   transform-origin: 50% 0;
   transform: translateZ(3px);
-  transition: transform calc(.95s * var(--wc-t)) var(--wc-ease-io) calc(.25s * var(--wc-t)), z-index 0s linear calc(.7s * var(--wc-t));
+  transition: transform calc(1.1s * var(--wc-t)) cubic-bezier(.6, 0, .2, 1) calc(.3s * var(--wc-t)), z-index 0s linear calc(.8s * var(--wc-t));
   z-index: 4;
 }
 .wc-flap-face { clip-path: polygon(0 0, 100% 0, 50% 100%); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
@@ -1485,14 +1485,14 @@ html.js .dd-reveal:not([data-revealed="true"]) .rule-fill {
     box-shadow calc(1.1s * var(--wc-t)) var(--wc-ease) calc(1s * var(--wc-t));
 }
 .is-opening .wc-letter {
-  transform: translateY(-52%) translateZ(60px) scale(1.06);
+  transform: translateY(-56%) translateZ(60px) scale(1.06) rotate(-1deg);
   box-shadow: 0 30px 60px -12px rgba(0, 0, 0, .55);
   animation: wc-letter-forward calc(.9s * var(--wc-t)) var(--wc-ease-io) calc(2.1s * var(--wc-t)) both;
 }
 /* Last beat: the card comes toward the guest as the stage dissolves */
 @keyframes wc-letter-forward {
-  from { transform: translateY(-52%) translateZ(60px) scale(1.06); }
-  to { transform: translateY(-40%) translateZ(260px) scale(1.5); }
+  from { transform: translateY(-56%) translateZ(60px) scale(1.06) rotate(-1deg); }
+  to { transform: translateY(-36%) translateZ(300px) scale(1.6) rotate(0deg); }
 }
 
 /* Wax seal: press, crack into a gold ring, gone */
@@ -1523,13 +1523,39 @@ html.js .dd-reveal:not([data-revealed="true"]) .rule-fill {
   to { box-shadow: 0 0 0 70px transparent; }
 }
 
-/* Flowers grow out from behind the pocket once the flap is open */
-.wc-bloom { left: 50%; top: 40%; opacity: 0; transform: translate(-50%, -50%) translateZ(20px) scale(.2) rotate(0deg); }
-.is-opening .wc-bloom { transition: transform calc(1.1s * var(--wc-t)) var(--wc-spring) calc(.9s * var(--wc-t)), opacity calc(.5s * var(--wc-t)) ease calc(.9s * var(--wc-t)); opacity: 1; }
-.is-opening .wc-bloom-1 { transform: translate(-50%, -50%) translate(-150px, -70px) translateZ(40px) scale(1) rotate(-25deg); }
-.is-opening .wc-bloom-2 { transform: translate(-50%, -50%) translate(150px, -90px) translateZ(40px) scale(1) rotate(30deg); }
-.is-opening .wc-bloom-3 { transform: translate(-50%, -50%) translate(-120px, 70px) translateZ(30px) scale(1) rotate(15deg); }
-.is-opening .wc-bloom-4 { transform: translate(-50%, -50%) translate(130px, 60px) translateZ(30px) scale(1) rotate(-15deg); }
+/* Flower sprays resting on the envelope: they breathe a little while it
+   waits, and fall away to either side as it opens */
+.wc-env-spray { transform: translateZ(14px); filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .3)); transition: transform calc(1s * var(--wc-t)) var(--wc-ease-io) calc(.2s * var(--wc-t)), opacity calc(.7s * var(--wc-t)) ease calc(.4s * var(--wc-t)); }
+.wc-env-spray-l { transform-origin: 20% 90%; animation: wc-spray 5s ease-in-out infinite alternate; }
+.wc-env-spray-r { transform-origin: 80% 10%; animation: wc-spray 6s ease-in-out -2s infinite alternate; }
+@keyframes wc-spray { from { rotate: -1.5deg; } to { rotate: 1.5deg; } }
+.is-opening .wc-env-spray-l { transform: translate3d(-40%, 30%, 40px) rotate(-14deg); opacity: 0; }
+.is-opening .wc-env-spray-r { transform: translate3d(40%, -30%, 40px) rotate(14deg); opacity: 0; }
+
+/* Petals thrown out from the seal as it breaks */
+.wc-burst-petal {
+  left: 50%; top: 66%; width: 11px; height: 15px; margin: -7px 0 0 -5px;
+  border-radius: 80% 0 80% 0;
+  background: radial-gradient(circle at 30% 30%, #fffdf6, #f6e6da 60%, #e6c8b6);
+  opacity: 0; transform: translateZ(60px);
+}
+.wc-burst-petal--rose { background: radial-gradient(circle at 30% 30%, #ffe9e7, #f0b2b4 60%, #c86a7a); }
+.is-opening .wc-burst-petal { animation: wc-burst-petal calc(1.6s * var(--wc-t)) cubic-bezier(.16, 1, .3, 1) calc(var(--pd) * var(--wc-t)) forwards; }
+@keyframes wc-burst-petal {
+  0% { opacity: 0; transform: translateZ(60px) translate(0, 0) rotate(0) scale(.4); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translateZ(60px) translate(var(--px), calc(var(--py) + 60px)) rotate(var(--pr)) scale(1); }
+}
+
+/* Gloss on the wax: a soft highlight that slides across now and then */
+.wc-seal-gloss {
+  border-radius: inherit;
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, .35) 45%, transparent 60%);
+  background-size: 250% 100%;
+  animation: wc-seal-gloss 4.5s ease-in-out 1s infinite;
+  pointer-events: none;
+}
+@keyframes wc-seal-gloss { 0% { background-position: 120% 0; } 40%, 100% { background-position: -60% 0; } }
 
 .wc-breathe { animation: wc-breathe 2.4s ease-in-out infinite; }
 .is-opening .wc-breathe { opacity: 0; transition: opacity .3s; animation: none; }
@@ -1592,6 +1618,8 @@ html.js .kb-anim:not([data-in]) .kb-bloom { opacity: 0; transform: rotate(-90deg
 .is-opening .wc-env-crest { transform: translateY(-36px) scale(1.25); opacity: 0; }
 
 @media (prefers-reduced-motion: reduce) {
+  .wc-burst-petal { display: none; }
+  .wc-env-spray, .wc-seal-gloss { animation: none !important; }
   html.js .kb-anim:not([data-in]) .kb-leaf, html.js .kb-anim:not([data-in]) .kb-bloom { opacity: 1; transform: none; }
   html.js .kb-anim:not([data-in]) .kb-draw { stroke-dashoffset: 0; }
   .kb-anim .kb-leaf, .kb-anim .kb-bloom, .kb-anim .kb-draw { transition: none !important; }
