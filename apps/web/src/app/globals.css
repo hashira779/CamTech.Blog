@@ -1455,8 +1455,6 @@ html.js .dd-reveal:not([data-revealed="true"]) .rule-fill {
   transform-style: preserve-3d;
   transform-origin: 50% 0;
   transform: translateZ(3px);
-  transition: transform calc(1.1s * var(--wc-t)) cubic-bezier(.6, 0, .2, 1) calc(.3s * var(--wc-t)), z-index 0s linear calc(.8s * var(--wc-t));
-  z-index: 4;
 }
 .wc-flap-face { clip-path: polygon(0 0, 100% 0, 50% 100%); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .wc-flap-front {
@@ -1467,33 +1465,46 @@ html.js .dd-reveal:not([data-revealed="true"]) .rule-fill {
 /* Lining: a small repeating foil lattice, like printed envelope tissue */
 .wc-flap-back {
   transform: rotateX(180deg);
-  background-color: color-mix(in oklab, var(--env-body) 70%, #000);
+  /* Gold-tinted tissue lining, lit from the open mouth of the envelope */
+  background-color: color-mix(in oklab, var(--env-foil) 28%, var(--env-body));
+  box-shadow: inset 0 -30px 40px -20px rgba(0, 0, 0, .25);
   background-image:
     radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--env-foil) 55%, transparent) 1.2px, transparent 1.6px),
     linear-gradient(45deg, transparent 46%, color-mix(in oklab, var(--env-foil) 22%, transparent) 48% 52%, transparent 54%),
     linear-gradient(-45deg, transparent 46%, color-mix(in oklab, var(--env-foil) 22%, transparent) 48% 52%, transparent 54%);
   background-size: 14px 14px;
 }
-.is-opening .wc-flap { transform: translateZ(3px) rotateX(180deg); z-index: 1; }
+/* The flap lifts and folds back over the top edge; it ends a hair behind
+   the card, so the card rises in front of its lining */
+.is-opening .wc-flap { animation: wc-flap-open calc(.9s * var(--wc-t)) cubic-bezier(.6, 0, .2, 1) calc(.35s * var(--wc-t)) both; }
+@keyframes wc-flap-open {
+  from { transform: translateZ(3px) rotateX(0deg); }
+  to { transform: translateZ(.5px) rotateX(180deg); }
+}
 
 .wc-letter {
   z-index: 2;
   transform: translateZ(1px);
   box-shadow: 0 6px 18px rgba(0, 0, 0, .2);
-  transition:
-    transform calc(1.1s * var(--wc-t)) var(--wc-ease) calc(1s * var(--wc-t)),
-    box-shadow calc(1.1s * var(--wc-t)) var(--wc-ease) calc(1s * var(--wc-t));
 }
-.is-opening .wc-letter {
-  transform: translateY(-56%) translateZ(60px) scale(1.06) rotate(-1deg);
-  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, .55);
-  animation: wc-letter-forward calc(.9s * var(--wc-t)) var(--wc-ease-io) calc(2.1s * var(--wc-t)) both;
+/* One continuous move, after the flap is open: the card slides up out of
+   the pocket (its lower half still tucked behind the pocket's sides),
+   settles a moment, then comes toward the guest as the stage dissolves.
+   Starting only once the flap is clear, so nothing is drawn over it. */
+.is-opening .wc-letter { animation: wc-letter-out calc(2.05s * var(--wc-t)) linear calc(.95s * var(--wc-t)) both; }
+@keyframes wc-letter-out {
+  0% { transform: translateY(0) translateZ(1px) rotate(0deg) scale(1); box-shadow: 0 6px 18px rgba(0, 0, 0, .2); animation-timing-function: cubic-bezier(.33, 0, .15, 1); }
+  42% { transform: translateY(-62%) translateZ(1px) rotate(-1.2deg) scale(1); box-shadow: 0 18px 36px -10px rgba(0, 0, 0, .4); animation-timing-function: ease-in-out; }
+  52% { transform: translateY(-64%) translateZ(1px) rotate(-.6deg) scale(1); animation-timing-function: cubic-bezier(.5, 0, .2, 1); }
+  100% { transform: translateY(-22%) translateZ(240px) rotate(0deg) scale(1.35); box-shadow: 0 40px 80px -20px rgba(0, 0, 0, .6); }
 }
-/* Last beat: the card comes toward the guest as the stage dissolves */
-@keyframes wc-letter-forward {
-  from { transform: translateY(-56%) translateZ(60px) scale(1.06) rotate(-1deg); }
-  to { transform: translateY(-36%) translateZ(300px) scale(1.6) rotate(0deg); }
-}
+/* The envelope itself falls away just before the card comes forward, so
+   the card never passes through it */
+.is-opening .wc-env-back,
+.is-opening .wc-env-pocket,
+.is-opening .wc-flap-face,
+.is-opening .wc-env-shadow { animation: wc-env-away calc(.45s * var(--wc-t)) ease calc(1.95s * var(--wc-t)) forwards; }
+@keyframes wc-env-away { to { opacity: 0; } }
 
 /* Wax seal: press, crack into a gold ring, gone */
 .wc-seal {
