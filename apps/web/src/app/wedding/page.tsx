@@ -8,6 +8,7 @@ import { WeddingEditor } from "@/components/wedding/WeddingEditor";
 import { PremierRoyalKhmerCard } from "@/components/wedding/PremierRoyalKhmerCard";
 import { WEDDING_TEMPLATES, getTemplateById } from "@/lib/wedding-templates";
 import { WeddingFlowerIcon, BotanicalMonogramCrest } from "@/components/wedding/WeddingFlowers";
+import { FlowerBank, PhotoFlowerDefs } from "@/components/wedding/VenuePhotoFlowers";
 import {
   Sparkles,
   Globe,
@@ -214,7 +215,7 @@ export default function WeddingLandingPage() {
       ctaDesc: "Ready in minutes, shared over Telegram, Facebook or a QR code.",
       closeDemo: "Close",
       feature1Title: "Royal Khmer Gold & Envelope Unseal",
-      feature1Desc: "Ornate traditional gold filigree with auspicious 'Jayo Hotu' wax seal opening animation.",
+      feature1Desc: "Gold Khmer ornament and an envelope that opens from a wax seal stamped with the couple's initials.",
       feature2Title: "Khmer Wedding Music & Countdown",
       feature2Desc: "Background traditional songs with real-time countdown to the sacred ceremony.",
       feature3Title: "One-Click Google Maps Navigation",
@@ -364,17 +365,42 @@ export default function WeddingLandingPage() {
           {/* Envelope that opens on its own, on a loop */}
           <div className="wl-rise d3 flex justify-center" aria-hidden="true">
             <div className="wl-env relative w-[min(84vw,400px)] aspect-[3/2] mt-24">
-              <div className="absolute inset-0 rounded-lg bg-[#2a1f14] shadow-[0_40px_80px_rgba(0,0,0,0.6)]" />
+              <div className="absolute inset-0 rounded-lg bg-[#3a2a17] shadow-[0_40px_80px_rgba(0,0,0,0.6)]" />
               <div className="wl-env-letter absolute left-[4%] right-[4%] top-[5%] h-[88%] rounded-md bg-[#f7f2e9] text-[#1f1b16] flex flex-col items-center justify-center gap-1.5 px-4 text-center shadow-lg">
+                <span aria-hidden="true" className="absolute inset-[6px] rounded-[3px] border border-[#c9a24a]/60" />
                 <WeddingFlowerIcon type="romduol" className="w-7 h-7 text-[#b08d57]" />
                 <span className="font-moul text-sm text-[#7e5f2e]">សិរីមង្គលអាពាហ៍ពិពាហ៍</span>
                 <span className="font-display text-2xl">{DEFAULT_PREMIER_CARD.groom_name} &amp; {DEFAULT_PREMIER_CARD.bride_name}</span>
                 <span className="text-[11px] text-stone-600">{DEFAULT_PREMIER_CARD.khmer_date}</span>
               </div>
-              <div className="wl-env-pocket absolute inset-0 z-[3] rounded-lg bg-[#6e5631]" />
-              <div className="wl-env-flap absolute inset-x-0 top-0 h-[66%] rounded-t-lg bg-[#8a6c3d]" />
-              <span className="wl-env-seal absolute left-1/2 top-[66%] z-[5] w-[4.5rem] h-[4.5rem] rounded-full bg-[#8e2f2a] shadow-[inset_0_-4px_8px_rgba(0,0,0,0.35),0_10px_22px_rgba(0,0,0,0.45)] flex items-center justify-center">
-                <WeddingFlowerIcon type="romduol" className="w-8 h-8 text-[#f1d6c8]" />
+              {/* Champagne pocket: three folds meeting under the flap, a gold
+                  foil rule round the edge */}
+              <div className="wl-env-pocket absolute inset-0 z-[3] rounded-lg overflow-hidden bg-[linear-gradient(160deg,#F3E2BD_0%,#DCC08A_55%,#B9955A_100%)]">
+                <svg viewBox="0 0 300 200" preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 h-full w-full">
+                  <path d="M0 0 L150 112 L0 200 Z" fill="#fff" fillOpacity="0.12" />
+                  <path d="M300 0 L150 112 L300 200 Z" fill="#000" fillOpacity="0.08" />
+                  <path d="M0 200 L150 96 L300 200 Z" fill="#fff" fillOpacity="0.06" />
+                  <path d="M0 200 L150 96 L300 200" fill="none" stroke="#5a3d16" strokeOpacity="0.28" strokeWidth="1.6" vectorEffect="non-scaling-stroke" transform="translate(0 1.5)" />
+                  <path d="M0 200 L150 96 L300 200" fill="none" stroke="#fff" strokeOpacity="0.5" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                  <path d="M0 0 L150 112 M300 0 L150 112" fill="none" stroke="#5a3d16" strokeOpacity="0.18" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                </svg>
+                <span className="absolute inset-[7px] rounded-[4px] border border-[#a9802f]/70 shadow-[inset_0_0_0_3px_rgba(169,128,47,0.12)]" />
+              </div>
+              <div className="wl-env-flap absolute inset-x-0 top-0 h-[66%] rounded-t-lg bg-[linear-gradient(180deg,#F8EBCB_0%,#E2C690_70%,#CBA868_100%)]" />
+              {/* Flowers resting on two corners, rumduol among them */}
+              <svg viewBox="-70 -60 140 80" className="pointer-events-none absolute z-[6] -left-[10%] -bottom-[14%] w-[48%] h-auto overflow-visible drop-shadow-[0_8px_10px_rgba(0,0,0,0.35)]">
+                <defs><PhotoFlowerDefs /></defs>
+                <FlowerBank x={0} y={14} w={124} h={68} n={9} seed={12} mix={["rumduol", "blush", "rumduol", "rose", "jasmine", "rumduol", "red", "orchid"]} />
+              </svg>
+              <svg viewBox="-70 -60 140 80" className="pointer-events-none absolute z-[6] -right-[8%] -top-[16%] w-[36%] h-auto overflow-visible drop-shadow-[0_8px_10px_rgba(0,0,0,0.35)]">
+                <FlowerBank x={0} y={14} w={112} h={58} n={7} seed={14} mix={["rumduol", "rose", "rumduol", "jasmine", "blush"]} />
+              </svg>
+              {/* Wax seal stamped with a rumduol, ringed in gold */}
+              <span className="wl-env-seal absolute left-1/2 top-[66%] z-[5] w-[5rem] h-[5rem] rounded-full bg-[radial-gradient(circle_at_36%_30%,#c2544c,#8e2f2a_55%,#5c1a17)] shadow-[inset_0_-4px_8px_rgba(0,0,0,0.35),inset_0_3px_6px_rgba(255,255,255,0.22),0_10px_22px_rgba(0,0,0,0.45)] flex items-center justify-center [border-radius:48%_52%_50%_46%/50%_46%_54%_50%]">
+                <span className="absolute inset-[7px] rounded-full border border-[#e6c27a]/70 shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]" />
+                <svg viewBox="-55 -55 110 110" className="relative w-[64%] h-[64%] drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]" aria-hidden="true">
+                  <use href="#ve-fl-rumduol" />
+                </svg>
               </span>
             </div>
           </div>
