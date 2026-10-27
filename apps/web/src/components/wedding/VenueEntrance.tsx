@@ -191,6 +191,18 @@ function Defs() {
           <stop offset="0.7" stopColor="#E2D5C0" />
           <stop offset="1" stopColor="#FFFDF8" />
         </linearGradient>
+        <linearGradient id="ve-fold-pink" x1="0" y1="0" x2="0.07" y2="0" spreadMethod="repeat">
+          <stop offset="0" stopColor="#F9D9DC" />
+          <stop offset="0.45" stopColor="#EDB3BA" />
+          <stop offset="0.7" stopColor="#D9919B" />
+          <stop offset="1" stopColor="#F9D9DC" />
+        </linearGradient>
+        <linearGradient id="ve-fold-gold" x1="0" y1="0" x2="0.07" y2="0" spreadMethod="repeat">
+          <stop offset="0" stopColor="#FBEBB8" />
+          <stop offset="0.45" stopColor="#EED27E" />
+          <stop offset="0.7" stopColor="#D8B45A" />
+          <stop offset="1" stopColor="#FBEBB8" />
+        </linearGradient>
         <linearGradient id="ve-drape-shade" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.25" />
           <stop offset="1" stopColor="#B9A27E" stopOpacity="0.35" />
@@ -232,13 +244,13 @@ const rr = (v: number) => Math.round(v * 100) / 100;
 /* A white curtain hanging from (x, y), w wide and h long, tied back toward
    its outer edge (side -1: the left edge is outer) a little below the
    middle, with a cluster of flowers at the tie */
-function Drape({ x, y, w, h, side = -1, seed = 1 }: { x: number; y: number; w: number; h: number; side?: -1 | 1; seed?: number }) {
+function Drape({ x, y, w, h, side = -1, seed = 1, fill = "ve-fold" }: { x: number; y: number; w: number; h: number; side?: -1 | 1; seed?: number; fill?: string }) {
   const d = `M0 0 L${w} 0 C${w} ${rr(h * 0.34)} ${rr(w * 0.3)} ${rr(h * 0.5)} ${rr(w * 0.2)} ${rr(h * 0.6)} C${rr(w * 0.3)} ${rr(h * 0.74)} ${rr(w * 0.58)} ${rr(h * 0.92)} ${rr(w * 0.52)} ${h} L0 ${h} Z`;
   const t = side < 0 ? `translate(${rr(x)} ${rr(y)})` : `translate(${rr(x + w)} ${rr(y)}) scale(-1 1)`;
   return (
     <g>
       <g transform={t}>
-        <path d={d} fill="url(#ve-fold)" />
+        <path d={d} fill={`url(#${fill})`} />
         <path d={d} fill="url(#ve-drape-shade)" />
       </g>
       <FlowerBank x={side < 0 ? x + w * 0.22 : x + w * 0.78} y={y + h * 0.63} w={Math.max(40, w * 0.6)} h={Math.max(24, w * 0.36)} n={7} seed={seed} />
@@ -284,6 +296,36 @@ function Lights({ a, b, sag, n, r = 2.4 }: { a: [number, number]; b: [number, nu
           </g>
         );
       })}
+    </g>
+  );
+}
+
+/* Phan: a gold footed tray heaped with oranges, a hand of bananas and
+   flowers, the offering trays of a Khmer wedding; (x, y) is the foot */
+function Phan({ x, y, s = 1, seed = 1 }: { x: number; y: number; s?: number; seed?: number }) {
+  const p = (v: number) => rr(v * s);
+  const fruit = [[-22, -50], [0, -54], [22, -50], [-12, -64], [12, -64], [0, -76]];
+  return (
+    <g transform={`translate(${rr(x)} ${rr(y)})`}>
+      <ellipse cx="0" cy="0" rx={p(30)} ry={p(5)} fill="#2E1A10" fillOpacity="0.22" />
+      <path d={`M${p(-16)} 0 L${p(16)} 0 L${p(8)} ${p(-12)} L${p(-8)} ${p(-12)} Z`} fill="url(#ve-gold)" />
+      <rect x={p(-5)} y={p(-30)} width={p(10)} height={p(18)} fill="url(#ve-gold-h)" />
+      <ellipse cx="0" cy={p(-31)} rx={p(12)} ry={p(4)} fill="url(#ve-gold)" />
+      <path d={`M${p(-40)} ${p(-38)} C${p(-36)} ${p(-28)} ${p(36)} ${p(-28)} ${p(40)} ${p(-38)} Z`} fill="url(#ve-gold)" />
+      <path d={`M${p(-40)} ${p(-38)} C${p(-20)} ${p(-42)} ${p(20)} ${p(-42)} ${p(40)} ${p(-38)}`} fill="none" stroke="#FFF0B8" strokeWidth={p(1.5)} />
+      <use href="#ve-fl-leaf" transform={`translate(${p(-30)} ${p(-40)}) rotate(-70) scale(${rr(0.7 * s)})`} />
+      <use href="#ve-fl-leaf" transform={`translate(${p(30)} ${p(-40)}) rotate(70) scale(${rr(0.7 * s)})`} />
+      {/* A hand of bananas lying across the back */}
+      <path d={`M${p(-26)} ${p(-48)} C${p(-14)} ${p(-74)} ${p(16)} ${p(-74)} ${p(28)} ${p(-50)} C${p(16)} ${p(-64)} ${p(-14)} ${p(-64)} ${p(-26)} ${p(-48)} Z`} fill="#E9C94A" stroke="#B8932A" strokeWidth={p(1)} />
+      {fruit.map(([fx, fy], i) => (
+        <g key={i}>
+          <circle cx={p(fx)} cy={p(fy)} r={p(10)} fill="#E8822A" />
+          <circle cx={p(fx - 3)} cy={p(fy - 3)} r={p(4)} fill="#FFC27A" fillOpacity="0.7" />
+        </g>
+      ))}
+      <Flower kind="rumduol" x={p(-30)} y={p(-46)} size={p(26)} rot={-20} />
+      <Flower kind="blush" x={p(30)} y={p(-46)} size={p(24)} rot={15} />
+      <Flower kind="jasmine" x={p(0)} y={p(-84)} size={p(26)} rot={seed * 30} />
     </g>
   );
 }
@@ -441,6 +483,15 @@ function HallPlane() {
         const a = Math.PI + (i / 25) * Math.PI;
         return <Flower key={i} kind={MIX.wedding[i % MIX.wedding.length]} x={rr(800 + Math.cos(a) * 112)} y={rr(400 + Math.sin(a) * 112)} size={30 + (i % 3) * 6} rot={(i * 37) % 60 - 30} />;
       })}
+      {Array.from({ length: 19 }, (_, i) => {
+        const a = Math.PI + (i / 18) * Math.PI;
+        return (
+          <g key={`b${i}`}>
+            <circle cx={rr(800 + Math.cos(a) * 134)} cy={rr(400 + Math.sin(a) * 134)} r="7" fill="url(#ve-lamp)" />
+            <circle cx={rr(800 + Math.cos(a) * 134)} cy={rr(400 + Math.sin(a) * 134)} r="2.4" fill="#FFF3D0" />
+          </g>
+        );
+      })}
       <Garland a={[690, 400]} b={[690, 520]} sag={0} n={8} size={30} seed={33} />
       <Garland a={[910, 400]} b={[910, 520]} sag={0} n={8} size={30} seed={34} />
       {/* Steps and the flowers either side of them */}
@@ -451,6 +502,8 @@ function HallPlane() {
       ))}
       <PhotoFlowerStand x={712} y={560} s={0.55} seed={35} />
       <PhotoFlowerStand x={888} y={560} s={0.55} seed={36} />
+      <Phan x={640} y={572} s={0.6} seed={1} />
+      <Phan x={960} y={572} s={0.6} seed={2} />
     </svg>
   );
 }
@@ -504,8 +557,10 @@ function GatePlane() {
   return (
     <svg viewBox={VB} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 w-full h-full" aria-hidden="true">
       <g filter="url(#ve-near-soft)">
-      <Drape x={60} y={110} w={260} h={790} side={-1} seed={41} />
-      <Drape x={1280} y={110} w={260} h={790} side={1} seed={42} />
+      <Drape x={60} y={110} w={260} h={790} side={-1} seed={41} fill="ve-fold-pink" />
+      <Drape x={1280} y={110} w={260} h={790} side={1} seed={42} fill="ve-fold-pink" />
+      <Drape x={40} y={110} w={150} h={790} side={-1} seed={44} fill="ve-fold-gold" />
+      <Drape x={1410} y={110} w={150} h={790} side={1} seed={45} fill="ve-fold-gold" />
       {[170, 1430].map((x, i) => (
         <g key={x}>
           <WhiteColumn x={x} top={130} bottom={900} w={96} />
@@ -514,8 +569,18 @@ function GatePlane() {
           <FlowerBank x={x} y={900} w={220} h={120} n={16} seed={47 + i} />
         </g>
       ))}
-      <path d="M0 0 L1600 0 L1600 96 Q800 200 0 96 Z" fill="url(#ve-fold)" />
-      <path d="M0 0 L1600 0 L1600 96 Q800 200 0 96 Z" fill="url(#ve-drape-shade)" />
+      {/* Pleated swags in pink and gold across the top, like the roof of a
+          Khmer wedding tent */}
+      {Array.from({ length: 8 }, (_, i) => {
+        const x0 = i * 200, d = `M${x0} 0 L${x0 + 200} 0 L${x0 + 200} 70 Q${x0 + 100} 150 ${x0} 70 Z`;
+        return (
+          <g key={i}>
+            <path d={d} fill={`url(#${i % 2 ? "ve-fold-gold" : "ve-fold-pink"})`} />
+            <path d={d} fill="url(#ve-drape-shade)" />
+          </g>
+        );
+      })}
+      <rect x="0" y="0" width="1600" height="14" fill="url(#ve-gold-h)" />
       <Garland a={[170, 120]} b={[1430, 120]} sag={90} n={38} size={60} seed={46} />
       <Flower kind="spray" x={330} y={262} size={90} rot={-6} />
       <Flower kind="spray" x={1270} y={262} size={90} rot={6} flip />
