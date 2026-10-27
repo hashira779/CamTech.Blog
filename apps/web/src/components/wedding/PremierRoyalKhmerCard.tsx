@@ -903,7 +903,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                 <FlowerBank x={0} y={14} w={120} h={66} n={9} seed={5} />
               </svg>
               <svg viewBox="-70 -60 140 80" aria-hidden="true" className="wc-env-spray wc-env-spray-r pointer-events-none absolute z-[7] -right-[8%] -top-[14%] w-[34%] h-auto overflow-visible">
-                <FlowerBank x={0} y={14} w={110} h={58} n={7} seed={9} mix={["rose", "jasmine", "blush", "orchid", "rose"]} />
+                <FlowerBank x={0} y={14} w={110} h={58} n={7} seed={9} mix={["rumduol", "rose", "jasmine", "rumduol", "blush", "orchid"]} />
               </svg>
               {/* Petals thrown out as the seal breaks */}
               {ENV_PETALS.map(([x, y, r, d], i) => (

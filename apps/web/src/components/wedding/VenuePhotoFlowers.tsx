@@ -1,8 +1,8 @@
 import React from "react";
 
-/* Flowers for the wedding hall, drawn: garden roses in ivory, blush and
-   dusty burgundy, pink peonies, frangipani, white orchids and sprigs of
-   jasmine, with sage leaves and eucalyptus between them.
+/* Flowers for the wedding hall, drawn: rumduol (Cambodia's national
+   flower), garden roses in ivory, blush and dusty burgundy, pink peonies,
+   frangipani, white orchids and sprigs of jasmine, with sage leaves and eucalyptus between them.
 
    Each bloom is built from layered petals in rings; one radial gradient
    per colour runs from the deep heart of the flower out to the pale petal
@@ -14,13 +14,13 @@ import React from "react";
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
-export type Bloom = "rose" | "blush" | "red" | "orchid" | "plumeriaPink" | "plumeria" | "jasmine";
+export type Bloom = "rose" | "blush" | "red" | "orchid" | "plumeriaPink" | "plumeria" | "jasmine" | "rumduol";
 
 /** Mixes that read as one arrangement */
 export const MIX = {
-  wedding: ["blush", "rose", "plumeriaPink", "jasmine", "blush", "orchid", "rose", "red", "blush", "plumeria", "rose", "jasmine"],
-  white: ["rose", "orchid", "jasmine", "rose", "plumeria", "orchid"],
-  blush: ["blush", "plumeriaPink", "rose", "blush", "jasmine", "orchid"],
+  wedding: ["blush", "rumduol", "rose", "plumeriaPink", "rumduol", "jasmine", "blush", "orchid", "rumduol", "rose", "red", "blush", "rumduol", "plumeria", "rose", "jasmine"],
+  white: ["rose", "rumduol", "orchid", "jasmine", "rumduol", "rose", "plumeria", "orchid"],
+  blush: ["blush", "rumduol", "plumeriaPink", "rose", "blush", "rumduol", "jasmine", "orchid"],
 } as const satisfies Record<string, readonly Bloom[]>;
 
 /* ─── Drawing ───────────────────────────────────────────────────────────── */
@@ -80,6 +80,17 @@ export function PhotoFlowerDefs() {
         <stop offset="0.5" stopColor="#FBF7EF" />
         <stop offset="1" stopColor="#FFFFFF" />
       </radialGradient>
+      <radialGradient id="ve-fl-rumduol-g" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="48">
+        <stop offset="0" stopColor="#C99A2E" />
+        <stop offset="0.35" stopColor="#E9CF7E" />
+        <stop offset="0.75" stopColor="#F7EAB8" />
+        <stop offset="1" stopColor="#FCF5D8" />
+      </radialGradient>
+      <radialGradient id="ve-fl-rumduol-dome" cx="0.4" cy="0.35" r="0.75">
+        <stop offset="0" stopColor="#FFF8DC" />
+        <stop offset="0.6" stopColor="#EED68A" />
+        <stop offset="1" stopColor="#C9A03A" />
+      </radialGradient>
       <linearGradient id="ve-fl-leaf-g" x1="0" y1="1" x2="0" y2="0">
         <stop offset="0" stopColor="#4F6B48" />
         <stop offset="1" stopColor="#9DB58C" />
@@ -93,6 +104,25 @@ export function PhotoFlowerDefs() {
       <Rose id="ve-fl-blush" c={ROSE_COLOURS["ve-fl-blush"]} rings={ROSE_RINGS} />
       <Rose id="ve-fl-red" c={ROSE_COLOURS["ve-fl-red"]} rings={ROSE_RINGS} />
       <Rose id="ve-fl-peony" c={ROSE_COLOURS["ve-fl-peony"]} rings={PEONY_RINGS} />
+
+      {/* Rumduol: three thick, creamy-yellow outer petals, rounded and a
+          little pointed, three small green sepals between them, and the
+          three inner petals closed into a dome at the heart */}
+      <g id="ve-fl-rumduol">
+        <circle r="30" fill="#3A2416" fillOpacity="0.12" transform="translate(2 4)" />
+        {[60, 180, 300].map((r) => (
+          <path key={`s${r}`} d="M0 -6 C-5 -14 -4 -22 0 -26 C4 -22 5 -14 0 -6 Z" fill="#6E8A4E" transform={`rotate(${r})`} />
+        ))}
+        {[0, 120, 240].map((r) => (
+          <g key={r} transform={`rotate(${r})`}>
+            <path d="M0 2 C-20 -2 -26 -26 -12 -40 C-6 -46 -2 -48 0 -50 C2 -48 6 -46 12 -40 C26 -26 20 -2 0 2 Z" fill="url(#ve-fl-rumduol-g)" stroke="#C9A548" strokeOpacity="0.55" strokeWidth="0.9" />
+            <path d="M0 -6 C-1 -18 -1 -30 0 -44" fill="none" stroke="#D9BC6A" strokeOpacity="0.7" strokeWidth="0.9" />
+            <path d="M-13 -36 C-8 -43 8 -43 13 -36 C6 -39 -6 -39 -13 -36 Z" fill="#FFFBEA" fillOpacity="0.8" />
+          </g>
+        ))}
+        <path d="M0 -15 C9 -14 15 -4 13 6 C11 13 -11 13 -13 6 C-15 -4 -9 -14 0 -15 Z" fill="url(#ve-fl-rumduol-dome)" stroke="#B88E2E" strokeOpacity="0.6" strokeWidth="0.8" />
+        <path d="M0 -14 L0 4 M0 4 L-11 9 M0 4 L11 9" fill="none" stroke="#B88E2E" strokeOpacity="0.55" strokeWidth="0.9" />
+      </g>
 
       {/* Frangipani: five broad petals, each overlapping the next, a gold throat */}
       <g id="ve-fl-plumeria">
@@ -161,6 +191,7 @@ const DEF: Record<Bloom | "spray" | "leaf", string> = {
   plumeria: "ve-fl-plumeria",
   orchid: "ve-fl-orchid",
   jasmine: "ve-fl-jasmine",
+  rumduol: "ve-fl-rumduol",
   spray: "ve-fl-spray",
   leaf: "ve-fl-leaf",
 };

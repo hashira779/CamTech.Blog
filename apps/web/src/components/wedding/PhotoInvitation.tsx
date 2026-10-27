@@ -55,7 +55,7 @@ export function PhotoInvitation(p: PhotoInvitationProps) {
       </svg>
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-40 overflow-hidden">
         {PETALS.map(([x, y, d, t, s], i) => (
-          <span key={i} className={i % 3 === 1 ? "ve-petal ve-petal--rose" : "ve-petal"} style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${-d}s`, animationDuration: `${t}s`, "--s": s } as React.CSSProperties} />
+          <span key={i} className={i % 3 === 1 ? "ve-petal ve-petal--rose" : i % 3 === 2 ? "ve-petal ve-petal--rumduol" : "ve-petal"} style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${-d}s`, animationDuration: `${t}s`, "--s": s } as React.CSSProperties} />
         ))}
       </div>
       <p className="wc-smallcaps text-center text-[var(--wc-link)] mb-10">{p.label}</p>

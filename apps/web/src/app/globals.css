@@ -2488,6 +2488,8 @@ html.js .kb-anim:not([data-in]) .kb-bloom { opacity: 0; transform: rotate(-90deg
 }
 @media (prefers-reduced-motion: reduce) { .ve-petal { display: none; } }
 .ve-petal--rose { background: radial-gradient(circle at 30% 30%, #ffe9e7 0%, #f3b4b6 55%, #c8687a 100%); }
+/* Rumduol petals: thick and creamy yellow, rounder than jasmine */
+.ve-petal--rumduol { border-radius: 60% 60% 50% 50% / 70% 70% 40% 40%; background: radial-gradient(circle at 35% 30%, #fffbe6 0%, #f3e2a2 55%, #d6b257 100%); }
 
 /* ---------- Photo invitation (PhotoInvitation.tsx) ----------
    Driven by the section's place on screen: the card rises, the photo is

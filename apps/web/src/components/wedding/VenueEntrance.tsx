@@ -1054,7 +1054,7 @@ export const VenueEntrance = React.memo(function VenueEntrance(props: VenueEntra
         {/* Jasmine petals drifting down inside the hall */}
         <div data-petals aria-hidden="true" className="absolute inset-0 pointer-events-none overflow-hidden invisible">
           {PETALS.map(([x, d, t, sz], i) => (
-            <span key={i} className={i % 3 === 1 ? "ve-petal ve-petal--rose" : "ve-petal"} style={{ left: `${x}%`, animationDelay: `${-d}s`, animationDuration: `${t}s`, animationPlayState: "var(--ve-petals, running)", "--s": sz } as React.CSSProperties} />
+            <span key={i} className={i % 3 === 1 ? "ve-petal ve-petal--rose" : i % 3 === 2 ? "ve-petal ve-petal--rumduol" : "ve-petal"} style={{ left: `${x}%`, animationDelay: `${-d}s`, animationDuration: `${t}s`, animationPlayState: "var(--ve-petals, running)", "--s": sz } as React.CSSProperties} />
           ))}
         </div>
         {/* A band of light sweeping across the gilding as the stage comes into view */}
