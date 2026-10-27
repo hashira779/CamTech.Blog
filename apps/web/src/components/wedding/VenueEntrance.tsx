@@ -831,11 +831,15 @@ async function flattenLayers(root: HTMLElement, isCancelled: () => boolean) {
       break;
     }
     // Swap only once the picture is ready, so nothing flashes
-    layer.appendChild(img);
-    svg.style.display = "none";
+    // The drawing itself leaves the page while the picture stands in for
+    // it: hidden but present, its thousands of <use> clones were still
+    // restyled on every frame of the camera move. React keeps the node and
+    // only ever updates or removes it through its parent, so it can go back
+    // exactly where it was.
+    layer.replaceChild(img, svg);
     restore.push(() => {
-      img.remove();
-      svg.style.display = "";
+      if (img.parentNode === layer) layer.replaceChild(svg, img);
+      else img.remove();
       URL.revokeObjectURL(url);
     });
   }
