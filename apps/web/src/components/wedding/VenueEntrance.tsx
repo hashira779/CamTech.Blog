@@ -58,9 +58,25 @@ function Defs() {
           <stop offset="1" stopColor="#FFE1A3" stopOpacity="0" />
         </radialGradient>
         <linearGradient id="ve-ground" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#CDB58C" />
-          <stop offset="1" stopColor="#9C8058" />
+          <stop offset="0" stopColor="#EADFCB" />
+          <stop offset="0.5" stopColor="#E2D3B8" />
+          <stop offset="1" stopColor="#C9B490" />
         </linearGradient>
+        <radialGradient id="ve-floor-shine" cx="0.5" cy="0" r="0.75">
+          <stop offset="0" stopColor="#FFF4D8" stopOpacity="0.85" />
+          <stop offset="0.5" stopColor="#FFF4D8" stopOpacity="0.25" />
+          <stop offset="1" stopColor="#FFF4D8" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="ve-doorway-glow" cx="0.5" cy="0.6" r="0.6">
+          <stop offset="0" stopColor="#FFF8E6" />
+          <stop offset="0.45" stopColor="#FFE2A8" />
+          <stop offset="1" stopColor="#E9B36A" />
+        </radialGradient>
+        {/* The nearest plane is a little out of focus, like a camera
+            looking past it at the hall */}
+        <filter id="ve-near-soft" x="-5%" y="-5%" width="110%" height="110%">
+          <feGaussianBlur stdDeviation="1.6" />
+        </filter>
         <linearGradient id="ve-path" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#F2E5CC" />
           <stop offset="1" stopColor="#D9C4A0" />
@@ -375,14 +391,26 @@ function HallPlane() {
   const windows = [340, 440, 540, 1060, 1160, 1260];
   return (
     <svg viewBox={VB} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 w-full h-full" aria-hidden="true">
-      {/* Ground and path */}
+      {/* A polished cream marble forecourt: seams in perspective and the
+          lit hall reflected in it */}
       <rect x="0" y="560" width="1600" height="340" fill="url(#ve-ground)" />
-      <path d="M560 900 L770 560 L830 560 L1040 900 Z" fill="url(#ve-path)" />
-      <path d="M770 560 L830 560 L900 900 L700 900 Z" fill="url(#ve-aisle)" fillOpacity="0.9" />
+      {Array.from({ length: 9 }, (_, i) => {
+        const t = (i + 1) / 10, y = 560 + 340 * t * t;
+        return <line key={`h${i}`} x1="0" y1={rr(y)} x2="1600" y2={rr(y)} stroke="#B9A47E" strokeOpacity={0.12 + t * 0.18} strokeWidth={0.6 + t * 1.4} />;
+      })}
+      {Array.from({ length: 17 }, (_, i) => {
+        const x = -800 + i * 200;
+        return <line key={`v${i}`} x1={800 + (x - 800) * 0.12} y1="560" x2={x} y2="900" stroke="#B9A47E" strokeOpacity="0.18" strokeWidth="1" />;
+      })}
+      <ellipse cx="800" cy="575" rx="560" ry="150" fill="url(#ve-floor-shine)" />
+      <path d="M770 560 L830 560 L900 900 L700 900 Z" fill="url(#ve-aisle)" fillOpacity="0.92" />
+      <path d="M770 560 L700 900 M830 560 L900 900" stroke="#D4AF37" strokeWidth="1.6" strokeOpacity="0.7" />
       {/* The building */}
       <rect x="280" y="250" width="1040" height="290" fill="url(#ve-facade)" />
       <rect x="270" y="236" width="1060" height="20" fill="#FBF6EC" />
       <rect x="270" y="254" width="1060" height="4" fill="url(#ve-gold-h)" />
+      <rect x="280" y="258" width="1040" height="18" fill="#8A6A3A" fillOpacity="0.08" />
+      {[290, 600, 1000, 1310].map((x) => <rect key={x} x={x - 8} y="258" width="16" height="282" fill="#FFFFFF" fillOpacity="0.35" />)}
       <Lights a={[280, 262]} b={[1320, 262]} sag={4} n={34} />
       {windows.map((x) => (
         <g key={x}>
@@ -399,12 +427,13 @@ function HallPlane() {
       <Piece id="rosette" slot="gable" x={800} y={170} s={0.36} />
       {[650, 950].map((x) => <WhiteColumn key={x} x={x} top={226} bottom={522} w={22} />)}
       <path d="M690 522 L690 400 A110 110 0 0 1 910 400 L910 522" fill="none" stroke="#FFFDF8" strokeWidth="16" />
-      <path d="M752 522 L752 438 Q800 404 848 438 L848 522 Z" fill="url(#ve-door)" />
-      {/* Through the doorway: the flower wall at the far end of the hall */}
+      {/* Through the doorway: the lit hall, a chandelier glowing inside */}
+      <path d="M752 522 L752 438 Q800 404 848 438 L848 522 Z" fill="url(#ve-doorway-glow)" />
       <g clipPath="url(#ve-door-clip)">
-        <FlowerWall x={752} y={404} w={96} h={118} cell={12} seed={91} />
-        <rect x="752" y="404" width="96" height="118" fill="url(#ve-door)" fillOpacity="0.5" />
+        <Chandelier x={800} y={436} s={0.32} />
+        <path d="M752 522 L770 470 L830 470 L848 522 Z" fill="#E9C68A" fillOpacity="0.35" />
       </g>
+
       <Drape x={696} y={300} w={52} h={222} side={-1} seed={31} />
       <Drape x={852} y={300} w={52} h={222} side={1} seed={32} />
       {/* The arch wreathed in flowers */}
@@ -438,8 +467,8 @@ function PathPlane() {
     <svg viewBox={VB} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 w-full h-full" aria-hidden="true">
       {/* Flowers lining both edges of the path, larger as they come near */}
       {[-1, 1].map((side) =>
-        Array.from({ length: 9 }, (_, i) => {
-          const t = 0.1 + (i / 8) * 0.85;
+        Array.from({ length: 6 }, (_, i) => {
+          const t = 0.14 + (i / 5) * 0.8;
           const y = 560 + 340 * t * t;
           const half = 40 + 220 * t * t;
           const s = 0.3 + t * 1.2;
@@ -453,7 +482,6 @@ function PathPlane() {
           <path d={`M${p.x - 12 * p.s} ${p.y - 100 * p.s} L${p.x} ${p.y - 128 * p.s} L${p.x + 12 * p.s} ${p.y - 100 * p.s} Z`} fill="url(#ve-gold)" />
           <rect x={p.x - 9 * p.s} y={p.y - 122 * p.s} width={18 * p.s} height={20 * p.s} fill="#FFE7B0" fillOpacity="0.9" />
           {/* A ribbon and a posy tied to each lamp post */}
-          <FlowerBank x={p.x} y={p.y - 92 * p.s} w={46 * p.s} h={22 * p.s} n={5} seed={300 + i} />
         </g>
       ))}
       {/* A canopy of warm lights strung across the path between the lamp posts */}
@@ -463,7 +491,6 @@ function PathPlane() {
         return (
           <g key={k}>
             <Lights a={[a.x, ya]} b={[b.x, ya]} sag={sag} n={14 + k * 3} r={1.6 + a.s} />
-            <Lights a={[a.x, ya + 6 * a.s]} b={[b.x, ya + 6 * a.s]} sag={sag * 1.5} n={12 + k * 3} r={1.3 + a.s * 0.8} />
           </g>
         );
       })}
@@ -476,6 +503,7 @@ function PathPlane() {
 function GatePlane() {
   return (
     <svg viewBox={VB} preserveAspectRatio="xMidYMid slice" className="absolute inset-0 w-full h-full" aria-hidden="true">
+      <g filter="url(#ve-near-soft)">
       <Drape x={60} y={110} w={260} h={790} side={-1} seed={41} />
       <Drape x={1280} y={110} w={260} h={790} side={1} seed={42} />
       {[170, 1430].map((x, i) => (
@@ -494,6 +522,7 @@ function GatePlane() {
       {Array.from({ length: 21 }, (_, i) => 120 + i * 68).map((x) => (
         <Piece key={x} id="pendant" x={x} y={160} s={0.55} />
       ))}
+      </g>
     </svg>
   );
 }
@@ -1041,6 +1070,8 @@ export const VenueEntrance = React.memo(function VenueEntrance(props: VenueEntra
           <div data-hall data-layer className={layer} style={{ transformOrigin: "50% 53.5%" }}><HallPlane /></div>
           <div data-path data-layer className={layer} style={{ transformOrigin: "50% 62%" }}><PathPlane /></div>
           <div data-gate data-layer className={layer} style={{ transformOrigin: "50% 55%" }}><GatePlane /></div>
+          {/* Warm evening light from the doorway, and the edges of the view falling into soft shadow */}
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_45%_at_50%_50%,rgba(255,226,170,0.22),transparent_70%),radial-gradient(120%_90%_at_50%_45%,transparent_55%,rgba(60,35,15,0.28)_100%)]" />
         </div>
         {/* Interior: hidden until the camera passes the doorway */}
         <div data-interior className="absolute inset-0 invisible">
