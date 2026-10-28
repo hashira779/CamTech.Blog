@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useContext, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { createRoot } from "react-dom/client";
 import type { WeddingOrnaments } from "@/lib/wedding-ornaments";
 import { CoupleNames } from "./CoupleNames";
 import { FlowerBank, FlowerWall, Flower, Garland, MIX, PhotoFlowerDefs, PhotoFlowerStand } from "./VenuePhotoFlowers";
@@ -794,21 +796,41 @@ export const PETALS = [
   [88, 2.9, 14, 1], [95, 7.6, 12, 0.8], [19, 11.8, 16, 0.7], [69, 12.6, 15, 0.95],
 ] as const;
 
-/* ─── Flattening ────────────────────────────────────────────────────────── */
+/* ─── Painting the layers ───────────────────────────────────────────────── */
 
-/* Hand the compositor pictures instead of shapes.
+/* The hall never goes on the page as shapes.
 
-   Each depth layer is an inline SVG of hundreds of shapes, and while the
-   camera moves, the browser restyles and re-layerizes every one of them on
-   every frame: on a throttled phone that alone overran the frame (median
-   136 ms, worst 1.9 s while scrolling through the hall). Once the scene has
-   drawn, each layer is copied into a self-contained SVG image, carrying the
-   shared defs it uses, and shown as a single <img>: the same pixels, one
-   paint item (median 68 ms, worst 0.2 s on the same run). The live SVG stays
-   in the DOM, only hidden, so nothing React owns is removed, and a layer is
-   left live if anything in it can't go into the copy (a reference not yet
-   drawn, a photo that can't be fetched). */
+   It used to: every layer was server-rendered as an inline SVG, and its
+   drawn flowers were <use> copies, some 60,000 elements in all (a rose is
+   67 shapes and there are hundreds of them), which a phone had to style and
+   lay out before it could show even the envelope in front of them (on a
+   4x-throttled phone over slow 4G: a 9.5 s style pass, a 3.2 s layout, first
+   paint after ~50 s), and again when the layers were flattened.
+
+   Now, in idle time once the invitation is showing, each depth layer is
+   drawn into a container that is never attached to the page, baked into a
+   self-contained SVG image and shown as one <img>; the camera moves
+   pictures. Two things keep the baking light:
+   - each drawn flower (ve-fl-*) becomes a small SVG "stamp" once, held in a
+     layer's defs as a single <image>, and every flower in the scene is a
+     <use> of that one image: the browser lays out a dozen flower drawings,
+     not tens of thousands of copies, and each stamp is parsed once;
+   - a layer carries only the shared definitions it uses.
+   A layer that can't be baked (a photo that won't fetch) goes on the page as
+   a self-contained inline SVG instead, stamps and all. */
+const SVG_NS = "http://www.w3.org/2000/svg";
 const ALIGN: Record<string, string> = { Min: "0%", Mid: "50%", Max: "100%" };
+
+const PLANES: [string, (p: { portrait?: string }) => React.ReactElement][] = [
+  ["sky", () => <SkyPlane />],
+  ["horizon", () => <HorizonPlane />],
+  ["hall", () => <HallPlane />],
+  ["path", () => <PathPlane />],
+  ["gate", () => <GatePlane />],
+  ["in-far", ({ portrait }) => <HallInteriorPlane portrait={portrait} />],
+  ["in-mid", () => <HallMidPlane />],
+  ["in-near", () => <HallNearPlane />],
+];
 
 function fitFor(svg: SVGSVGElement) {
   const m = /x(Min|Mid|Max)Y(Min|Mid|Max)\s*(meet|slice)?/.exec(svg.getAttribute("preserveAspectRatio") || "xMidYMid meet");
@@ -846,98 +868,217 @@ const REF = /(?:href="#|url\(#)([^")]+)/g;
 function refsIn(markup: string) {
   return [...markup.matchAll(REF)].map((m) => m[1]);
 }
+const hrefOf = (el: Element) => el.getAttribute("href") || el.getAttribute("xlink:href") || "";
 
-/** Flattens what it can; returns how many layers are still live (waiting on
-    a reference) and a function that puts every layer back */
-async function flattenLayers(root: HTMLElement, isCancelled: () => boolean) {
-  const restore: (() => void)[] = [];
-  // Every shared definition by id, so each layer copies only what it uses.
-  // An id nested inside a definition (a gradient inside a flower's <g>)
-  // leads to the top-level definition holding it, which is copied whole
+/* Every shared definition by id. An id nested inside a definition (a
+   gradient inside a flower's <g>) leads to the top-level definition that
+   holds it, which is copied whole */
+function definitions(host: Element) {
   const byId = new Map<string, Element>();
-  for (const defs of root.querySelectorAll("defs")) {
+  for (const defs of host.querySelectorAll("defs")) {
     for (const top of defs.children) {
       if (top.id) byId.set(top.id, top);
       for (const inner of top.querySelectorAll("[id]")) if (!byId.has(inner.id)) byId.set(inner.id, top);
     }
   }
-  let pending = 0;
-  for (const layer of root.querySelectorAll<HTMLElement>("[data-layer]")) {
-    const svg = layer.querySelector<SVGSVGElement>(":scope > svg");
-    if (!svg || svg.style.display === "none") continue;
-    const fit = fitFor(svg);
-    const vb = svg.viewBox.baseVal;
-    if (!fit || !vb || !vb.width) continue;
-    // Follow references from the layer through the definitions it reaches
-    const used = new Set<Element>();
-    const seen = new Set<string>();
-    const queue = refsIn(svg.outerHTML);
-    let missing = false;
-    while (queue.length) {
-      const id = queue.pop()!;
-      if (seen.has(id)) continue;
-      seen.add(id);
-      const def = byId.get(id);
-      if (def) {
-        if (!used.has(def)) queue.push(...refsIn(def.outerHTML));
-        used.add(def);
-      } else if (!svg.querySelector(`[id="${CSS.escape(id)}"]`)) {
-        missing = true;
-      }
+  return byId;
+}
+
+/* The definitions a piece of markup reaches, following references through
+   them; `missing` if one isn't there */
+function reach(markup: string, byId: Map<string, Element>, local?: Element) {
+  const used = new Set<Element>();
+  const seen = new Set<string>();
+  const queue = refsIn(markup);
+  let missing = false;
+  while (queue.length) {
+    const id = queue.pop()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const def = byId.get(id);
+    if (def) {
+      if (!used.has(def)) queue.push(...refsIn(def.outerHTML));
+      used.add(def);
+    } else if (!local?.querySelector(`[id="${CSS.escape(id)}"]`)) {
+      missing = true;
     }
-    if (missing) {
-      pending++;
-      continue;
-    }
-    const clone = svg.cloneNode(true) as SVGSVGElement;
-    clone.insertAdjacentHTML("afterbegin", `<defs>${[...used].map((d) => d.outerHTML).join("")}</defs>`);
-    // An SVG image can't load anything itself: photos and ornament images
-    // go in as data, and a layer whose image can't be fetched stays live
-    let ok = true;
-    for (const im of clone.querySelectorAll("image")) {
-      const href = im.getAttribute("href") || im.getAttribute("xlink:href") || "";
-      if (!href || href.startsWith("data:")) continue;
-      try {
-        im.setAttribute("href", await toDataUrl(href));
-      } catch {
-        ok = false;
-        break;
-      }
-    }
-    if (!ok || isCancelled()) continue;
-    clone.removeAttribute("class");
-    clone.setAttribute("width", String(vb.width));
-    clone.setAttribute("height", String(vb.height));
-    const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml" }));
-    const img = new Image();
-    img.alt = "";
-    img.setAttribute("aria-hidden", "true");
-    img.style.cssText = `position:absolute;inset:0;width:100%;height:100%;object-fit:${fit.fit};object-position:${fit.position};pointer-events:none`;
-    img.src = url;
-    try {
-      await img.decode();
-    } catch {
-      URL.revokeObjectURL(url);
-      continue;
-    }
-    if (isCancelled()) {
-      URL.revokeObjectURL(url);
-      break;
-    }
-    // Swap only once the picture is ready, so nothing flashes
-    // The drawing itself leaves the page while the picture stands in for
-    // it: hidden but present, its thousands of <use> clones were still
-    // restyled on every frame of the camera move. React keeps the node and
-    // only ever updates or removes it through its parent, so it can go back
-    // exactly where it was.
-    layer.replaceChild(img, svg);
-    restore.push(() => {
-      if (img.parentNode === layer) layer.replaceChild(svg, img);
-      else img.remove();
-      URL.revokeObjectURL(url);
-    });
   }
-  return { pending, undo: () => restore.splice(0).forEach((f) => f()) };
+  return { used, missing };
+}
+
+interface Stamp {
+  url: string;
+  box: [number, number, number, number];
+}
+
+/* One SVG image per drawn flower, with the box it fills in its own units.
+   The boxes are measured with getBBox, which needs the flowers on the page
+   for a moment: one hidden copy of each, a few hundred shapes in all */
+function makeStamps(byId: Map<string, Element>) {
+  const ids = [...new Set(byId.values())].filter((d) => d.id.startsWith("ve-fl-") && d.tagName.toLowerCase() === "g").map((d) => d.id);
+  const stamps = new Map<string, Stamp>();
+  if (!ids.length) return stamps;
+  const measure = document.createElementNS(SVG_NS, "svg");
+  measure.setAttribute("width", "0");
+  measure.setAttribute("height", "0");
+  measure.setAttribute("aria-hidden", "true");
+  measure.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden";
+  const defs = document.createElementNS(SVG_NS, "defs");
+  for (const d of reach(ids.map((id) => `href="#${id}"`).join(" "), byId).used) defs.appendChild(d.cloneNode(true));
+  measure.appendChild(defs);
+  const uses = ids.map((id) => {
+    const u = document.createElementNS(SVG_NS, "use");
+    u.setAttribute("href", `#${id}`);
+    measure.appendChild(u);
+    return u;
+  });
+  document.body.appendChild(measure);
+  try {
+    ids.forEach((id, i) => {
+      const bb = uses[i].getBBox();
+      if (!bb.width || !bb.height) return;
+      // Room for strokes, which getBBox leaves out
+      const pad = Math.max(bb.width, bb.height) * 0.04 + 1;
+      const box: Stamp["box"] = [bb.x - pad, bb.y - pad, bb.width + pad * 2, bb.height + pad * 2];
+      const svg = document.createElementNS(SVG_NS, "svg");
+      svg.setAttribute("viewBox", box.join(" "));
+      svg.setAttribute("width", String(Math.round(box[2])));
+      svg.setAttribute("height", String(Math.round(box[3])));
+      const own = document.createElementNS(SVG_NS, "defs");
+      const def = byId.get(id)!;
+      for (const d of reach(def.outerHTML, byId, def).used) if (d !== def) own.appendChild(d.cloneNode(true));
+      svg.appendChild(own);
+      svg.appendChild(def.cloneNode(true));
+      stamps.set(id, { url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`, box });
+    });
+  } finally {
+    measure.remove();
+  }
+  return stamps;
+}
+
+/* Every <use> of a drawn flower is pointed at that flower's stamp instead:
+   one <image> in the defs, which the <use> places exactly as before. Returns
+   the stamp images the markup now needs */
+function applyStamps(el: Element, stamps: Map<string, Stamp>, needed = new Set<string>()) {
+  for (const u of el.querySelectorAll("use")) {
+    const id = hrefOf(u).slice(1);
+    if (!stamps.has(id)) continue;
+    u.removeAttribute("xlink:href");
+    u.setAttribute("href", `#stamp-${id}`);
+    needed.add(id);
+  }
+  return needed;
+}
+
+function stampImage(id: string, st: Stamp) {
+  const im = document.createElementNS(SVG_NS, "image");
+  im.setAttribute("id", `stamp-${id}`);
+  im.setAttribute("href", st.url);
+  im.setAttribute("x", String(st.box[0]));
+  im.setAttribute("y", String(st.box[1]));
+  im.setAttribute("width", String(st.box[2]));
+  im.setAttribute("height", String(st.box[3]));
+  im.setAttribute("preserveAspectRatio", "none");
+  return im;
+}
+
+/* One layer, baked: an <img> of the self-contained SVG once it has decoded,
+   or that SVG itself, inline, if a photo in it couldn't be fetched */
+async function bake(svg: SVGSVGElement, byId: Map<string, Element>, stamps: Map<string, Stamp>) {
+  const fit = fitFor(svg);
+  const vb = svg.viewBox.baseVal;
+  if (!fit || !vb || !vb.width) return null;
+  const clone = svg.cloneNode(true) as SVGSVGElement;
+  const needed = applyStamps(clone, stamps);
+  const own = document.createElementNS(SVG_NS, "defs");
+  // The definitions the layer reaches, leaving out the drawn flowers that
+  // stamps now stand in for
+  for (const d of reach(clone.outerHTML.replace(/href="#stamp-[^"]+"/g, ""), byId, clone).used) own.appendChild(d.cloneNode(true));
+  applyStamps(own, stamps, needed);
+  for (const id of needed) own.appendChild(stampImage(id, stamps.get(id)!));
+  clone.insertBefore(own, clone.firstChild);
+  clone.removeAttribute("class");
+  clone.setAttribute("width", String(vb.width));
+  clone.setAttribute("height", String(vb.height));
+  // An SVG image can't load anything itself: photos and ornament images go
+  // in as data
+  let inline = false;
+  for (const im of clone.querySelectorAll("image")) {
+    const href = hrefOf(im);
+    if (!href || href.startsWith("data:")) continue;
+    try {
+      im.setAttribute("href", await toDataUrl(href));
+    } catch {
+      inline = true;
+    }
+  }
+  const css = `position:absolute;inset:0;width:100%;height:100%;object-fit:${fit.fit};object-position:${fit.position};pointer-events:none`;
+  if (inline) {
+    clone.setAttribute("preserveAspectRatio", svg.getAttribute("preserveAspectRatio") || "xMidYMid slice");
+    clone.style.cssText = css;
+    clone.setAttribute("aria-hidden", "true");
+    return clone;
+  }
+  const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml" }));
+  const img = new Image();
+  img.alt = "";
+  img.setAttribute("aria-hidden", "true");
+  img.style.cssText = css;
+  img.src = url;
+  try {
+    await img.decode();
+  } catch {
+    URL.revokeObjectURL(url);
+    return null;
+  }
+  return img;
+}
+
+/* Draws every layer off the page and puts each one's picture into its
+   layer, replacing the previous one only once the new one is ready */
+async function paintLayers(root: HTMLElement, portrait: string | undefined, ornaments: OrnamentImages, isCancelled: () => boolean) {
+  const host = document.createElement("div");
+  const planes = createRoot(host);
+  flushSync(() =>
+    planes.render(
+      <OrnamentContext.Provider value={ornaments}>
+        <Defs />
+        {PLANES.map(([key, draw]) => (
+          <div key={key} data-plane={key}>
+            {draw({ portrait })}
+          </div>
+        ))}
+      </OrnamentContext.Provider>
+    )
+  );
+  try {
+    const byId = definitions(host);
+    const stamps = makeStamps(byId);
+    for (const [key] of PLANES) {
+      if (isCancelled()) return;
+      const svg = host.querySelector<SVGSVGElement>(`[data-plane="${key}"] > svg`);
+      const layer = root.querySelector<HTMLElement>(`[data-${key}]`);
+      if (!svg || !layer) continue;
+      const node = await bake(svg, byId, stamps);
+      if (!node) continue;
+      if (isCancelled()) {
+        if (node instanceof HTMLImageElement) URL.revokeObjectURL(node.src);
+        return;
+      }
+      node.setAttribute("data-baked", "");
+      const old = layer.querySelector(":scope > [data-baked]");
+      layer.insertBefore(node, layer.firstChild);
+      if (old) {
+        if (old instanceof HTMLImageElement && old.src.startsWith("blob:")) URL.revokeObjectURL(old.src);
+        old.remove();
+      }
+      // Let the page breathe between layers
+      await new Promise((r) => setTimeout(r, 0));
+    }
+  } finally {
+    planes.unmount();
+  }
 }
 
 /* The couple's ornament images, loaded to learn each one's proportions.
@@ -972,6 +1113,75 @@ function useOrnamentImages(ornaments?: WeddingOrnaments) {
 }
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
+
+/* ─── The camera, on the compositor ─────────────────────────────────────── */
+
+/* Where the browser has scroll-driven animations (ViewTimeline), the walk is
+   played by the browser itself: the GSAP timeline is sampled into keyframes
+   (each layer's transform and opacity at a few hundred points along the
+   walk) and every layer gets one Web Animation on a ViewTimeline of the
+   section. Those run on the compositor, locked to the scroll position frame
+   by frame, so the walk stays smooth in both directions however busy the
+   page's own thread is (a photo decoding, a 3D piece drawing, a script).
+   Elsewhere GSAP's ScrollTrigger plays the same timeline as before. */
+type ViewTimelineCtor = new (options: { subject: Element; axis?: "block" | "inline" }) => AnimationTimeline;
+function viewTimeline() {
+  if (typeof window === "undefined" || typeof CSS === "undefined") return undefined;
+  const VT = (window as unknown as { ViewTimeline?: ViewTimelineCtor }).ViewTimeline;
+  return VT && CSS.supports("animation-range: contain 0% contain 100%") ? VT : undefined;
+}
+
+interface Sampled {
+  el: HTMLElement;
+  frames: Keyframe[];
+}
+/* The parts of a GSAP timeline used here */
+interface Sampleable {
+  getChildren(nested?: boolean, tweens?: boolean, timelines?: boolean): unknown[];
+  progress(value: number): unknown;
+}
+
+/* Every animated element's transform and opacity at `steps` points along a
+   paused timeline (hidden counts as transparent), keeping the ends and every
+   point where something changes */
+function sampleTimeline(tl: Sampleable, steps = 240): Sampled[] {
+  const els = [
+    ...new Set(
+      tl.getChildren(true, true, false).flatMap((c) => (c && typeof (c as { targets?: unknown }).targets === "function" ? ((c as { targets(): unknown[] }).targets() as HTMLElement[]) : []))
+    ),
+  ];
+  const raw = els.map(() => [] as { t: string; o: string }[]);
+  for (let i = 0; i <= steps; i++) {
+    tl.progress(i / steps);
+    els.forEach((el, k) => {
+      const cs = getComputedStyle(el);
+      raw[k].push({ t: cs.transform, o: cs.visibility === "hidden" ? "0" : cs.opacity });
+    });
+  }
+  tl.progress(0);
+  return els.map((el, k) => {
+    const pts = raw[k];
+    const frames: Keyframe[] = [];
+    pts.forEach((pt, i) => {
+      const a = pts[i - 1], b = pts[i + 1];
+      const flat = a && b && a.t === pt.t && b.t === pt.t && a.o === pt.o && b.o === pt.o;
+      if (!flat) frames.push({ offset: i / steps, transform: pt.t, opacity: pt.o });
+    });
+    return { el, frames };
+  });
+}
+
+/* One Web Animation per element on a ViewTimeline of `subject`, from the
+   section's top reaching the top of the screen to its bottom reaching the
+   bottom (GSAP's "top top" to "bottom bottom") */
+function playOnScroll(subject: HTMLElement, moves: Sampled[], VT: ViewTimelineCtor) {
+  const timeline = new VT({ subject, axis: "block" });
+  return moves.map(({ el, frames }) => {
+    // Hidden is transparent here, so whatever a class hid starts out visible
+    el.style.visibility = "visible";
+    return el.animate(frames, { timeline, rangeStart: "contain 0%", rangeEnd: "contain 100%", fill: "both" } as unknown as KeyframeAnimationOptions);
+  });
+}
 
 /* Memoised: the scene is thousands of shapes and its props are plain
    strings (and the ornament links, compared by content), so the
@@ -1012,77 +1222,147 @@ export const VenueEntrance = React.memo(function VenueEntrance(props: VenueEntra
       if (cancelled) return;
       gsap.registerPlugin(ScrollTrigger);
       const q = gsap.utils.selector(root);
-      // Portrait phones see a narrow slice of the 16:9 scene: travel less
-      // far inside, so the stage stays framed instead of filling the screen
-      const z = window.innerWidth / window.innerHeight < 0.8 ? 0.55 : 1;
-      const zs = (v: number) => 1 + (v - 1) * z;
-      const ctx = gsap.context(() => {
-        // Starting state: outside, on the path, the gate framing the hall
-        gsap.set(q("[data-interior]"), { autoAlpha: 0 });
-        gsap.set(q("[data-exterior]"), { autoAlpha: 1 });
-        gsap.set(q("[data-in-far]"), { scale: zs(1.18) });
-        gsap.set(q("[data-in-mid]"), { scale: zs(1.4) });
-        gsap.set(q("[data-in-near]"), { scale: 1.8 });
-        gsap.set(q("[data-doorlight]"), { opacity: 0 });
-        gsap.set(q("[data-stage-text]"), { autoAlpha: 0, y: 24 });
-        gsap.set(q("[data-hint]"), { autoAlpha: 1 });
-        // Petals stay paused while hidden, so they don't animate unseen
-        gsap.set(q("[data-petals]"), { autoAlpha: 0, "--ve-petals": "paused" });
-        gsap.set(q("[data-glint]"), { autoAlpha: 0, xPercent: 0 });
+      const VT = viewTimeline();
+      const onCompositor = !!VT;
 
-        /* One continuous camera move per layer, each with a single ease, so
-           the speed never jumps where one phase hands over to the next; a
-           heavier scrub lets the camera glide on after the finger stops.
-           The door is a crossfade through warm light, not a cut. */
-        const tl = gsap.timeline({
-          defaults: { ease: "none" },
-          scrollTrigger: {
-            id: "venue-entrance",
-            trigger: root,
-            start: "top top",
-            end: "bottom bottom",
-            scrub: 1.4,
-            invalidateOnRefresh: true,
-          },
-        });
-        tl.addLabel("approach", 0)
-          .to(q("[data-hint]"), { autoAlpha: 0, duration: 4 }, "approach")
-          .to(q("[data-title]"), { autoAlpha: 0, y: -40, duration: 12, ease: "power1.in" }, "approach+=3")
-          // The gate opens past either side of the camera, fading as it goes
-          .to(q("[data-gate]"), { scale: 2.8, duration: 26, ease: "power2.in" }, "approach")
-          .to(q("[data-gate]"), { autoAlpha: 0, duration: 10, ease: "power1.in" }, "approach+=14")
-          // Walking up the path and the steps: the hall grows slowly, then
-          // faster as the doorway nears, and the eye rises with the steps
-          .to(q("[data-hall]"), { scale: 5.6, yPercent: -3, duration: 48, ease: "power3.in" }, "approach")
-          .to(q("[data-path]"), { scale: 4.2, yPercent: 4, duration: 44, ease: "power3.in" }, "approach")
-          .to(q("[data-path]"), { autoAlpha: 0, duration: 8 }, "approach+=34")
-          .to(q("[data-horizon]"), { scale: 1.14, duration: 48, ease: "power1.in" }, "approach")
-          .to(q("[data-sky]"), { scale: 1.08, duration: 48, ease: "power1.in" }, "approach")
-          .addLabel("door", 34)
-          // Light floods out of the doorway; the hall appears through it
-          .to(q("[data-doorlight]"), { opacity: 1, duration: 12, ease: "sine.inOut" }, "door")
-          .to(q("[data-interior]"), { autoAlpha: 1, duration: 10, ease: "sine.inOut" }, "door+=8")
-          .addLabel("inside", 48)
-          .set(q("[data-exterior]"), { autoAlpha: 0 }, "inside+=2")
-          .to(q("[data-doorlight]"), { opacity: 0, duration: 14, ease: "sine.inOut" }, "inside")
-          .set(q("[data-petals]"), { "--ve-petals": "running" }, "inside")
-          .to(q("[data-petals]"), { autoAlpha: 1, duration: 10 }, "inside")
-          // Down the aisle: one smooth move per depth, near planes faster
-          .fromTo(q("[data-in-far]"), { scale: zs(1.18) }, { scale: zs(1.62), duration: 44, ease: "sine.inOut", immediateRender: false }, "door+=8")
-          .fromTo(q("[data-in-mid]"), { scale: zs(1.4) }, { scale: zs(2.15), duration: 44, ease: "sine.inOut", immediateRender: false }, "door+=8")
-          .fromTo(q("[data-in-near]"), { scale: 1.8 }, { scale: 3.4, duration: 40, ease: "sine.in", immediateRender: false }, "door+=8")
-          .to(q("[data-in-near]"), { autoAlpha: 0, duration: 12, ease: "power1.in" }, "door+=36")
-          .addLabel("stage", 86)
-          // Arriving: the camera eases back a touch, as if stopping before
-          // the stage, and the words rise
-          .to(q("[data-in-far]"), { scale: zs(1.56), duration: 14, ease: "sine.out" }, "stage")
-          .to(q("[data-stage-text]"), { autoAlpha: 1, y: 0, duration: 10, stagger: 2, ease: "power2.out" }, "stage+=2")
-          // A band of light passes over the gilding as the stage arrives
-          .to(q("[data-glint]"), { autoAlpha: 1, duration: 2 }, "stage")
-          .to(q("[data-glint]"), { xPercent: 270, duration: 14, ease: "power1.inOut" }, "stage")
-          .to(q("[data-glint]"), { autoAlpha: 0, duration: 3 }, "stage+=11");
-      }, root);
-      cleanup = () => ctx.revert();
+      /* The walk as one GSAP timeline: scroll-driven by ScrollTrigger, or
+         paused, to be sampled for the compositor */
+      const build = () => {
+        let tl: gsap.core.Timeline | null = null;
+        let insideAt = 0;
+        const ctx = gsap.context(() => {
+          // Portrait phones see a narrow slice of the 16:9 scene, and phones on
+          // their side a short one: travel less far inside, so the stage and
+          // the names over it stay framed instead of filling the screen
+          const aspect = window.innerWidth / window.innerHeight;
+          const z = aspect < 0.8 ? 0.55 : aspect > 1.4 && window.innerHeight < 500 ? 0.4 : 1;
+          const zs = (v: number) => 1 + (v - 1) * z;
+          // Starting state: outside, on the path, the gate framing the hall
+          gsap.set(q("[data-interior]"), { autoAlpha: 0 });
+          gsap.set(q("[data-exterior]"), { autoAlpha: 1 });
+          gsap.set(q("[data-in-far]"), { scale: zs(1.18) });
+          gsap.set(q("[data-in-mid]"), { scale: zs(1.4) });
+          gsap.set(q("[data-in-near]"), { scale: 1.8 });
+          gsap.set(q("[data-doorlight]"), { opacity: 0 });
+          gsap.set(q("[data-stage-text]"), { autoAlpha: 0, y: 24 });
+          gsap.set(q("[data-hint]"), { autoAlpha: 1 });
+          // Petals stay paused while hidden, so they don't animate unseen
+          gsap.set(q("[data-petals]"), { autoAlpha: 0, "--ve-petals": "paused" });
+          gsap.set(q("[data-glint]"), { autoAlpha: 0, xPercent: 0 });
+
+          /* One continuous camera move per layer, each with a single ease, so
+             the speed never jumps where one phase hands over to the next; a
+             heavier scrub lets the camera glide on after the finger stops.
+             The door is a crossfade through warm light, not a cut. */
+          tl = gsap.timeline({
+            defaults: { ease: "none" },
+            ...(onCompositor
+              ? { paused: true }
+              : {
+                  scrollTrigger: {
+                    id: "venue-entrance",
+                    trigger: root,
+                    start: "top top",
+                    end: "bottom bottom",
+                    scrub: 1.4,
+                    invalidateOnRefresh: true,
+                  },
+                }),
+          });
+          tl.addLabel("approach", 0)
+            .to(q("[data-hint]"), { autoAlpha: 0, duration: 4 }, "approach")
+            .to(q("[data-title]"), { autoAlpha: 0, y: -40, duration: 12, ease: "power1.in" }, "approach+=3")
+            // The gate opens past either side of the camera, fading as it goes
+            .to(q("[data-gate]"), { scale: 2.8, duration: 26, ease: "power2.in" }, "approach")
+            .to(q("[data-gate]"), { autoAlpha: 0, duration: 10, ease: "power1.in" }, "approach+=14")
+            // Walking up the path and the steps: the hall grows slowly, then
+            // faster as the doorway nears, and the eye rises with the steps
+            .to(q("[data-hall]"), { scale: 5.6, yPercent: -3, duration: 48, ease: "power3.in" }, "approach")
+            .to(q("[data-path]"), { scale: 4.2, yPercent: 4, duration: 44, ease: "power3.in" }, "approach")
+            .to(q("[data-path]"), { autoAlpha: 0, duration: 8 }, "approach+=34")
+            .to(q("[data-horizon]"), { scale: 1.14, duration: 48, ease: "power1.in" }, "approach")
+            .to(q("[data-sky]"), { scale: 1.08, duration: 48, ease: "power1.in" }, "approach")
+            .addLabel("door", 34)
+            // Light floods out of the doorway; the hall appears through it
+            .to(q("[data-doorlight]"), { opacity: 1, duration: 12, ease: "sine.inOut" }, "door")
+            .to(q("[data-interior]"), { autoAlpha: 1, duration: 10, ease: "sine.inOut" }, "door+=8")
+            .addLabel("inside", 48)
+            .set(q("[data-exterior]"), { autoAlpha: 0 }, "inside+=2")
+            .to(q("[data-doorlight]"), { opacity: 0, duration: 14, ease: "sine.inOut" }, "inside")
+            .set(q("[data-petals]"), { "--ve-petals": "running" }, "inside")
+            .to(q("[data-petals]"), { autoAlpha: 1, duration: 10 }, "inside")
+            // Down the aisle: one smooth move per depth, near planes faster
+            .fromTo(q("[data-in-far]"), { scale: zs(1.18) }, { scale: zs(1.62), duration: 44, ease: "sine.inOut", immediateRender: false }, "door+=8")
+            .fromTo(q("[data-in-mid]"), { scale: zs(1.4) }, { scale: zs(2.15), duration: 44, ease: "sine.inOut", immediateRender: false }, "door+=8")
+            .fromTo(q("[data-in-near]"), { scale: 1.8 }, { scale: 3.4, duration: 40, ease: "sine.in", immediateRender: false }, "door+=8")
+            .to(q("[data-in-near]"), { autoAlpha: 0, duration: 12, ease: "power1.in" }, "door+=36")
+            .addLabel("stage", 86)
+            // Arriving: the camera eases back a touch, as if stopping before
+            // the stage, and the words rise
+            .to(q("[data-in-far]"), { scale: zs(1.56), duration: 14, ease: "sine.out" }, "stage")
+            .to(q("[data-stage-text]"), { autoAlpha: 1, y: 0, duration: 10, stagger: 2, ease: "power2.out" }, "stage+=2")
+            // A band of light passes over the gilding as the stage arrives
+            .to(q("[data-glint]"), { autoAlpha: 1, duration: 2 }, "stage")
+            .to(q("[data-glint]"), { xPercent: 270, duration: 14, ease: "power1.inOut" }, "stage")
+            .to(q("[data-glint]"), { autoAlpha: 0, duration: 3 }, "stage+=11");
+          insideAt = (tl.labels.inside ?? 0) / tl.duration();
+        }, root);
+        return { ctx, tl: tl!, insideAt };
+      };
+
+      if (!VT) {
+        const { ctx } = build();
+        cleanup = () => ctx.revert();
+        return;
+      }
+
+      // On the compositor: sample, hand back the inline styles, and let the
+      // browser play it. Petals start falling once inside (a plain scroll
+      // check; nothing in it runs per frame but a flag), and a resize or a
+      // turned phone samples the walk again for the new proportions
+      let anims: Animation[] = [];
+      let moved: HTMLElement[] = [];
+      const petals = root.querySelector<HTMLElement>("[data-petals]");
+      let insideAt = 0;
+      const play = () => {
+        anims.forEach((an) => an.cancel());
+        moved.forEach((el) => el.style.removeProperty("visibility"));
+        const { ctx, tl, insideAt: at } = build();
+        const moves = sampleTimeline(tl);
+        ctx.revert();
+        insideAt = at;
+        moved = moves.map((m) => m.el);
+        anims = playOnScroll(root, moves, VT);
+      };
+      play();
+      petals?.style.setProperty("--ve-petals", "paused");
+      const petalsSwitch = ScrollTrigger.create({
+        trigger: root,
+        start: "top top",
+        end: "bottom bottom",
+        onUpdate: (self) => petals?.style.setProperty("--ve-petals", self.progress >= insideAt ? "running" : "paused"),
+      });
+      let resizeTimer = 0;
+      let lastSize = `${window.innerWidth}x${window.innerHeight}`;
+      const onResize = () => {
+        window.clearTimeout(resizeTimer);
+        resizeTimer = window.setTimeout(() => {
+          const size = `${window.innerWidth}x${window.innerHeight}`;
+          if (size !== lastSize) {
+            lastSize = size;
+            play();
+          }
+        }, 250);
+      };
+      window.addEventListener("resize", onResize);
+      cleanup = () => {
+        window.removeEventListener("resize", onResize);
+        window.clearTimeout(resizeTimer);
+        petalsSwitch.kill();
+        anims.forEach((an) => an.cancel());
+        moved.forEach((el) => el.style.removeProperty("visibility"));
+        petals?.style.removeProperty("--ve-petals");
+      };
     })();
     return () => {
       cancelled = true;
@@ -1090,31 +1370,33 @@ export const VenueEntrance = React.memo(function VenueEntrance(props: VenueEntra
     };
   }, []);
 
-  // Flatten the layers in idle time once the scene has drawn; parts drawn
-  // client-only may land a moment later, so layers waiting on them retry
+  // Paint the layers in idle time once the invitation is showing, and again
+  // if the portrait or the ornament images change
   useEffect(() => {
     const root = rootRef.current;
-    if (!root || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!root) return;
     let cancelled = false;
-    let timer = 0;
-    const undos: (() => void)[] = [];
-    const idle = (fn: () => void) =>
-      "requestIdleCallback" in window ? window.requestIdleCallback(fn, { timeout: 2000 }) : globalThis.setTimeout(fn, 300);
-    const run = (attempt: number) =>
-      idle(async () => {
-        if (cancelled) return;
-        const { pending, undo } = await flattenLayers(root, () => cancelled);
-        undos.push(undo);
-        if (cancelled) undo();
-        else if (pending && attempt < 6) timer = window.setTimeout(() => run(attempt + 1), 500);
-      });
-    run(0);
+    const start = () => {
+      if (!cancelled) void paintLayers(root, props.portrait, ornaments, () => cancelled);
+    };
+    const idle = "requestIdleCallback" in window;
+    const id = idle ? window.requestIdleCallback(start, { timeout: 1500 }) : window.setTimeout(start, 200);
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
-      undos.splice(0).forEach((f) => f());
+      if (idle) window.cancelIdleCallback(id);
+      else window.clearTimeout(id);
     };
+    // `ornaments` changes exactly when ornamentsKey does
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.portrait, ornamentsKey]);
+
+  // Pictures still showing are released with the scene
+  useEffect(() => {
+    const root = rootRef.current;
+    return () => {
+      root?.querySelectorAll<HTMLImageElement>("img[data-baked]").forEach((img) => img.src.startsWith("blob:") && URL.revokeObjectURL(img.src));
+    };
+  }, []);
 
   const titleCls = props.khmerNames
     ? "wc-khmer font-semibold text-[clamp(22px,3.4vw,40px)] leading-[1.4]"
@@ -1127,25 +1409,25 @@ export const VenueEntrance = React.memo(function VenueEntrance(props: VenueEntra
     <section ref={rootRef} className="relative h-[420vh]" aria-label={`${props.groom} & ${props.bride}`}>
       <OrnamentContext.Provider value={ornaments}>
       <div className="sticky top-0 h-[100svh] min-h-[560px] overflow-hidden bg-[#2a1a0e]">
-        <Defs />
+        {/* The layers are painted in after the invitation shows (paintLayers);
+            until then the exterior is its sky and ground colours */}
         {/* Exterior */}
-        <div data-exterior className="absolute inset-0">
-          <div data-sky data-layer className={layer} style={{ transformOrigin: "50% 55%" }}><SkyPlane /></div>
-          <div data-horizon data-layer className={layer} style={{ transformOrigin: "50% 58%" }}><HorizonPlane /></div>
-          <div data-hall data-layer className={layer} style={{ transformOrigin: "50% 53.5%" }}><HallPlane /></div>
-          <div data-path data-layer className={layer} style={{ transformOrigin: "50% 62%" }}><PathPlane /></div>
-          <div data-gate data-layer className={layer} style={{ transformOrigin: "50% 55%" }}><GatePlane /></div>
+        <div data-exterior className="absolute inset-0 bg-[linear-gradient(180deg,#E9D6B8_0%,#FBE3BA_55%,#CDB58C_62%,#9C8058_100%)]">
+          <div data-sky data-layer className={layer} style={{ transformOrigin: "50% 55%" }} />
+          <div data-horizon data-layer className={layer} style={{ transformOrigin: "50% 58%" }} />
+          <div data-hall data-layer className={layer} style={{ transformOrigin: "50% 53.5%" }} />
+          <div data-path data-layer className={layer} style={{ transformOrigin: "50% 62%" }} />
+          <div data-gate data-layer className={layer} style={{ transformOrigin: "50% 55%" }} />
           {/* Warm evening light from the doorway, and the edges of the view falling into soft shadow */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_45%_at_50%_50%,rgba(255,226,170,0.22),transparent_70%),radial-gradient(120%_90%_at_50%_45%,transparent_55%,rgba(60,35,15,0.28)_100%)]" />
         </div>
         {/* Interior: hidden until the camera passes the doorway */}
         <div data-interior className="absolute inset-0 invisible">
           <div data-in-far data-layer className={layer} style={{ transformOrigin: "50% 50%" }}>
-            <HallInteriorPlane portrait={props.portrait} />
             <StageNames groom={props.groom} bride={props.bride} portrait={!!props.portrait} />
           </div>
-          <div data-in-mid data-layer className={layer} style={{ transformOrigin: "50% 50%" }}><HallMidPlane /></div>
-          <div data-in-near data-layer className={layer} style={{ transformOrigin: "50% 45%" }}><HallNearPlane /></div>
+          <div data-in-mid data-layer className={layer} style={{ transformOrigin: "50% 50%" }} />
+          <div data-in-near data-layer className={layer} style={{ transformOrigin: "50% 45%" }} />
         </div>
         {/* Jasmine petals drifting down inside the hall */}
         <div data-petals aria-hidden="true" className="absolute inset-0 pointer-events-none overflow-hidden invisible">

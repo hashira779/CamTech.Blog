@@ -1008,7 +1008,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                     className="wc-print wc-develop block w-full aspect-[4/5] cursor-zoom-in"
                     aria-label={p.name}
                   >
-                    <img src={p.img} alt={p.name} />
+                    <img src={p.img} alt={p.name} loading="lazy" decoding="async" />
                   </button>
                   <figcaption className={`mt-5 ${p.capCls}`}>
                     <span className="wc-smallcaps text-[#6b6157]">{p.role}</span>
@@ -1231,7 +1231,7 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
                       className="wc-print wc-develop block w-full cursor-zoom-in"
                       aria-label={`${ui.photo} ${idx + 1}`}
                     >
-                      <img src={imgUrl} alt="" loading={idx < 6 ? "eager" : "lazy"} className="!h-auto" />
+                      <img src={imgUrl} alt="" loading="lazy" decoding="async" className="!h-auto" />
                     </button>
                     <figcaption className="mt-2 wc-display italic text-[14px] text-[#6b6157]">No. {pad2(idx + 1)}</figcaption>
                   </figure>
