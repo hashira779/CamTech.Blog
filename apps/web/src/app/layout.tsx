@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter, Kantumruy_Pro } from "next/font/google";
-import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme";
 import { escapeJsonForScript } from "@/lib/sanitize";
@@ -12,6 +11,7 @@ import { BackToTop } from "@/components/layout/BackToTop";
 import { ConsentBanner } from "@/components/layout/ConsentBanner";
 import NextTopLoader from "nextjs-toploader";
 import { PageTransition } from "@/components/layout/PageTransition";
+import { AdsLoader } from "@/components/ads/AdsLoader";
 
 /* Self-hosted by next/font, so the browser never calls Google. Kantumruy Pro
    rides in the same stack as a per-glyph fallback: Inter has no Khmer glyphs,
@@ -128,15 +128,8 @@ export default function RootLayout({
         {/* The adsbygoogle loader. It carries the account in its query string, which is also what
             turns on Auto ads for the account, so it is emitted only when the publisher ID in this
             build validates. The verification meta tag comes from `metadata.other` above rather than
-            being written twice. */}
-        {adsenseScriptUrl && (
-          <Script
-            async
-            src={adsenseScriptUrl}
-            crossOrigin="anonymous"
-            strategy="afterInteractive"
-          />
-        )}
+            being written twice. It loads once the page is ready (see AdsLoader). */}
+        {adsenseScriptUrl && <AdsLoader src={adsenseScriptUrl} />}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
