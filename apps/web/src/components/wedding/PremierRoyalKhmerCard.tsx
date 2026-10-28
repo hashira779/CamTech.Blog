@@ -1420,19 +1420,35 @@ export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalK
         <AngkorBlessing label={ui.blessing} line={ui.blessingLine} labelClassName={sectionLabel} />
 
         {/* Sign-off */}
-        <footer className="relative overflow-clip px-6 pt-20 pb-24 text-center">
-          {/* The bride and groom in a gold-ringed medallion, flowers either side */}
-          <div className="relative mx-auto w-fit">
-            <Flower name="rose-white" delay={0.1} className="z-10 -left-[78%] top-[52%] w-[100%] -rotate-[18deg]" />
-            <Flower name="orchid-white" from="r" delay={0.2} className="z-10 -right-[92%] top-[46%] w-[112%] -scale-x-100 rotate-[8deg]" />
-            <span className="relative z-20 mx-auto w-32 h-32 rounded-full bg-[#fffdf8] shadow-[0_0_0_1.5px_#C9A24A,0_0_0_6px_#fffdf8,0_0_0_7px_rgba(201,162,74,0.5)] flex items-end justify-center overflow-hidden">
-              <KhmerCouple className="w-[86%] h-auto -mb-[2%]" />
+        <footer className="relative overflow-clip px-6 pt-24 pb-20 text-center bg-[radial-gradient(60%_38%_at_50%_42%,rgba(255,250,238,0.9),transparent_75%)]">
+          {/* The bride and groom in a gold-ringed medallion, cradled by a
+              crescent of drawn flowers (rumduol among them) that stays
+              beside and below the ring, clear of the words */}
+          <div className="relative mx-auto w-[min(86vw,360px)] h-[190px]">
+            <svg viewBox="-180 -95 360 190" aria-hidden="true" className="absolute inset-0 h-full w-full overflow-visible">
+              <defs><PhotoFlowerDefs /></defs>
+              <FlowerBank x={-104} y={58} w={120} h={70} n={10} seed={61} mix={["rumduol", "blush", "rose", "jasmine", "rumduol", "orchid"]} />
+              <FlowerBank x={104} y={58} w={120} h={70} n={10} seed={62} mix={["rumduol", "rose", "blush", "jasmine", "rumduol", "plumeria"]} />
+              <FlowerBank x={0} y={92} w={150} h={40} n={8} seed={63} mix={["rumduol", "rose", "jasmine", "blush"]} />
+            </svg>
+            <span className="wc-reveal absolute left-1/2 top-0 -translate-x-1/2 z-10 w-36 h-36 rounded-full bg-[radial-gradient(circle_at_50%_40%,#fffdf8,#f6ecda)] shadow-[0_0_0_1.5px_#C9A24A,0_0_0_7px_#fffdf8,0_0_0_8px_rgba(201,162,74,0.55),0_18px_40px_-18px_rgba(90,55,20,0.45)] flex items-end justify-center overflow-hidden">
+              <KhmerCouple className="w-[84%] h-auto -mb-[3%]" />
             </span>
           </div>
-          <p className={lang === "km" ? "mt-8 wc-khmer text-[18px] text-[#6b6157]" : "mt-8 wc-script text-[44px] leading-none text-[#3a332c]"}>{ui.withLove}</p>
-          <p className="mt-3 wc-display text-[26px] text-[#2b2520]"><CoupleNames groom={card.groom_name} bride={card.bride_name} /></p>
-          <p className="mt-2 text-[13px] text-[#6b6157]">{card.khmer_date}</p>
-          <p className="mt-10 text-[11px] text-[#6b6157]/80">{ui.madeWith}</p>
+
+          <p className={lang === "km" ? "mt-10 wc-khmer text-[15px] font-medium text-[#8B1E24]" : "mt-10 wc-script text-[40px] leading-none text-[#8B1E24]"}>{ui.withLove}</p>
+          <p className={`mt-3 ${hasKhmer(card.groom_name + card.bride_name) ? "wc-khmer font-semibold leading-[1.4]" : "wc-display leading-tight"} text-[clamp(24px,6vw,32px)] text-[#2b2520]`}>
+            <span className="block"><PersonName name={card.groom_name} /></span>
+            <span className="block text-[0.6em] font-light text-[#B08A3E]">&amp;</span>
+            <span className="block"><PersonName name={card.bride_name} /></span>
+          </p>
+          <div aria-hidden="true" className="mx-auto mt-5 flex w-44 items-center gap-2">
+            <span className="h-px flex-1 bg-gradient-to-r from-transparent to-[#C9A24A]" />
+            <span className="h-1.5 w-1.5 rotate-45 bg-[#C9A24A]" />
+            <span className="h-px flex-1 bg-gradient-to-l from-transparent to-[#C9A24A]" />
+          </div>
+          <p className="mt-4 wc-khmer text-[13px] leading-relaxed text-[#6b6157]">{card.khmer_date}</p>
+          <p className="mt-12 text-[11px] tracking-wide text-[#6b6157]/70">{ui.madeWith}</p>
         </footer>
       </main>
 
