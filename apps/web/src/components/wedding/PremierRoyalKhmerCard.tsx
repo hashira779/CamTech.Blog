@@ -16,7 +16,6 @@ import { AngkorBlessing } from "./AngkorBlessing";
 import { VenueEntrance } from "./VenueEntrance";
 import { PhotoInvitation } from "./PhotoInvitation";
 import { KhmerCouple } from "./KhmerCouple";
-import { useSmoothWheel } from "./useSmoothWheel";
 import { FlowerBank, PhotoFlowerDefs } from "./VenuePhotoFlowers";
 import { Flower, GoldFrame } from "./InvitationDecor";
 import { CoupleNames, PersonName } from "./CoupleNames";
@@ -123,8 +122,10 @@ function TimeToGo({ target, format }: { target: number; format: (days: number, h
 
 export function PremierRoyalKhmerCard({ card, isPreview = false }: PremierRoyalKhmerCardProps) {
   const [isOpen, setIsOpen] = useState(isPreview);
-  // Wheel scrolling glides once the invitation is open (not in the editor preview)
-  useSmoothWheel(isOpen && !isPreview);
+  /* Wheel scrolling is the browser's own: it glides on the compositor, and
+     the hall walk follows it there. (Easing the wheel in script meant a
+     window.scrollTo every frame, which recalculated every scroll animation
+     on the page on the main thread: ~13 s of script over three sections.) */
   const [isOpeningAnim, setIsOpeningAnim] = useState(false);
   const [heroIn, setHeroIn] = useState(isPreview);
   const [openSpeed, setOpenSpeed] = useState(1);
