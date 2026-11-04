@@ -15,9 +15,10 @@ interface CeremonyPieceProps {
   className?: string;
 }
 
-/* Phones and tablets: a lighter profile (lower canvas density, scroll-linked
-   redraws capped near 30 per second). Measured on a 390px viewport with a
-   4x-throttled CPU, drawing every piece on every scroll frame cost ~46 ms. */
+/* Phones and tablets: a lighter profile (lower canvas density, no rise and
+   no turn with scroll: each piece is drawn once, then left alone). Measured
+   on a 390px viewport with a 4x-throttled CPU, redrawing the pieces on scroll
+   held the ceremony section under 1 fps. */
 const touchProfile = () =>
   typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 
@@ -43,13 +44,13 @@ export function CeremonyPiece({ kind, accent, baseTurn = 0, fallback, className 
 
     const reduced = prefersReducedMotion();
     const touch = touchProfile();
-    let lastDraw = 0;
     let engine: KhmerEngine | null = null;
     let disposed = false;
     let raf = 0;
     let visible = false;
     let revealStart = 0;
-    const pose: PiecePose = { rotY: baseTurn, tiltX: 0, tiltY: 0, reveal: reduced ? 1 : 0 };
+    // Touch screens skip the rise too: it redraws the piece every frame for over a second
+    const pose: PiecePose = { rotY: baseTurn, tiltX: 0, tiltY: 0, reveal: reduced || touch ? 1 : 0 };
     const target = { tiltX: 0, tiltY: 0 };
 
     const scrollTurn = () => {
@@ -61,12 +62,6 @@ export function CeremonyPiece({ kind, accent, baseTurn = 0, fallback, className 
     const frame = (now: number) => {
       raf = 0;
       if (!engine || disposed) return;
-      // On touch devices, let scroll-driven redraws run at about 30 per second
-      if (touch && revealStart && pose.reveal >= 1 && now - lastDraw < 30) {
-        schedule();
-        return;
-      }
-      lastDraw = now;
       let again = false;
       if (!reduced) {
         if (revealStart && pose.reveal < 1) {
@@ -80,7 +75,7 @@ export function CeremonyPiece({ kind, accent, baseTurn = 0, fallback, className 
           pose.tiltY += dy * 0.12;
           again = true;
         }
-        pose.rotY = scrollTurn();
+        if (!touch) pose.rotY = scrollTurn();
       }
       if (!engine.draw(kind, canvas, pose, accent)) {
         setStatus("fallback");
@@ -173,7 +168,7 @@ export function CeremonyPiece({ kind, accent, baseTurn = 0, fallback, className 
       schedule();
     });
     ro.observe(wrap);
-    window.addEventListener("scroll", onScroll, { passive: true });
+    if (!touch) window.addEventListener("scroll", onScroll, { passive: true });
     wrap.addEventListener("pointermove", onPointerMove);
     wrap.addEventListener("pointerleave", onPointerLeave);
 

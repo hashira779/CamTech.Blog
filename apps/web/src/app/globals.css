@@ -1743,13 +1743,18 @@ html.js .kb-anim:not([data-in]) .kb-bloom { opacity: 0; transform: rotate(-90deg
   .wc-reveal { animation: wc-reveal linear both; animation-timeline: view(); animation-range: entry 5% cover 28%; }
   @keyframes wc-reveal { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: none; } }
 
-  /* Ornaments draw themselves in like a pen stroke (paths carry pathLength="1") */
-  .wc-draw [pathLength] { stroke-dasharray: 1; animation: wc-ink linear both; animation-timeline: view(); animation-range: entry 10% cover 45%; }
-  @keyframes wc-ink { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+  /* Pen strokes and developing photos repaint on every scroll frame (neither
+     can run on the compositor), which a phone can't keep up with: touch
+     screens see them finished */
+  @media (pointer: fine) {
+    /* Ornaments draw themselves in like a pen stroke (paths carry pathLength="1") */
+    .wc-draw [pathLength] { stroke-dasharray: 1; animation: wc-ink linear both; animation-timeline: view(); animation-range: entry 10% cover 45%; }
+    @keyframes wc-ink { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 
-  /* Photos develop from a faded print as they come into view */
-  .wc-develop img { animation: wc-develop linear both; animation-timeline: view(); animation-range: entry 0% cover 40%; }
-  @keyframes wc-develop { from { filter: grayscale(1) sepia(.35) contrast(.85) brightness(1.08); } to { filter: none; } }
+    /* Photos develop from a faded print as they come into view */
+    .wc-develop img { animation: wc-develop linear both; animation-timeline: view(); animation-range: entry 0% cover 40%; }
+    @keyframes wc-develop { from { filter: grayscale(1) sepia(.35) contrast(.85) brightness(1.08); } to { filter: none; } }
+  }
 
   /* Angkor at dawn: the sun climbs behind the central tower as the scene scrolls in */
 
