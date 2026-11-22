@@ -8,7 +8,6 @@ import {
   QrCode,
   Video,
   Wrench,
-  Sparkles,
   Zap,
 } from "lucide-react";
 
@@ -49,76 +48,59 @@ export function ToolCard({
     ? ImageIcon
     : Wrench;
 
-  // Nuxt-grade distinctive category color pods
-  const podColor = isVideo
-    ? "from-amber-500/20 to-orange-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
-    : isQr
-    ? "from-emerald-500/20 to-teal-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-    : isCalc
-    ? "from-blue-500/20 to-cyan-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30"
-    : isDev
-    ? "from-purple-500/20 to-violet-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30"
-    : "from-accent/20 to-accent/10 text-accent border-accent/30";
-
   const label = isVideo
-    ? "Media & Video"
+    ? "Media"
     : isQr
-    ? "Payment & QR"
+    ? "QR & Utility"
     : category.toLowerCase() === "image"
-    ? "Image & Media"
+    ? "Image"
     : category.toLowerCase();
 
   return (
     <Link
       href={`/tools/${slug}`}
-      className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border/80 bg-surface/90 p-5 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-accent/50 hover:bg-surface-elevated hover:shadow-lg dark:hover:border-emerald-500/40"
+      className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border/80 bg-surface/90 p-5 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:bg-surface-elevated hover:shadow-xs"
     >
-      {/* Subtle top-edge light reflection */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-
       <div>
-        {/* Top Header: Icon Pod + Monospace Category Badge */}
+        {/* Top Header: Clean Standard Monochrome Icon Pod + Neutral Badge */}
         <div className="flex items-center justify-between gap-3">
-          <span
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border bg-gradient-to-br shadow-2xs transition-transform duration-300 group-hover:scale-110 ${podColor}`}
-          >
-            <Icon size={20} strokeWidth={1.8} aria-hidden="true" />
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/80 bg-surface-muted/80 text-foreground transition-colors group-hover:border-accent/40 group-hover:text-accent">
+            <Icon size={19} strokeWidth={1.75} aria-hidden="true" />
           </span>
 
           <div className="flex items-center gap-1.5">
-            {(popular || isVideo || isQr) && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                <Sparkles size={10} />
-                <span>Popular</span>
+            {popular && (
+              <span className="rounded-full border border-border/70 bg-surface-muted px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Popular
               </span>
             )}
-            <span className="rounded-full border border-border/60 bg-surface-muted/90 px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            <span className="rounded-full border border-border/60 bg-surface-muted px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               {label}
             </span>
           </div>
         </div>
 
         {/* Title */}
-        <h3 className="mt-4 text-base font-bold leading-snug tracking-tight text-foreground transition-colors duration-200 group-hover:text-accent sm:text-lg">
+        <h3 className="mt-3.5 text-sm font-bold leading-snug tracking-tight text-foreground transition-colors duration-150 group-hover:text-accent sm:text-base">
           {name}
         </h3>
 
         {/* Description */}
-        <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+        <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
           {description}
         </p>
       </div>
 
-      {/* Card Footer: Launch Action Button */}
-      <div className="mt-5 flex items-center justify-between border-t border-border/60 pt-3.5 text-xs font-semibold text-accent transition-colors group-hover:text-accent">
-        <span className="inline-flex items-center gap-1">
-          <Zap size={13} className="opacity-70 group-hover:opacity-100" />
-          <span>Launch tool</span>
+      {/* Card Footer: Standard Restrained Action Link */}
+      <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3 text-xs font-semibold text-muted-foreground transition-colors group-hover:text-accent">
+        <span className="inline-flex items-center gap-1 text-[11px]">
+          <Zap size={12} className="opacity-60 group-hover:opacity-100" />
+          <span>Open utility</span>
         </span>
         <ArrowUpRight
-          size={16}
+          size={15}
           aria-hidden="true"
-          className="transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+          className="transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
         />
       </div>
     </Link>

@@ -116,7 +116,7 @@
 .field-tool-search button { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; flex-shrink: 0; }
 .field-tool-filterbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 22px 0 26px; }
 .field-tool-filterbar button { padding: 9px 16px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 11px; color: var(--muted-foreground); }
-.field-tool-filterbar button[aria-pressed="true"] { color: #fffdf5; background: #244b3e; border-color: #244b3e; }
+.field-tool-filterbar button[aria-pressed="true"] { color: var(--background); background: var(--foreground); border-color: var(--foreground); }
 .field-tool-results { margin-left: auto; color: var(--muted-foreground); font-size: 10px; }
 .field-tool-library-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 20px; }
 .field-tool-empty { border: 1px dashed var(--border-strong); border-radius: 12px; padding: 60px 24px; text-align: center; }
