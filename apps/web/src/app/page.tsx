@@ -1,497 +1,94 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Compass, HelpCircle } from "lucide-react";
-import {
-  getArticles,
-  getDailyQuiz,
-  getDiscoveries,
-  getPlaces,
-  getTools,
-  getTrending,
-} from "@/lib/api";
-import type { Article } from "@/types";
-import { AdSlot } from "@/components/ads/AdSlot";
-import { Container, Section } from "@/components/ui/container";
-import { Reveal } from "@/components/ui/reveal";
-import { SectionHeader } from "@/components/ui/section-header";
-import { NewsCard } from "@/components/shared/news-card";
-import { NewsTicker } from "@/components/layout/NewsTicker";
+import Image from "next/image";
+import { ArrowDown, ArrowRight, ArrowUpRight, BookOpen, Compass, MapPin, Route, Sparkles, Wrench } from "lucide-react";
+import { getArticles, getDiscoveries, getTools } from "@/lib/api";
+import { isArticleEligible } from "@/lib/content-quality";
+import { cleanText, formatDate } from "@/lib/format";
+import { Container } from "@/components/ui/container";
 import { Photo } from "@/components/ui/photo";
-import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
-import { formatCount, formatDate, cleanText } from "@/lib/format";
+import { ToolCard } from "@/components/shared/tool-card";
 
 export const revalidate = 60;
+export const metadata: Metadata = {
+  title: { absolute: "CamTech.Blog — Good places, useful things, fresh perspectives" },
+  description: "Find your next Cambodian escape, a useful everyday tool, or an idea worth understanding. Travel, technology and practical discovery in one place.",
+  alternates: { canonical: "/" },
+};
 
-/**
- * Front page.
- *
- * Built the way a printed front page is built: one story sets the tone, a numbered column beside
- * it says what else is in the edition, and everything below earns its place by section. Three
- * things changed beyond the styling in the earlier pass and still hold:
- *
- *   - "Breaking" only appears when the article actually has `is_breaking`.
- *   - No stock photograph stands in for a story without a verified one; the card falls back to a
- *     typographic treatment instead.
- *   - Reading figures are the real `views_count`, hidden at zero rather than padded.
- *
- * What is new: the live rail above the lead, the edition strip that counts what is actually on the
- * page, the "also today" column as an index rather than three more cards, and a travel bento where
- * the strongest photograph gets twice the room. Every number in the edition strip is a length of
- * an array fetched above, so it cannot drift from what renders below it.
- */
-function articleHref(article: Pick<Article, "slug" | "country">) {
-  return article.country === "KH"
-    ? `/cambodia/news/${article.slug}`
-    : `/world/news/${article.slug}`;
-}
-
-function dedupe(articles: Article[]) {
-  const seen = new Set<string>();
-  return articles.filter((article) => {
-    if (seen.has(article.id)) return false;
-    seen.add(article.id);
-    return true;
-  });
-}
+const destinations = [
+  { slug: "siem-reap", name: "Siem Reap", note: "Ancient temples. New perspectives.", image: "siem-reap", label: "Culture & heritage" },
+  { slug: "kampot", name: "Kampot", note: "Take the scenic route.", image: "kampot", label: "Riverside escapes" },
+  { slug: "ratanakiri", name: "Ratanakiri", note: "A little further off the beaten path.", image: "ratanakiri", label: "Nature & adventure" },
+];
+const pathways = [
+  { href: "/travel", number: "01", title: "Go somewhere good", note: "Find a place. Make a plan. Take the trip.", Icon: Compass, tone: "green" },
+  { href: "/tools", number: "02", title: "Make life a little easier", note: "Small tools for the things you do every day.", Icon: Wrench, tone: "orange" },
+  { href: "/discover", number: "03", title: "Follow your curiosity", note: "Understand the ideas shaping our world.", Icon: BookOpen, tone: "purple" },
+];
 
 export default async function HomePage() {
-  const [cambodia, world, trending, discoveryFeed, placeFeed, quiz, tools] = await Promise.all([
-    getArticles({ country: "KH", limit: 8 }),
-    getArticles({ limit: 10 }),
-    getTrending(),
-    getDiscoveries(),
-    getPlaces({ limit: 8 }),
-    getDailyQuiz(),
-    getTools(),
+  const [articles, discoveries, tools] = await Promise.all([
+    getArticles({ limit: 30 }), getDiscoveries(), getTools(),
   ]);
-
-  const feed = dedupe([...(cambodia.items || []), ...(world.items || [])]).slice(0, 10);
-  const lead = feed[0];
-  const alsoToday = feed.slice(1, 5);
-  const latest = feed.slice(5, 11);
-
-  const mostRead = [
-    ...(trending?.cambodia || []),
-    ...(trending?.world || []),
-  ]
-    .sort((a, b) => (b.views_count || 0) - (a.views_count || 0))
-    .slice(0, 5);
-
-  const discoveries = (discoveryFeed?.items || []).slice(0, 3);
-  const places = (placeFeed?.items || []).filter((place) => place.hero_image_url).slice(0, 4);
-  const popularTools = [...(tools || [])]
-    .sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0))
-    .slice(0, 4);
-
-  const hasContent = Boolean(lead);
-
-  const tickerItems = feed.slice(0, 8).map((article) => ({
-    id: article.id,
-    title: cleanText(article.title),
-    href: articleHref(article),
-    section: article.category?.name || (article.country === "KH" ? "Cambodia" : "World"),
-  }));
-
-  /* Real counts only. An edition strip that says "12 stories" has to mean there are twelve
-     stories below it, so the numbers are lengths of the arrays the page actually renders. */
-  const edition = [
-    { label: "Filed today", value: feed.length },
-    { label: "Most read", value: mostRead.length },
-    { label: "Explainers", value: discoveries.length },
-    { label: "Places with a photo", value: places.length },
-  ].filter((entry) => entry.value > 0);
+  const journal = articles.items.filter(isArticleEligible).slice(0, 3);
+  const explainers = discoveries.items.slice(0, 3);
+  const selectedTools = ["image-compressor", "qr-code-generator", "json-formatter", "word-counter"]
+    .map((slug) => tools.find((tool) => tool.slug === slug)).filter((tool) => tool !== undefined);
 
   return (
-    <div className="flex w-full flex-1 flex-col">
-      {/* ── Live rail ─────────────────────────────────────────────────────── */}
-      {tickerItems.length > 0 && <NewsTicker items={tickerItems} />}
-
-      {/* ── Headline ──────────────────────────────────────────────────────── */}
-      <Section className="pb-0 pt-14 sm:pt-20">
-        <Container>
-          <div className="mx-auto max-w-4xl text-center">
-            <p className="hero-rise section-label text-accent">Today&rsquo;s briefing</p>
-            <h1 className="hero-rise hero-rise-2 mt-4 font-display text-[clamp(2.75rem,7vw,6rem)] leading-[1.02] tracking-tight text-foreground">
-              Cambodia and the world, told clearly.
-            </h1>
-            <p className="hero-rise hero-rise-3 mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
-              News with its sources named, travel guides to all 25 provinces, a daily quiz and
-              everyday tools.
-            </p>
-          </div>
-        </Container>
-      </Section>
-
-      {/* ── Lead ──────────────────────────────────────────────────────────── */}
-      {hasContent && (
-        <Section className="pb-0 pt-8 sm:pt-10">
-          <Container>
-            {edition.length > 0 && (
-              <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-border pb-3 text-xs text-muted-foreground">
-                <span className="section-label text-accent">The edition</span>
-                {edition.map((entry) => (
-                  <span key={entry.label} className="tabular-nums">
-                    <span className="font-semibold text-foreground">{entry.value}</span>{" "}
-                    {entry.label.toLowerCase()}
-                  </span>
-                ))}
-                <span className="ml-auto hidden tabular-nums sm:inline">
-                  Updated {formatDate(lead.published_at || lead.created_at, "medium")}
-                </span>
-              </div>
-            )}
-
-            <div className="grid gap-8 lg:grid-cols-12 lg:gap-10">
-              <div className="scroll-zoom lg:col-span-8">
-                <NewsCard article={lead} variant="hero" priority showSummary />
-              </div>
-
-              {/* Also today, as an index. Three more cards in a sidebar reads as a grid; a
-                  numbered list with a growing edge tick reads as "the rest of the page". */}
-              <div className="flex flex-col lg:col-span-4">
-                <p className="section-label mb-3 text-muted-foreground">Also in this edition</p>
-                <ol className="divide-y divide-border border-y border-border">
-                  {alsoToday.map((article, index) => (
-                    <Reveal as="li" key={article.id} index={index} variant="left" immediate>
-                      <Link
-                        href={articleHref(article)}
-                        className="group flex items-start gap-4 py-4 pr-1 pl-4"
-                      >
-                        <span className="w-6 shrink-0 pt-0.5 font-display text-xl leading-none text-border-strong tabular-nums transition-colors group-hover:text-accent">
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <span className="edge-tick min-w-0 flex-1">
-                          <CategoryMark category={categoryKey(article.category?.name)}>
-                            {article.category?.name ||
-                              (article.country === "KH" ? "Cambodia" : "World")}
-                          </CategoryMark>
-                          <span className="title-sweep mt-1.5 block text-base font-semibold leading-snug text-foreground transition-colors group-hover:text-accent">
-                            {cleanText(article.title)}
-                          </span>
-                          <span className="mt-1.5 block text-xs text-muted-foreground">
-                            {formatDate(article.published_at || article.created_at, "short")}
-                          </span>
-                        </span>
-                      </Link>
-                    </Reveal>
-                  ))}
-                </ol>
-
-                <Link
-                  href="/trending"
-                  className="group mt-5 inline-flex items-center gap-1.5 self-start text-sm font-medium text-accent transition-colors hover:text-foreground"
-                >
-                  Today&rsquo;s full briefing
-                  <ArrowRight size={15} className="link-nudge" aria-hidden="true" />
-                </Link>
-              </div>
-            </div>
-          </Container>
-        </Section>
-      )}
-
+    <div className="field-home">
       <Container>
-        <AdSlot slot="HOME_TOP" />
-      </Container>
-
-      {/* ── Latest + most read ────────────────────────────────────────────── */}
-      <Section>
-        <Container>
-          <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
-            <div className="lg:col-span-8">
-              <SectionHeader
-                label="News"
-                category="news"
-                title="Latest reporting"
-                actionHref="/cambodia"
-                actionLabel="All Cambodia coverage"
-              />
-
-              <div className="grid gap-6 sm:grid-cols-2">
-                {latest.map((article, index) => (
-                  <Reveal key={article.id} index={index}>
-                    <NewsCard article={article} variant="standard" />
-                  </Reveal>
-                ))}
-              </div>
-
-              {!hasContent && (
-                <p className="py-16 text-center text-sm text-muted-foreground">
-                  No stories are published right now. Check the briefing again shortly.
-                </p>
-              )}
+        <section className="field-hero" aria-labelledby="home-title">
+          <div className="field-hero-copy">
+            <p className="field-eyebrow"><span className="field-sun" aria-hidden="true">✳</span> A little local. A little limitless.</p>
+            <h1 id="home-title">Good places.<br />Useful things.<br /><em>Fresh perspectives.</em></h1>
+            <p className="field-hero-deck">Discover Cambodia, simplify your everyday, and find something worth knowing. Welcome to your curious corner of the internet.</p>
+            <div className="field-actions">
+              <Link href="/travel" className="field-button">Explore Cambodia <ArrowUpRight size={17} aria-hidden="true" /></Link>
+              <Link href="/tools" className="field-text-link">Find a useful tool <ArrowRight size={16} aria-hidden="true" /></Link>
             </div>
-
-            <aside className="lg:col-span-4">
-              <SectionHeader label="Most read" category="trending" title="What readers opened" />
-
-              <ol className="divide-y divide-border border-y border-border">
-                {mostRead.map((item, index) => {
-                  const views = item.views_count > 0 ? formatCount(item.views_count) : null;
-                  const published = formatDate(item.published_at, "medium");
-                  return (
-                    <Reveal as="li" key={`${item.id}-${index}`} index={index} variant="left">
-                      <Link
-                        href={item.url || articleHref({ slug: item.slug, country: "KH" })}
-                        className="group flex items-start gap-4 py-4 pl-4"
-                      >
-                        <span className="w-6 shrink-0 pt-0.5 font-display text-xl leading-none text-border-strong tabular-nums transition-colors group-hover:text-accent">
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <span className="edge-tick min-w-0 flex-1">
-                          <CategoryMark category={categoryKey(item.category)}>
-                            {item.category}
-                          </CategoryMark>
-                          <span className="title-sweep mt-1.5 block text-base font-semibold leading-snug text-foreground transition-colors group-hover:text-accent">
-                            {cleanText(item.title)}
-                          </span>
-                          {(views || published) && (
-                            <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                              {views && <span>{views} reads</span>}
-                              {views && published && <span aria-hidden="true">·</span>}
-                              {published && <span>{published}</span>}
-                            </span>
-                          )}
-                        </span>
-                      </Link>
-                    </Reveal>
-                  );
-                })}
-              </ol>
-
-              {mostRead.length === 0 && (
-                <p className="py-8 text-sm text-muted-foreground">
-                  Reading figures appear once stories have been opened.
-                </p>
-              )}
-
-              <AdSlot slot="SIDEBAR" />
-            </aside>
+            <a href="#start-exploring" className="field-scroll"><span><ArrowDown size={14} aria-hidden="true" /></span> A good place to start</a>
           </div>
+          <div className="field-hero-visual">
+            <Link href="/travel/ratanakiri" className="field-cover group" aria-label="Explore Ratanakiri and its crater lake">
+              <Image src="/images/destinations/ratanakiri.jpg" alt="A blue crater lake surrounded by the green landscape of Ratanakiri, Cambodia" fill priority sizes="(max-width: 767px) 94vw, 52vw" className="object-cover transition-transform duration-700 group-hover:scale-105" />
+              <span className="field-cover-scrim" />
+              <span className="field-cover-tag"><MapPin size={12} aria-hidden="true" /> Ratanakiri, Cambodia</span>
+              <span className="field-cover-caption"><span>The Cambodia collection</span><strong>There’s more<br />out there.</strong></span>
+              <span className="field-cover-arrow"><ArrowUpRight size={23} aria-hidden="true" /></span>
+            </Link>
+            <Link href="/travel/planner" className="field-planner-note"><span className="field-note-icon"><Route size={22} aria-hidden="true" /></span><span><small>Less planning. More exploring.</small><strong>Build your own itinerary</strong></span><ArrowUpRight size={18} aria-hidden="true" /></Link>
+            <span className="field-visual-note">A different kind of everyday discovery.</span>
+          </div>
+        </section>
+        <nav id="start-exploring" aria-label="Find your next discovery" className="field-pathways">
+          {pathways.map(({ href, number, title, note, Icon, tone }) => (
+            <Link key={href} href={href} className="field-pathway group"><span className={`field-path-icon ${tone}`}><Icon size={22} strokeWidth={1.5} aria-hidden="true" /></span><span className="min-w-0"><small>{number} / Explore your way</small><strong>{title}</strong><span>{note}</span></span><ArrowUpRight size={18} className="field-path-arrow" aria-hidden="true" /></Link>
+          ))}
+        </nav>
+        <section className="field-section" aria-labelledby="places-title">
+          <div className="field-section-heading"><div><p className="field-eyebrow">Out of the ordinary</p><h2 id="places-title">Your next “let’s go.”</h2><p>From familiar favourites to somewhere new. Start with a place.</p></div><Link href="/travel" className="field-text-link">Explore all destinations <ArrowUpRight size={16} aria-hidden="true" /></Link></div>
+          <div className="field-destinations">
+            {destinations.map((place, index) => (
+              <Link href={`/travel/${place.slug}`} key={place.slug} className="field-destination group"><div className="field-destination-image"><Image src={`/images/destinations/${place.image}.jpg`} alt={`Landscape of ${place.name}, Cambodia`} fill sizes="(max-width: 639px) 92vw, (max-width: 1023px) 45vw, 31vw" className="object-cover transition-transform duration-700 group-hover:scale-105" /><span className="field-destination-label">{place.label}</span><span className="field-destination-number">0{index + 1}</span></div><div className="field-destination-copy"><div><h3>{place.name}</h3><p>{place.note}</p></div><span><ArrowUpRight size={20} aria-hidden="true" /></span></div></Link>
+            ))}
+          </div>
+        </section>
+      </Container>
+      <section className="field-tools-section" aria-labelledby="useful-title">
+        <Container>
+          <div className="field-section-heading"><div><p className="field-eyebrow"><Wrench size={13} aria-hidden="true" /> A little everyday help</p><h2 id="useful-title">Small tools. Real time saved.</h2><p>Convert, create, calculate. Get on with the rest of your day.</p></div><Link href="/tools" className="field-text-link">Open the toolbox <ArrowUpRight size={16} aria-hidden="true" /></Link></div>
+          <div className="field-tools-grid">{selectedTools.map((tool) => <ToolCard key={tool.slug} slug={tool.slug} name={tool.name} category={tool.category} description={tool.description} />)}</div>
+          <div className="field-tool-footnote"><span>No account needed for these tools.</span><Link href="/tools">Find the right tool for your task <ArrowRight size={14} aria-hidden="true" /></Link></div>
         </Container>
-      </Section>
-
-      {/* ── Travel ───────────────────────────────────────────────────────── */}
-      {places.length > 0 && (
-        <div className="border-y border-border bg-surface-muted/50">
-          <Section>
-            <Container>
-              <SectionHeader
-                label="Travel"
-                category="travel"
-                title="Places worth planning around"
-                description="Only places with a photograph we could attribute to the location itself appear here."
-                actionHref="/travel"
-                actionLabel="All guides"
-              />
-
-              {/* Not a row of four identical tiles. The place with the strongest photograph takes
-                  the wide slot and carries its name over the picture; the rest stack beside it as
-                  thumb-and-title rows. Same four places, one clear order. */}
-              <div className="grid gap-5 lg:grid-cols-12">
-                {places[0] && (
-                  <Reveal className="lg:col-span-7">
-                    <Link
-                      href={`/travel/place/${places[0].slug}`}
-                      className="group relative flex h-full min-h-[18rem] flex-col justify-end overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong lg:min-h-[24rem]"
-                    >
-                      <Photo
-                        src={places[0].hero_image_url}
-                        alt={places[0].name}
-                        ratio="none"
-                        radius="none"
-                        showCredit={false}
-                        className="absolute inset-0 h-full w-full"
-                      />
-                      <span
-                        aria-hidden="true"
-                        className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent"
-                      />
-                      <span className="relative flex flex-col gap-2 p-5 sm:p-6">
-                        <CategoryMark
-                          category="travel"
-                          tone="chip"
-                          className="self-start bg-white/90 text-neutral-900"
-                        >
-                          {places[0].place_type.toLowerCase().replace(/_/g, " ")}
-                        </CategoryMark>
-                        <span className="title-sweep max-w-lg font-display text-2xl leading-snug text-white sm:text-3xl">
-                          {places[0].name}
-                        </span>
-                        {places[0].destination?.name && (
-                          <span className="text-sm text-white/75">{places[0].destination.name}</span>
-                        )}
-                      </span>
-                    </Link>
-                  </Reveal>
-                )}
-
-                <div className="flex flex-col gap-5 lg:col-span-5">
-                  {places.slice(1).map((place, index) => (
-                    <Reveal key={place.id} index={index + 1} className="h-full">
-                      <Link
-                        href={`/travel/place/${place.slug}`}
-                        className="group flex h-full items-center gap-4 overflow-hidden rounded-lg border border-border bg-card p-3 shadow-xs hover-lift hover:border-border-strong"
-                      >
-                        <Photo
-                          src={place.hero_image_url}
-                          alt={place.name}
-                          ratio="4/3"
-                          radius="md"
-                          compact
-                          showCredit={false}
-                          className="h-20 w-24 shrink-0 sm:h-24 sm:w-32"
-                        />
-                        <span className="min-w-0 flex-1">
-                          <CategoryMark category="travel" tone="dot">
-                            {place.place_type.toLowerCase().replace(/_/g, " ")}
-                          </CategoryMark>
-                          <span className="title-sweep mt-1 block font-display text-lg leading-snug text-foreground transition-colors group-hover:text-accent">
-                            {place.name}
-                          </span>
-                          {place.destination?.name && (
-                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                              {place.destination.name}
-                            </span>
-                          )}
-                        </span>
-                      </Link>
-                    </Reveal>
-                  ))}
-                </div>
-              </div>
-            </Container>
-          </Section>
-        </div>
-      )}
-
-      {/* ── Discover ─────────────────────────────────────────────────────── */}
-      {discoveries.length > 0 && (
-        <Section>
-          <Container>
-            <SectionHeader
-              label="Discover"
-              category="discover"
-              title="Explained, not just reported"
-              actionHref="/discover"
-              actionLabel="All explainers"
-            />
-
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {discoveries.map((item, index) => (
-                <Reveal key={item.id} index={index} className="h-full">
-                  <Link
-                    href={`/discover/${item.slug}`}
-                    className="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xs hover-lift hover:border-border-strong"
-                  >
-                    <Photo
-                      src={item.hero_image_url}
-                      alt={item.hero_image_alt || item.title}
-                      credit={item.hero_image_credit}
-                      ratio="16/9"
-                      radius="none"
-                    />
-                    <div className="flex flex-1 flex-col gap-2.5 p-5">
-                      <CategoryMark category={categoryKey(item.category)}>{item.category}</CategoryMark>
-                      <h3 className="title-sweep font-display text-xl leading-snug text-foreground transition-colors group-hover:text-accent">
-                        {cleanText(item.title)}
-                      </h3>
-                      <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                        {cleanText(item.intro)}
-                      </p>
-                    </div>
-                  </Link>
-                </Reveal>
-              ))}
-            </div>
-          </Container>
-        </Section>
-      )}
-
-      {/* ── Quiz + tools ──────────────────────────────────────────────────── */}
-      {(quiz || popularTools.length > 0) && (
-        <Section className="pt-0">
-          <Container>
-            <div className="grid gap-6 lg:grid-cols-12">
-              {quiz && (
-                <div className="lg:col-span-7">
-                  <Link
-                    href={`/quiz/${quiz.slug}`}
-                    className="group hover-sheen flex h-full flex-col justify-between gap-6 rounded-lg border border-border bg-card p-6 shadow-xs hover-lift hover:border-border-strong sm:p-8"
-                  >
-                    <div>
-                      <CategoryMark category="quiz" tone="dot">
-                        Daily quiz
-                      </CategoryMark>
-                      <h2 className="mt-3 max-w-xl font-display text-2xl leading-tight tracking-tight text-foreground sm:text-3xl">
-                        {cleanText(quiz.title)}
-                      </h2>
-                      <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
-                        {cleanText(quiz.description)}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                      <span className="inline-flex items-center gap-1.5">
-                        <HelpCircle size={14} aria-hidden="true" />
-                        {quiz.questions?.length ?? 0} questions
-                      </span>
-                      {quiz.estimated_minutes > 0 && <span>· about {quiz.estimated_minutes} min</span>}
-                      <span className="ml-auto inline-flex items-center gap-1.5 font-medium text-accent">
-                        Start
-                        <ArrowRight size={15} className="link-nudge" aria-hidden="true" />
-                      </span>
-                    </div>
-                  </Link>
-                </div>
-              )}
-
-              {popularTools.length > 0 && (
-                <div className="lg:col-span-5">
-                  <div className="flex h-full flex-col rounded-lg border border-border bg-card p-6 shadow-xs sm:p-8">
-                    <CategoryMark category="tools" tone="dot">
-                      Tools
-                    </CategoryMark>
-                    <h2 className="mt-3 font-display text-xl leading-snug tracking-tight text-foreground">
-                      Useful today
-                    </h2>
-                    <ul className="mt-4 divide-y divide-border">
-                      {popularTools.map((tool) => (
-                        <li key={tool.id}>
-                          <Link
-                            href={`/tools/${tool.slug}`}
-                            className="group flex items-center justify-between gap-3 py-3 pl-4 text-sm"
-                          >
-                            <span className="edge-tick min-w-0 py-0.5">
-                              <span className="title-sweep block truncate font-medium text-foreground transition-colors group-hover:text-accent">
-                                {tool.name}
-                              </span>
-                              <span className="block truncate text-xs text-muted-foreground">
-                                {tool.category.toLowerCase()}
-                              </span>
-                            </span>
-                            {tool.usage_count > 0 && (
-                              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                                {formatCount(tool.usage_count)} uses
-                              </span>
-                            )}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                    <Link
-                      href="/tools"
-                      className="group mt-auto inline-flex items-center gap-1.5 pt-4 text-sm font-medium text-accent transition-colors hover:text-foreground"
-                    >
-                      <Compass size={15} className="transition-transform duration-300 group-hover:rotate-12" aria-hidden="true" />
-                      All tools
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
-          </Container>
-        </Section>
-      )}
+      </section>
+      <Container>
+        {explainers.length > 0 && <section className="field-section" aria-labelledby="curiosity-title"><div className="field-section-heading"><div><p className="field-eyebrow">A few things worth understanding</p><h2 id="curiosity-title">Stay a little curious.</h2><p>Science, technology, and the stories behind how things work.</p></div><Link href="/discover" className="field-text-link">Follow your curiosity <ArrowUpRight size={16} aria-hidden="true" /></Link></div><div className="field-reading-grid">{explainers.map((item) => <Link className="field-reading-card group" href={`/discover/${item.slug}`} key={item.id}><Photo src={item.hero_image_url} alt={item.hero_image_alt || item.title} ratio="3/2" radius="xl" credit={item.hero_image_credit} /><div className="field-reading-copy"><p className="field-eyebrow">{item.category.replace(/_/g, " ")}</p><h3>{cleanText(item.title)}</h3><p>{cleanText(item.intro)}</p><span>Read the explainer <ArrowUpRight size={15} aria-hidden="true" /></span></div></Link>)}</div></section>}
+        <section className="field-planner-banner" aria-labelledby="planner-title"><div className="field-banner-icon"><Route size={42} strokeWidth={1.2} aria-hidden="true" /></div><div><p className="field-eyebrow">Make it your kind of trip</p><h2 id="planner-title">A good trip starts with a little idea.</h2><p>Bring places together in a day-by-day itinerary. Move things around. Make room for a detour.</p></div><Link href="/travel/planner" className="field-button">Plan something good <ArrowUpRight size={17} aria-hidden="true" /></Link></section>
+        {journal.length > 0 && <section className="field-section field-journal" aria-labelledby="journal-title"><div className="field-section-heading"><div><p className="field-eyebrow">From the journal</p><h2 id="journal-title">A wider perspective.</h2></div><Link href="/cambodia" className="field-text-link">Browse the journal <ArrowUpRight size={16} aria-hidden="true" /></Link></div><div className="field-journal-list">{journal.map((article) => <Link key={article.id} href={`/${article.country === "KH" ? "cambodia" : "world"}/news/${article.slug}`}><span className="field-eyebrow">{article.category?.name || "Journal"}</span><h3>{cleanText(article.title)}</h3><time dateTime={article.published_at || article.created_at}>{formatDate(article.published_at || article.created_at)}</time><ArrowUpRight size={20} aria-hidden="true" /></Link>)}</div></section>}
+        <section className="field-values" aria-label="About this corner of the internet"><span className="field-values-mark"><Sparkles size={20} aria-hidden="true" /></span><p><strong>Worth your time. Made to be useful.</strong> A place for practical discovery, clear explanations, and a closer look at Cambodia.</p><Link href="/about" className="field-text-link">Meet CamTech <ArrowUpRight size={15} aria-hidden="true" /></Link></section>
+      </Container>
     </div>
   );
 }

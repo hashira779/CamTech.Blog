@@ -37,7 +37,7 @@ const AUTOPILOT_DEFAULTS: Record<string, string> = {
   AUTOPILOT_PURGE_AFTER_DAYS: '30',
   AUTOPILOT_DISCOVERY_ENABLED: 'true',
   AUTOPILOT_DISCOVERY_INTERVAL_HOURS: '24',
-  AUTOPILOT_QUIZ_ENABLED: 'true',
+  AUTOPILOT_QUIZ_ENABLED: 'false',
   AUTOPILOT_TRAVEL_ENABLED: 'true',
   AUTOPILOT_TRAVEL_INTERVAL_HOURS: '24',
 };
@@ -61,7 +61,6 @@ const AUTOPILOT_FIELDS: AutopilotField[] = [
   { key: 'AUTOPILOT_PURGE_AFTER_DAYS', type: 'number', min: 7, max: 3650, suffix: 'days', label: 'Delete archived after', help: 'Archived AI stories that were never public are permanently removed.' },
   { key: 'AUTOPILOT_DISCOVERY_ENABLED', type: 'toggle', label: 'AI Visual Discoveries', help: 'Gemini drafts evergreen "how things work" explainers for the Discover section.' },
   { key: 'AUTOPILOT_DISCOVERY_INTERVAL_HOURS', type: 'number', min: 1, max: 720, suffix: 'hours', label: 'Discovery interval', help: 'How often new discoveries are drafted.' },
-  { key: 'AUTOPILOT_QUIZ_ENABLED', type: 'toggle', label: 'AI Daily Quiz', help: 'A fresh quiz is generated every day (Cambodia time) with a rotating topic.' },
   { key: 'AUTOPILOT_TRAVEL_ENABLED', type: 'toggle', label: 'AI Travel Guides & Events', help: 'Gemini drafts destination guides and upcoming festivals with real dates.' },
   { key: 'AUTOPILOT_TRAVEL_INTERVAL_HOURS', type: 'number', min: 1, max: 2160, suffix: 'hours', label: 'Travel interval', help: 'How often guides and events are refreshed.' },
 ];
@@ -597,7 +596,6 @@ export default function Settings() {
                   {([
                     ['lifecycle', 'Publish / archive cycle'],
                     ['discoveries', 'Generate discoveries'],
-                    ['quiz', "Generate today's quiz"],
                     ['travel', 'Generate guides & events'],
                   ] as const).map(([action, label]) => (
                     <button

@@ -247,9 +247,13 @@ Title: {title}
 Content snippet: {clean_content}
 
 Write a professional editorial draft as JSON with keys:
-summary (2-sentence original summary attributing to {source_name}),
-key_points (3-4 factual takeaways), why_it_matters (2-3 sentences of context),
-suggested_tags (3-5 tags), seo_title (max 60 chars), seo_description (max 155 chars).
+- summary: 2-sentence original summary attributing to {source_name}
+- key_points: array of 3-4 factual takeaways
+- why_it_matters: 2-3 sentences of context
+- content: Full, substantive journalistic article body in Markdown (400-600 words, using ## subheadings) providing detailed coverage, background, and significance based strictly on the reported facts and industry context.
+- suggested_tags: array of 3-5 tags
+- seo_title: max 60 chars
+- seo_description: max 155 chars
 Return only valid JSON."""
         data, meta = await asyncio.to_thread(ai_gateway.generate_json, prompt, use_search=False, timeout=25.0)
         if not isinstance(data, dict):

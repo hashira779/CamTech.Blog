@@ -4,7 +4,6 @@ import {
   Search,
   FileText,
   Compass,
-  HelpCircle,
   Wrench,
   Sparkles,
   CalendarDays,
@@ -26,7 +25,7 @@ import type { SearchResultItem } from "@/types";
 export const metadata: Metadata = {
   title: "Search",
   description:
-    "One search across news, visual discoveries, travel provinces, places, guides, events, quizzes, tools and authors.",
+    "One search across news, visual discoveries, travel provinces, places, guides, events, tools and authors.",
 };
 
 export const dynamic = "force-dynamic";
@@ -43,7 +42,6 @@ const TYPE_META: Record<
 > = {
   ARTICLE: { label: "News", icon: FileText, category: "news" },
   DISCOVERY: { label: "Discover", icon: Sparkles, category: "discover" },
-  QUIZ: { label: "Quiz", icon: HelpCircle, category: "quiz" },
   TOOL: { label: "Tools", icon: Wrench, category: "tools" },
   DESTINATION: { label: "Provinces", icon: MapPin, category: "travel" },
   PLACE: { label: "Places", icon: Compass, category: "travel" },
@@ -66,7 +64,6 @@ const QUICK_LINKS = [
   { href: "/cambodia", label: "Cambodia news", icon: FileText },
   { href: "/travel", label: "Travel & provinces", icon: Compass },
   { href: "/discover", label: "Visual discoveries", icon: Sparkles },
-  { href: "/quiz", label: "Daily quiz", icon: HelpCircle },
   { href: "/tools", label: "Everyday tools", icon: Wrench },
   { href: "/trending", label: "Trending now", icon: CalendarDays },
 ];
@@ -155,7 +152,7 @@ export default async function SearchPage({
     <PublicPageShell
       breadcrumbs={[{ label: "Search", href: "/search" }]}
       title="Search"
-      description="One index across news, visual discoveries, travel provinces, places, guides, events, quizzes, tools and authors."
+      description="One index across news, visual discoveries, travel provinces, places, guides, events, tools and authors."
     >
       {/* ── Query ──────────────────────────────────────────────────────────── */}
       <form action="/search" method="GET" className="relative max-w-2xl">
@@ -172,7 +169,7 @@ export default async function SearchPage({
           type="text"
           name="q"
           defaultValue={q}
-          placeholder="Search articles, discoveries, travel, quizzes and tools…"
+          placeholder="Search articles, discoveries, travel and tools…"
           className="h-12 w-full rounded-md border border-input bg-surface pl-11 pr-28 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-ring"
         />
         {activeType && <input type="hidden" name="type" value={activeType} />}

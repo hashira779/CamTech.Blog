@@ -57,6 +57,7 @@ services:
       - NEXT_PUBLIC_ADSENSE_PUBLISHER_ID=${NEXT_PUBLIC_ADSENSE_PUBLISHER_ID:-ca-pub-1311307969887065}
       - NEXT_PUBLIC_ADSENSE_ENABLED=${NEXT_PUBLIC_ADSENSE_ENABLED:-true}
       - NODE_ENV=production
+      - PUBLIC_CONTACT_EMAIL=${PUBLIC_CONTACT_EMAIL:-}
     depends_on:
       api:
         condition: service_healthy

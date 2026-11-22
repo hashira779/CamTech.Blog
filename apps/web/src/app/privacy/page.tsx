@@ -27,7 +27,7 @@ export default function PrivacyPolicyPage() {
           <p className="text-base leading-relaxed text-foreground">
             CamTech.Blog (&ldquo;we&rdquo;, &ldquo;our&rdquo;, or &ldquo;platform&rdquo;)
             respects user privacy. Our platform does not require registration merely to read news,
-            take quizzes, or use online tools.
+            or use online tools.
           </p>
         </section>
 
@@ -40,7 +40,7 @@ export default function PrivacyPolicyPage() {
           <ul className="space-y-4 pl-5 text-base leading-relaxed text-foreground marker:text-muted-foreground">
             <li>
               <strong className="font-semibold">Anonymous telemetry.</strong> Aggregated page views
-              and anonymous quiz scores, used to improve editorial relevance.
+               used to improve editorial relevance.
             </li>
             <li>
               <strong className="font-semibold">Local browser storage.</strong> Theme preferences
@@ -90,7 +90,7 @@ export default function PrivacyPolicyPage() {
             Your choices
           </h2>
           <p className="text-base leading-relaxed text-foreground">
-            Reading, quizzing and tool use need no account, so there is no profile to hand out.
+            Reading and tool use need no account, so there is no profile to hand out.
             Theme, language and consent live only on your device and are removed when you clear the
             site&rsquo;s stored data. Questions about this policy go to the{" "}
             <Link href="/contact" className="text-accent hover:text-foreground">

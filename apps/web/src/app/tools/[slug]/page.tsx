@@ -9,6 +9,7 @@ import { Container, Section } from "@/components/ui/container";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { cleanText, humanize } from "@/lib/format";
+import { TOOL_GUIDES } from "@/lib/tool-guides";
 
 export const revalidate = 60;
 
@@ -21,7 +22,7 @@ export async function generateMetadata({
   const tool = await getToolBySlug(resolvedParams.slug);
   if (!tool) return { title: "Tool Not Found" };
   return {
-    title: `${tool.name} | Free Online Tool | CamTech Blog`,
+    title: `${tool.name} — free online tool`,
     description: tool.description,
   };
 }
@@ -39,6 +40,7 @@ export default async function ToolExecutionPage({
   }
 
   const description = cleanText(tool.description);
+  const guide = TOOL_GUIDES[tool.slug];
 
   return (
     <Section className="pb-12 pt-6 sm:pt-8">
@@ -76,11 +78,13 @@ export default async function ToolExecutionPage({
           <div className="mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg bg-surface-muted px-4 py-3 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-2">
               <ShieldCheck size={14} className="shrink-0 text-success" aria-hidden="true" />
-              Calculations and file processing happen on this device only.
+              Check each tool’s description for its processing and data sources.
             </span>
             {/* Only a real version string from the API is printed. */}
             {tool.version && <span className="tabular-nums">v{tool.version}</span>}
           </div>
+
+          {guide && <section className="field-tool-guide" aria-labelledby="tool-guide-title"><p className="field-eyebrow">A quick guide</p><h2 id="tool-guide-title">Make the most of this tool.</h2><p>{guide.intro}</p><ol>{guide.steps.map((step) => <li key={step}>{step}</li>)}</ol><aside><strong>Good to know</strong><p>{guide.note}</p></aside></section>}
 
           <Link
             href="/tools"

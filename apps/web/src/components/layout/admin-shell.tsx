@@ -14,7 +14,6 @@ import {
   Server,
   Users,
   Settings,
-  HelpCircle,
   Wrench,
   ChevronDown,
   Menu,
@@ -40,7 +39,6 @@ const ADMIN_NAVIGATION: NavGroup[] = [
     items: [
       { label: "News & Articles", href: "/admin?tab=articles", icon: Newspaper },
       { label: "Visual Discoveries", href: "/admin?tab=discoveries", icon: Compass },
-      { label: "Quizzes", href: "/quiz", icon: HelpCircle },
       { label: "Utilities & Tools", href: "/tools", icon: Wrench },
     ],
   },

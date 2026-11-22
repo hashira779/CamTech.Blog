@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Metadata } from "next";
-import { CheckCircle2, ExternalLink, HelpCircle, Wrench } from "lucide-react";
+import { CheckCircle2, ExternalLink, Wrench } from "lucide-react";
 import { getDiscoveryBySlug } from "@/lib/api";
 import { AdSlot } from "@/components/ads/AdSlot";
 import { hasSubstantiveContent } from "@/lib/content-quality";
@@ -281,23 +281,6 @@ export default async function DiscoveryDetailPage({
           aria-label="Keep reading"
           className="mt-12 grid gap-4 border-t border-border pt-8 sm:grid-cols-2"
         >
-          <Link
-            href="/quiz"
-            className="group flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-5 shadow-xs hover-lift hover:border-border-strong"
-          >
-            <span className="min-w-0">
-              <span className="section-label block">Test yourself</span>
-              <span className="mt-1.5 block font-display text-lg leading-snug text-foreground transition-colors group-hover:text-accent">
-                Today&rsquo;s daily quiz
-              </span>
-            </span>
-            <HelpCircle
-              size={20}
-              aria-hidden="true"
-              className="shrink-0 text-muted-foreground transition-transform duration-300 group-hover:-rotate-12"
-            />
-          </Link>
-
           <Link
             href="/tools"
             className="group flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-5 shadow-xs hover-lift hover:border-border-strong"

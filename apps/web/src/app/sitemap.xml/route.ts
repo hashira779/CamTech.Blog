@@ -36,11 +36,6 @@ export async function GET(request: Request) {
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>${baseUrl}/quiz</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
     <loc>${baseUrl}/tools</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

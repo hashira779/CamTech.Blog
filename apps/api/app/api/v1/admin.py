@@ -617,7 +617,7 @@ def run_news_autopilot_now(db: Session = Depends(get_db), current_user: User = D
 
 @router.post("/autopilot/generate")
 async def generate_content_now(
-    section: str = Query(..., description="discoveries | quiz | travel"),
+    section: str = Query(..., description="discoveries | travel"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -626,11 +626,9 @@ async def generate_content_now(
     section = (section or "").lower()
     if section == "discoveries":
         return await ai_content_service.generate_discoveries()
-    if section == "quiz":
-        return await ai_content_service.generate_daily_quiz()
     if section == "travel":
         return await ai_content_service.generate_travel_content()
-    raise HTTPException(status_code=400, detail="section must be one of: discoveries, quiz, travel")
+    raise HTTPException(status_code=400, detail="section must be one of: discoveries, travel")
 
 
 class SettingUpdate(BaseModel):

@@ -19,7 +19,7 @@ export default function AboutPage() {
         breadcrumbs={[{ label: "About CamTech.Blog" }]}
         eyebrow={<>Editorial transparency</>}
         title={<>About CamTech.Blog</>}
-        description={<>A Cambodian news and travel publication: reporting from Phnom Penh and the provinces, world stories, travel guides, a daily quiz and everyday web tools — with every story credited to the publisher that reported it.</>}
+        description={<>A Cambodian news and travel publication: reporting from Phnom Penh and the provinces, world stories, travel guides, everyday web tools — with every story credited to the publisher that reported it.</>}
       />
 
       <Container width="reading" as="article" className="pb-16 pt-10 sm:pb-20">
@@ -43,10 +43,7 @@ export default function AboutPage() {
             <Link href="/discover" className="text-accent hover:text-foreground">
               explainers
             </Link>
-            , a{" "}
-            <Link href="/quiz" className="text-accent hover:text-foreground">
-              daily quiz
-            </Link>{" "}
+            , {" "}
             and{" "}
             <Link href="/tools" className="text-accent hover:text-foreground">
               utilities
@@ -92,7 +89,7 @@ export default function AboutPage() {
           </h2>
           <p className="text-base leading-relaxed text-foreground">
             Combining Cambodian and Southeast Asian coverage with international reporting, science
-            explainers, factual quizzes and everyday utilities, the site answers one question:{" "}
+            explainers and everyday utilities, the site answers one question:{" "}
             <em>why would a real person return tomorrow?</em> Clean, attributable and useful beats
             scraped and endless.
           </p>

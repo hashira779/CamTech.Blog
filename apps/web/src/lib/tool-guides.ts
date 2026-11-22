@@ -1,0 +1,27 @@
+export const TOOL_GUIDES: Record<string, { intro: string; steps: string[]; note: string }> = {
+  "word-counter": {
+    intro: "Check the length of a draft, a short bio, a caption, or an article before you publish it.",
+    steps: ["Replace the example with your own text. The counts update as you type.", "Compare the character count with the limit of the place you are publishing.", "Use reading time as a rough planning estimate. Clear the text when you are finished."],
+    note: "Words are counted using spaces. Languages such as Khmer may need language-aware segmentation for a precise word count. Reading and speaking times are estimates, not measured durations.",
+  },
+  "json-formatter": {
+    intro: "Turn a compact JSON response into readable data, or find a syntax problem before using it in your project.",
+    steps: ["Paste JSON into the input. Remove passwords, access tokens, and private customer data first.", "Format or validate it, then check any error message for the location of a syntax problem.", "Copy the formatted result back into your editor. Check the values as well as the syntax."],
+    note: "Valid JSON can still contain incorrect data. Formatting does not verify an API response or make unknown data safe to execute.",
+  },
+  "image-compressor": {
+    intro: "Make a photo smaller before attaching it to a message or adding it to a website.",
+    steps: ["Select an image from your device and choose the available compression settings.", "Preview the result and compare image detail, especially small text and faces.", "Download the compressed version. Keep your original if you may need to edit or print it later."],
+    note: "Smaller files may lose detail. The best settings depend on the image and where you plan to use it; inspect the downloaded file before publishing.",
+  },
+  "qr-code-generator": {
+    intro: "Make a scannable shortcut to a website or a short piece of information.",
+    steps: ["Enter the destination or text you want the code to contain. Check website addresses carefully.", "Generate and download the code at a suitable size for your design.", "Scan the downloaded code with another device before printing or sharing it. Keep a clear margin around it."],
+    note: "A QR code does not verify the destination. This general QR generator is different from a bank-approved payment QR service.",
+  },
+  "uuid-generator": {
+    intro: "Create identifiers for sample data, project records, or development tasks.",
+    steps: ["Choose an available identifier format and how many identifiers you need.", "Generate the identifiers and inspect the format before copying or exporting them.", "Use the result in the field your application expects, and enforce uniqueness in your database."],
+    note: "An identifier is not an authentication secret. Do not use a UUID in place of a password, access control, or a secure session token.",
+  },
+};

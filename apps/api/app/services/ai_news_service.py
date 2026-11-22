@@ -9,7 +9,7 @@ import json
 import uuid
 import re
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
 from app.common.database import SessionLocal
@@ -197,7 +197,11 @@ class AINewsService:
         country = cat_config["country"]
         base_prompt = cat_config["prompt"].format(count=articles_count)
 
+        research_date = datetime.now(timezone(timedelta(hours=7))).date().isoformat()
         prompt = f"""{base_prompt}
+
+Research date: {research_date} (Asia/Phnom_Penh, UTC+7). Treat this as today's date.
+Check the source publication date and the event date. Do not present an old event as breaking news.
 
 CRITICAL RULES:
 1. Each article MUST be about a DIFFERENT topic — no duplicates.

@@ -73,8 +73,9 @@ def _purge_e2e_drafts():
 def stubbed_provider(monkeypatch):
     """One enabled, configured fake provider + stubbed network + stubbed image search."""
     _purge_e2e_drafts()
-    fake = ai_gateway.AIProvider(id="testvendor", label="Test Vendor", style="openai",
-                                 model="e2e-1", base_url="https://x.invalid", api_key="k", enabled=True)
+    fake = ai_gateway.AIProvider(id="testvendor", label="Test Vendor", style="gemini",
+                                 model="e2e-1", base_url="https://x.invalid", api_key="k", enabled=True,
+                                 supports_search=True)
     monkeypatch.setattr(ai_gateway, "load_providers", lambda db: [fake])
     monkeypatch.setattr(ai_gateway, "call_provider", lambda p, prompt, **kw: _fake_articles())
 

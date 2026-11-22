@@ -1,93 +1,20 @@
 import Link from "next/link";
+import { ArrowUpRight, Mail, MessageSquare } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { PageHeader } from "@/components/layout/page-header";
 
-/**
- * Contact.
- *
- * Same two desk addresses as before, now as real mail routes. Removed:
- * "Reach our dedicated teams", which implied a staff directory the site does
- * not publish — there are two routes, and they are shown as two routes.
- */
-const desks = [
-  {
-    label: "General editorial desk",
-    email: "editor@dailydiscovery.com",
-    note: "For news coverage, story inquiries, and press releases.",
-  },
-  {
-    label: "Corrections & fact checking",
-    email: "corrections@dailydiscovery.com",
-    note: "For reporting potential factual errors or broken attribution links.",
-  },
-];
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Get in touch", alternates: { canonical: "/contact" } };
 
 export default function ContactPage() {
+  const configured = (process.env.PUBLIC_CONTACT_EMAIL || "").trim();
+  const email = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(configured) ? configured : null;
   return (
-    <div className="flex w-full flex-1 flex-col">
-      <PageHeader
-        width="reading"
-        breadcrumbs={[{ label: "Contact the newsroom" }]}
-        eyebrow={<>Contact</>}
-        title={<>Contact the newsroom</>}
-        description={<>Questions, press releases, factual tips and partnership enquiries all reach the newsroom through one of the two addresses below.</>}
-      />
-
-      <Container width="reading" as="article" className="pb-16 pt-6 sm:pb-20">
-        <ul className="divide-y divide-border">
-          {desks.map((desk) => (
-            <li key={desk.email} className="py-8 first:pt-2 last:pb-2">
-              <p className="section-label text-muted-foreground">{desk.label}</p>
-              <a
-                href={`mailto:${desk.email}`}
-                className="mt-2 block font-display text-xl leading-snug tracking-tight text-foreground transition-colors hover:text-accent sm:text-2xl"
-              >
-                {desk.email}
-              </a>
-              <p className="mt-2 text-base leading-relaxed text-muted-foreground">{desk.note}</p>
-            </li>
-          ))}
-        </ul>
-
-        <hr className="my-8 border-t border-border" />
-
-        <section className="space-y-4">
-          <h2 className="font-display text-xl leading-snug tracking-tight text-foreground">
-            Reporting an error in a story
-          </h2>
-          <p className="text-base leading-relaxed text-foreground">
-            Send the article URL, the specific wording, and the primary source that supports your
-            correction to{" "}
-            <a
-              href="mailto:corrections@dailydiscovery.com?subject=%5BCorrection%20Request%5D"
-              className="text-accent hover:text-foreground"
-            >
-              corrections@dailydiscovery.com
-            </a>
-            . The full process — verification, the correction note on the story, and how the
-            change is recorded — is in the{" "}
-            <Link href="/corrections-policy" className="text-accent hover:text-foreground">
-              corrections policy
-            </Link>
-            .
-          </p>
-
-          <h2 className="pt-6 font-display text-xl leading-snug tracking-tight text-foreground">
-            Working with us
-          </h2>
-          <p className="text-base leading-relaxed text-foreground">
-            Placement and partnership enquiries use the editorial address above. How advertising is
-            kept away from coverage is described in the{" "}
-            <Link href="/advertising" className="text-accent hover:text-foreground">
-              advertising policy
-            </Link>
-            , and the publishers we draw stories from are listed in the{" "}
-            <Link href="/sources" className="text-accent hover:text-foreground">
-              source registry
-            </Link>
-            .
-          </p>
-        </section>
+    <div>
+      <PageHeader width="reading" breadcrumbs={[{ label: "Contact" }]} eyebrow="A conversation starts somewhere" title="Let’s make something useful." description="Share a correction, suggest a useful feature, or start a conversation about working with CamTech." />
+      <Container width="reading" className="py-10 sm:py-14">
+        {email ? <section className="field-contact-card"><Mail size={25} strokeWidth={1.5} aria-hidden="true" /><p className="field-eyebrow">Editorial & partnerships</p><h2>Get in touch directly.</h2><p>Include a page link for corrections, or a short description of your project for partnership enquiries.</p><a href={`mailto:${email}`} className="field-button">{email} <ArrowUpRight size={16} aria-hidden="true" /></a></section> : <section className="field-contact-card"><MessageSquare size={25} strokeWidth={1.5} aria-hidden="true" /><p className="field-eyebrow">Feedback & corrections</p><h2>Help make CamTech better.</h2><p>You can report a broken feature, suggest an improvement, or share a correction through the project’s public GitHub tracker. Include the page link and the source for a factual correction.</p><a href="https://github.com/hashira779/CamTech.Blog/issues/new" target="_blank" rel="noopener noreferrer" className="field-button">Open the feedback tracker <ArrowUpRight size={16} aria-hidden="true" /></a><p className="text-xs">GitHub account required. Reports are public; leave out passwords, private documents, and personal contact details.</p></section>}
+        <div className="field-values mt-10"><p>Read how we handle corrections and what we expect from published content.</p><Link href="/corrections-policy" className="field-text-link">Corrections policy <ArrowUpRight size={15} aria-hidden="true" /></Link></div>
       </Container>
     </div>
   );

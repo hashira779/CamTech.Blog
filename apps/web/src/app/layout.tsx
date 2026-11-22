@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter, Kantumruy_Pro } from "next/font/google";
 import "./globals.css";
+import "./field-design.css";
 import { ThemeProvider } from "@/lib/theme";
 import { escapeJsonForScript } from "@/lib/sanitize";
 import { getAdsenseClient } from "@/lib/ads";
@@ -40,7 +41,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://camtech.cam";
 
 const siteName = "CamTech.Blog";
 const siteDescription =
-  "Cambodia and world news with source attribution, plus travel guides to all 25 provinces, daily quizzes and everyday web tools.";
+  "Practical Cambodia travel guides, useful everyday tools, news with named sources, and clear technology explainers.";
 
 // Keep account verification in the document. Eligible ad slots load the script themselves.
 const adsenseClient = getAdsenseClient();
@@ -59,7 +60,6 @@ export const metadata: Metadata = {
     "Cambodia Travel Guides",
     "Science Visualizations",
     "Online Tools",
-    "Daily Quiz",
   ],
   authors: [{ name: `${siteName} Editorial` }],
   creator: siteName,

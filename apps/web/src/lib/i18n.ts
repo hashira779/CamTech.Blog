@@ -87,8 +87,8 @@ export const translations = {
     "nav.wedding": "Wedding",
     "nav.saved": "Saved",
     "nav.admin": "CMS Admin",
-    "nav.search_placeholder": "Search news, discoveries, quizzes, tools...",
-    "brand.tagline": "Technology & Science",
+    "nav.search_placeholder": "Search news, discoveries, travel and tools...",
+    "brand.tagline": "Cambodia, life & technology",
 
     // Homepage sections
     "home.happening_today": "What's Happening Today",
@@ -137,7 +137,7 @@ export const translations = {
     "tool.popular": "Popular Tool",
 
     // Footer & Policies
-    "footer.tagline": "A modern discovery, news, and utility platform built for long-term daily curiosity.",
+    "footer.tagline": "Good places, useful things, and fresh perspectives. A curious corner of the internet, rooted in Cambodia.",
     "footer.about": "About Us",
     "footer.editorial_policy": "Editorial Policy",
     "footer.corrections": "Corrections Policy",

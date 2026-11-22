@@ -42,7 +42,6 @@ The schedule is configured in Admin Settings:
 | --- | --- |
 | News: blockchain, technology, Cambodia, world, business, science, travel | Daily, from 07:00 Asia/Phnom_Penh |
 | Discoveries | Every 24 hours |
-| Quiz | Once per Cambodia calendar day |
 | Travel guides and events | Every 24 hours |
 | RSS feeds | Per-source fetch interval |
 | Trending and publishing checks | Every worker cycle |
@@ -51,6 +50,13 @@ Enable the master autopilot switch and each section in Admin Settings, and confi
 and test an AI provider there. Existing saved settings take precedence over defaults;
 installations with a saved travel interval of 168 hours must change it to 24 hours.
 The blockchain news category is created automatically on its first generation run.
+The quiz feature is retired: its public pages return HTTP 410 and the worker no longer
+generates quizzes. Daily news is checked before RSS ingestion so slow feed requests do
+not delay the scheduled news attempt. Research prompts include the current Cambodia date.
+When no provider has web grounding enabled, the daily job refreshes the registered
+RSS sources and drafts from publisher-supplied material. It does not ask an ungrounded
+model to invent current events. Enable Google Search grounding only after verifying
+that the project has the required quota. Ordinary RSS drafting can run without it.
 
 After deploying the code, start or update the worker with `docker compose up -d
 --build worker`. Inspect `docker compose logs --tail=100 worker` and the authenticated

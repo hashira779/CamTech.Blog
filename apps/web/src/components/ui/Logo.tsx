@@ -68,7 +68,7 @@ export function Logo({
           currentSize.text
         )}
       >
-        CamTech<span className="text-accent transition-colors group-hover:text-accent-foreground/90">.Blog</span>
+        CamTech<span className="text-accent transition-colors">.Blog</span>
       </span>
       {showTagline && (
         <span

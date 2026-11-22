@@ -157,8 +157,8 @@ export default async function DiscoverHubPage({
           How things work
         </Badge>
       }
-      title="Visual Discoveries"
-      description="How the world actually works — from the relativistic correction inside your smartphone GPS to the undersea fiber that carries the internet. Explainers are drafted by the AI newsroom and published after editorial review."
+      title="Stay a little curious."
+      description="Follow an idea a little further. Explore science, technology, and the mechanisms behind the things we use every day."
     >
       {categories.length > 0 && (
         <nav
@@ -188,7 +188,7 @@ export default async function DiscoverHubPage({
               ? `No explainers in “${activeCategory}” yet`
               : "No explainers published yet"
           }
-          description="Visual explanations are drafted by the AI newsroom and published automatically after review. New topics appear here as soon as they go live."
+          description="There are no published explainers in this collection yet. Try another topic or explore the tools directory."
           actionLabel="Search explanations"
           actionHref="/search?q=how+does"
         />

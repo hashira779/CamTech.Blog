@@ -66,8 +66,8 @@ class AIProvider:
 # Array order == fallback priority. Only Gemini is enabled by default (via the legacy key);
 # everything else starts disabled until the editor pastes a key.
 DEFAULT_PROVIDERS: List[Dict[str, Any]] = [
-    {"id": "gemini", "label": "Google Gemini", "style": "gemini", "model": "gemini-2.5-flash",
-     "base_url": "https://generativelanguage.googleapis.com", "enabled": True, "supports_search": True},
+    {"id": "gemini", "label": "Google Gemini", "style": "gemini", "model": "gemini-3.5-flash-lite",
+     "base_url": "https://generativelanguage.googleapis.com", "enabled": True, "supports_search": False},
     {"id": "openai", "label": "OpenAI", "style": "openai", "model": "gpt-4o-mini",
      "base_url": "https://api.openai.com/v1"},
     {"id": "anthropic", "label": "Anthropic Claude", "style": "anthropic", "model": "claude-3-5-sonnet-latest",
@@ -301,6 +301,9 @@ def generate_text(prompt: str, *, system: Optional[str] = None, use_search: bool
         if not p.is_configured():
             errors.append(f"{p.id}: no key/base_url")
             continue
+        if use_search and not (p.style == "gemini" and p.supports_search):
+            errors.append(f"{p.id}: web grounding is not enabled; cannot research current events")
+            continue
         try:
             text = call_provider(p, prompt, system=system, use_search=use_search, timeout=timeout)
             if text and text.strip():
@@ -329,6 +332,13 @@ def has_any_configured_provider() -> bool:
         return any(p.enabled and p.is_configured() for p in load_providers(db))
     finally:
         db.close()
+
+
+def has_search_provider() -> bool:
+    from app.common.database import SessionLocal
+    with SessionLocal() as db:
+        return any(p.enabled and p.is_configured() and p.style == "gemini" and p.supports_search
+                   for p in load_providers(db))
 
 
 def test_provider(provider_id: str) -> Dict[str, Any]:

@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, desc
 from app.models.article import Article
 from app.models.discovery import Discovery
-from app.models.quiz import Quiz
 from app.models.tool import Tool
 from app.models.location import Destination
 from app.models.place import Place
@@ -81,29 +80,6 @@ class SearchService:
                     "country": "GLOBAL",
                     "image_url": d.hero_image_url,
                     "published_at": d.published_at.isoformat() if d.published_at else None
-                })
-
-        # 3. Search Quizzes
-        if not entity_type or entity_type.upper() == "QUIZ":
-            quizzes = db.query(Quiz).filter(
-                or_(
-                    Quiz.title.ilike(search_pattern),
-                    Quiz.description.ilike(search_pattern)
-                )
-            ).limit(limit).all()
-            for q in quizzes:
-                results.append({
-                    "id": q.id,
-                    "type": "QUIZ",
-                    "title": q.title,
-                    "title_km": q.title_km,
-                    "summary": q.description,
-                    "slug": q.slug,
-                    "url": f"/quiz/{q.slug}",
-                    "category": q.category,
-                    "country": "GLOBAL",
-                    "image_url": None,
-                    "published_at": None
                 })
 
         # 4. Search Tools

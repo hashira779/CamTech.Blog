@@ -246,13 +246,14 @@ async def ingest_rss_feeds_job():
                             country=country
                         )
 
+                    body_text = draft.get("content") or (draft.get("summary", "") + "\n\n" + "\n".join(
+                        f"- {kp}" for kp in draft.get("key_points", [])
+                    ))
                     new_article = Article(
                         title=title,
                         slug=slug,
                         summary=draft.get("summary", title),
-                        content=sanitize_stored_html(draft.get("summary", "") + "\n\n" + "\n".join(
-                            f"- {kp}" for kp in draft.get("key_points", [])
-                        )),
+                        content=sanitize_stored_html(body_text),
                         key_points=json.dumps(draft.get("key_points", [])),
                         why_it_matters=draft.get("why_it_matters", ""),
                         country=country,
@@ -366,6 +367,11 @@ async def daily_ai_news_job():
         db.close()
 
     try:
+        from app.services import ai_gateway
+        if not ai_gateway.has_search_provider():
+            logger.info("Daily news uses registered RSS sources; web grounding is not enabled.")
+            await ingest_rss_feeds_job()
+            return
         from app.services.ai_news_service import ai_news_service
         logger.info("📰 Daily multi-category AI news generation started...")
         result = await ai_news_service.generate_all_categories()
@@ -399,7 +405,7 @@ async def news_autopilot_job():
 
 
 async def content_autopilot_job():
-    """Draft new AI content for Discover, Daily Quiz and Travel (guides & events).
+    """Draft new AI content for Discover and Travel (guides & events).
 
     Each section runs on its own interval from Admin Settings; the run is marked
     BEFORE generation so a failing AI call cannot retry every cycle and burn quota.
@@ -418,21 +424,12 @@ async def content_autopilot_job():
             db, "AUTOPILOT_TRAVEL_ENABLED", news_autopilot.LAST_TRAVEL_RUN_KEY,
             news_autopilot.get_int(db, "AUTOPILOT_TRAVEL_INTERVAL_HOURS"),
         )
-        today_km = datetime.now(timezone(timedelta(hours=7))).date().isoformat()
-        quiz_due = (
-            news_autopilot.get_bool(db, "AUTOPILOT_NEWS_ENABLED")
-            and news_autopilot.get_bool(db, "AUTOPILOT_QUIZ_ENABLED")
-            and news_autopilot.get_setting(db, news_autopilot.LAST_QUIZ_RUN_KEY) != today_km
-        )
         if discovery_due:
             news_autopilot.mark_section_ran(db, news_autopilot.LAST_DISCOVERY_RUN_KEY,
                                             "UTC timestamp of last AI discovery generation")
         if travel_due:
             news_autopilot.mark_section_ran(db, news_autopilot.LAST_TRAVEL_RUN_KEY,
                                             "UTC timestamp of last AI travel guide/event generation")
-        if quiz_due:
-            news_autopilot.set_setting(db, news_autopilot.LAST_QUIZ_RUN_KEY, today_km,
-                                       "Date (Cambodia time) the daily AI quiz last ran")
     except Exception as e:
         logger.error(f"Content autopilot scheduling check failed: {e}")
         return
@@ -446,14 +443,6 @@ async def content_autopilot_job():
             logger.info(f"🔭 Discoveries: {res}")
         except Exception as e:
             logger.error(f"Discovery generation failed: {e}")
-
-    if quiz_due:
-        try:
-            logger.info("🧠 Daily AI quiz generation started...")
-            res = await ai_content_service.generate_daily_quiz()
-            logger.info(f"🧠 Daily quiz: {res}")
-        except Exception as e:
-            logger.error(f"Daily quiz generation failed: {e}")
 
     if travel_due:
         try:
@@ -491,11 +480,11 @@ async def worker_main():
         iteration += 1
         logger.info(f"Starting worker cycle #{iteration} at {datetime.now(timezone.utc).isoformat()}")
 
-        # 1. RSS Feed Ingestion — every cycle (respects per-source fetch intervals)
-        await ingest_rss_feeds_job()
-
-        # 2. Daily AI news (once per day at the configured Cambodia-time hour)
+        # Daily news gets the first scheduling check; slow RSS feeds must not delay it.
         await daily_ai_news_job()
+
+        # RSS ingestion respects per-source fetch intervals.
+        await ingest_rss_feeds_job()
 
         # 3. Content Autopilot: draft discoveries, daily quiz, travel guides & events
         await content_autopilot_job()

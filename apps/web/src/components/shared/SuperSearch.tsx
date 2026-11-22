@@ -8,14 +8,12 @@ import {
   Loader2,
   FileText,
   Compass,
-  HelpCircle,
   Wrench,
   ArrowRight,
   CalendarDays,
   BookOpen,
   User,
   Sparkles,
-  Heart,
 } from "lucide-react";
 import { searchGlobal } from "@/lib/api";
 import { SearchResultItem } from "@/types";
@@ -33,9 +31,7 @@ import { cleanText } from "@/lib/format";
  * category hues as the rest of the site.
  */
 const QUICK_LINKS: { href: string; key: string; Icon: typeof Compass }[] = [
-  { href: "/wedding", key: "nav.wedding", Icon: Heart },
   { href: "/travel", key: "nav.travel", Icon: Compass },
-  { href: "/quiz", key: "nav.quiz", Icon: HelpCircle },
   { href: "/tools", key: "nav.tools", Icon: Wrench },
   { href: "/discover", key: "nav.discover", Icon: Sparkles },
 ];
@@ -48,8 +44,6 @@ function iconFor(type: string) {
     case "destination":
     case "travel":
       return { Icon: Compass, mark: "text-category-travel" };
-    case "quiz":
-      return { Icon: HelpCircle, mark: "text-category-quiz" };
     case "tool":
       return { Icon: Wrench, mark: "text-category-tools" };
     case "discovery":

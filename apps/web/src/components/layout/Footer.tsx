@@ -36,7 +36,6 @@ const columns: { heading: string; links: FooterLink[] }[] = [
     links: [
       { href: "/travel", label: "Guides" },
       { href: "/travel/planner", label: "Trip Planner" },
-      { href: "/quiz", label: "Daily Quiz" },
       { href: "/tools", label: "Tools" },
     ],
   },
@@ -55,7 +54,6 @@ const columns: { heading: string; links: FooterLink[] }[] = [
       { href: "/about", label: "About" },
       { href: "/advertising", label: "Advertising" },
       { href: "/contact", label: "Contact" },
-      { href: "https://cms.camtech.cam", label: "CMS Portal", external: true },
     ],
   },
   {
@@ -75,7 +73,6 @@ const TRANSLATED: Record<string, string> = {
   "/discover": "nav.discover",
   "/trending": "nav.trending",
   "/travel": "nav.travel",
-  "/quiz": "nav.quiz",
   "/tools": "nav.tools",
   "/about": "footer.about",
   "/contact": "footer.contact",
@@ -96,9 +93,9 @@ export function Footer() {
   };
 
   return (
-    <footer className="mt-16 border-t border-border bg-surface select-none">
+    <footer className="field-footer">
       <Container className="py-12 sm:py-16">
-        <div className="flex flex-col gap-6 border-b border-border pb-10 md:flex-row md:items-end md:justify-between">
+        <div className="field-footer-top">
           <div className="max-w-xl">
             <Link
               href="/"
@@ -111,7 +108,7 @@ export function Footer() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="field-footer-linkbox">
             <Link
               href="/feed.xml"
               className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"

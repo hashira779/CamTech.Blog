@@ -13,7 +13,7 @@ import { FormField, Textarea } from "@/components/ui/input";
  */
 export function WordCounter() {
   const [text, setText] = useState<string>(
-    "CamTech.Blog is a modern editorial platform delivering verified news, scientific discoveries, interactive quizzes, and practical online tools."
+    "A small idea can lead to a useful discovery. Replace this example with your own text."
   );
 
   const stats = React.useMemo(() => {

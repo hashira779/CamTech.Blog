@@ -56,7 +56,7 @@ DEFAULTS = {
     "AUTOPILOT_PURGE_AFTER_DAYS": "30",          # ARCHIVED (never public) -> deleted
     "AUTOPILOT_DISCOVERY_ENABLED": "true",       # AI visual discoveries (Discover section)
     "AUTOPILOT_DISCOVERY_INTERVAL_HOURS": "24",  # how often new discoveries are drafted
-    "AUTOPILOT_QUIZ_ENABLED": "true",            # daily AI quiz (Cambodia time)
+    "AUTOPILOT_QUIZ_ENABLED": "false",           # retired feature; retained for legacy settings
     "AUTOPILOT_TRAVEL_ENABLED": "true",          # AI travel guides & events
     "AUTOPILOT_TRAVEL_INTERVAL_HOURS": "24",     # daily guide/event refresh
 }
@@ -334,7 +334,8 @@ async def redraft_held_drafts(db: Session, drafter) -> dict:
         article.summary = summary
         article.key_points = json.dumps(key_points)
         article.why_it_matters = str(draft.get("why_it_matters") or "").strip()
-        article.content = sanitize_stored_html(summary + "\n\n" + "\n".join(f"- {k}" for k in key_points))
+        body_text = draft.get("content") or (summary + "\n\n" + "\n".join(f"- {k}" for k in key_points))
+        article.content = sanitize_stored_html(body_text)
         if draft.get("seo_title"):
             article.seo_title = strip_brand_suffix(str(draft["seo_title"]))[:150]
         if draft.get("seo_description"):
