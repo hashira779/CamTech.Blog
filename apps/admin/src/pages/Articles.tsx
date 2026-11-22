@@ -66,8 +66,15 @@ export default function Articles() {
   const [publishingAll, setPublishingAll] = useState(false);
   const [topicModalOpen, setTopicModalOpen] = useState(false);
   const [customTopic, setCustomTopic] = useState('');
-  const [topicRegion, setTopicRegion] = useState<'KH' | 'WORLD'>('KH');
+  const [topicRegion, setTopicRegion] = useState<string>('KH');
+  const [publishImmediately, setPublishImmediately] = useState(true);
   const [generatingTopic, setGeneratingTopic] = useState(false);
+  const [counts, setCounts] = useState<{ all: number; published: number; drafts: number; archived: number }>({
+    all: 0,
+    published: 0,
+    drafts: 0,
+    archived: 0
+  });
   const { success: toastSuccess, error: toastError, info: toastInfo } = useToast();
   
   // Create Article Modal state
@@ -80,19 +87,34 @@ export default function Articles() {
   const [newCountry, setNewCountry] = useState('KH');
   const [newSourceUrl, setNewSourceUrl] = useState('');
 
-  const fetchArticles = async (showToast = false) => {
+  const fetchArticles = async (showToast = false, tabOverride?: FilterTab) => {
     setLoading(true);
+    const activeTab = tabOverride ?? filterTab;
     try {
       const params = new URLSearchParams();
       params.set('limit', '100');
-      params.set('status', 'ALL');
+      if (activeTab === 'All') {
+        params.set('status', 'ALL');
+      } else if (activeTab === 'PUBLISHED') {
+        params.set('status', 'PUBLISHED');
+      } else if (activeTab === 'DRAFT') {
+        params.set('status', 'DRAFT');
+      } else if (activeTab === 'ARCHIVED') {
+        params.set('status', 'ARCHIVED');
+      }
       if (countryFilter !== 'ALL') {
         params.set('country', countryFilter);
       }
-      const res = await api.get<{ items: ApiArticle[]; total: number }>(`/articles?${params.toString()}`);
+      const [res, countsRes] = await Promise.all([
+        api.get<{ items: ApiArticle[]; total: number }>(`/articles?${params.toString()}`),
+        api.get<{ all: number; published: number; drafts: number; archived: number }>('/admin/articles/counts').catch(() => null)
+      ]);
       if (res.data?.items) {
         setArticles(res.data.items);
         setTotalCount(res.data.total || res.data.items.length);
+      }
+      if (countsRes?.data) {
+        setCounts(countsRes.data);
       }
       try {
         const ap = await api.get<{ pending: AutopilotVerdict[] }>('/admin/autopilot');
@@ -181,16 +203,22 @@ export default function Articles() {
     if (e) e.preventDefault();
     if (!customTopic.trim()) return;
     setGeneratingTopic(true);
-    toastInfo(`AI is researching and drafting in-depth article on "${customTopic.trim()}"...`, 'Topic Generator');
+    const mode = publishImmediately ? 'researching & publishing' : 'researching & drafting';
+    toastInfo(`AI is ${mode} in-depth article on "${customTopic.trim()}"...`, 'AI Topic Engine');
     try {
-      const res = await api.post<{ status: string; title: string }>('/admin/ai/generate-topic-news', {
+      const res = await api.post<{ status: string; title: string; published?: boolean }>('/admin/ai/generate-topic-news', {
         topic: customTopic.trim(),
-        region: topicRegion
+        region: topicRegion,
+        publish_immediately: publishImmediately
       });
       setTopicModalOpen(false);
       setCustomTopic('');
       await fetchArticles();
-      toastSuccess(`Draft created: "${res.data.title}"`, 'Article Drafted');
+      if (res.data.published) {
+        toastSuccess(`Published "${res.data.title}" immediately to live website!`, 'Article Live');
+      } else {
+        toastSuccess(`Draft created: "${res.data.title}"`, 'Article Drafted');
+      }
     } catch (err: any) {
       console.error('Topic generation failed:', err);
       toastError(err.response?.data?.detail || 'Failed to generate topic article.', 'Generation Error');
@@ -354,6 +382,14 @@ export default function Articles() {
             <span>{publishingAll ? 'Publishing...' : 'Approve All (Publish Ready)'}</span>
           </button>
           <button 
+            onClick={() => setTopicModalOpen(true)}
+            className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm cursor-pointer"
+            title="Research and auto-publish or draft news on any topic or region (Cambodia, Thailand, Vietnam, China, World)"
+          >
+            <Sparkles size={13} />
+            <span>AI Topic Research</span>
+          </button>
+          <button 
             onClick={handleEnhanceImages}
             disabled={enhancingImages}
             className="flex items-center gap-1.5 bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border border-emerald-500/25 font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50"
@@ -451,13 +487,16 @@ export default function Articles() {
         {/* Status Filter Tabs */}
         <div className="flex items-center p-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] shrink-0 overflow-x-auto">
           {(['All', 'PUBLISHED', 'DRAFT', 'ARCHIVED'] as const).map((tab) => {
-            const count = articles.filter(a => matchesTab(a.status, tab)).length;
+            const count = tab === 'All' ? counts.all : tab === 'PUBLISHED' ? counts.published : tab === 'DRAFT' ? counts.drafts : counts.archived;
             const label = tab === 'All' ? 'All' : tab === 'PUBLISHED' ? 'Published' : tab === 'DRAFT' ? 'Drafts' : 'Archived';
             return (
               <button
                 key={tab}
-                onClick={() => setFilterTab(tab)}
-                className={`px-3 py-1.5 rounded-md transition-all whitespace-nowrap font-medium ${
+                onClick={() => {
+                  setFilterTab(tab);
+                  fetchArticles(false, tab);
+                }}
+                className={`px-3 py-1.5 rounded-md transition-all whitespace-nowrap font-medium cursor-pointer ${
                   filterTab === tab
                     ? 'bg-zinc-800 text-zinc-100 shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300'
@@ -496,6 +535,9 @@ export default function Articles() {
           >
             <option value="ALL">All Regions</option>
             <option value="KH">Cambodia (KH)</option>
+            <option value="TH">Thailand (TH)</option>
+            <option value="VN">Vietnam (VN)</option>
+            <option value="CN">China & HK (CN)</option>
             <option value="WORLD">World</option>
           </select>
         </div>
@@ -841,33 +883,99 @@ export default function Articles() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1.5">Target Desk / Region</label>
-                <div className="grid grid-cols-2 gap-2">
+                <label className="block text-xs font-medium text-zinc-300 mb-1.5">Target Country / Region</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setTopicRegion('KH')}
-                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-2 transition-all ${
+                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
                       topicRegion === 'KH' 
                         ? 'bg-purple-600/15 border-purple-500/40 text-purple-300' 
                         : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
                     <span>🇰🇭</span>
-                    <span>Cambodia & Regional</span>
+                    <span>Cambodia</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTopicRegion('TH')}
+                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
+                      topicRegion === 'TH' 
+                        ? 'bg-purple-600/15 border-purple-500/40 text-purple-300' 
+                        : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <span>🇹🇭</span>
+                    <span>Thailand</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTopicRegion('VN')}
+                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
+                      topicRegion === 'VN' 
+                        ? 'bg-purple-600/15 border-purple-500/40 text-purple-300' 
+                        : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <span>🇻🇳</span>
+                    <span>Vietnam</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTopicRegion('CN')}
+                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
+                      topicRegion === 'CN' 
+                        ? 'bg-purple-600/15 border-purple-500/40 text-purple-300' 
+                        : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <span>🇨🇳</span>
+                    <span>China & HK</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setTopicRegion('WORLD')}
-                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-2 transition-all ${
+                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 col-span-2 sm:col-span-2 transition-all ${
                       topicRegion === 'WORLD' 
                         ? 'bg-purple-600/15 border-purple-500/40 text-purple-300' 
                         : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
                     <Globe size={14} />
-                    <span>World & Technology</span>
+                    <span>Global Tech & World</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Instant Auto-Publish Option */}
+              <div 
+                onClick={() => setPublishImmediately(!publishImmediately)}
+                className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                  publishImmediately 
+                    ? 'bg-emerald-950/20 border-emerald-500/30' 
+                    : 'bg-zinc-950/50 border-zinc-800'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-100">
+                    <span>⚡ Publish Immediately to Live Website</span>
+                    {publishImmediately && (
+                      <span className="badge-pill bg-emerald-500/20 text-emerald-400 text-[10px] px-1.5 py-0.5">Live</span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-zinc-400 mt-0.5">
+                    {publishImmediately 
+                      ? 'Article will go live on camtech.cam immediately with HD cover image' 
+                      : 'Article will be saved as an AI draft for your editorial review'}
+                  </div>
+                </div>
+                <input 
+                  type="checkbox"
+                  checked={publishImmediately}
+                  onChange={(e) => setPublishImmediately(e.target.checked)}
+                  className="h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                />
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
@@ -881,10 +989,18 @@ export default function Articles() {
                 <button
                   type="submit"
                   disabled={generatingTopic || !customTopic.trim()}
-                  className="px-4 py-2 rounded-lg text-xs font-medium text-white bg-purple-600 hover:bg-purple-500 disabled:opacity-50 flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  className={`px-4 py-2 rounded-lg text-xs font-medium text-white disabled:opacity-50 flex items-center gap-1.5 shadow-sm transition-all cursor-pointer ${
+                    publishImmediately 
+                      ? 'bg-emerald-600 hover:bg-emerald-500' 
+                      : 'bg-purple-600 hover:bg-purple-500'
+                  }`}
                 >
                   {generatingTopic ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                  <span>{generatingTopic ? 'Researching & Drafting...' : 'Draft Article with AI'}</span>
+                  <span>
+                    {generatingTopic 
+                      ? (publishImmediately ? 'Researching & Publishing...' : 'Researching & Drafting...') 
+                      : (publishImmediately ? 'Publish to Live Site with AI' : 'Save as AI Draft')}
+                  </span>
                 </button>
               </div>
             </form>

@@ -649,9 +649,36 @@ def publish_all_ready_articles(
     }
 
 
+@router.get("/articles/counts")
+def get_articles_counts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Return exact count of articles across all status buckets."""
+    from app.models.article import Article
+    from sqlalchemy import func
+
+    total_all = db.query(func.count(Article.id)).scalar() or 0
+    total_published = db.query(func.count(Article.id)).filter(Article.status == "PUBLISHED").scalar() or 0
+    total_drafts = db.query(func.count(Article.id)).filter(
+        Article.status.in_(["DRAFT", "AI_DRAFT", "IN_REVIEW", "NEEDS_REVISION", "APPROVED"])
+    ).scalar() or 0
+    total_archived = db.query(func.count(Article.id)).filter(
+        Article.status.in_(["ARCHIVED", "REJECTED"])
+    ).scalar() or 0
+
+    return {
+        "all": total_all,
+        "published": total_published,
+        "drafts": total_drafts,
+        "archived": total_archived
+    }
+
+
 class TopicNewsRequest(BaseModel):
     topic: str
     region: Optional[str] = "KH"
+    publish_immediately: Optional[bool] = False
 
 
 @router.post("/ai/generate-topic-news")
@@ -663,7 +690,9 @@ async def generate_topic_news(
     """Generate professional journalistic editorial article on a user-specified topic."""
     import re
     import uuid
+    from datetime import datetime, timezone
     from app.services import ai_gateway
+    from app.services.image_search_service import image_search_service
     from app.models.category import Category
     from app.models.author import Author
     from app.models.article import Article
@@ -673,10 +702,19 @@ async def generate_topic_news(
     if not topic:
         raise HTTPException(status_code=400, detail="Topic cannot be empty")
 
+    region_labels = {
+        "KH": "Cambodia (Domestic tech, economy, digital finance)",
+        "TH": "Thailand (Regional economy, cross-border trade, tech)",
+        "VN": "Vietnam (Semiconductors, regional tech & business)",
+        "CN": "China & Hong Kong (Tech, EV, AI, global finance)",
+        "WORLD": "World / Global (AI, robotics, cybersecurity, big tech)"
+    }
+    region_label = region_labels.get(req.region or "KH", "Cambodia / Southeast Asia")
+
     prompt = f"""You are an elite, neutral journalist writing for CamTech.Blog (focusing on Cambodia, Southeast Asia, and Technology).
 Write a comprehensive, professional, factual news article about the following topic:
 Topic: {topic}
-Target Region: {'Cambodia / Southeast Asia' if req.region == 'KH' else 'World / Global'}
+Target Region: {region_label}
 
 CRITICAL RULES:
 1. Content must be factual, balanced, and structured with journalistic integrity.
@@ -688,7 +726,7 @@ Return only valid JSON with keys:
 - title: Compelling headline (50-100 chars)
 - summary: 2-sentence objective summary (100-200 chars)
 - content: Full article body in Markdown (400-600 words with ## subheadings)
-- source_name: Name of credible primary reporting outlet (e.g. Khmer Times, AKP, Phnom Penh Post, CNA, Reuters, Al Jazeera)
+- source_name: Name of credible primary reporting outlet (e.g. Khmer Times, AKP, Phnom Penh Post, CNA, Reuters, Al Jazeera, Bangkok Post, VnExpress, SCMP)
 - source_url: A credible reference URL for the story (must include full path)
 - key_points: Array of 3-4 factual takeaways
 - why_it_matters: 2-3 sentences of context
@@ -708,6 +746,16 @@ Return only valid JSON with keys:
     base_slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')[:80]
     slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
 
+    # Resolve high-res cover image
+    hero_url, hero_credit = None, None
+    try:
+        hero_url, hero_credit = await image_search_service.find_image_for_query(title, category_slug=cat_slug)
+    except Exception:
+        pass
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    is_pub = bool(req.publish_immediately)
+
     art = Article(
         title=title,
         slug=slug,
@@ -716,24 +764,34 @@ Return only valid JSON with keys:
         key_points=json.dumps(data.get("key_points", [])),
         why_it_matters=data.get("why_it_matters", ""),
         country=req.region or "KH",
+        hero_image_url=hero_url,
+        hero_image_credit=hero_credit,
         primary_source_url=data.get("source_url") or "https://camtech.cam",
         source_attribution_text=f"Source: {data.get('source_name', 'CamTech Editorial Desk')}",
         category_id=category.id if category else None,
         author_id=author.id if author else None,
-        status="AI_DRAFT",
+        status="PUBLISHED" if is_pub else "AI_DRAFT",
+        published_at=now if is_pub else None,
         seo_title=data.get("seo_title", title[:150]),
         seo_description=data.get("seo_description", data.get("summary", "")[:155]),
         ai_draft_metadata=json.dumps({
             "topic": topic,
             "engine": (meta or {}).get("engine", "gemini"),
             "pipeline": "admin_topic_generation",
-            "source": data.get("source_name", "AI Desk")
+            "source": data.get("source_name", "AI Desk"),
+            "publish_immediately": is_pub
         })
     )
     db.add(art)
     db.commit()
     db.refresh(art)
-    return {"status": "success", "article_id": art.id, "title": art.title, "slug": art.slug}
+    return {
+        "status": "success",
+        "article_id": art.id,
+        "title": art.title,
+        "slug": art.slug,
+        "published": is_pub
+    }
 
 
 @router.post("/autopilot/generate")

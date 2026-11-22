@@ -48,7 +48,12 @@ class ArticleService:
         query = db.query(Article).options(*ArticleService._READER_RELATIONSHIPS)
 
         if status and status.upper() not in ("ALL", "ANY"):
-            query = query.filter(Article.status == status)
+            if status.upper() == "DRAFT":
+                query = query.filter(Article.status.in_(["DRAFT", "AI_DRAFT", "IN_REVIEW", "NEEDS_REVISION", "APPROVED"]))
+            elif status.upper() == "ARCHIVED":
+                query = query.filter(Article.status.in_(["ARCHIVED", "REJECTED"]))
+            else:
+                query = query.filter(Article.status == status)
         if country:
             query = query.filter(Article.country == country)
         if category_slug:
@@ -68,7 +73,15 @@ class ArticleService:
             )
 
         total = query.count()
-        articles = query.order_by(desc(Article.published_at), desc(Article.created_at)).offset(skip).limit(limit).all()
+        if (status or "").upper() == "PUBLISHED":
+            articles = query.order_by(
+                Article.published_at.desc().nullslast(),
+                Article.created_at.desc()
+            ).offset(skip).limit(limit).all()
+        else:
+            articles = query.order_by(
+                Article.created_at.desc()
+            ).offset(skip).limit(limit).all()
         return articles, total
 
     @staticmethod
