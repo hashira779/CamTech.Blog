@@ -62,8 +62,8 @@ export default async function ToolExecutionPage({
           />
 
           {/* One panel per tool: the calculator supplies the fields, the page
-              supplies the paper, so no route draws its own box. */}
-          <div className="rounded-lg border border-border bg-card p-5 shadow-xs sm:p-7">
+              supplies the paper, styled with Nuxt-grade studio squircle elevation. */}
+          <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-b from-surface via-surface/95 to-surface-muted/30 p-6 shadow-sm backdrop-blur-xl sm:p-8">
             <ToolDispatcher tool={tool} />
           </div>
 
