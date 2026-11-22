@@ -8,6 +8,16 @@ export const TOOL_GUIDES: Record<string, { intro: string; steps: string[]; note:
     ],
     note: "All extraction is processed privately without permanent server storage. Please respect content creators' copyrights and platform terms of service.",
   },
+  "cambodia-property-tax-calculator": {
+    intro: "Calculate Cambodian GDT real estate transfer taxes, 4% Stamp Duty (ពន្ធប្រថាប់ត្រា), direct-relative exemptions, and cadastral registration fees for Hard Title (L-MAP) and Soft Title.",
+    steps: [
+      "Select your property valuation in USD ($) or KHR (៛).",
+      "Choose your transaction category: Standard Sale, Direct Relative Gift (ឪពុកម្តាយ-កូន / ប្តី-ប្រពន្ធ), or Inheritance (100% Tax Exempt).",
+      "Review the automated breakdown for Stamp Duty, eligible tax deductions, Cadastre survey fees, and Seller's Capital Gains Tax (20%).",
+      "Click 'Copy Breakdown' or 'Print Worksheet' to keep an official estimate for your title transfer paperwork.",
+    ],
+    note: "Calculated in accordance with Cambodian General Department of Taxation (GDT) regulations and the Law on Financial Management. Consult official GDT officers or your local Cadastre department for final parcel base rate assessments.",
+  },
   "word-counter": {
     intro: "Check the length of a draft, a short bio, a caption, or an article before you publish it.",
     steps: ["Replace the example with your own text. The counts update as you type.", "Compare the character count with the limit of the place you are publishing.", "Use reading time as a rough planning estimate. Clear the text when you are finished."],

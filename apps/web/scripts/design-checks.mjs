@@ -211,7 +211,7 @@ const RAW_HEX = /#(?:[0-9a-f]{3}|[0-9a-f]{6})\b/gi;
  */
 const EXEMPT_HEX = /components\/news\/ArticleReader|components\/shared\/news-card|components\/news\/NewsCard|components\/news\/HeroStory|components\/ads\/AdSlot|components\/tools\/ColorContrastChecker\.tsx/;
 const EXEMPT_SURFACES = /^components\/(admin\/|layout\/(admin-shell|wizard-shell))/;
-const EXEMPT_PALETTE = new Set(["components/tools/KhqrGenerator.tsx"]);
+const EXEMPT_PALETTE = new Set([]);
 
 function walk(dir, base, out) {
   for (const entry of readdirSync(dir)) {

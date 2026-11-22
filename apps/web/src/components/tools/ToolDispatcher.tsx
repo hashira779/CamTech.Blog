@@ -25,7 +25,7 @@ import { HashGenerator } from "./HashGenerator";
 import { ColorContrastChecker } from "./ColorContrastChecker";
 import { MarkdownPreviewer } from "./MarkdownPreviewer";
 import { CambodiaSalaryTaxCalculator } from "./CambodiaSalaryTaxCalculator";
-import { KhqrGenerator } from "./KhqrGenerator";
+import { CambodiaPropertyTaxCalculator } from "./CambodiaPropertyTaxCalculator";
 import { CambodiaChangeCalculator } from "./CambodiaChangeCalculator";
 import { EdcElectricityCalculator } from "./EdcElectricityCalculator";
 import { KhmerHolidayCalculator } from "./KhmerHolidayCalculator";
@@ -70,9 +70,13 @@ export function ToolDispatcher({ tool }: { tool: Tool }) {
     case "cambodia-salary-tax-calculator":
     case "salary-tax-cambodia":
       return <CambodiaSalaryTaxCalculator />;
+    case "cambodia-property-tax-calculator":
+    case "cambodia-property-transfer-tax":
+    case "property-tax-calculator":
+    case "stamp-duty-calculator":
     case "khqr-generator":
     case "bakong-khqr-generator":
-      return <KhqrGenerator />;
+      return <CambodiaPropertyTaxCalculator />;
     case "cambodia-change-calculator":
     case "khr-change-calculator":
       return <CambodiaChangeCalculator />;

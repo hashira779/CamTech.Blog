@@ -721,7 +721,7 @@ def seed_database():
             
             # Cambodia Specific Everyday Tools
             {"name": "Cambodia Salary & Tax on Salary (ToS) Calculator", "name_km": "ម៉ាស៊ីនគិតពន្ធលើប្រាក់បៀវត្សរ៍ និង ប.ស.ស (ToS)", "slug": "cambodia-salary-tax-calculator", "category": "CALCULATOR", "description": "Calculate official GDT Cambodia Tax on Salary, NSSF pension deductions, dependent relief, and net take-home salary in USD and KHR.", "icon": "Receipt", "is_popular": True},
-            {"name": "Bakong KHQR Generator & Bill Splitter", "name_km": "កម្មវិធីបង្កើត Bakong KHQR និងចែកវិក្កយបត្រ", "slug": "khqr-generator", "category": "IMAGE", "description": "Generate official National Bank of Cambodia (NBC) Bakong KHQR codes with EMVCo CRC-16 checksums for USD/KHR, plus instant restaurant bill splitting.", "icon": "QrCode", "is_popular": True},
+            {"name": "Cambodia Real Estate & Property Transfer Tax Calculator", "name_km": "ម៉ាស៊ីនគណនាពន្ធប្រថាប់ត្រា និងផ្ទេរកម្មសិទ្ធិអចលនទ្រព្យ", "slug": "cambodia-property-tax-calculator", "category": "CALCULATOR", "description": "Calculate official GDT Cambodia 4% Stamp Duty (ពន្ធប្រថាប់ត្រា), direct-relative exemptions (100M KHR gift deduction & 0% inheritance), hard/soft title cadastral fees, and 20% capital gains tax in USD and KHR.", "icon": "Building2", "is_popular": True},
             {"name": "USD ↔ KHR Cash Change & Currency Converter", "name_km": "ម៉ាស៊ីនគិតលុយអាប់ ដុល្លារ និង រៀល (USD/KHR)", "slug": "cambodia-change-calculator", "category": "CALCULATOR", "description": "Solve dual-currency cash change calculations in Cambodian markets with banknote denomination counters (50k, 20k, 10k, 5k, 2k, 1k, 500, 100 Riel).", "icon": "Coins", "is_popular": True},
             {"name": "EDC Electricity Bill & Tariff Calculator", "name_km": "ម៉ាស៊ីនគិតថ្លៃភ្លើងរដ្ឋ អគ្គិសនីកម្ពុជា (EDC)", "slug": "edc-electricity-calculator", "category": "CALCULATOR", "description": "Compute official Electricité du Cambodge (EDC) progressive residential tiered tariffs (380, 480, 610, 730 KHR/kWh) from meter readings in KHR and USD.", "icon": "Zap", "is_popular": True},
             {"name": "Cambodia Public Holidays & Lunar Calendar (2026-2029)", "name_km": "ប្រតិទិនថ្ងៃឈប់សម្រាកបុណ្យជាតិ និងបុណ្យប្រពៃណីខ្មែរ", "slug": "khmer-holiday-calculator", "category": "TEXT", "description": "Official Royal Government of Cambodia public holiday calendar, Khmer New Year, Pchum Ben, Water Festival countdown, and long-weekend bridge planner.", "icon": "Calendar", "is_popular": True},
@@ -761,6 +761,10 @@ def seed_database():
             else:
                 for k, v in t_data.items():
                     setattr(tool, k, v)
+        # Safely remove obsolete KHQR tool from active database
+        old_khqr = db.query(Tool).filter(Tool.slug == "khqr-generator").first()
+        if old_khqr:
+            db.delete(old_khqr)
         db.commit()
         print(f"✓ Ensured {len(tools_seed)} production-ready tools in registry")
 
