@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description: "Find a tool for your next task. Browse calculators, image and QR tools, text utilities, and developer tools. No account needed.",
   alternates: { canonical: "/tools" },
 };
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function ToolsHubPage() {
   const tools = await getTools();

@@ -168,8 +168,13 @@ export async function getDailyQuiz(): Promise<Quiz | null> {
 
 export async function getTools(): Promise<Tool[]> {
   const url = `${API_BASE}/tools`;
-  const tools = await fetchWithFallback(url, ALL_TOOLS);
-  return tools && tools.length > 0 ? tools : ALL_TOOLS;
+  const dbTools = await fetchWithFallback<Tool[]>(url, []);
+  if (!dbTools || dbTools.length === 0) {
+    return ALL_TOOLS;
+  }
+  const existingSlugs = new Set(dbTools.map((t) => t.slug));
+  const missing = ALL_TOOLS.filter((t) => !existingSlugs.has(t.slug));
+  return [...missing, ...dbTools];
 }
 
 export async function getToolBySlug(slug: string): Promise<Tool | null> {
