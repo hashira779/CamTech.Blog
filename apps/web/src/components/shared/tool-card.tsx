@@ -20,11 +20,19 @@ export function ToolCard({ slug, name, category, description }: ToolCardProps) {
     : category.toLowerCase().includes("text") ? FileText : Wrench;
   const label = category.toLowerCase() === "image" ? "Image & media" : category.toLowerCase();
   return (
-    <Link href={`/tools/${slug}`} className="field-tool-card group">
-      <div className="field-tool-card-top"><span><Icon size={21} strokeWidth={1.5} aria-hidden="true" /></span><small>{label}</small></div>
+    <Link href={`/tools/${slug}`} className="field-tool-card group transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+      <div className="field-tool-card-top">
+        <span className="transition-transform duration-300 group-hover:scale-110">
+          <Icon size={21} strokeWidth={1.7} aria-hidden="true" />
+        </span>
+        <small>{label}</small>
+      </div>
       <h3>{name}</h3>
       <p>{description}</p>
-      <span className="field-tool-card-bottom">Open tool <ArrowUpRight size={16} aria-hidden="true" /></span>
+      <span className="field-tool-card-bottom">
+        <span>Open tool</span>
+        <ArrowUpRight size={16} className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />
+      </span>
     </Link>
   );
 }
