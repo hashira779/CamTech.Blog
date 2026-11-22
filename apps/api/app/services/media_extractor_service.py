@@ -54,8 +54,19 @@ class MediaExtractorService:
             "Accept": "application/json",
         }
         try:
+            target_url = url
+            # If short link (e.g. vt.tiktok.com / vm.tiktok.com), follow redirects to final URL
+            if "vt.tiktok.com" in url or "vm.tiktok.com" in url:
+                try:
+                    with httpx.Client(timeout=6.0, follow_redirects=True) as resolve_client:
+                        res = resolve_client.head(url)
+                        if res.status_code < 400:
+                            target_url = str(res.url)
+                except Exception:
+                    pass
+
             with httpx.Client(timeout=12.0) as client:
-                resp = client.post(api_url, data={"url": url, "hd": 1}, headers=headers)
+                resp = client.post(api_url, data={"url": target_url, "hd": 1}, headers=headers)
                 if resp.status_code == 200:
                     data = resp.json()
                     if data.get("code") == 0:

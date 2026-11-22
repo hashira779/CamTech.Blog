@@ -206,7 +206,7 @@ export function UniversalVideoDownloader() {
             <button
               type="button"
               onClick={() => {
-                const sample = "https://www.tiktok.com/@tiktok/video/7106594312292453675";
+                const sample = "https://www.tiktok.com/@scout2015/video/6718335390845095173";
                 setUrl(sample);
                 handleExtract(sample);
               }}
