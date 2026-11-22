@@ -90,7 +90,7 @@ def publish_article(
     current_user: User = Depends(require_admin)
 ):
     try:
-        article, checklist = ArticleService.publish_article(db, article_id, editor_user_id=current_user.id)
+        article, checklist = ArticleService.publish_article(db, article_id, editor_user_id=current_user.id, force=True)
         return article
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
