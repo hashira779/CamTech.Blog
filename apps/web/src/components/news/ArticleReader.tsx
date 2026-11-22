@@ -20,6 +20,7 @@ import { Byline } from "@/components/ui/byline";
 import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { AdSlot } from "@/components/ads/AdSlot";
+import { isArticleEligible } from "@/lib/content-quality";
 import { KeyPoints } from "./KeyPoints";
 import { TimelineView, type TimelineItem } from "./TimelineView";
 import { AttributionBox } from "./AttributionBox";
@@ -393,7 +394,7 @@ export function ArticleReader({ article }: { article: Article }) {
       )}
 
       <Container width="reading">
-        <AdSlot slot="ARTICLE_TOP" />
+        <AdSlot slot="ARTICLE_TOP" eligible={isArticleEligible(article)} />
       </Container>
 
       {/* ── The brief ────────────────────────────────────────────────────── */}
@@ -567,7 +568,7 @@ export function ArticleReader({ article }: { article: Article }) {
 
       {isLongRead && (
         <Container width="reading">
-          <AdSlot slot="ARTICLE_MID" />
+          <AdSlot slot="ARTICLE_MID" eligible={isArticleEligible(article)} />
         </Container>
       )}
 
@@ -665,7 +666,7 @@ export function ArticleReader({ article }: { article: Article }) {
       </Container>
 
       <Container width="reading" className="pb-12">
-        <AdSlot slot="ARTICLE_BOTTOM" />
+        <AdSlot slot="ARTICLE_BOTTOM" eligible={isArticleEligible(article)} />
       </Container>
     </div>
   );

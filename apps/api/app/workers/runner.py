@@ -3,7 +3,7 @@ Daily Discovery Background Worker — Production-grade asynchronous worker that 
 1. RSS Feed Ingestion: Fetches, deduplicates, and creates AI editorial drafts from registered sources
 2. Trending Score Recalculation: Updates popularity scores across all content types
 3. Source Health Monitoring: Periodic feed health checks and logging
-4. Multi-Category AI News Generation: Generates fresh news across 6 categories (daily, Cambodia time)
+4. Multi-Category AI News Generation: Generates fresh news across configured categories (daily, Cambodia time)
 5. News Autopilot: hybrid auto-publish of AI drafts, archive stale drafts, purge old archives
 """
 import sys

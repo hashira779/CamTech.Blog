@@ -12,10 +12,6 @@ FROM base AS builder
 WORKDIR /app
 ARG NEXT_PUBLIC_API_URL="http://localhost:8000/api/v1"
 ARG INTERNAL_API_URL="http://api:8000/api/v1"
-# next.config.ts rewrites() are compiled into the routes manifest at BUILD time, so the wedding
-# proxy target must be a build arg; as a runtime-only env var the proxy pointed at 127.0.0.1:8002
-# inside this container and every /api/v1/wedding call answered 500.
-ARG INTERNAL_WEDDING_API_URL="http://wedding-service:8000/api/v1"
 ARG NEXT_PUBLIC_SITE_URL="https://blog.camtech.cam"
 # No AdSense account number is baked into the image. The publisher ID is public once a page loads,
 # but hard-coding it here meant a build could not be repurposed for another account and the repo
@@ -27,7 +23,6 @@ ARG NEXT_PUBLIC_ADSENSE_SLOTS=""
 ARG NEXT_PUBLIC_ADSENSE_CHANNEL=""
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV INTERNAL_API_URL=$INTERNAL_API_URL
-ENV INTERNAL_WEDDING_API_URL=$INTERNAL_WEDDING_API_URL
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_ADSENSE_PUBLISHER_ID=$NEXT_PUBLIC_ADSENSE_PUBLISHER_ID
 ENV NEXT_PUBLIC_ADSENSE_ENABLED=$NEXT_PUBLIC_ADSENSE_ENABLED
@@ -48,10 +43,6 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ARG NEXT_PUBLIC_API_URL="http://localhost:8000/api/v1"
 ARG INTERNAL_API_URL="http://api:8000/api/v1"
-# next.config.ts rewrites() are compiled into the routes manifest at BUILD time, so the wedding
-# proxy target must be a build arg; as a runtime-only env var the proxy pointed at 127.0.0.1:8002
-# inside this container and every /api/v1/wedding call answered 500.
-ARG INTERNAL_WEDDING_API_URL="http://wedding-service:8000/api/v1"
 ARG NEXT_PUBLIC_SITE_URL="https://blog.camtech.cam"
 # No AdSense account number is baked into the image. The publisher ID is public once a page loads,
 # but hard-coding it here meant a build could not be repurposed for another account and the repo
@@ -63,7 +54,6 @@ ARG NEXT_PUBLIC_ADSENSE_SLOTS=""
 ARG NEXT_PUBLIC_ADSENSE_CHANNEL=""
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV INTERNAL_API_URL=$INTERNAL_API_URL
-ENV INTERNAL_WEDDING_API_URL=$INTERNAL_WEDDING_API_URL
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_ADSENSE_PUBLISHER_ID=$NEXT_PUBLIC_ADSENSE_PUBLISHER_ID
 ENV NEXT_PUBLIC_ADSENSE_ENABLED=$NEXT_PUBLIC_ADSENSE_ENABLED
@@ -74,7 +64,7 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/public ./public
-RUN mkdir -p /app/public/uploads/wedding && chown -R nextjs:nodejs /app/public
+RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public
 COPY --from=builder /app/package.json ./package.json
 
 # Copy production build outputs

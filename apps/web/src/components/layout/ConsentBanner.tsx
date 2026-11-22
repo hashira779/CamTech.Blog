@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Cookie, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -14,7 +13,6 @@ import { Button } from "@/components/ui/button";
  * the site actually does: functional cookies plus optional analytics.
  */
 export function ConsentBanner() {
-  const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -32,11 +30,6 @@ export function ConsentBanner() {
     );
     setIsVisible(false);
   };
-
-  // Hide on public wedding invitation cards
-  if (pathname && pathname.startsWith("/wedding/") && pathname !== "/wedding") {
-    return null;
-  }
 
   if (!isVisible) return null;
 

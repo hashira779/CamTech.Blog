@@ -5,10 +5,12 @@ import {
   getAdChannel,
   getAdsenseClient,
   getAdSlotId,
+  getAdsenseScriptUrl,
   getReservedHeight,
   isAdsEnabled,
   type AdPlacement,
 } from "@/lib/ads";
+import { AdsLoader } from "./AdsLoader";
 
 declare global {
   interface Window {
@@ -19,6 +21,7 @@ declare global {
 interface AdSlotProps {
   slot: AdPlacement;
   className?: string;
+  eligible?: boolean;
 }
 
 /**
@@ -36,18 +39,19 @@ interface AdSlotProps {
  *    attribute — so a visitor with an ad blocker, or a request with no buyer, gets continuous text
  *    instead of a bordered hole in the page.
  */
-export function AdSlot({ slot, className = "" }: AdSlotProps) {
+export function AdSlot({ slot, className = "", eligible = false }: AdSlotProps) {
   const enabled = isAdsEnabled();
   const client = getAdsenseClient();
   const adUnitId = getAdSlotId(slot);
   const channel = getAdChannel();
   const reservedHeight = getReservedHeight(slot);
+  const scriptUrl = getAdsenseScriptUrl();
 
   const insRef = useRef<HTMLModElement | null>(null);
   const hasRequested = useRef(false);
   const [status, setStatus] = useState<"pending" | "filled" | "unfilled">("pending");
 
-  const isActive = enabled && Boolean(client) && Boolean(adUnitId);
+  const isActive = eligible && enabled && Boolean(client) && Boolean(adUnitId);
 
   useEffect(() => {
     const element = insRef.current;
@@ -93,6 +97,8 @@ export function AdSlot({ slot, className = "" }: AdSlotProps) {
   if (!isActive || status === "unfilled") return null;
 
   return (
+    <>
+    {scriptUrl && <AdsLoader src={scriptUrl} />}
     <aside
       aria-label="Advertisement"
       className={`mx-auto flex w-full flex-col items-center ${className}`}
@@ -113,5 +119,6 @@ export function AdSlot({ slot, className = "" }: AdSlotProps) {
         data-full-width-responsive="true"
       />
     </aside>
+    </>
   );
 }

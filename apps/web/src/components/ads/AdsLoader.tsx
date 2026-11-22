@@ -1,7 +1,6 @@
 "use client";
 
 import Script from "next/script";
-import { usePathname } from "next/navigation";
 
 /* The adsbygoogle loader.
 
@@ -10,12 +9,7 @@ import { usePathname } from "next/navigation";
    that before React has finished hydrating, the server HTML no longer
    matches (React error #418) and React throws the whole page away and
    renders it again on the client: a slow, janky start, worst on the
-   wedding invitations. Loading after the page is ready avoids both.
-
-   Not in the wedding editor's live preview frame: that is the couple's own
-   working canvas, not a page anyone visits. */
+   reading pages. Loading after the page is ready avoids both. */
 export function AdsLoader({ src }: { src: string }) {
-  const path = usePathname() || "";
-  if (path.startsWith("/wedding/preview-frame")) return null;
   return <Script async src={src} crossOrigin="anonymous" strategy="lazyOnload" />;
 }

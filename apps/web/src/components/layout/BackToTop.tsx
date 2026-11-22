@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { usePathname } from "next/navigation";
 import { ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +16,6 @@ import { cn } from "@/lib/utils";
  * scrolling, gliding for everyone else.
  */
 export function BackToTop({ className }: { className?: string }) {
-  const pathname = usePathname();
   const [visible, setVisible] = React.useState(false);
 
   React.useEffect(() => {
@@ -41,11 +39,6 @@ export function BackToTop({ className }: { className?: string }) {
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
   };
-
-  // Hide on public wedding invitation cards
-  if (pathname && pathname.startsWith("/wedding/") && pathname !== "/wedding") {
-    return null;
-  }
 
   return (
     <button

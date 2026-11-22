@@ -106,6 +106,10 @@ def test_a_held_local_draft_is_rewritten_by_the_provider(db, monkeypatch):
 
 
 def test_a_redraft_restarts_the_review_window(db, monkeypatch):
+    # Exercise the optional unattended mode; editor review is required by default.
+    original_get_bool = news_autopilot.get_bool
+    monkeypatch.setattr(news_autopilot, "get_bool", lambda session, key:
+                        False if key == "AUTOPILOT_REQUIRE_EDITOR_REVIEW" else original_get_bool(session, key))
     art = db.make(age_hours=10)
     monkeypatch.setattr(db, "query", _ours(db, art))
     asyncio.run(news_autopilot.redraft_held_drafts(db, StubDrafter()))

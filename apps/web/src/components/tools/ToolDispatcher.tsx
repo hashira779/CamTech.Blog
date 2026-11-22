@@ -131,7 +131,7 @@ export function ToolDispatcher({ tool }: { tool: Tool }) {
     case "word-counter":
       return <WordCounter />;
     default:
-      return <CambodiaSalaryTaxCalculator />;
+      return <p role="status">This tool is currently unavailable. Please choose another tool from the tools directory.</p>;
   }
 }
 

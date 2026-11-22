@@ -31,3 +31,43 @@ POST /api/v1/sources
 2. **Canonical Matching**: Deduplication engine normalizes titles and tests Jaccard token overlap against recent items.
 3. **Draft Synthesis**: Local or LLM provider creates initial draft summaries, bullet highlights, and SEO tags.
 4. **Queue Placement**: Ingested stories land in `AI_DRAFT` status and await human editor review.
+
+## Daily content automation
+
+The existing `worker` service in `docker-compose.yml` checks for work every five
+minutes. Keep one worker instance running against the same database as the API.
+The schedule is configured in Admin Settings:
+
+| Content | Default cadence |
+| --- | --- |
+| News: blockchain, technology, Cambodia, world, business, science, travel | Daily, from 07:00 Asia/Phnom_Penh |
+| Discoveries | Every 24 hours |
+| Quiz | Once per Cambodia calendar day |
+| Travel guides and events | Every 24 hours |
+| RSS feeds | Per-source fetch interval |
+| Trending and publishing checks | Every worker cycle |
+
+Enable the master autopilot switch and each section in Admin Settings, and configure
+and test an AI provider there. Existing saved settings take precedence over defaults;
+installations with a saved travel interval of 168 hours must change it to 24 hours.
+The blockchain news category is created automatically on its first generation run.
+
+After deploying the code, start or update the worker with `docker compose up -d
+--build worker`. Inspect `docker compose logs --tail=100 worker` and the authenticated
+`GET /api/v1/admin/autopilot` response to verify the effective settings, last attempt
+dates, and publishing holds. A schedule in source code alone does not confirm that
+production is running it.
+
+Generated articles start as drafts. `AUTOPILOT_REQUIRE_EDITOR_REVIEW` now defaults to
+`true`, which holds generated news, discoveries, guides and events even when a saved
+auto-publish switch is enabled. Editors review and publish news in the existing editorial
+workspace. Automatic publishing defaults to off. If the review requirement is explicitly
+disabled and automatic publishing enabled, eligible drafts pass the editorial gate and
+two-hour review window. A successful daily run does
+not guarantee a fixed number of published articles: duplicates, provider failures,
+and quality holds can reduce output. Generation attempts are recorded before AI calls
+to avoid repeated quota spending; a failed daily attempt waits until the next day.
+
+This pipeline creates new editorial content. It does not verify or overwrite hotel
+prices, transit timetables, utility rules, or existing factual records every day.
+Those require authoritative data integrations and their own validation.

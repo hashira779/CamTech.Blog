@@ -2,7 +2,6 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Rss, ArrowUpRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { Container } from "@/components/ui/container";
@@ -30,7 +29,6 @@ const columns: { heading: string; links: FooterLink[] }[] = [
       { href: "/world", label: "World" },
       { href: "/discover", label: "Discover" },
       { href: "/trending", label: "Trending" },
-      { href: "/wedding", label: "Wedding Invitation" },
     ],
   },
   {
@@ -76,7 +74,6 @@ const TRANSLATED: Record<string, string> = {
   "/world": "nav.world",
   "/discover": "nav.discover",
   "/trending": "nav.trending",
-  "/wedding": "nav.wedding",
   "/travel": "nav.travel",
   "/quiz": "nav.quiz",
   "/tools": "nav.tools",
@@ -91,13 +88,7 @@ const TRANSLATED: Record<string, string> = {
 };
 
 export function Footer() {
-  const pathname = usePathname();
   const { lang, t } = useI18n();
-
-  // When viewing a public wedding invitation card, hide the blog footer completely
-  if (pathname && pathname.startsWith("/wedding/") && pathname !== "/wedding") {
-    return null;
-  }
 
   const label = (link: FooterLink) => {
     const key = TRANSLATED[link.href];

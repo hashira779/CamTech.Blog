@@ -26,7 +26,8 @@ const AUTOPILOT_DEFAULTS: Record<string, string> = {
   AUTOPILOT_NEWS_ENABLED: 'true',
   AUTOPILOT_DAILY_NEWS_ENABLED: 'true',
   AUTOPILOT_DAILY_NEWS_HOUR: '7',
-  AUTOPILOT_AUTO_PUBLISH_ENABLED: 'true',
+  AUTOPILOT_AUTO_PUBLISH_ENABLED: 'false',
+  AUTOPILOT_REQUIRE_EDITOR_REVIEW: 'true',
   AUTOPILOT_PUBLISH_DELAY_HOURS: '2',
   AUTOPILOT_MAX_PUBLISH_PER_RUN: '10',
   AUTOPILOT_MIN_CONTENT_CHARS: '300',
@@ -38,7 +39,7 @@ const AUTOPILOT_DEFAULTS: Record<string, string> = {
   AUTOPILOT_DISCOVERY_INTERVAL_HOURS: '24',
   AUTOPILOT_QUIZ_ENABLED: 'true',
   AUTOPILOT_TRAVEL_ENABLED: 'true',
-  AUTOPILOT_TRAVEL_INTERVAL_HOURS: '168',
+  AUTOPILOT_TRAVEL_INTERVAL_HOURS: '24',
 };
 
 type AutopilotField =
@@ -46,6 +47,7 @@ type AutopilotField =
   | { key: string; label: string; help: string; type: 'number'; min: number; max: number; suffix: string };
 
 const AUTOPILOT_FIELDS: AutopilotField[] = [
+  { key: 'AUTOPILOT_REQUIRE_EDITOR_REVIEW', type: 'toggle', label: 'Require editor approval', help: 'Keep generated news, discoveries, guides and events unpublished until an editor reviews them. Recommended during content quality remediation.' },
   { key: 'AUTOPILOT_NEWS_ENABLED', type: 'toggle', label: 'Autopilot master switch', help: 'Turn off to stop all automatic publishing, archiving and daily AI news.' },
   { key: 'AUTOPILOT_DAILY_NEWS_ENABLED', type: 'toggle', label: 'Daily AI news generation', help: 'Gemini writes fresh stories for every category once a day.' },
   { key: 'AUTOPILOT_DAILY_NEWS_HOUR', type: 'number', min: 0, max: 23, suffix: 'h (Cambodia time)', label: 'Daily news hour', help: 'Hour of the day the daily AI news run starts.' },

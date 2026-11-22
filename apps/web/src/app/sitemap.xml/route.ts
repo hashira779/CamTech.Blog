@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getArticles, getDiscoveries, getTools } from "@/lib/api";
+import { isArticleEligible } from "@/lib/content-quality";
 
 export async function GET(request: Request) {
   const [articlesData, discoveriesData, tools] = await Promise.all([
@@ -49,11 +50,6 @@ export async function GET(request: Request) {
     <changefreq>hourly</changefreq>
     <priority>0.8</priority>
   </url>
-  <url>
-    <loc>${baseUrl}/wedding</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.85</priority>
-  </url>
   <url><loc>${baseUrl}/about</loc></url>
   <url><loc>${baseUrl}/editorial-policy</loc></url>
   <url><loc>${baseUrl}/corrections-policy</loc></url>
@@ -66,6 +62,7 @@ export async function GET(request: Request) {
 
   // Dynamic articles
   for (const a of articlesData.items) {
+    if (!isArticleEligible(a)) continue;
     const url = a.country === "KH" ? `${baseUrl}/cambodia/news/${a.slug}` : `${baseUrl}/world/news/${a.slug}`;
     xml += `  <url>
     <loc>${url}</loc>

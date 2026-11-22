@@ -37,7 +37,6 @@ const navLinks: { href: string; labelKey: string; highlight?: boolean }[] = [
   { href: "/quiz", labelKey: "nav.quiz" },
   { href: "/tools", labelKey: "nav.tools" },
   { href: "/trending", labelKey: "nav.trending" },
-  { href: "/wedding", labelKey: "nav.wedding", highlight: true },
 ];
 
 function isActivePath(pathname: string | null, href: string) {
@@ -137,11 +136,6 @@ export function Header() {
       cancelled = true;
     };
   }, [activeHref, place]);
-
-  // When viewing a public wedding invitation card, hide the blog header completely
-  if (pathname && pathname.startsWith("/wedding/") && pathname !== "/wedding") {
-    return null;
-  }
 
   return (
     <header

@@ -13,6 +13,7 @@ import { CategoryMark } from "@/components/ui/category-mark";
 import { Byline, MetaDot } from "@/components/ui/byline";
 import { cleanText, estimateReadingMinutes } from "@/lib/format";
 import { AdSlot } from "@/components/ads/AdSlot";
+import { hasSubstantiveContent } from "@/lib/content-quality";
 
 interface GuidePageProps {
   params: Promise<{ slug: string }>;
@@ -194,7 +195,7 @@ export default async function TravelGuideDetailPage({ params }: GuidePageProps) 
             first. It sits above the editorial note, not below it: the last thing a reader sees
             should be how the guide was made, not an advert. */}
         <Container width="reading">
-          <AdSlot slot="GUIDE_BOTTOM" />
+          <AdSlot slot="GUIDE_BOTTOM" eligible={hasSubstantiveContent(guide.content)} />
         </Container>
 
         {/* Editorial note */}

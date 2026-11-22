@@ -4,6 +4,7 @@ import { getArticleBySlug } from "@/lib/api";
 import { ArticleReader } from "@/components/news/ArticleReader";
 import { articleSeoTitle, generateArticleJsonLd, generateOgMeta, SITE_URL } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
+import { isArticleEligible } from "@/lib/content-quality";
 
 export const revalidate = 60;
 
@@ -35,6 +36,7 @@ export async function generateMetadata({
       canonical: `${SITE_URL}/world/news/${article.slug}`,
     },
     ...ogMeta,
+    robots: isArticleEligible(article) ? undefined : { index: false, follow: true },
   };
 }
 

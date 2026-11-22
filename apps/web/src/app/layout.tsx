@@ -3,7 +3,7 @@ import { Fraunces, Inter, Kantumruy_Pro } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme";
 import { escapeJsonForScript } from "@/lib/sanitize";
-import { getAdsenseClient, getAdsenseScriptUrl } from "@/lib/ads";
+import { getAdsenseClient } from "@/lib/ads";
 import { I18nProvider } from "@/lib/i18n";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -11,7 +11,6 @@ import { BackToTop } from "@/components/layout/BackToTop";
 import { ConsentBanner } from "@/components/layout/ConsentBanner";
 import NextTopLoader from "nextjs-toploader";
 import { PageTransition } from "@/components/layout/PageTransition";
-import { AdsLoader } from "@/components/ads/AdsLoader";
 
 /* Self-hosted by next/font, so the browser never calls Google. Kantumruy Pro
    rides in the same stack as a per-glyph fallback: Inter has no Khmer glyphs,
@@ -43,10 +42,8 @@ const siteName = "CamTech.Blog";
 const siteDescription =
   "Cambodia and world news with source attribution, plus travel guides to all 25 provinces, daily quizzes and everyday web tools.";
 
-// Null on any build that has no valid publisher account, which is what stops the verification
-// meta tag and the adsbygoogle loader from being emitted at all. See src/lib/ads.ts.
+// Keep account verification in the document. Eligible ad slots load the script themselves.
 const adsenseClient = getAdsenseClient();
-const adsenseScriptUrl = getAdsenseScriptUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -125,11 +122,6 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* The adsbygoogle loader. It carries the account in its query string, which is also what
-            turns on Auto ads for the account, so it is emitted only when the publisher ID in this
-            build validates. The verification meta tag comes from `metadata.other` above rather than
-            being written twice. It loads once the page is ready (see AdsLoader). */}
-        {adsenseScriptUrl && <AdsLoader src={adsenseScriptUrl} />}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

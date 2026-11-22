@@ -8,8 +8,8 @@ News Autopilot publish decision — with the network call stubbed at the single
   1. a configured provider is picked up (has_any_configured_provider),
   2. the news generator writes and persists real AI_DRAFT articles by itself,
   3. those drafts are stamped with a trusted provider engine, and
-  4. the autopilot marks a provider draft as publishable (the original bug was that
-     drafts were tagged 'local' and held forever).
+  4. the autopilot holds provider drafts for editor review, while local drafts remain
+     correctly identified as untrusted.
 
 Run:  python -m pytest tests/test_ai_pipeline_e2e.py -q
 """
@@ -85,7 +85,7 @@ def stubbed_provider(monkeypatch):
     _purge_e2e_drafts()
 
 
-def test_full_pipeline_writes_and_approves_publish(stubbed_provider):
+def test_full_pipeline_writes_drafts_and_requires_editor_review(stubbed_provider):
     assert ai_gateway.has_any_configured_provider() is True
 
     result = asyncio.run(ai_news_service.generate_news_for_category("technology", count=2))
@@ -104,10 +104,10 @@ def test_full_pipeline_writes_and_approves_publish(stubbed_provider):
             meta = json.loads(art.ai_draft_metadata)
             assert meta["generator"] == engine
             assert news_autopilot.is_trusted_engine(news_autopilot._engine(meta)) is True
-            # The core fix: a real-provider draft is publishable, not held as 'local'.
+            # A provider produces drafts; it does not count as an editor's approval.
             verdict = news_autopilot.evaluate_draft(db, art, run_quality_gate=False)
-            assert verdict.eligible is True, verdict.reason
-            assert verdict.auto_publish_at is not None
+            assert verdict.eligible is False
+            assert "Editor review required" in verdict.reason
     finally:
         db.close()
 

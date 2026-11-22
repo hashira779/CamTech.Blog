@@ -4,6 +4,7 @@ import { Metadata } from "next";
 import { CheckCircle2, ExternalLink, HelpCircle, Wrench } from "lucide-react";
 import { getDiscoveryBySlug } from "@/lib/api";
 import { AdSlot } from "@/components/ads/AdSlot";
+import { hasSubstantiveContent } from "@/lib/content-quality";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { Container } from "@/components/ui/container";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -170,7 +171,7 @@ export default async function DiscoveryDetailPage({
           )}
 
           <Container width="reading" className="px-0">
-            <AdSlot slot="DISCOVERY_MID" />
+            <AdSlot slot="DISCOVERY_MID" eligible={hasSubstantiveContent(disc.main_explanation)} />
           </Container>
 
           {visualSections.length > 0 && (

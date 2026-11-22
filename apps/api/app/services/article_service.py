@@ -11,6 +11,7 @@ from app.models.source import Source
 from app.schemas.article import ArticleCreate, ArticleUpdate, QualityChecklist
 from app.deduplication.detector import detect_duplicates
 from app.common.html_hygiene import safe_link, sanitize_stored_html
+from app.services.content_quality import body_quality_issue, has_specific_source
 
 def slugify(text: str) -> str:
     text = text.lower().strip()
@@ -97,8 +98,9 @@ class ArticleService:
         has_summary = bool(article.summary and len(article.summary.strip()) >= 10)
         if not has_summary: missing.append("Original editorial summary is missing")
 
-        has_body = bool(article.content and len(article.content.strip()) >= 20)
-        if not has_body: missing.append("Full article content body is missing")
+        body_issue = body_quality_issue(article.content, article.summary, article.why_it_matters)
+        has_body = body_issue is None
+        if body_issue: missing.append(body_issue)
 
         has_author = bool(article.author_id and db.query(Author.id).filter(Author.id == article.author_id).first())
         if not has_author: missing.append("Author byline must be selected")
@@ -109,8 +111,8 @@ class ArticleService:
         has_source_attribution = bool(article.source_attribution_text or article.primary_source_id)
         if not has_source_attribution: missing.append("Source attribution must be specified")
 
-        has_source_url = bool(article.primary_source_url and article.primary_source_url.startswith("http"))
-        if not has_source_url: missing.append("Valid source URL required")
+        has_source_url = has_specific_source(article.primary_source_url)
+        if not has_source_url: missing.append("Link to the specific source article or document, not a publisher homepage")
 
         has_image_with_credit = bool(not article.hero_image_url or (article.hero_image_credit and len(article.hero_image_credit) > 2))
         if not has_image_with_credit: missing.append("Hero image requires credit attribution")
@@ -140,8 +142,8 @@ class ArticleService:
         no_duplicate_detected = len(dups) == 0 or dups[0]["similarity"] < 0.85
         if not no_duplicate_detected: missing.append(f"Potential duplicate detected: '{dups[0]['title']}'")
 
-        no_unsupported_claims = True  # Verified by editorial review status
-        editorial_reviewed = article.status in ["APPROVED", "IN_REVIEW", "PUBLISHED", "AI_DRAFT"]
+        editorial_reviewed = article.status in ["APPROVED", "PUBLISHED"]
+        no_unsupported_claims = editorial_reviewed  # Requires an editor; text length cannot verify facts.
         seo_metadata_complete = bool(article.seo_title and article.seo_description)
         if not seo_metadata_complete: missing.append("SEO title and description must be completed")
 

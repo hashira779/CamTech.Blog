@@ -26,6 +26,22 @@ logger = logging.getLogger(__name__)
 
 # Category definitions with tailored prompts for high-quality, diverse content
 CATEGORY_PROMPTS = {
+    "blockchain": {
+        "scope": "WORLD",
+        "country": "WORLD",
+        "prompt": (
+            "You are a blockchain technology journalist. Search for today's verified "
+            "blockchain news — Bitcoin and Ethereum network developments, protocol upgrades, "
+            "smart contract security incidents, stablecoins, real-world adoption, and regulation. "
+            "Prefer original project announcements, security disclosures, and regulator publications; "
+            "cross-check claims with independent reporting and link the specific source article. "
+            "Include the event date and distinguish confirmed facts from allegations. "
+            "Do not invent token prices, offer investment advice, or repeat promotional claims as facts. "
+            "If there is no verifiable recent development, return an empty JSON array. "
+            "Write {count} distinct, professional news articles about DIFFERENT topics."
+        ),
+        "articles_per_run": 2,
+    },
     "technology": {
         "scope": "WORLD",
         "country": "WORLD",
@@ -189,7 +205,8 @@ CRITICAL RULES:
 3. Write in professional journalistic style with proper attribution.
 4. Each article should be 400-600 words with clear structure.
 5. SOURCE DIVERSITY MANDATE: You MUST vary your sources. Do NOT attribute all articles to the same outlet. Each article in the returned array MUST come from a DIFFERENT credible publication (e.g. Article 1 from Khmer Times, Article 2 from Phnom Penh Post or Al Jazeera, Article 3 from Kiripost, Fresh News, CNA, or AKP).
-6. REAL SOURCE METADATA: 'source_url' must be an authentic article URL or domain URL on that outlet's domain (e.g. https://www.khmertimeskh.com, https://kiripost.com, https://www.aljazeera.com, https://en.freshnewsasia.com, https://phnompenhpost.com) and 'source_name' must be the exact publication name.
+6. REAL SOURCE METADATA: 'source_url' must link to the specific original article, announcement, or document supporting the story, never just a publisher homepage. 'source_name' must be the exact publication name.
+7. Add useful, source-supported context for readers. Do not pad with generic monitoring statements, repeat the headline as the body, or invent facts to meet a length target. Return fewer articles or an empty array when evidence is insufficient.
 
 Return a JSON array of {articles_count} article objects. Each object must have:
 - title: Compelling headline (50-100 chars)

@@ -2,6 +2,8 @@
 News Autopilot — hands-off lifecycle management for AI-generated news.
 
 Policy (Hybrid publishing + archive-not-delete):
+  Editor review is required by default and unattended publishing is disabled. The
+  optional hybrid mode below requires explicitly disabling the review requirement.
   1. AUTO-PUBLISH: AI_DRAFT articles produced by a real configured AI provider (see the
      pluggable gateway) are published
      automatically once they are older than the review window (default 2h) AND pass the
@@ -43,7 +45,8 @@ DEFAULTS = {
     "AUTOPILOT_NEWS_ENABLED": "true",            # master switch for everything below
     "AUTOPILOT_DAILY_NEWS_ENABLED": "true",      # daily multi-category AI news generation
     "AUTOPILOT_DAILY_NEWS_HOUR": "7",            # hour of day, Cambodia time (UTC+7)
-    "AUTOPILOT_AUTO_PUBLISH_ENABLED": "true",    # hybrid auto-publish of AI drafts
+    "AUTOPILOT_AUTO_PUBLISH_ENABLED": "false",   # collect drafts for editorial approval
+    "AUTOPILOT_REQUIRE_EDITOR_REVIEW": "true",   # holds even installations with auto-publish enabled
     "AUTOPILOT_PUBLISH_DELAY_HOURS": "2",        # review window before auto-publish
     "AUTOPILOT_MAX_PUBLISH_PER_RUN": "10",       # safety cap per worker cycle
     "AUTOPILOT_MIN_CONTENT_CHARS": "300",        # thin drafts never auto-publish
@@ -55,7 +58,7 @@ DEFAULTS = {
     "AUTOPILOT_DISCOVERY_INTERVAL_HOURS": "24",  # how often new discoveries are drafted
     "AUTOPILOT_QUIZ_ENABLED": "true",            # daily AI quiz (Cambodia time)
     "AUTOPILOT_TRAVEL_ENABLED": "true",          # AI travel guides & events
-    "AUTOPILOT_TRAVEL_INTERVAL_HOURS": "168",    # weekly guide/event refresh
+    "AUTOPILOT_TRAVEL_INTERVAL_HOURS": "24",     # daily guide/event refresh
 }
 
 LAST_DAILY_RUN_KEY = "AUTOPILOT_DAILY_NEWS_LAST_RUN"
@@ -208,6 +211,9 @@ def evaluate_draft(db: Session, article: Article, run_quality_gate: bool = True)
     engine = _engine(meta)
     if not is_trusted_engine(engine):
         return PublishVerdict(False, f"Drafted by '{engine}' (local/template), not a configured AI provider; needs manual review", None)
+
+    if get_bool(db, "AUTOPILOT_REQUIRE_EDITOR_REVIEW"):
+        return PublishVerdict(False, "Editor review required; approve and publish from the editorial workspace", None)
 
     min_chars = get_int(db, "AUTOPILOT_MIN_CONTENT_CHARS")
     if len((article.content or "").strip()) < min_chars:
@@ -471,6 +477,9 @@ def publish_ready_content(db: Session) -> dict:
     """Hybrid auto-publish for AI discoveries, guides and events past the review window."""
     from app.models.discovery import Discovery
     from app.models.guide_event import Event, TravelGuide
+
+    if get_bool(db, "AUTOPILOT_REQUIRE_EDITOR_REVIEW"):
+        return {"published": 0, "disabled": True, "reason": "Editor review required"}
 
     if not (get_bool(db, "AUTOPILOT_NEWS_ENABLED") and get_bool(db, "AUTOPILOT_AUTO_PUBLISH_ENABLED")):
         return {"published": 0, "disabled": True}

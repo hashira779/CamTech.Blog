@@ -66,7 +66,11 @@ export default async function ToolExecutionPage({
           </div>
 
           <div className="mt-6">
-            <AdSlot slot="TOOL_BOTTOM" />
+            <AdSlot slot="TOOL_BOTTOM" eligible={[
+              "json-formatter", "json-validator", "word-counter", "uuid-generator",
+              "base64-converter", "url-encoder", "percentage-calculator",
+              "qr-code-generator", "image-compressor", "color-contrast-checker",
+            ].includes(tool.slug)} />
           </div>
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg bg-surface-muted px-4 py-3 text-xs text-muted-foreground">
