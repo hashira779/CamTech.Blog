@@ -24,6 +24,40 @@ import type { ApiArticle } from '../lib/api';
 import { safeHref, safeImageSrc } from '../lib/sanitize';
 import { useToast } from '../components/ui/Toast';
 
+const FlagKH = () => (
+  <svg className="w-4 h-3 rounded-xs shrink-0 shadow-xs inline-block" viewBox="0 0 640 480" aria-label="Cambodia">
+    <rect width="640" height="480" fill="#032ea1"/>
+    <rect y="120" width="640" height="240" fill="#e00025"/>
+    <path fill="#ffffff" d="M320,165 L335,200 L305,200 Z M285,190 L297,220 L273,220 Z M355,190 L367,220 L343,220 Z M260,220 L380,220 L380,245 L260,245 Z M250,245 L390,245 L390,265 L250,265 Z M240,265 L400,265 L400,285 L240,285 Z"/>
+  </svg>
+);
+
+const FlagTH = () => (
+  <svg className="w-4 h-3 rounded-xs shrink-0 shadow-xs inline-block" viewBox="0 0 640 480" aria-label="Thailand">
+    <rect width="640" height="480" fill="#ed1c24"/>
+    <rect y="80" width="640" height="320" fill="#ffffff"/>
+    <rect y="160" width="640" height="160" fill="#241d4f"/>
+  </svg>
+);
+
+const FlagVN = () => (
+  <svg className="w-4 h-3 rounded-xs shrink-0 shadow-xs inline-block" viewBox="0 0 640 480" aria-label="Vietnam">
+    <rect width="640" height="480" fill="#da251d"/>
+    <polygon fill="#ff0" points="320,135 348,220 437,220 365,273 392,358 320,305 248,358 275,273 203,220 292,220"/>
+  </svg>
+);
+
+const FlagCN = () => (
+  <svg className="w-4 h-3 rounded-xs shrink-0 shadow-xs inline-block" viewBox="0 0 640 480" aria-label="China">
+    <rect width="640" height="480" fill="#de2910"/>
+    <polygon fill="#ffde00" points="100,60 115,105 160,105 125,130 140,175 100,150 60,175 75,130 40,105 85,105"/>
+    <polygon fill="#ffde00" points="180,45 185,60 200,60 188,70 193,85 180,75 167,85 172,70 160,60 175,60"/>
+    <polygon fill="#ffde00" points="215,85 220,100 235,100 223,110 228,125 215,115 202,125 207,110 195,100 210,100"/>
+    <polygon fill="#ffde00" points="215,145 220,160 235,160 223,170 228,185 215,175 202,185 207,170 195,160 210,160"/>
+    <polygon fill="#ffde00" points="180,185 185,200 200,200 188,210 193,225 180,215 167,225 172,210 160,200 175,200"/>
+  </svg>
+);
+
 type FilterTab = 'All' | 'PUBLISHED' | 'DRAFT' | 'ARCHIVED';
 
 const DRAFT_STATUSES = ['DRAFT', 'AI_DRAFT', 'IN_REVIEW', 'NEEDS_REVISION', 'APPROVED'];
@@ -430,7 +464,7 @@ export default function Articles() {
                     onClick={() => handleScanNews('cambodia')}
                     className="w-full text-left px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors"
                   >
-                    <span className="text-base leading-none">🇰🇭</span>
+                    <FlagKH />
                     <div>
                       <div className="font-medium text-zinc-100">Scan Cambodia News</div>
                       <div className="text-[10px] text-zinc-400">Local tech, Bakong fintech, telecom & startups</div>
@@ -888,61 +922,61 @@ export default function Articles() {
                   <button
                     type="button"
                     onClick={() => setTopicRegion('KH')}
-                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
+                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-2 transition-all ${
                       topicRegion === 'KH' 
                         ? 'bg-purple-600/15 border-purple-500/40 text-purple-300' 
                         : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
-                    <span>🇰🇭</span>
+                    <FlagKH />
                     <span>Cambodia</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setTopicRegion('TH')}
-                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
+                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-2 transition-all ${
                       topicRegion === 'TH' 
                         ? 'bg-purple-600/15 border-purple-500/40 text-purple-300' 
                         : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
-                    <span>🇹🇭</span>
+                    <FlagTH />
                     <span>Thailand</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setTopicRegion('VN')}
-                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
+                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-2 transition-all ${
                       topicRegion === 'VN' 
                         ? 'bg-purple-600/15 border-purple-500/40 text-purple-300' 
                         : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
-                    <span>🇻🇳</span>
+                    <FlagVN />
                     <span>Vietnam</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setTopicRegion('CN')}
-                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
+                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-2 transition-all ${
                       topicRegion === 'CN' 
                         ? 'bg-purple-600/15 border-purple-500/40 text-purple-300' 
                         : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
-                    <span>🇨🇳</span>
+                    <FlagCN />
                     <span>China & HK</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setTopicRegion('WORLD')}
-                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 col-span-2 sm:col-span-2 transition-all ${
+                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-2 col-span-2 sm:col-span-2 transition-all ${
                       topicRegion === 'WORLD' 
                         ? 'bg-purple-600/15 border-purple-500/40 text-purple-300' 
                         : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
-                    <Globe size={14} />
+                    <Globe size={14} className="text-blue-400" />
                     <span>Global Tech & World</span>
                   </button>
                 </div>
