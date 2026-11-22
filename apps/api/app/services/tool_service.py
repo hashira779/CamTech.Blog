@@ -283,5 +283,11 @@ class ToolService:
             else:
                 return {"result": urllib.parse.unquote(text)}
 
+        # 11. Universal Video & Audio Downloader (2026-2028 Next-Gen Media Extractor)
+        elif slug in ["universal-video-downloader", "video-audio-downloader"]:
+            from app.services.media_extractor_service import MediaExtractorService
+            url = params.get("url") or params.get("video_url") or ""
+            return MediaExtractorService.extract(url)
+
         return {"error": f"Tool computation not implemented for slug: {slug}"}
 

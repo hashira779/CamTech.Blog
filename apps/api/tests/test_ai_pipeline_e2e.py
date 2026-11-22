@@ -135,3 +135,76 @@ def test_local_engine_draft_is_held():
     finally:
         db.query(Article).filter(Article.slug == f"e2e-local-{_TAG}").delete(synchronize_session=False)
         db.commit(); db.close()
+
+
+def test_generate_topic_news_no_provider_returns_400(monkeypatch):
+    """When no provider is configured, generate_topic_news must reject cleanly with 400."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.services.auth_service import require_admin
+    from app.models.user import User
+
+    monkeypatch.setattr(ai_gateway, "load_providers", lambda db: [])
+    fake_admin = User(id="admin-test-id", email="admin@test.local", role="ADMIN", is_active=True)
+    app.dependency_overrides[require_admin] = lambda: fake_admin
+    try:
+        client = TestClient(app)
+        res = client.post("/api/v1/admin/ai/generate-topic-news", json={"topic": "Quantum Computing in ASEAN"})
+        assert res.status_code == 400
+        assert "No AI provider is configured" in res.json()["detail"]
+    finally:
+        app.dependency_overrides.pop(require_admin, None)
+
+
+def test_generate_topic_news_with_provider_succeeds(stubbed_provider):
+    """When a provider is active, generate_topic_news writes an article without crashing on asyncio or json."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.services.auth_service import require_admin
+    from app.models.user import User
+
+    fake_article = {
+        "title": f"ASEAN Semiconductor Expansion {_TAG}",
+        "summary": "Regional semiconductor capacity is growing rapidly.",
+        "content": "## Analysis\n\nCambodia and regional partners are expanding digital and tech infrastructure.",
+        "source_name": "Tech Wire",
+        "source_url": "https://example.com/semiconductors",
+        "key_points": ["Point 1", "Point 2"],
+        "why_it_matters": "Crucial for regional supply chains.",
+        "tags": ["tech", "asean"],
+        "seo_title": "ASEAN Semiconductor Expansion",
+        "seo_description": "Regional semiconductor capacity is growing rapidly."
+    }
+
+    import unittest.mock as mock
+    with mock.patch.object(ai_gateway, "call_provider", return_value=json.dumps(fake_article)):
+        fake_admin = User(id="admin-test-id", email="admin@test.local", role="ADMIN", is_active=True)
+        app.dependency_overrides[require_admin] = lambda: fake_admin
+        try:
+            client = TestClient(app)
+            res = client.post("/api/v1/admin/ai/generate-topic-news", json={
+                "topic": "ASEAN Semiconductor Expansion",
+                "region": "KH",
+                "publish_immediately": False
+            })
+            assert res.status_code == 200, res.text
+            data = res.json()
+            assert data["status"] == "success"
+            assert data["title"] == fake_article["title"]
+            assert data["published"] is False
+
+            # Verify saved in DB
+            db = SessionLocal()
+            try:
+                saved = db.query(Article).filter(Article.id == data["article_id"]).first()
+                assert saved is not None
+                assert saved.status == "AI_DRAFT"
+                assert "Point 1" in saved.key_points
+            finally:
+                if saved:
+                    db.delete(saved)
+                    db.commit()
+                db.close()
+        finally:
+            app.dependency_overrides.pop(require_admin, None)
+

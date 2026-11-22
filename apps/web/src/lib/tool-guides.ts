@@ -1,4 +1,13 @@
 export const TOOL_GUIDES: Record<string, { intro: string; steps: string[]; note: string }> = {
+  "universal-video-downloader": {
+    intro: "Download high-definition videos (1080p, 720p, 480p) or extract clean MP3 audio from TikTok (no watermark), YouTube, Facebook, Instagram Reels, Twitter/X, and Douyin.",
+    steps: [
+      "Copy the share link of any video from TikTok, YouTube, Facebook, or Instagram.",
+      "Paste the link into the field above and tap “Analyze & Extract Media”.",
+      "Preview the video in the embedded player, select your desired resolution (1080p Full HD, 720p HD, or MP3 Audio), and click Download.",
+    ],
+    note: "All extraction is processed privately without permanent server storage. Please respect content creators' copyrights and platform terms of service.",
+  },
   "word-counter": {
     intro: "Check the length of a draft, a short bio, a caption, or an article before you publish it.",
     steps: ["Replace the example with your own text. The counts update as you type.", "Compare the character count with the limit of the place you are publishing.", "Use reading time as a rough planning estimate. Clear the text when you are finished."],

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Calculator, Code2, FileText, Image as ImageIcon, QrCode, Wrench } from "lucide-react";
+import { ArrowUpRight, Calculator, Code2, FileText, Image as ImageIcon, QrCode, Video, Wrench } from "lucide-react";
 
 export interface ToolCardProps {
   slug: string;
@@ -12,7 +12,9 @@ export interface ToolCardProps {
 }
 
 export function ToolCard({ slug, name, category, description }: ToolCardProps) {
-  const Icon = slug.includes("qr") ? QrCode : category.toLowerCase().includes("calculat") ? Calculator
+  const Icon = slug.includes("qr") ? QrCode
+    : slug.includes("video") || slug.includes("downloader") ? Video
+    : category.toLowerCase().includes("calculat") ? Calculator
     : category.toLowerCase().includes("develop") ? Code2
     : category.toLowerCase().includes("image") ? ImageIcon
     : category.toLowerCase().includes("text") ? FileText : Wrench;

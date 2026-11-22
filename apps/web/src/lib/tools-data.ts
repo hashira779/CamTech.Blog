@@ -1,6 +1,19 @@
 import { Tool } from "@/types";
 
 export const ALL_TOOLS: Tool[] = [
+  // --- UNIVERSAL MEDIA & EVERYDAY UTILITIES ---
+  {
+    id: "tool-universal-downloader",
+    slug: "universal-video-downloader",
+    name: "Universal Video & Audio Downloader (TikTok, YouTube, FB, IG)",
+    name_km: "កម្មវិធីទាញយកវីដេអូ និងតន្ត្រីគ្រប់ Platform (TikTok, YouTube, FB, IG)",
+    category: "IMAGE",
+    description: "Download watermark-free videos and high-quality MP3 audio from TikTok, YouTube, Facebook, Instagram Reels, Twitter/X, and Douyin in 1080p, 720p, 480p, and MP3 audio.",
+    icon: "Video",
+    is_popular: true,
+    usage_count: 54200,
+    version: "3.0",
+  },
   // --- CAMBODIA EVERYDAY UTILITIES & CALCULATORS ---
   {
     id: "tool-tos-cambodia",

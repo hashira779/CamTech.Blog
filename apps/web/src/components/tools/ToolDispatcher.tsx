@@ -34,6 +34,7 @@ import { CambodiaIspNetworkChecker } from "./CambodiaIspNetworkChecker";
 import { CryptoKhrConverter } from "./CryptoKhrConverter";
 import { DnsLookupInspector } from "./DnsLookupInspector";
 import { KnowledgeSearchTool } from "./KnowledgeSearchTool";
+import { UniversalVideoDownloader } from "./UniversalVideoDownloader";
 
 /**
  * Maps a tool slug to the component that runs it.
@@ -43,6 +44,13 @@ import { KnowledgeSearchTool } from "./KnowledgeSearchTool";
  */
 export function ToolDispatcher({ tool }: { tool: Tool }) {
   switch (tool.slug) {
+    // 2026-2028 Universal Media Downloader
+    case "universal-video-downloader":
+    case "video-audio-downloader":
+    case "tiktok-downloader":
+    case "youtube-downloader":
+      return <UniversalVideoDownloader />;
+
     // Cambodia-specific & Live Public API everyday utilities
     case "cambodia-weather-air-quality":
     case "cambodia-weather-radar":

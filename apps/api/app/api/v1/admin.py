@@ -1,5 +1,7 @@
-from typing import List, Dict, Any, Optional
+import asyncio
+import json
 import logging
+from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -730,9 +732,23 @@ Return only valid JSON with keys:
 - seo_title: max 60 chars
 - seo_description: max 155 chars"""
 
-    data, meta = await asyncio.to_thread(ai_gateway.generate_json, prompt, use_search=False, timeout=45.0)
+    if not ai_gateway.has_any_configured_provider():
+        raise HTTPException(
+            status_code=400,
+            detail="No AI provider is configured. Please navigate to Settings -> AI Providers and add an API key (e.g. Gemini, OpenAI, Groq)."
+        )
+
+    try:
+        data, meta = await asyncio.to_thread(ai_gateway.generate_json, prompt, use_search=False, timeout=45.0)
+    except Exception as exc:
+        logger.exception("AI generation call failed: %s", exc)
+        raise HTTPException(status_code=502, detail=f"AI generation request failed: {str(exc)[:150]}")
+
     if not isinstance(data, dict):
-        raise HTTPException(status_code=500, detail="AI generation failed to produce valid article JSON")
+        err_details = (meta or {}).get("details") or (meta or {}).get("error")
+        detail_str = f": {', '.join(err_details) if isinstance(err_details, list) else err_details}" if err_details else ""
+        logger.error("AI generation failed to produce valid article JSON%s", detail_str)
+        raise HTTPException(status_code=502, detail=f"AI generation failed to produce valid article JSON{detail_str}")
 
     cat_slug = "cambodia" if req.region == "KH" else "technology"
     category = db.query(Category).filter(Category.slug == cat_slug).first() or db.query(Category).first()
