@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
   <defs>
-    <!-- Background: Crisp Porcelain -->
+    <!-- Background: Crisp Porcelain Ivory -->
     <linearGradient id="bgLight" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#ffffff" />
       <stop offset="60%" stop-color="#faf8f5" />
-      <stop offset="100%" stop-color="#f4eee7" />
+      <stop offset="100%" stop-color="#f3ede6" />
     </linearGradient>
 
     <!-- Rich Terracotta Copper Gradient -->
@@ -15,27 +15,29 @@
       <stop offset="100%" stop-color="#f59e0b" />
     </linearGradient>
 
-    <!-- Warm Amber Core Accent -->
-    <linearGradient id="coreLightAmber" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f59e0b" />
-      <stop offset="100%" stop-color="#b45309" />
+    <!-- Crisp Squircle Rim -->
+    <linearGradient id="rimLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e2dad1" />
+      <stop offset="100%" stop-color="#d4c8bc" />
     </linearGradient>
 
-    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#7c2d12" flood-opacity="0.12" />
-    </filter>
+    <!-- Warm Ambient Glow (Pure Vector Radial Gradient) -->
+    <radialGradient id="coreGlowLight" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ea580c" stop-opacity="0.06" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
   </defs>
 
   <!-- Squircle Base Frame -->
-  <rect x="24" y="24" width="464" height="464" rx="116" fill="url(#bgLight)" stroke="#ea580c" stroke-width="4.5" stroke-opacity="0.3" filter="url(#softShadow)" />
+  <rect x="20" y="20" width="472" height="472" rx="118" fill="url(#bgLight)" stroke="url(#rimLight)" stroke-width="3.5" />
+
+  <!-- Ambient Glow -->
+  <circle cx="256" cy="256" r="160" fill="url(#coreGlowLight)" />
 
   <!-- Monogram C Arc -->
-  <path d="M 352,166 A 136,136 0 1,0 352,346" fill="none" stroke="url(#copperGrad)" stroke-width="40" stroke-linecap="round" />
+  <path d="M 343,152 A 136,136 0 1,0 343,360" fill="none" stroke="url(#copperGrad)" stroke-width="42" stroke-linecap="round" />
 
   <!-- Central T Pillar & Crossbar -->
-  <path d="M 205,212 L 325,212" fill="none" stroke="url(#copperGrad)" stroke-width="38" stroke-linecap="round" />
-  <path d="M 265,212 L 265,346" fill="none" stroke="url(#copperGrad)" stroke-width="38" stroke-linecap="round" />
-
-  <!-- Apex Pinnacle Diamond -->
-  <polygon points="265,110 288,145 265,180 242,145" fill="url(#coreLightAmber)" />
+  <path d="M 200,206 L 312,206" fill="none" stroke="url(#copperGrad)" stroke-width="40" stroke-linecap="round" />
+  <path d="M 256,206 L 256,324" fill="none" stroke="url(#copperGrad)" stroke-width="40" stroke-linecap="round" />
 </svg>

@@ -29,7 +29,7 @@ export const API_BASE = typeof window === "undefined"
   ? (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1")
   : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1");
 
-function getTimeoutSignal(ms = 4000): AbortSignal {
+function getTimeoutSignal(ms = 8000): AbortSignal {
   if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
     return AbortSignal.timeout(ms);
   }
@@ -38,21 +38,38 @@ function getTimeoutSignal(ms = 4000): AbortSignal {
   return controller.signal;
 }
 
-async function fetchWithFallback<T>(url: string, fallbackData: T, revalidate = 60, timeoutMs = 4000): Promise<T> {
+async function fetchWithFallback<T>(url: string, fallbackData: T, revalidate = 60, timeoutMs = 8000): Promise<T> {
   try {
     const res = await fetch(url, {
       next: { revalidate },
       signal: getTimeoutSignal(timeoutMs),
     });
-    if (!res.ok) {
-      console.warn(`API request to ${url} returned status ${res.status}, using fallback.`);
-      return fallbackData;
+    if (res.ok) {
+      return await res.json();
     }
-    return await res.json();
+    console.warn(`API request to ${url} returned status ${res.status}, evaluating fallback.`);
   } catch (err) {
-    console.warn(`API request to ${url} failed, using local fallback data:`, err);
-    return fallbackData;
+    console.warn(`API request to ${url} failed, evaluating fallback:`, err);
   }
+
+  // Resilient failover: If internal docker network URL failed, retry against public API if running on server
+  const publicApi = process.env.NEXT_PUBLIC_API_URL || "https://cms.camtech.cam/api/v1";
+  if (typeof window === "undefined" && url.includes("api:8000/api/v1") && !url.startsWith(publicApi)) {
+    try {
+      const fallbackUrl = url.replace("http://api:8000/api/v1", publicApi);
+      const res = await fetch(fallbackUrl, {
+        next: { revalidate },
+        signal: getTimeoutSignal(timeoutMs),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // secondary fallback also failed
+    }
+  }
+
+  return fallbackData;
 }
 
 export async function getArticles(params: {

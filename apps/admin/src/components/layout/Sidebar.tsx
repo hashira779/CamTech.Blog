@@ -55,9 +55,9 @@ export default function Sidebar() {
       <div className="h-14 px-3.5 flex items-center justify-between border-b border-zinc-800/80">
         <Link to="/dashboard" className="flex items-center gap-2.5 group overflow-hidden">
           <img
-            src="/logo.png"
+            src="/logo.svg"
             alt="CamTech Logo"
-            className="w-7 h-7 rounded-lg object-contain bg-zinc-900 border border-zinc-700/60 shadow-xs shrink-0"
+            className="w-7 h-7 rounded-lg object-contain shadow-xs shrink-0"
           />
           {!sidebarCollapsed && (
             <div className="flex flex-col min-w-0">

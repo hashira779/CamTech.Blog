@@ -32,9 +32,7 @@ export function Logo({
     <div
       className={cn(
         "relative shrink-0 overflow-hidden transition-all duration-300",
-        "bg-gradient-to-br from-surface via-background to-secondary border border-accent/35 shadow-xs",
-        "dark:bg-gradient-to-br dark:from-surface-elevated dark:via-surface dark:to-surface-muted dark:border-accent/40 dark:shadow-none",
-        "group-hover:scale-105 group-hover:border-accent group-hover:shadow-md",
+        "group-hover:scale-105 group-hover:shadow-md",
         size === "sm" && "h-7 w-7 rounded-lg",
         size === "md" && "h-9 w-9 rounded-xl",
         size === "lg" && "h-12 w-12 rounded-2xl",
@@ -47,7 +45,7 @@ export function Logo({
         width={currentSize.icon * 2}
         height={currentSize.icon * 2}
         priority={priority}
-        className="h-full w-full object-contain p-0.5 dark:hidden transition-transform duration-300"
+        className="h-full w-full object-contain dark:hidden transition-transform duration-300"
       />
       <Image
         src="/logo-dark.svg"
@@ -55,7 +53,7 @@ export function Logo({
         width={currentSize.icon * 2}
         height={currentSize.icon * 2}
         priority={priority}
-        className="hidden h-full w-full object-contain p-0.5 dark:block transition-transform duration-300"
+        className="hidden h-full w-full object-contain dark:block transition-transform duration-300"
       />
     </div>
   );

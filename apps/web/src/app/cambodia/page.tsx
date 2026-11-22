@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     "In-depth reporting, verified government updates, economy, infrastructure and technology across Phnom Penh and every province.",
 };
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 /** Cambodia section front. Layout lives in `SectionFront`, shared with /world. */
 export default function CambodiaNewsPage() {

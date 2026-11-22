@@ -59,9 +59,9 @@ export default function Login() {
         {/* Brand Mark */}
         <div className="flex justify-center">
           <img
-            src="/logo.png"
+            src="/logo.svg"
             alt="CamTech Logo"
-            className="w-12 h-12 rounded-xl object-contain bg-zinc-900 border border-zinc-700/60 shadow-md"
+            className="w-12 h-12 rounded-xl object-contain shadow-md"
           />
         </div>
         <h2 className="mt-5 text-center text-lg font-semibold tracking-tight text-zinc-100">

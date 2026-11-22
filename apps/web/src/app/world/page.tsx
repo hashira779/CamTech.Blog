@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     "Global perspectives on geopolitics, international markets, and the major events reshaping our world.",
 };
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 /** World section front. Layout lives in `SectionFront`, shared with /cambodia. */
 export default function WorldNewsPage() {
