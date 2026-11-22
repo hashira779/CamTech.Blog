@@ -3,7 +3,7 @@ import { Article, TravelGuide } from "@/types";
 
 export const SITE_NAME = "CamTech.Blog";
 export const SITE_ALT_NAME = "CamTech Blog";
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://blog.camtech.cam";
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://camtech.cam";
 export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.jpg`;
 export const TWITTER_HANDLE = "@camtechblog";
 export const DEFAULT_DESCRIPTION =

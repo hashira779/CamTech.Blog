@@ -68,7 +68,7 @@ jobs:
             exit 1
           fi
           grep -q "^PUBLIC_API_URL=" .env || echo "PUBLIC_API_URL=https://cms.camtech.cam/api/v1" >> .env
-          grep -q "^PUBLIC_WEB_URL=" .env || echo "PUBLIC_WEB_URL=https://blog.camtech.cam" >> .env
+          grep -q "^PUBLIC_WEB_URL=" .env || echo "PUBLIC_WEB_URL=https://camtech.cam" >> .env
           # AdSense. The publisher id is public once a page serves ads, so it is safe to seed here;
           # the names match what docker-compose.yml interpolates (ADSENSE_*, not NEXT_PUBLIC_ADSENSE_*
           # - the NEXT_PUBLIC_ prefix is added by the build args, and only exists at build time).

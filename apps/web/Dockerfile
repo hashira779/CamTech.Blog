@@ -12,7 +12,7 @@ FROM base AS builder
 WORKDIR /app
 ARG NEXT_PUBLIC_API_URL="http://localhost:8000/api/v1"
 ARG INTERNAL_API_URL="http://api:8000/api/v1"
-ARG NEXT_PUBLIC_SITE_URL="https://blog.camtech.cam"
+ARG NEXT_PUBLIC_SITE_URL="https://camtech.cam"
 # No AdSense account number is baked into the image. The publisher ID is public once a page loads,
 # but hard-coding it here meant a build could not be repurposed for another account and the repo
 # carried a number nobody could tell was live. Empty default = ads stay off; docker-compose supplies
@@ -43,7 +43,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ARG NEXT_PUBLIC_API_URL="http://localhost:8000/api/v1"
 ARG INTERNAL_API_URL="http://api:8000/api/v1"
-ARG NEXT_PUBLIC_SITE_URL="https://blog.camtech.cam"
+ARG NEXT_PUBLIC_SITE_URL="https://camtech.cam"
 # No AdSense account number is baked into the image. The publisher ID is public once a page loads,
 # but hard-coding it here meant a build could not be repurposed for another account and the repo
 # carried a number nobody could tell was live. Empty default = ads stay off; docker-compose supplies

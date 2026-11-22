@@ -36,7 +36,7 @@ const khmer = Kantumruy_Pro({
   display: "swap",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://blog.camtech.cam";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://camtech.cam";
 
 const siteName = "CamTech.Blog";
 const siteDescription =
