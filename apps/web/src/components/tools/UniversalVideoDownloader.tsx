@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Film,
   Layers,
+  Volume2,
 } from "lucide-react";
 import { API_BASE } from "@/lib/api";
 
@@ -47,14 +48,142 @@ interface MediaResult {
   audio_formats: AudioFormat[];
 }
 
-const SUPPORTED_PLATFORMS = [
-  { name: "TikTok", icon: "🎵", note: "No Watermark HD" },
-  { name: "YouTube", icon: "▶️", note: "1080p / 720p / MP3" },
-  { name: "Facebook", icon: "📘", note: "Reels & Video" },
-  { name: "Instagram", icon: "📸", note: "Reels & Stories" },
-  { name: "Twitter / X", icon: "🐦", note: "HD MP4" },
-  { name: "Douyin", icon: "🇨🇳", note: "抖音 No Watermark" },
+/* ── Standard Vector Brand SVGs (Pixel-Perfect Official Logos) ────────────── */
+
+export function TikTokBrandIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.24 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
+    </svg>
+  );
+}
+
+export function YouTubeBrandIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.5 12 3.5 12 3.5s-7.505 0-9.377.55a3.016 3.016 0 0 0-2.122 2.136C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.55 9.376.55 9.376.55s7.505 0 9.377-.55a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z"
+        fill="#FF0000"
+      />
+      <polygon points="9.545,15.568 15.818,12 9.545,8.432" fill="#FFFFFF" />
+    </svg>
+  );
+}
+
+export function FacebookBrandIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="12" fill="#1877F2" />
+      <path
+        d="M16.5 12.05h-2.85v8.95h-3.7V12.05H8.25V8.95h1.7V6.7c0-2.35 1.4-3.7 3.55-3.7 1.05 0 2.15.2 2.15.2v2.4h-1.2c-1.15 0-1.5.75-1.5 1.5v1.85h2.7z"
+        fill="#FFFFFF"
+      />
+    </svg>
+  );
+}
+
+export function InstagramBrandIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <defs>
+        <radialGradient id="igIconGrad" cx="30%" cy="107%" r="150%">
+          <stop offset="0%" stopColor="#fdf497" />
+          <stop offset="5%" stopColor="#fdf497" />
+          <stop offset="45%" stopColor="#fd5949" />
+          <stop offset="60%" stopColor="#d6249f" />
+          <stop offset="90%" stopColor="#285AEB" />
+        </radialGradient>
+      </defs>
+      <rect x="2" y="2" width="20" height="20" rx="5.5" stroke="url(#igIconGrad)" strokeWidth="2.2" />
+      <circle cx="12" cy="12" r="4.3" stroke="url(#igIconGrad)" strokeWidth="2.2" />
+      <circle cx="17.6" cy="6.4" r="1.3" fill="url(#igIconGrad)" />
+    </svg>
+  );
+}
+
+export function XTwitterBrandIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
+export function DouyinBrandIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="12" fill="#161823" />
+      <path
+        d="M17.4 8.2a5.4 5.4 0 0 1-2.9-2.3v8.5a4.1 4.1 0 1 1-4.1-4.1c.25 0 .55.04.8.08v2.6a1.6 1.6 0 1 0 .8 1.42V4h2.6a5.5 5.5 0 0 0 2.8 4.2z"
+        fill="#FE2C55"
+      />
+    </svg>
+  );
+}
+
+interface PlatformItem {
+  name: string;
+  badge: string;
+  icon: (props: { className?: string }) => React.JSX.Element;
+  note: string;
+  chipClass: string;
+}
+
+const SUPPORTED_PLATFORMS: PlatformItem[] = [
+  {
+    name: "TikTok",
+    badge: "TikTok",
+    icon: TikTokBrandIcon,
+    note: "No Watermark HD",
+    chipClass: "hover:border-neutral-400 dark:hover:border-neutral-500",
+  },
+  {
+    name: "YouTube",
+    badge: "YouTube",
+    icon: YouTubeBrandIcon,
+    note: "1080p / 720p / MP3",
+    chipClass: "hover:border-red-500/50 hover:bg-red-500/5",
+  },
+  {
+    name: "Facebook",
+    badge: "Facebook",
+    icon: FacebookBrandIcon,
+    note: "Reels & Video",
+    chipClass: "hover:border-blue-500/50 hover:bg-blue-500/5",
+  },
+  {
+    name: "Instagram",
+    badge: "Instagram",
+    icon: InstagramBrandIcon,
+    note: "Reels & Stories",
+    chipClass: "hover:border-pink-500/50 hover:bg-pink-500/5",
+  },
+  {
+    name: "Twitter / X",
+    badge: "X (Twitter)",
+    icon: XTwitterBrandIcon,
+    note: "HD MP4",
+    chipClass: "hover:border-neutral-400 dark:hover:border-neutral-500",
+  },
+  {
+    name: "Douyin",
+    badge: "抖音",
+    icon: DouyinBrandIcon,
+    note: "No Watermark",
+    chipClass: "hover:border-rose-500/50 hover:bg-rose-500/5",
+  },
 ];
+
+function getPlatformBrandIcon(platform?: string) {
+  const p = (platform || "").toLowerCase();
+  if (p.includes("tiktok")) return <TikTokBrandIcon className="h-3.5 w-3.5" />;
+  if (p.includes("youtube")) return <YouTubeBrandIcon className="h-3.5 w-3.5" />;
+  if (p.includes("facebook")) return <FacebookBrandIcon className="h-3.5 w-3.5" />;
+  if (p.includes("instagram")) return <InstagramBrandIcon className="h-3.5 w-3.5" />;
+  if (p.includes("twitter") || p === "x") return <XTwitterBrandIcon className="h-3.5 w-3.5" />;
+  if (p.includes("douyin")) return <DouyinBrandIcon className="h-3.5 w-3.5" />;
+  return <Film className="h-3.5 w-3.5" />;
+}
 
 export function UniversalVideoDownloader() {
   const [url, setUrl] = useState("");
@@ -132,19 +261,24 @@ export function UniversalVideoDownloader() {
 
   return (
     <div className="space-y-6">
-      {/* ── Platform Badges ────────────────────────────────────────── */}
+      {/* ── Platform Badges (Official Vector SVGs) ──────────────── */}
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          {SUPPORTED_PLATFORMS.map((p) => (
-            <div
-              key={p.name}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-muted/60 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:border-accent/40"
-            >
-              <span>{p.icon}</span>
-              <span>{p.name}</span>
-              <span className="text-[11px] text-muted-foreground">({p.note})</span>
-            </div>
-          ))}
+          {SUPPORTED_PLATFORMS.map((p) => {
+            const BrandIcon = p.icon;
+            return (
+              <div
+                key={p.name}
+                className={`inline-flex items-center gap-2 rounded-full border border-border/80 bg-surface/90 px-3.5 py-1.5 text-xs font-semibold text-foreground shadow-xs transition-all hover:shadow-sm ${p.chipClass}`}
+              >
+                <BrandIcon className="h-4 w-4 shrink-0" />
+                <span>{p.name}</span>
+                <span className="rounded-full bg-surface-muted/90 px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
+                  {p.note}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -278,8 +412,9 @@ export function UniversalVideoDownloader() {
                     {result.duration}
                   </span>
                 )}
-                <span className="absolute left-1.5 top-1.5 rounded-md bg-accent/90 px-1.5 py-0.5 text-[10px] font-bold text-accent-foreground">
-                  {result.platform}
+                <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1.5 rounded-md bg-black/85 px-2 py-1 text-[11px] font-bold text-white shadow-sm backdrop-blur-xs">
+                  {getPlatformBrandIcon(result.platform)}
+                  <span>{result.platform}</span>
                 </span>
               </div>
             )}
@@ -367,7 +502,12 @@ export function UniversalVideoDownloader() {
                           <div>
                             <p className="text-sm font-semibold text-foreground">{v.label}</p>
                             <p className="text-xs text-muted-foreground">
-                              {v.format} {v.size ? `· ${v.size}` : ""} {v.has_audio ? "· 🔊 Audio included" : ""}
+                              {v.format} {v.size ? `· ${v.size}` : ""}{" "}
+                              {v.has_audio && (
+                                <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                                  · <Volume2 size={12} className="inline" /> Audio
+                                </span>
+                              )}
                             </p>
                           </div>
                         </div>
