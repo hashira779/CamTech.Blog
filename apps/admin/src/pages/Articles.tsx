@@ -16,7 +16,8 @@ import {
   Globe,
   ChevronDown,
   Zap,
-  Rss
+  Rss,
+  CheckCheck
 } from 'lucide-react';
 import { api } from '../lib/api';
 import type { ApiArticle } from '../lib/api';
@@ -62,6 +63,11 @@ export default function Articles() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [enhancingImages, setEnhancingImages] = useState(false);
   const [syncingFeeds, setSyncingFeeds] = useState(false);
+  const [publishingAll, setPublishingAll] = useState(false);
+  const [topicModalOpen, setTopicModalOpen] = useState(false);
+  const [customTopic, setCustomTopic] = useState('');
+  const [topicRegion, setTopicRegion] = useState<'KH' | 'WORLD'>('KH');
+  const [generatingTopic, setGeneratingTopic] = useState(false);
   const { success: toastSuccess, error: toastError, info: toastInfo } = useToast();
   
   // Create Article Modal state
@@ -148,6 +154,48 @@ export default function Articles() {
       toastError(err.response?.data?.detail || `Failed to scan ${label}.`);
     } finally {
       setAiGenerating(false);
+    }
+  };
+
+  const handlePublishAll = async () => {
+    setPublishingAll(true);
+    toastInfo('Reviewing and publishing all quality-eligible drafts...', 'Approve All');
+    try {
+      const res = await api.post<{ status: string; published_count: number; skipped_count: number; total: number }>('/admin/articles/publish-all');
+      const { published_count, skipped_count } = res.data;
+      await fetchArticles();
+      if (published_count > 0) {
+        toastSuccess(`Successfully published ${published_count} stories! (${skipped_count} held for quality review)`, 'Approve All');
+      } else {
+        toastInfo(`0 drafts were eligible (${skipped_count} held for missing substantive copy or source links).`, 'Approve All');
+      }
+    } catch (err: any) {
+      console.error('Publish all failed:', err);
+      toastError(err.response?.data?.detail || 'Failed to publish ready drafts.', 'Approve All Error');
+    } finally {
+      setPublishingAll(false);
+    }
+  };
+
+  const handleGenerateTopic = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!customTopic.trim()) return;
+    setGeneratingTopic(true);
+    toastInfo(`AI is researching and drafting in-depth article on "${customTopic.trim()}"...`, 'Topic Generator');
+    try {
+      const res = await api.post<{ status: string; title: string }>('/admin/ai/generate-topic-news', {
+        topic: customTopic.trim(),
+        region: topicRegion
+      });
+      setTopicModalOpen(false);
+      setCustomTopic('');
+      await fetchArticles();
+      toastSuccess(`Draft created: "${res.data.title}"`, 'Article Drafted');
+    } catch (err: any) {
+      console.error('Topic generation failed:', err);
+      toastError(err.response?.data?.detail || 'Failed to generate topic article.', 'Generation Error');
+    } finally {
+      setGeneratingTopic(false);
     }
   };
 
@@ -297,6 +345,15 @@ export default function Articles() {
             <span>Refresh</span>
           </button>
           <button 
+            onClick={handlePublishAll}
+            disabled={publishingAll}
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+            title="Publish all eligible AI drafts that pass quality gates immediately"
+          >
+            {publishingAll ? <RefreshCw size={13} className="animate-spin" /> : <CheckCheck size={13} />}
+            <span>{publishingAll ? 'Publishing...' : 'Approve All (Publish Ready)'}</span>
+          </button>
+          <button 
             onClick={handleEnhanceImages}
             disabled={enhancingImages}
             className="flex items-center gap-1.5 bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border border-emerald-500/25 font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50"
@@ -354,6 +411,16 @@ export default function Articles() {
                     </div>
                   </button>
                   <div className="my-1 border-t border-zinc-800/80" />
+                  <button
+                    onClick={() => { setScanMenuOpen(false); setTopicModalOpen(true); }}
+                    className="w-full text-left px-3 py-2 text-xs text-purple-400 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors"
+                  >
+                    <Sparkles size={15} className="text-purple-400 shrink-0" />
+                    <div>
+                      <div className="font-semibold text-purple-300">Custom Topic Research...</div>
+                      <div className="text-[10px] text-zinc-400">Specify any country, event or topic to draft</div>
+                    </div>
+                  </button>
                   <button
                     onClick={() => handleScanNews('all')}
                     className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors"
@@ -726,6 +793,98 @@ export default function Articles() {
                   className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-950 bg-zinc-100 hover:bg-white disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
                 >
                   {creating ? 'Publishing...' : 'Publish Story'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Topic Generator Modal */}
+      {topicModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-950/40">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400">
+                  <Sparkles size={16} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-zinc-100 text-sm">AI Topic Research & Draft</h3>
+                  <p className="text-[11px] text-zinc-400">Specify any breaking event, country, or topic for AI to draft</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setTopicModalOpen(false)} 
+                className="text-zinc-400 hover:text-zinc-200 p-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <form onSubmit={handleGenerateTopic} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                  Research Topic or Headline
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={customTopic}
+                  onChange={(e) => setCustomTopic(e.target.value)}
+                  placeholder="e.g. Cambodia Bakong digital cross-border payments expand to Vietnam and Thailand..."
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-purple-500 transition-colors"
+                />
+                <p className="text-[10px] text-zinc-500 mt-1">
+                  Gemini will write an in-depth journalistic article (400–600 words with ## subheadings) meeting all AdSense quality gates.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1.5">Target Desk / Region</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTopicRegion('KH')}
+                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-2 transition-all ${
+                      topicRegion === 'KH' 
+                        ? 'bg-purple-600/15 border-purple-500/40 text-purple-300' 
+                        : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <span>🇰🇭</span>
+                    <span>Cambodia & Regional</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTopicRegion('WORLD')}
+                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-2 transition-all ${
+                      topicRegion === 'WORLD' 
+                        ? 'bg-purple-600/15 border-purple-500/40 text-purple-300' 
+                        : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <Globe size={14} />
+                    <span>World & Technology</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setTopicModalOpen(false)}
+                  className="px-3.5 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 bg-zinc-800/80 hover:bg-zinc-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={generatingTopic || !customTopic.trim()}
+                  className="px-4 py-2 rounded-lg text-xs font-medium text-white bg-purple-600 hover:bg-purple-500 disabled:opacity-50 flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                >
+                  {generatingTopic ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                  <span>{generatingTopic ? 'Researching & Drafting...' : 'Draft Article with AI'}</span>
                 </button>
               </div>
             </form>

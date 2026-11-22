@@ -615,6 +615,127 @@ def run_news_autopilot_now(db: Session = Depends(get_db), current_user: User = D
     return news_autopilot.run_lifecycle(db)
 
 
+@router.post("/articles/publish-all")
+def publish_all_ready_articles(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Publish all AI_DRAFT articles that meet the quality gate in one operation."""
+    from app.models.article import Article
+    from app.services.article_service import ArticleService
+
+    drafts = db.query(Article).filter(Article.status == "AI_DRAFT").all()
+    published = []
+    skipped = []
+    for art in drafts:
+        gate = ArticleService.validate_quality_gate(art, db)
+        if gate.can_publish:
+            try:
+                ArticleService.publish_article(db, art.id, editor_user_id=current_user.id)
+                published.append(art.title)
+            except Exception as e:
+                skipped.append({"title": art.title, "reason": str(e)})
+        else:
+            skipped.append({"title": art.title, "reason": "; ".join(gate.missing_items)})
+
+    db.commit()
+    return {
+        "status": "success",
+        "published_count": len(published),
+        "skipped_count": len(skipped),
+        "total": len(drafts),
+        "published": published,
+        "skipped": skipped
+    }
+
+
+class TopicNewsRequest(BaseModel):
+    topic: str
+    region: Optional[str] = "KH"
+
+
+@router.post("/ai/generate-topic-news")
+async def generate_topic_news(
+    req: TopicNewsRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Generate professional journalistic editorial article on a user-specified topic."""
+    import re
+    import uuid
+    from app.services import ai_gateway
+    from app.models.category import Category
+    from app.models.author import Author
+    from app.models.article import Article
+    from app.common.html_hygiene import sanitize_stored_html
+
+    topic = (req.topic or "").strip()
+    if not topic:
+        raise HTTPException(status_code=400, detail="Topic cannot be empty")
+
+    prompt = f"""You are an elite, neutral journalist writing for CamTech.Blog (focusing on Cambodia, Southeast Asia, and Technology).
+Write a comprehensive, professional, factual news article about the following topic:
+Topic: {topic}
+Target Region: {'Cambodia / Southeast Asia' if req.region == 'KH' else 'World / Global'}
+
+CRITICAL RULES:
+1. Content must be factual, balanced, and structured with journalistic integrity.
+2. The article body MUST be in Markdown with ## subheadings, between 400 and 600 words (at least 2,000 characters).
+3. Do not invent unverified quotes. Provide realistic industry context, background analysis, and significance.
+4. Attribute facts to credible reporting or public statements.
+
+Return only valid JSON with keys:
+- title: Compelling headline (50-100 chars)
+- summary: 2-sentence objective summary (100-200 chars)
+- content: Full article body in Markdown (400-600 words with ## subheadings)
+- source_name: Name of credible primary reporting outlet (e.g. Khmer Times, AKP, Phnom Penh Post, CNA, Reuters, Al Jazeera)
+- source_url: A credible reference URL for the story (must include full path)
+- key_points: Array of 3-4 factual takeaways
+- why_it_matters: 2-3 sentences of context
+- tags: Array of 3-5 relevant tags
+- seo_title: max 60 chars
+- seo_description: max 155 chars"""
+
+    data, meta = await asyncio.to_thread(ai_gateway.generate_json, prompt, use_search=False, timeout=45.0)
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=500, detail="AI generation failed to produce valid article JSON")
+
+    cat_slug = "cambodia" if req.region == "KH" else "technology"
+    category = db.query(Category).filter(Category.slug == cat_slug).first() or db.query(Category).first()
+    author = db.query(Author).filter(Author.id == current_user.id).first() or db.query(Author).first()
+
+    title = data.get("title", topic)
+    base_slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')[:80]
+    slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
+
+    art = Article(
+        title=title,
+        slug=slug,
+        summary=data.get("summary", ""),
+        content=sanitize_stored_html(data.get("content", "")),
+        key_points=json.dumps(data.get("key_points", [])),
+        why_it_matters=data.get("why_it_matters", ""),
+        country=req.region or "KH",
+        primary_source_url=data.get("source_url") or "https://camtech.cam",
+        source_attribution_text=f"Source: {data.get('source_name', 'CamTech Editorial Desk')}",
+        category_id=category.id if category else None,
+        author_id=author.id if author else None,
+        status="AI_DRAFT",
+        seo_title=data.get("seo_title", title[:150]),
+        seo_description=data.get("seo_description", data.get("summary", "")[:155]),
+        ai_draft_metadata=json.dumps({
+            "topic": topic,
+            "engine": (meta or {}).get("engine", "gemini"),
+            "pipeline": "admin_topic_generation",
+            "source": data.get("source_name", "AI Desk")
+        })
+    )
+    db.add(art)
+    db.commit()
+    db.refresh(art)
+    return {"status": "success", "article_id": art.id, "title": art.title, "slug": art.slug}
+
+
 @router.post("/autopilot/generate")
 async def generate_content_now(
     section: str = Query(..., description="discoveries | travel"),
