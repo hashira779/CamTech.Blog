@@ -58,6 +58,9 @@ services:
       - NEXT_PUBLIC_ADSENSE_ENABLED=${NEXT_PUBLIC_ADSENSE_ENABLED:-true}
       - NODE_ENV=production
       - PUBLIC_CONTACT_EMAIL=${PUBLIC_CONTACT_EMAIL:-}
+      - TELEGRAM_CV_BOT_TOKEN=${TELEGRAM_CV_BOT_TOKEN:-}
+      - TELEGRAM_CV_BOT_USERNAME=${TELEGRAM_CV_BOT_USERNAME:-}
+      - TELEGRAM_CV_WEBHOOK_SECRET=${TELEGRAM_CV_WEBHOOK_SECRET:-}
     depends_on:
       api:
         condition: service_healthy
