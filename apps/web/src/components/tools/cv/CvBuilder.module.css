@@ -156,3 +156,38 @@
 .sidebar .cvBody { min-height: 500px; }
 .templateSheet .sidebar .cvBody { min-height: 800px; }
 @media print { .sidebar .cvBody { min-height: 175mm; } }
+
+/* Let the document occupy the card. Its name is also the selection control. */
+.templateGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.templateCard { position: relative; padding: 16px 16px 0; border-radius: 5px; background: #eae8e3; color: #252a29; }
+.templateCard:focus-within { outline: 3px solid var(--ring); outline-offset: 2px; }
+.cardSelect { display: flex; width: 100%; align-items: center; justify-content: space-between; padding: 12px 0; font-size: 14px; font-weight: 600; cursor: pointer; }
+.cardSelect::after { position: absolute; content: ""; inset: 0; }
+.templateCard:hover .templateSheet { box-shadow: 0 4px 14px #191b1925; }
+.templateSheet { container-type: inline-size; }
+.templateSheet .paper { zoom: 1; width: 680px; min-height: 962px; transform: scale(calc(100cqw / 680px)); transform-origin: top left; }
+@supports not (transform: scale(calc(1px / 1px))) {
+  .templateSheet .paper { zoom: .34; width: 100%; min-height: 0; transform: none; }
+}
+.paper .name { font-family: var(--font-ui), var(--font-khmer), sans-serif; font-size: 3em; line-height: 1.08; letter-spacing: -.045em; }
+.paper.serif .name, .paper.minimal .name { font-family: Georgia, var(--font-khmer), serif; font-weight: 500; }
+.paper .sectionTitle { line-height: 1.5; }
+.paper .contact { font-variant-numeric: tabular-nums; }
+.paper.sidebar { display: grid; grid-template-columns: minmax(0, 34fr) minmax(0, 66fr); grid-template-rows: auto 1fr; padding: 0; }
+.paper.sidebar .cvBody { display: contents; }
+.paper.sidebar .cvHeader { grid-column: 1; grid-row: 1; background: var(--cv-accent); margin: 0; padding: 30px 18px 16px; border: 0; display: block; }
+.paper.sidebar .cvHeader :is(.name,.secondary,.role,.contact,.placeholder) { color: white; }
+.paper.sidebar .name { font-size: 2.4em; }
+.paper.sidebar .portrait { margin-bottom: 14px; }
+.paper.sidebar .sideContent { grid-area: 2 / 1; padding: 18px; margin: 0; }
+.paper.sidebar .mainContent { grid-area: 1 / 2 / 3 / 3; padding: 32px 22px; }
+.paper.banner .cvHeader { padding-block: 32px; border-bottom: 5px solid color-mix(in srgb, var(--cv-accent) 40%, white); }
+.paper.banner .sideContent { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.paper.timeline .cvHeader { border: 0; padding-bottom: 15px; }
+.paper.timeline .cvSection { padding-top: 12px; border-top: 1px solid #c7cfcb; }
+.paper.timeline .cvEntry { margin-left: 7px; padding-left: 20px; }
+.paper.classic .cvEntry h4 { font-size: 1.1em; }
+.paper.minimal .cvHeader { padding-block: 24px; }
+.paper.split .sideContent { border-top: 3px solid var(--cv-accent); padding-top: 15px; }
+@media (max-width: 700px) { .templateGrid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; } .templateCard { padding: 7px 7px 0; } .cardSelect { font-size: 12px; } }
+@media print { .paper .name { font-size: 28pt; } .paper.sidebar .cvHeader,.paper.sidebar .sideContent,.paper.sidebar .mainContent { padding: 5mm; } }

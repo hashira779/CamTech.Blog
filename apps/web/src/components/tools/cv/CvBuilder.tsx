@@ -18,17 +18,48 @@ const hasData = (cv: CvData) => JSON.stringify(cv) !== JSON.stringify(emptyCv())
 
 // Clearly labelled gallery examples, never inserted into a visitor's own draft.
 const sampleCv: CvData = {
-  ...emptyCv(), name: { en: "SOK DARA", km: "" }, role: { en: "PRODUCT DESIGNER", km: "" },
-  email: "dara@example.com", phone: "+855 00 000 000", location: { en: "Phnom Penh, Cambodia", km: "" },
-  summary: { en: "Thoughtful designer creating useful digital experiences. Combining clear communication, research and attention to detail.", km: "" },
-  experience: [{ ...entry("sample-work"), title: { en: "Senior Product Designer", km: "" }, organization: { en: "Example Studio", km: "" }, from: "2022-01", current: true,
-    details: { en: "Led the design of accessible digital services.\nCollaborated with engineering and research teams.\nTurned customer feedback into practical improvements.", km: "" } },
-    { ...entry("sample-work-two"), title: { en: "Visual Designer", km: "" }, organization: { en: "Creative Company", km: "" }, from: "2020-01", to: "2021-12", details: { en: "Created consistent visual systems across web and print.\nPresented design concepts to clients and stakeholders.", km: "" } }],
-  education: [{ ...entry("sample-study"), title: { en: "Bachelor of Design", km: "" }, organization: { en: "Example University", km: "" }, from: "2016-01", to: "2020-01" }],
-  skills: { en: "User research\nInterface design\nPrototyping\nDesign systems\nTeam collaboration", km: "" },
-  languages: { en: "Khmer · Native\nEnglish · Professional", km: "" },
-  projects: [{ id: "sample-project", title: { en: "Community Services Platform", km: "" }, details: { en: "Designed an approachable service that helps people find local resources.", km: "" } }],
+  ...emptyCv(),
+  name: { en: "Dara Sok", km: "សុខ ដារ៉ា" },
+  role: { en: "Product designer", km: "អ្នករចនាផលិតផល" },
+  email: "dara@example.com",
+  location: { en: "Phnom Penh, Cambodia", km: "ភ្នំពេញ កម្ពុជា" },
+  summary: {
+    en: "I design booking and payment tools for small businesses in Cambodia.",
+    km: "ខ្ញុំរចនាកម្មវិធីកក់សេវា និងទូទាត់ប្រាក់សម្រាប់អាជីវកម្មខ្នាតតូចនៅកម្ពុជា។",
+  },
+  experience: [
+    {
+      ...entry("sample-lead"), from: "2022-01", current: true,
+      title: { en: "Senior product designer", km: "អ្នករចនាផលិតផលជាន់ខ្ពស់" },
+      organization: { en: "Mekong Studio", km: "ស្ទូឌីយោមេគង្គ" },
+      details: {
+        en: "Designed a booking flow used by 40 local shops.\nTested Khmer language interfaces with shop owners.",
+        km: "រចនាប្រព័ន្ធកក់សេវាសម្រាប់ហាងចំនួន ៤០។\nសាកល្បងផ្ទាំងប្រើប្រាស់ជាភាសាខ្មែរជាមួយម្ចាស់ហាង។",
+      },
+    },
+    {
+      ...entry("sample-designer"), from: "2020-01", to: "2021-12",
+      title: { en: "Visual designer", km: "អ្នករចនាក្រាហ្វិក" },
+      organization: { en: "Tonle Creative", km: "ទន្លេ គ្រីអេធីវ" },
+      details: { en: "Developed print and digital identities for local retailers.", km: "រចនាអត្តសញ្ញាណម៉ាកសម្រាប់អាជីវកម្មលក់រាយ។" },
+    },
+  ],
+  education: [{
+    ...entry("sample-degree"), to: "2019-12",
+    title: { en: "Bachelor of Design", km: "បរិញ្ញាបត្រផ្នែករចនា" },
+    organization: { en: "School of Design", km: "សាលារចនា" },
+  }],
+  skills: { en: "Interface design\nUser research\nPrototyping", km: "ការរចនាផ្ទាំងប្រើប្រាស់\nការស្រាវជ្រាវ\nការបង្កើតគំរូ" },
+  languages: { en: "Khmer · Native\nEnglish · Professional", km: "ខ្មែរ · ភាសាកំណើត\nអង់គ្លេស · ប្រើក្នុងការងារ" },
 };
+
+// Show a different silhouette in each of the first six gallery positions.
+const galleryTemplates = ["canopy", "atlas", "journey", "scholar", "balance", "essential"]
+  .flatMap((id) => CV_TEMPLATES.filter((item) => item.id === id));
+const galleryCollection = [
+  ...galleryTemplates,
+  ...CV_TEMPLATES.filter((item) => !galleryTemplates.includes(item)),
+];
 
 function CvPair({ value, language }: { value: CvText; language: CvLanguage }) {
   return <>{cvTextLines(value, language).map((line, index) => <span key={line.language} lang={line.language} className={`${styles.textLine} ${index > 0 ? styles.secondary : ""}`}>{line.text}</span>)}</>;
@@ -81,9 +112,12 @@ function CvPreview({ data, template, language }: { data: CvData; template: CvTem
 }
 
 function MiniTemplate({ template }: { template: CvTemplate }) {
-  const portrait = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="180" viewBox="0 0 150 180"><rect width="150" height="180" fill="#e8ded1"/><path d="M14 180v-22c0-41 122-41 122 0v22" fill="#354b52"/><ellipse cx="75" cy="72" rx="33" ry="43" fill="#c79b79"/><path d="M40 69c-8-63 85-66 71 9L98 50 44 65z" fill="#3b3532"/><path d="M61 107h28v25H61z" fill="#c79b79"/></svg>');
-  const sample = ["sidebar", "banner", "split"].includes(template.layout) ? { ...sampleCv, photo: portrait } : sampleCv;
-  return <div aria-hidden="true" className={styles.templateSheet} inert><CvPreview data={sample} template={template} language="en" /></div>;
+  const { lang } = useI18n();
+  return (
+    <div aria-hidden="true" className={styles.templateSheet} inert>
+      <CvPreview data={sampleCv} template={template} language={lang === "km" ? "km" : "en"} />
+    </div>
+  );
 }
 
 function Field({ id, label, value, onChange, multiline = false, type = "text", maxLength = 160, placeholder }: {
@@ -240,14 +274,21 @@ export function CvBuilder() {
       <div className={styles.previewWrap}><div className={styles.previewTop}><span>{t("Live preview", "មើលលទ្ធផលភ្លាមៗ")}</span><small>{template.name} · A4 · {language === "bilingual" ? "EN + ខ្មែរ" : language === "en" ? "English" : "ខ្មែរ"}</small></div><div className={styles.previewScroll} aria-label={t("CV preview", "មើល CV")} tabIndex={0}><div ref={preview}><CvPreview data={data} template={template} language={language} /></div></div><p className={styles.previewHelp}>{t("Empty sections are omitted. A long CV continues onto additional PDF pages. Add your name to enable export; check the print preview before saving.", "ផ្នែកដែលមិនបានបំពេញនឹងមិនបង្ហាញ។ CV វែងនឹងបន្តទៅទំព័រ PDF បន្ទាប់។ បំពេញឈ្មោះដើម្បីរក្សាទុក ហើយពិនិត្យផ្ទាំងបោះពុម្ពជាមុន។")}</p></div>
     </div>
     <dialog ref={picker} className={styles.modal} aria-labelledby="cv-template-heading">
-      <div className={styles.modalHeader}><div><span className={styles.galleryEyebrow}>{t("THE CV COLLECTION", "បណ្ដុំគំរូ CV")}</span><h2 id="cv-template-heading">{t("Find your next first impression.", "ជ្រើសរើសរចនាបទសម្រាប់ឱកាសថ្មី។")}</h2><p>{t("24 free designs. Real document previews with example content. Your information stays unchanged when you switch.", "រចនាបទឥតគិតថ្លៃ ២៤។ មើលគំរូឯកសារពិតជាមួយព័ត៌មានឧទាហរណ៍។ ការប្ដូរគំរូមិនផ្លាស់ប្ដូរព័ត៌មានរបស់អ្នកទេ។")}</p></div><button className={styles.button} type="button" onClick={() => picker.current?.close()} aria-label={t("Close templates", "បិទគំរូ")}><X size={18} /></button></div>
+      <div className={styles.modalHeader}><div><h2 id="cv-template-heading">{t("Choose a CV template", "ជ្រើសរើសគំរូ CV")}</h2></div><button className={styles.button} type="button" onClick={() => picker.current?.close()} aria-label={t("Close templates", "បិទគំរូ")}><X size={18} /></button></div>
       <div className={styles.templateFilters} aria-label={t("Filter templates", "ត្រងគំរូ")}>
         {["all", "classic", "sidebar", "banner", "split", "timeline", "minimal"].map((filter) => <button type="button" key={filter} aria-pressed={templateFilter === filter} onClick={() => setTemplateFilter(filter)}>{filter === "all" ? t("All 24", "ទាំង ២៤") : filter}<span>{filter === "all" ? "" : "4"}</span></button>)}
       </div>
-      <div className={styles.templateGrid}>{CV_TEMPLATES.filter((item) => templateFilter === "all" || item.layout === templateFilter).map((item) => <div key={item.id} className={styles.templateCard} data-selected={templateId === item.id}>
+      <div className={styles.templateGrid}>{galleryCollection.filter((item) => templateFilter === "all" || item.layout === templateFilter).map((item) => <div key={item.id} className={styles.templateCard} data-selected={templateId === item.id}>
         <MiniTemplate template={item} />
-        <div className={styles.templateCaption}><div><strong>{item.name}</strong><small>{item.layout}{item.educationFirst ? " · education first" : item.compact ? " · compact" : item.serif ? " · serif" : " · standard"}</small></div><span className={styles.freeBadge}>{t("FREE", "ឥតគិតថ្លៃ")}</span></div>
-        <button type="button" className={styles.templateButton} aria-pressed={templateId === item.id} aria-label={`${t("Use template", "ប្រើគំរូ")} ${item.name}`} onClick={() => { setTemplateId(item.id); picker.current?.close(); }}>{templateId === item.id ? <><Check size={13} aria-hidden="true" />{t("Selected", "បានជ្រើសរើស")}</> : t("Use this template", "ប្រើគំរូនេះ")}</button>
+        <button
+          type="button"
+          className={styles.cardSelect}
+          aria-pressed={templateId === item.id}
+          onClick={() => { setTemplateId(item.id); picker.current?.close(); }}
+        >
+          {item.name}
+          {templateId === item.id && <Check size={15} aria-hidden="true" />}
+        </button>
       </div>)}</div>
     </dialog>
   </div>;
