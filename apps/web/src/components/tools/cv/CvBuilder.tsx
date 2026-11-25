@@ -2303,16 +2303,20 @@ export function CvBuilder() {
                         )}
                       </p>
                       <div className={styles.telegramActions}>
-                        <a
-                          href={telegramExport.telegramUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`${styles.button} ${styles.telegramBtn}`}
-                        >
-                          <Send size={15} aria-hidden="true" />
-                          {t("Open Telegram", "បើក Telegram")}
-                          <ExternalLink size={13} aria-hidden="true" />
-                        </a>
+                        {/^https:\/\/t\.me\/[a-zA-Z0-9_]+\?start=cv_[a-zA-Z0-9_-]{16,44}$/.test(
+                          telegramExport.telegramUrl,
+                        ) && (
+                          <a
+                            href={telegramExport.telegramUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`${styles.button} ${styles.telegramBtn}`}
+                          >
+                            <Send size={15} aria-hidden="true" />
+                            {t("Open Telegram", "បើក Telegram")}
+                            <ExternalLink size={13} aria-hidden="true" />
+                          </a>
+                        )}
                         <button
                           type="button"
                           className={styles.button}

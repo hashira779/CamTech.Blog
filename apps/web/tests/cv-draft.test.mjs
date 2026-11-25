@@ -68,3 +68,13 @@ test("sessionStorage round-trip writes, restores, and clears draft without throw
   assert.equal(clearCvDraftFromSession(storage), true);
   assert.equal(readCvDraftFromSession(storage), null);
 });
+
+test("security: JSON import ignores prototype pollution and blocks SVG XSS payloads", () => {
+  const maliciousPayload = JSON.parse(
+    '{"__proto__":{"polluted":true},"data":{"name":{"en":"<b>XSS</b>"},"photo":"data:image/svg+xml;base64,PHN2Zz4="}}',
+  );
+  const parsed = sanitizeCvDraft(maliciousPayload);
+  assert.ok(parsed);
+  assert.equal(({}).polluted, undefined);
+  assert.equal(parsed.data.photo, "");
+});

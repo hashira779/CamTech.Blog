@@ -53,12 +53,16 @@ function asCleanString(value: unknown, maxLen: number): string {
   return typeof value === "string" ? value.slice(0, maxLen) : "";
 }
 
+function ownProp(obj: Record<string, unknown>, key: string): unknown {
+  return Object.prototype.hasOwnProperty.call(obj, key) ? obj[key] : undefined;
+}
+
 function asPair(value: unknown, maxLen: number): CvText {
-  if (!value || typeof value !== "object") return { en: "", km: "" };
+  if (!value || typeof value !== "object" || Array.isArray(value)) return { en: "", km: "" };
   const record = value as Record<string, unknown>;
   return {
-    en: asCleanString(record.en, maxLen),
-    km: asCleanString(record.km, maxLen),
+    en: asCleanString(ownProp(record, "en"), maxLen),
+    km: asCleanString(ownProp(record, "km"), maxLen),
   };
 }
 

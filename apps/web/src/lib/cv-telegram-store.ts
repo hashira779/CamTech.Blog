@@ -5,6 +5,8 @@ export const CV_DELIVERED_RETENTION_MS = 2 * 60 * 1000;
 export const CV_MAX_PDF_BYTES = 5 * 1024 * 1024;
 export const CV_MAX_CACHED_SESSIONS = 500;
 export const CV_MAX_TOTAL_CACHE_BYTES = 256 * 1024 * 1024;
+export const CV_MAX_RATE_BUCKETS = 5000;
+export const CV_MAX_MULTIPART_BYTES = 6 * 1024 * 1024;
 
 export type CvTelegramDeliveryStatus = "pending" | "delivered" | "expired";
 
@@ -89,14 +91,45 @@ export function sanitizeTelegramPdfFilename(rawName?: string | null): string {
 }
 
 export function isPdfMagicHeader(bytes: Uint8Array): boolean {
-  if (bytes.byteLength < 5) return false;
+  if (bytes.byteLength < 6) return false;
   return (
     bytes[0] === 0x25 && // %
     bytes[1] === 0x50 && // P
     bytes[2] === 0x44 && // D
     bytes[3] === 0x46 && // F
-    bytes[4] === 0x2d    // -
+    bytes[4] === 0x2d && // -
+    (bytes[5] === 0x31 || bytes[5] === 0x32) // %PDF-1.x or %PDF-2.x
   );
+}
+
+/**
+ * Extracts caller IP while refusing attacker-spoofed leftmost X-Forwarded-For entries.
+ * Trusts Cloudflare's edge header first, then Nginx's X-Real-IP, then rightmost proxy hop.
+ */
+export function resolveClientIp(request: Request): string {
+  const cfIp = request.headers.get("cf-connecting-ip")?.trim();
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  const forwarded = request.headers.get("x-forwarded-for");
+  const rightMostForwarded = forwarded
+    ? forwarded
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .at(-1)
+    : "";
+
+  const candidate = cfIp || realIp || rightMostForwarded || "local";
+  return candidate.replace(/[^a-zA-Z0-9.:_-]/g, "").slice(0, 64) || "local";
+}
+
+function isValidTelegramChatId(chatId: unknown): chatId is number | string {
+  if (typeof chatId === "number") {
+    return Number.isSafeInteger(chatId) && chatId !== 0;
+  }
+  if (typeof chatId === "string") {
+    return /^-?\d{1,20}$/.test(chatId.trim());
+  }
+  return false;
 }
 
 export function cleanupExpiredCvSessions(
@@ -139,6 +172,10 @@ export function checkCvTelegramRateLimit(
   if (existing.length >= maxRequests) {
     store.rateBuckets.set(bucketKey, existing);
     return false;
+  }
+  if (!store.rateBuckets.has(bucketKey) && store.rateBuckets.size >= CV_MAX_RATE_BUCKETS) {
+    const oldestBucket = store.rateBuckets.keys().next().value;
+    if (oldestBucket) store.rateBuckets.delete(oldestBucket);
   }
   existing.push(now);
   store.rateBuckets.set(bucketKey, existing);
@@ -204,8 +241,8 @@ export function upsertCvSession(
     token,
     sessionId: input.sessionId,
     fileName: sanitizeTelegramPdfFilename(input.fileName),
-    templateName: (input.templateName || "CV").trim().slice(0, 48),
-    languageLabel: (input.languageLabel || "EN").trim().slice(0, 24),
+    templateName: (input.templateName || "CV").replace(/[\r\n\t]+/g, " ").trim().slice(0, 48),
+    languageLabel: (input.languageLabel || "EN").replace(/[\r\n\t]+/g, " ").trim().slice(0, 24),
     pdfBytes: new Uint8Array(input.pdfBytes),
     byteLength: input.pdfBytes.byteLength,
     createdAt: now,
@@ -374,8 +411,8 @@ export async function handleTelegramMessageUpdate(message: {
   chat?: { id?: number | string };
 }): Promise<void> {
   const chatId = message?.chat?.id;
-  if (chatId === undefined || chatId === null) return;
-  const text = (message.text || "").trim();
+  if (!isValidTelegramChatId(chatId)) return;
+  const text = (typeof message.text === "string" ? message.text : "").trim().slice(0, 512);
   const startToken = parseStartToken(text);
   if (startToken) {
     await deliverCvToTelegramChat(startToken, chatId);

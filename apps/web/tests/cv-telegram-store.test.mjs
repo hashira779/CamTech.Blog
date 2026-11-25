@@ -5,12 +5,14 @@ import {
   checkCvTelegramRateLimit,
   cleanupExpiredCvSessions,
   CV_DELIVERED_RETENTION_MS,
+  CV_MAX_RATE_BUCKETS,
   CV_SESSION_TTL_MS,
   deleteCvSession,
   getCvSessionStatus,
   isPdfMagicHeader,
   isValidSessionId,
   parseStartToken,
+  resolveClientIp,
   sanitizeTelegramPdfFilename,
   upsertCvSession,
 } from "../src/lib/cv-telegram-store.ts";
@@ -86,4 +88,33 @@ test("sliding window rate limiter enforces request caps", () => {
   assert.equal(checkCvTelegramRateLimit("upload:1.2.3.4", 2, 60_000, store, t0 + 100), true);
   assert.equal(checkCvTelegramRateLimit("upload:1.2.3.4", 2, 60_000, store, t0 + 200), false);
   assert.equal(checkCvTelegramRateLimit("upload:1.2.3.4", 2, 60_000, store, t0 + 61_000), true);
+});
+
+test("security: resolveClientIp refuses leftmost X-Forwarded-For spoofing and rejects invalid PDF magic variants", () => {
+  const spoofedReq = new Request("https://camtech.cam/api/cv-telegram/sessions", {
+    headers: {
+      "x-forwarded-for": "9.9.9.9, 10.0.0.2",
+      "cf-connecting-ip": "203.0.113.42",
+    },
+  });
+  assert.equal(resolveClientIp(spoofedReq), "203.0.113.42");
+
+  const proxyOnlyReq = new Request("https://camtech.cam/api/cv-telegram/sessions", {
+    headers: {
+      "x-forwarded-for": "1.2.3.4, 198.51.100.77",
+    },
+  });
+  assert.equal(resolveClientIp(proxyOnlyReq), "198.51.100.77");
+
+  assert.equal(isPdfMagicHeader(new TextEncoder().encode("%PDF-fake")), false);
+  assert.equal(isPdfMagicHeader(new TextEncoder().encode("%PDF-")), false);
+});
+
+test("security: rate limiter caps bucket map growth against IP-rotation flood attacks", () => {
+  const store = makeTestStore();
+  const t0 = 6_000_000;
+  for (let i = 0; i < CV_MAX_RATE_BUCKETS + 50; i += 1) {
+    checkCvTelegramRateLimit(`upload:attacker-${i}`, 5, 60_000, store, t0);
+  }
+  assert.equal(store.rateBuckets.size, CV_MAX_RATE_BUCKETS);
 });

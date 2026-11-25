@@ -2,30 +2,45 @@ import { NextResponse } from "next/server";
 import {
   buildTelegramDeepLink,
   checkCvTelegramRateLimit,
+  CV_MAX_MULTIPART_BYTES,
   CV_MAX_PDF_BYTES,
   CV_SESSION_TTL_MS,
   ensureTelegramPoller,
   isPdfMagicHeader,
   isValidSessionId,
   resolveBotUsername,
+  resolveClientIp,
   upsertCvSession,
 } from "@/lib/cv-telegram-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function clientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  return request.headers.get("x-real-ip")?.trim() || "local";
-}
-
 export async function POST(request: Request) {
-  const ip = clientIp(request);
-  if (!checkCvTelegramRateLimit(`upload:${ip}`, 25, 60_000)) {
+  const ip = resolveClientIp(request);
+  if (
+    !checkCvTelegramRateLimit(`upload:${ip}`, 25, 60_000) ||
+    !checkCvTelegramRateLimit("upload:global", 250, 60_000)
+  ) {
     return NextResponse.json(
       { error: "Too many export attempts. Please wait a minute and try again." },
       { status: 429, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const contentType = request.headers.get("content-type") || "";
+  if (!contentType.toLowerCase().includes("multipart/form-data")) {
+    return NextResponse.json(
+      { error: "Unsupported request content type." },
+      { status: 415, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const rawContentLength = Number(request.headers.get("content-length") || 0);
+  if (Number.isFinite(rawContentLength) && rawContentLength > CV_MAX_MULTIPART_BYTES) {
+    return NextResponse.json(
+      { error: "PDF upload exceeds maximum allowed payload size." },
+      { status: 413, headers: { "Cache-Control": "no-store" } },
     );
   }
 
