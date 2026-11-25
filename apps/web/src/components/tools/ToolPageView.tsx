@@ -8,6 +8,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { ToolDispatcher } from "@/components/tools/ToolDispatcher";
 import { ToolGuideSection } from "@/components/tools/ToolGuideSection";
+import { CvNextSteps } from "@/components/tools/cv/CvNextSteps";
 import { AdSlot } from "@/components/ads/AdSlot";
 import { ALL_TOOLS } from "@/lib/tools-data";
 import { cleanText, humanize } from "@/lib/format";
@@ -92,6 +93,8 @@ export function ToolPageView({ tool }: { tool: Tool }) {
           </div>
 
           <ToolGuideSection slug={tool.slug} />
+
+          {isCv && <CvNextSteps />}
 
           <Link
             href="/tools"

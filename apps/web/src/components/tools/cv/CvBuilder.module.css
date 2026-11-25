@@ -144,6 +144,37 @@
   color: var(--foreground);
 }
 
+.draftBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.draftBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 11px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.draftBtn:hover:not(:disabled) {
+  background: var(--surface-muted);
+}
+
+.draftBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .preferences {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -7,6 +7,7 @@ import { Container, Section } from "@/components/ui/container";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { ToolGuideSection } from "@/components/tools/ToolGuideSection";
+import { CvNextSteps } from "@/components/tools/cv/CvNextSteps";
 import { useI18n } from "@/lib/i18n";
 
 const CvBuilder = dynamic(
@@ -58,6 +59,7 @@ export function CvBuilderFeaturePage() {
           </div>
 
           <ToolGuideSection slug="cv-builder" headingId="cv-guide-title" />
+          <CvNextSteps />
         </div>
       </Container>
     </Section>

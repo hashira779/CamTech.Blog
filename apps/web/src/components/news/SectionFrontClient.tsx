@@ -140,7 +140,7 @@ export function SectionFrontClient({
                 </div>
               )}
 
-              <AdSlot slot="HOME_TOP" />
+              <AdSlot slot="HOME_TOP" eligible={items.length > 0} />
 
               {secondary.length > 0 && (
                 <div className="mt-12">
@@ -199,7 +199,7 @@ export function SectionFrontClient({
                   </Link>
                 </div>
 
-                <AdSlot slot="SIDEBAR" />
+                <AdSlot slot="SIDEBAR" eligible={items.length > 0} />
               </div>
             </aside>
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export interface ExchangeRateResult {
   rate: number;
@@ -52,17 +52,27 @@ export function useLiveExchangeRate(initialDefault = 4080) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isLive, setIsLive] = useState<boolean>(false);
 
-  const loadRate = async () => {
+  const loadRate = useCallback(async () => {
     setIsLoading(true);
     const result = await fetchLiveUsdKhrRate();
     setRate(result.rate);
     setLastUpdated(result.lastUpdated);
     setIsLive(result.isLive);
     setIsLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
-    loadRate();
+    let active = true;
+    fetchLiveUsdKhrRate().then((result) => {
+      if (!active) return;
+      setRate(result.rate);
+      setLastUpdated(result.lastUpdated);
+      setIsLive(result.isLive);
+      setIsLoading(false);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   return {

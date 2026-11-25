@@ -75,29 +75,43 @@ export function SuperSearch() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  const closeSearch = useCallback(() => {
+    setIsOpen(false);
+    setQuery("");
+    setResults([]);
+    setActive(0);
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setIsOpen((prev) => !prev);
+        setIsOpen((prev) => {
+          if (prev) {
+            setQuery("");
+            setResults([]);
+            setActive(0);
+            setLoading(false);
+            return false;
+          }
+          return true;
+        });
       }
-      if (e.key === "Escape") setIsOpen(false);
+      if (e.key === "Escape") closeSearch();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [closeSearch]);
 
   useEffect(() => {
-    if (isOpen) {
-      const timer = setTimeout(() => inputRef.current?.focus(), 60);
-      return () => clearTimeout(timer);
-    }
-    setQuery("");
-    setResults([]);
-    setActive(0);
+    if (!isOpen) return;
+    const timer = setTimeout(() => inputRef.current?.focus(), 60);
+    return () => clearTimeout(timer);
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen) return;
     const timer = setTimeout(async () => {
       const term = query.trim();
       if (term.length < 2) {
@@ -112,14 +126,14 @@ export function SuperSearch() {
       setLoading(false);
     }, 300);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [isOpen, query]);
 
   const go = useCallback(
     (url: string) => {
-      setIsOpen(false);
+      closeSearch();
       router.push(url);
     },
-    [router]
+    [closeSearch, router]
   );
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -179,7 +193,7 @@ export function SuperSearch() {
         >
           <div
             className="animate-fade-in fixed inset-0 bg-foreground/30 backdrop-blur-sm"
-            onClick={() => setIsOpen(false)}
+            onClick={closeSearch}
             aria-hidden="true"
           />
 
@@ -199,7 +213,7 @@ export function SuperSearch() {
               />
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
+                onClick={closeSearch}
                 aria-label="Close search"
                 className="-mr-1 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >

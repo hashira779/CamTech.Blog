@@ -8,6 +8,8 @@ import {
   CheckCircle2,
   Download,
   ExternalLink,
+  FileDown,
+  FileUp,
   FolderKanban,
   Globe,
   GraduationCap,
@@ -21,6 +23,7 @@ import {
   Plus,
   QrCode,
   RefreshCw,
+  RotateCcw,
   Send,
   ShieldCheck,
   Sparkles,
@@ -31,6 +34,12 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { buildCvPdfBlob } from "@/lib/cv-pdf";
+import {
+  clearCvDraftFromSession,
+  readCvDraftFromSession,
+  sanitizeCvDraft,
+  writeCvDraftToSession,
+} from "@/lib/cv-draft";
 import { CvPrivacySessionNotice } from "./CvPrivacySessionNotice";
 import {
   CV_TEMPLATES,
@@ -79,6 +88,8 @@ type CvData = {
 };
 
 type SectionKey = "contact" | "summary" | "experience" | "education" | "skills" | "languages" | "projects";
+
+const VALID_TEMPLATE_IDS = new Set(CV_TEMPLATES.map((item) => item.id));
 
 const pair = (): CvText => ({ en: "", km: "" });
 const entry = (id: string): Entry => ({
@@ -1055,7 +1066,9 @@ export function CvBuilder() {
   const [desktopEditorOpen, setDesktopEditorOpen] = useState(true);
 
   const cvSessionId = useRef("");
+  const draftHydrated = useRef(false);
   const photoInput = useRef<HTMLInputElement>(null);
+  const jsonInput = useRef<HTMLInputElement>(null);
   const previewViewport = useRef<HTMLDivElement>(null);
   const preview = useRef<HTMLDivElement>(null);
   const picker = useRef<HTMLDialogElement>(null);
@@ -1089,6 +1102,35 @@ export function CvBuilder() {
       grid.style.setProperty("--cv-thumb-scale", String(width / 794));
     }
   }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      draftHydrated.current = true;
+      const restored = readCvDraftFromSession(undefined, VALID_TEMPLATE_IDS);
+      if (restored && hasData(restored.data)) {
+        setData(restored.data);
+        setTemplateId(restored.templateId);
+        setLanguage(restored.language);
+        setMessage(
+          lang === "km"
+            ? "បានស្ដារទិន្នន័យ CV ពី session នេះ។"
+            : "Restored your unsaved draft from this tab session.",
+        );
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+    // Run once on client mount to restore ephemeral tab session state without SSR hydration mismatch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!draftHydrated.current) return;
+    if (dirty) {
+      writeCvDraftToSession({ version: 1, templateId, language, data });
+    } else {
+      clearCvDraftFromSession();
+    }
+  }, [data, templateId, language, dirty]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -1250,11 +1292,74 @@ export function CvBuilder() {
         void fetch(`/api/cv-telegram/sessions/${encodeURIComponent(telegramExport.token)}`, { method: "DELETE" }).catch(() => {});
       }
       cvSessionId.current = crypto.randomUUID();
+      clearCvDraftFromSession();
       setTelegramExport(null);
       setData(emptyCv());
       setMessage("");
       setError(false);
       if (photoInput.current) photoInput.current.value = "";
+      if (jsonInput.current) jsonInput.current.value = "";
+    }
+  }
+
+  function exportJsonBackup() {
+    const payload = JSON.stringify(
+      { version: 1, templateId, language, data },
+      null,
+      2,
+    );
+    const blob = new Blob([payload], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${cvFileName(data.name.en || data.name.km).replace(/\.pdf$/i, "")}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    setError(false);
+    setMessage(
+      t(
+        "Saved JSON backup locally. You can import this file anytime to resume editing.",
+        "បានទាញយកឯកសារបម្រុង JSON។ អ្នកអាចនាំចូលវិញនៅពេលក្រោយដើម្បីកែបន្ត។",
+      ),
+    );
+  }
+
+  async function importJsonBackup(file?: File) {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setError(true);
+      setMessage(t("JSON backup file must be under 2 MB.", "ឯកសារ JSON មិនត្រូវលើស 2 MB ឡើយ។"));
+      if (jsonInput.current) jsonInput.current.value = "";
+      return;
+    }
+    try {
+      const text = await file.text();
+      const parsed = sanitizeCvDraft(JSON.parse(text), templateId, VALID_TEMPLATE_IDS);
+      if (!parsed) {
+        throw new Error("Invalid CV backup structure");
+      }
+      setData(parsed.data);
+      setTemplateId(parsed.templateId);
+      setLanguage(parsed.language);
+      setError(false);
+      setMessage(
+        t(
+          "Imported CV backup into this tab session.",
+          "បាននាំចូលទិន្នន័យ CV ពីឯកសារ JSON រួចរាល់។",
+        ),
+      );
+    } catch {
+      setError(true);
+      setMessage(
+        t(
+          "Could not read that CV JSON file. Select a backup exported from this builder.",
+          "មិនអាចអានឯកសារ JSON នេះបានទេ។ សូមជ្រើសរើសឯកសារដែលបានរក្សាទុកពីកម្មវិធីនេះ។",
+        ),
+      );
+    } finally {
+      if (jsonInput.current) jsonInput.current.value = "";
     }
   }
 
@@ -1573,8 +1678,8 @@ export function CvBuilder() {
           <h2>{t("Your next opportunity starts here.", "ឱកាសបន្ទាប់របស់អ្នកចាប់ផ្ដើមនៅទីនេះ។")}</h2>
           <p>
             {t(
-              "Free standard templates. No account. No watermark. Your draft lives only in this tab; export it before leaving or refreshing.",
-              "គំរូ CV ស្តង់ដារឥតគិតថ្លៃ មិនត្រូវការគណនី និងគ្មាន watermark។ សេចក្ដីព្រាងស្ថិតក្នុងទំព័រនេះតែប៉ុណ្ណោះ សូមរក្សាទុក PDF មុនចាកចេញ ឬ refresh។",
+              "Free standard templates. No account. No watermark. Auto-saved in this open tab only; export PDF or JSON before closing.",
+              "គំរូ CV ស្តង់ដារឥតគិតថ្លៃ មិនត្រូវការគណនី និងគ្មាន watermark។ រក្សាទុកបណ្ដោះអាសន្នតែក្នុង Tab នេះ សូមរក្សាទុក PDF ឬ JSON មុនពេលបិទ។",
             )}
           </p>
         </div>
@@ -1671,8 +1776,8 @@ export function CvBuilder() {
             <ShieldCheck size={16} className="mb-2" aria-hidden="true" />
             <strong>{t("Temporary and private.", "បណ្ដោះអាសន្ន និងឯកជន។")}</strong>{" "}
             {t(
-              "No CV data is sent to our server or saved in browser storage. Enter both languages yourself; changing the display language does not translate your content.",
-              "ទិន្នន័យ CV មិនត្រូវបានផ្ញើទៅ server ឬរក្សាទុកក្នុង browser storage ទេ។ សូមបំពេញភាសាទាំងពីរដោយខ្លួនឯង។ ការប្ដូរភាសាបង្ហាញមិនបកប្រែអត្ថបទរបស់អ្នកទេ។",
+              "Drafts stay in this tab’s temporary session memory while open (cleared automatically when closed) and are never saved in a database. Fill both languages yourself; display language does not auto-translate.",
+              "ទិន្នន័យស្ថិតតែក្នុង session របស់ Tab នេះប៉ុណ្ណោះ (លុបចោលពេលបិទ Tab) ដោយមិនរក្សាទុកក្នុង Database ឡើយ។ សូមបំពេញភាសាទាំងពីរដោយខ្លួនឯង។",
             )}
           </p>
           <div className={styles.preferences}>
@@ -1702,6 +1807,42 @@ export function CvBuilder() {
                 ))}
               </select>
             </label>
+          </div>
+          <div className={styles.draftBar}>
+            <button
+              type="button"
+              className={styles.draftBtn}
+              onClick={exportJsonBackup}
+              disabled={!dirty}
+            >
+              <FileDown size={13} aria-hidden="true" />
+              {t("Save JSON", "រក្សាទុក JSON")}
+            </button>
+            <button
+              type="button"
+              className={styles.draftBtn}
+              onClick={() => jsonInput.current?.click()}
+            >
+              <FileUp size={13} aria-hidden="true" />
+              {t("Load JSON", "នាំចូល JSON")}
+            </button>
+            <input
+              ref={jsonInput}
+              type="file"
+              accept="application/json,.json"
+              className="sr-only"
+              aria-label={t("Import CV JSON backup", "នាំចូលឯកសារ CV JSON")}
+              onChange={(event) => void importJsonBackup(event.target.files?.[0])}
+            />
+            <button
+              type="button"
+              className={styles.draftBtn}
+              onClick={reset}
+              disabled={!dirty}
+            >
+              <RotateCcw size={13} aria-hidden="true" />
+              {t("Clear", "សម្អាត")}
+            </button>
           </div>
           <details className={styles.section} open>
             <summary>{t("1. Personal details", "១. ព័ត៌មានផ្ទាល់ខ្លួន")}</summary>

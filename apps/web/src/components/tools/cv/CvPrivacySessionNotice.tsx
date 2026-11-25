@@ -129,12 +129,12 @@ export function CvPrivacySessionNotice() {
             <HardDrive size={16} aria-hidden="true" />
             <div>
               <strong>
-                {isKm ? "រៀបចំផ្ទាល់ក្នុង Browser" : "Edited only in your browser"}
+                {isKm ? "រក្សាបណ្ដោះអាសន្នក្នុង Tab នេះប៉ុណ្ណោះ" : "Stored temporarily in this open tab"}
               </strong>
               <span>
                 {isKm
-                  ? "ទិន្នន័យស្ថិតតែក្នុងទំព័រកំពុងបើក។ បើ Reload ឬបិទ Tab វានឹងត្រូវសម្អាតចោល។"
-                  : "Everything lives in this open tab. Refreshing or closing the tab clears the draft."}
+                  ? "ទិន្នន័យត្រូវរក្សាទុកក្នុង session របស់ Tab នេះដើម្បីការពារការច្រឡំ Refresh។ ពេលបិទ Tab ឬចុច សម្អាត វានឹងលុបចោលភ្លាម។"
+                  : "Kept only in this tab’s temporary session memory while open. Closing the tab or clicking Clear erases it."}
               </span>
             </div>
           </li>
