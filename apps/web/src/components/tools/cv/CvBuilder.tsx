@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { buildCvPdfBlob } from "@/lib/cv-pdf";
+import { CvPrivacySessionNotice } from "./CvPrivacySessionNotice";
 import {
   CV_TEMPLATES,
   cvDate,
@@ -1566,6 +1567,7 @@ export function CvBuilder() {
 
   return (
     <div className={styles.builder}>
+      <CvPrivacySessionNotice />
       <div className={styles.toolbar}>
         <div>
           <h2>{t("Your next opportunity starts here.", "ឱកាសបន្ទាប់របស់អ្នកចាប់ផ្ដើមនៅទីនេះ។")}</h2>

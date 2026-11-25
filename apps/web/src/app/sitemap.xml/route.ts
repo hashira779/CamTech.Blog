@@ -36,6 +36,11 @@ export async function GET(request: Request) {
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>${baseUrl}/cv-builder</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
     <loc>${baseUrl}/tools</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>

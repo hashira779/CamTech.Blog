@@ -2852,6 +2852,173 @@
   width: min(calc(100% - 24px), 520px);
 }
 
+/* First-session editorial zero-storage privacy notice */
+.privacyModal {
+  width: min(calc(100% - 24px), 470px);
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
+}
+
+.privacyInner {
+  padding: 24px 26px 22px;
+}
+
+.privacyTopbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.privacyKicker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.privacyControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.privacyLangSwitch {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 2px;
+  background: var(--surface-muted);
+}
+
+.privacyLangSwitch button {
+  border: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 10px;
+  font-weight: 650;
+  padding: 4px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.privacyLangSwitch button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.privacyClose {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.privacyClose:hover {
+  background: var(--surface-muted);
+  color: var(--foreground);
+}
+
+.privacyHeading {
+  font-family: var(--font-serif), var(--font-khmer), Georgia, serif;
+  font-size: 24px;
+  font-weight: 450;
+  line-height: 1.24;
+  letter-spacing: -0.025em;
+  margin: 0;
+  color: var(--foreground);
+}
+
+.privacyLead {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--muted-foreground);
+}
+
+.privacyFacts {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+
+.privacyFacts li {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.privacyFacts li > svg {
+  color: var(--muted-foreground);
+  margin-top: 2px;
+}
+
+.privacyFacts strong {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--foreground);
+  line-height: 1.45;
+}
+
+.privacyFacts span {
+  display: block;
+  margin-top: 3px;
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--muted-foreground);
+}
+
+.privacyFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.privacyFootnote {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+.privacyAccept {
+  margin-left: auto;
+  min-height: 40px;
+  padding: 9px 18px;
+}
+
+@media (max-width: 520px) {
+  .privacyInner {
+    padding: 20px 18px 18px;
+  }
+
+  .privacyHeading {
+    font-size: 21px;
+  }
+
+  .privacyAccept {
+    width: 100%;
+  }
+}
+
 .telegramBody {
   display: grid;
   gap: 16px;

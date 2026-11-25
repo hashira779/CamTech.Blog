@@ -31,6 +31,7 @@ import { cleanText } from "@/lib/format";
  * category hues as the rest of the site.
  */
 const QUICK_LINKS: { href: string; key: string; Icon: typeof Compass }[] = [
+  { href: "/cv-builder", key: "nav.cv_builder", Icon: FileText },
   { href: "/travel", key: "nav.travel", Icon: Compass },
   { href: "/tools", key: "nav.tools", Icon: Wrench },
   { href: "/discover", key: "nav.discover", Icon: Sparkles },

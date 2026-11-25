@@ -1,3 +1,6 @@
+"use client";
+
+import React, { useMemo } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -10,6 +13,8 @@ import {
   Wrench,
   Zap,
 } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
+import { ALL_TOOLS } from "@/lib/tools-data";
 
 export interface ToolCardProps {
   slug: string;
@@ -28,6 +33,13 @@ export function ToolCard({
   description,
   popular,
 }: ToolCardProps) {
+  const { lang } = useI18n();
+  const isKm = lang === "km";
+
+  const toolDef = useMemo(() => ALL_TOOLS.find((t) => t.slug === slug), [slug]);
+  const displayName = isKm && toolDef?.name_km ? toolDef.name_km : name;
+  const displayDesc = isKm && toolDef?.description_km ? toolDef.description_km : description;
+
   const isVideo = slug.includes("video") || slug.includes("downloader");
   const isQr = slug.includes("qr") || slug.includes("khqr");
   const isCalc = category.toLowerCase().includes("calculat") || slug.includes("tax") || slug.includes("salary");
@@ -49,11 +61,11 @@ export function ToolCard({
     : Wrench;
 
   const label = isVideo
-    ? "Media"
+    ? (isKm ? "មេឌៀ" : "Media")
     : isQr
-    ? "QR & Utility"
+    ? (isKm ? "QR & ឧបករណ៍" : "QR & Utility")
     : category.toLowerCase() === "image"
-    ? "Image"
+    ? (isKm ? "រូបភាព" : "Image")
     : category.toLowerCase();
 
   return (
@@ -71,7 +83,7 @@ export function ToolCard({
           <div className="flex items-center gap-1.5">
             {popular && (
               <span className="rounded-full border border-border/70 bg-surface-muted px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Popular
+                {isKm ? "ពេញនិយម" : "Popular"}
               </span>
             )}
             <span className="rounded-full border border-border/60 bg-surface-muted px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -82,12 +94,12 @@ export function ToolCard({
 
         {/* Title */}
         <h3 className="mt-3.5 text-sm font-bold leading-snug tracking-tight text-foreground transition-colors duration-150 group-hover:text-accent sm:text-base">
-          {name}
+          {displayName}
         </h3>
 
         {/* Description */}
         <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-          {description}
+          {displayDesc}
         </p>
       </div>
 
@@ -95,7 +107,7 @@ export function ToolCard({
       <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3 text-xs font-semibold text-muted-foreground transition-colors group-hover:text-accent">
         <span className="inline-flex items-center gap-1 text-[11px]">
           <Zap size={12} className="opacity-60 group-hover:opacity-100" />
-          <span>Open utility</span>
+          <span>{isKm ? "បើកឧបករណ៍" : "Open utility"}</span>
         </span>
         <ArrowUpRight
           size={15}

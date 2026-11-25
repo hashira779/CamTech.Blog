@@ -69,8 +69,7 @@ export function AttributionBox({
       </h3>
 
       <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">
-        This desk summarises and adds context. The reporting belongs to the publisher below, and we
-        link it so you can read it in full.
+        {cleanText(t("article.attribution_statement"))}
       </p>
 
       <dl className="mt-4">

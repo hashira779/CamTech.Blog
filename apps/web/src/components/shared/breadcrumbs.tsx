@@ -1,6 +1,9 @@
+"use client";
+
 import * as React from "react";
 import Link from "next/link";
 import { ChevronRight, Home } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 export interface BreadcrumbItem {
   label: string;
@@ -13,6 +16,8 @@ export interface BreadcrumbsProps {
 }
 
 export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
+  const { t } = useI18n();
+
   return (
     <nav aria-label="Breadcrumb" className={className}>
       <ol className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap py-1 text-xs text-muted-foreground">
@@ -22,7 +27,7 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
             className="flex items-center gap-1 transition-colors hover:text-foreground"
           >
             <Home size={12} aria-hidden="true" />
-            <span>Home</span>
+            <span>{t("nav.home")}</span>
           </Link>
         </li>
         {items.map((item, index) => {

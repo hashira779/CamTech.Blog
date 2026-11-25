@@ -218,21 +218,20 @@ function useReadingProgress(): number {
 export function ArticleReader({ article }: { article: Article }) {
   const { lang, t } = useI18n();
   const progress = useReadingProgress();
-  /* An estimate of where the reader is, derived from the same word count the byline
-     publishes. It is a countdown of position, not a claim about the story. */
-  const readingMinutes = estimateReadingMinutes(article.content);
+  const title = cleanText(lang === "km" && article.title_km ? article.title_km : article.title);
+  const summary = cleanText(lang === "km" && article.summary_km ? article.summary_km : article.summary);
+  const rawContent = lang === "km" && article.content_km ? article.content_km : article.content;
+  const readingMinutes = estimateReadingMinutes(rawContent);
 
   const [copied, setCopied] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
 
-  const title = cleanText(lang === "km" && article.title_km ? article.title_km : article.title);
-  const summary = cleanText(lang === "km" && article.summary_km ? article.summary_km : article.summary);
   const deck = cleanText(article.subheadline);
   const heroImage = article.hero_image_url || null;
   const heroCredit = cleanText(article.hero_image_credit);
   const heroLicense = humanizeLicense(article.hero_image_license);
 
-  const blocks = React.useMemo(() => toBlocks(article.content), [article.content]);
+  const blocks = React.useMemo(() => toBlocks(rawContent), [rawContent]);
   const leadIndex = blocks.findIndex((block) => block.kind === "paragraph");
   const leadParagraph = leadIndex === -1 ? "" : blocks[leadIndex].text;
   const bodyText = blocks
@@ -248,7 +247,7 @@ export function ArticleReader({ article }: { article: Article }) {
 
   /* Khmer stacks taller and takes no Latin drop cap, so the body's own script —
      not the interface language — decides the reading typography. */
-  const khmerCopy = KHMER_SCRIPT.test(article.content || "") || article.language === "km";
+  const khmerCopy = KHMER_SCRIPT.test(rawContent || "") || article.language === "km" || (lang === "km" && Boolean(article.content_km));
 
   /* Wires copy the summary verbatim as the first paragraph, and paste the key
      points into the body as a bullet list. Showing both says the same thing
@@ -259,13 +258,23 @@ export function ArticleReader({ article }: { article: Article }) {
     .filter(Boolean);
   const pointsAlreadyInBody =
     keyPoints.length > 0 && keyPoints.every((point) => bodyText.includes(point));
-  const showKeyPoints = !pointsAlreadyInBody;
+  const hasKhmerKeyPoints = keyPoints.some((point) => KHMER_SCRIPT.test(point));
+  const showKeyPoints = !pointsAlreadyInBody && (lang !== "km" || hasKhmerKeyPoints);
 
   const timeline = parseJsonArray<TimelineItem>(article.timeline);
   const whyItMatters = cleanText(article.why_it_matters);
+  const showWhyItMatters = Boolean(whyItMatters) && (lang !== "km" || KHMER_SCRIPT.test(whyItMatters));
 
-  const author = cleanText(article.author?.name);
-  const authorRole = cleanText(article.author?.role);
+  const author = cleanText(
+    lang === "km" && (article.author?.name === "AI Editorial Desk" || article.author?.name === "Editorial Desk")
+      ? "ការិយាល័យនិពន្ធ AI"
+      : article.author?.name
+  );
+  const authorRole = cleanText(
+    lang === "km" && (article.author?.role === "AI Correspondent" || article.author?.role === "Staff Journalist")
+      ? "អ្នកឆ្លើយឆ្លងព័ត៌មាន AI"
+      : article.author?.role
+  );
   const publisher = stripSourceLabel(article.primary_source?.name || article.source_attribution_text);
   const sourceUrl = cleanUrl(article.primary_source_url || article.primary_source?.website_url);
   const publishedAt = article.published_at || article.created_at || null;
@@ -274,7 +283,11 @@ export function ArticleReader({ article }: { article: Article }) {
       ? formatDate(article.updated_at, "medium")
       : "";
 
-  const sectionName = cleanText(article.category?.name) || (article.country === "KH" ? "Cambodia" : "World");
+  const sectionName = cleanText(
+    lang === "km"
+      ? (article.country === "KH" ? t("cambodia.eyebrow") : t("world.eyebrow"))
+      : (article.category?.name || (article.country === "KH" ? "Cambodia" : "World"))
+  );
   const sectionHref = article.country === "KH" ? "/cambodia" : "/world";
 
   const actionClasses =
@@ -357,9 +370,10 @@ export function ArticleReader({ article }: { article: Article }) {
             sourceUrl={sourceUrl}
             date={publishedAt}
             dateStyle="long"
-            readingTime={formatReadingTime(article.content)}
+            readingTime={formatReadingTime(rawContent, lang)}
             views={article.views_count > 0 ? article.views_count : null}
             location={cleanText(article.province_or_city) || null}
+            lang={lang}
             size="md"
           />
           {(authorRole || updatedLabel) && (
@@ -428,23 +442,23 @@ export function ArticleReader({ article }: { article: Article }) {
           >
             <div className="sticky top-28 flex flex-col items-center gap-1.5">
               <RailButton
-                label="Share on Facebook"
+                label={t("article.share_fb")}
                 onClick={() => handleShareSocial("fb")}
               >
                 <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4" aria-hidden="true">
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                 </svg>
               </RailButton>
-              <RailButton label="Share on Telegram" onClick={() => handleShareSocial("tg")}>
+              <RailButton label={t("article.share_tg")} onClick={() => handleShareSocial("tg")}>
                 <Send className="h-4 w-4" aria-hidden="true" />
               </RailButton>
-              <RailButton label="Share on X" onClick={() => handleShareSocial("x")}>
+              <RailButton label={t("article.share_x")} onClick={() => handleShareSocial("x")}>
                 <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
                   <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                 </svg>
               </RailButton>
               <RailButton
-                label={copied ? "Link copied" : "Copy link"}
+                label={copied ? t("article.copied") : t("article.copy_link")}
                 onClick={handleCopyLink}
                 active={copied}
               >
@@ -455,7 +469,7 @@ export function ArticleReader({ article }: { article: Article }) {
                 )}
               </RailButton>
               <RailButton
-                label={saved ? "Saved" : "Save"}
+                label={saved ? t("article.saved") : t("article.save")}
                 onClick={() => setSaved(!saved)}
                 pressed={saved}
               >
@@ -468,7 +482,7 @@ export function ArticleReader({ article }: { article: Article }) {
               {readingMinutes !== null && (
                 <span className="section-label mt-2 whitespace-nowrap text-center leading-tight">
                   {Math.max(1, Math.ceil(readingMinutes * (1 - progress)))}
-                  <span className="block">min left</span>
+                  <span className="block">{t("article.min_left")}</span>
                 </span>
               )}
             </div>
@@ -548,9 +562,9 @@ export function ArticleReader({ article }: { article: Article }) {
       </Container>
 
       {/* ── Context ──────────────────────────────────────────────────────── */}
-      {(whyItMatters || timeline.length > 0) && (
+      {(showWhyItMatters || timeline.length > 0) && (
         <Container width="reading" className="flex flex-col gap-5 pb-12">
-          {whyItMatters && (
+          {showWhyItMatters && (
             <Reveal
               as="section"
               className="rounded-lg border border-border bg-surface-muted p-5 sm:p-6"
@@ -626,7 +640,7 @@ export function ArticleReader({ article }: { article: Article }) {
               ) : (
                 <Share2 className="h-4 w-4" aria-hidden="true" />
               )}
-              <span>{copied ? "Link copied" : "Copy link"}</span>
+              <span>{copied ? t("article.copied") : t("article.copy_link")}</span>
             </button>
 
             <button
@@ -641,7 +655,7 @@ export function ArticleReader({ article }: { article: Article }) {
               )}
             >
               <Bookmark className={cn("h-4 w-4", saved && "fill-current")} aria-hidden="true" />
-              <span>{saved ? "Saved" : "Save"}</span>
+              <span>{saved ? t("article.saved") : t("article.save")}</span>
             </button>
           </div>
         </div>
@@ -652,14 +666,14 @@ export function ArticleReader({ article }: { article: Article }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <PromoLink
             href="/discover"
-            label="Discover"
-            title="Explainers that show the mechanism"
+            label={t("nav.discover")}
+            title={t("article.explainer_promo_title")}
             icon={<Compass className="h-5 w-5" aria-hidden="true" />}
           />
           <PromoLink
             href="/tools"
-            label="Tools"
-            title="Calculators that work without an account"
+            label={t("nav.tools")}
+            title={t("article.tools_promo_title")}
             icon={<Wrench className="h-5 w-5" aria-hidden="true" />}
           />
         </div>

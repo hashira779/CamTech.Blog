@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Sun, Moon, Laptop, ArrowUpRight } from "lucide-react";
+import { Menu, X, Sun, Moon, Laptop, ArrowUpRight, FileText } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { SuperSearch } from "@/components/shared/SuperSearch";
@@ -11,13 +11,26 @@ import { Container } from "@/components/ui/container";
 import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils";
 
-const navLinks = [
+const navLinks: { href: string; key: string; featured?: boolean }[] = [
   { href: "/", key: "nav.home" },
+  { href: "/cv-builder", key: "nav.cv_builder", featured: true },
   { href: "/travel", key: "nav.travel" },
   { href: "/tools", key: "nav.tools" },
   { href: "/discover", key: "nav.discover" },
   { href: "/cambodia", key: "nav.cambodia" },
 ];
+
+function isNavActive(href: string, pathname: string | null) {
+  if (!pathname) return false;
+  if (href === "/") return pathname === "/";
+  if (href === "/cv-builder") {
+    return pathname.startsWith("/cv-builder") || pathname === "/tools/cv-builder";
+  }
+  if (href === "/tools") {
+    return pathname.startsWith("/tools") && pathname !== "/tools/cv-builder";
+  }
+  return pathname.startsWith(href);
+}
 const subscribeHydration = () => () => {};
 
 export function Header() {
@@ -42,10 +55,23 @@ export function Header() {
 
   return (
     <header className="field-header">
-      <div className="field-topline"><Container><span>CAMBODIA / LIFE / TECHNOLOGY</span><Link href="/about">A useful corner of the internet <ArrowUpRight size={11} aria-hidden="true" /></Link></Container></div>
+      <div className="field-topline"><Container><span>{t("header.topline_tagline")}</span><Link href="/about">{t("header.topline_corner")} <ArrowUpRight size={11} aria-hidden="true" /></Link></Container></div>
       <Container className="field-masthead">
         <Link href="/" aria-label="CamTech.Blog home" className="shrink-0"><Logo size="md" variant="wordmark" /></Link>
-        <nav aria-label="Main navigation" className="field-desktop-nav">{navLinks.map(({href,key}) => <Link href={href} key={href} aria-current={(href === "/" ? pathname === href : pathname?.startsWith(href)) ? "page" : undefined}>{t(key)}</Link>)}</nav>
+        <nav aria-label="Main navigation" className="field-desktop-nav">
+          {navLinks.map(({ href, key, featured }) => (
+            <Link
+              href={href}
+              key={href}
+              className={featured ? "field-nav-feature" : undefined}
+              aria-current={isNavActive(href, pathname) ? "page" : undefined}
+            >
+              {featured && <FileText size={14} aria-hidden="true" />}
+              <span>{t(key)}</span>
+              {featured && <span className="field-nav-badge">{t("nav.free_badge")}</span>}
+            </Link>
+          ))}
+        </nav>
         <div className="field-header-actions">
           <SuperSearch />
           <button type="button" className="field-theme-button" onClick={() => setTheme(isDark ? "light" : "dark")} aria-label={mounted && isDark ? "Switch to light mode" : "Switch to dark mode"}>{mounted && isDark ? <Sun size={17} /> : <Moon size={17} />}</button>
@@ -53,7 +79,31 @@ export function Header() {
           <button ref={menuButton} type="button" className="field-menu-button" onClick={() => setOpen(!open)} aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} aria-controls="mobile-navigation">{open ? <X size={21} /> : <Menu size={21} />}</button>
         </div>
       </Container>
-      {open && <div id="mobile-navigation" className="field-mobile-nav"><Container><nav aria-label="Mobile navigation">{navLinks.map(({href,key}) => <Link href={href} key={href} onClick={() => setOpen(false)} aria-current={(href === "/" ? pathname === href : pathname?.startsWith(href)) ? "page" : undefined}>{t(key)}<ArrowUpRight size={17} aria-hidden="true" /></Link>)}</nav><div className="field-mobile-settings"><ThemeToggle mounted={mounted} theme={theme} setTheme={setTheme} compact /><LangToggle lang={lang} setLang={setLang} /></div></Container></div>}
+      {open && (
+        <div id="mobile-navigation" className="field-mobile-nav">
+          <Container>
+            <nav aria-label="Mobile navigation">
+              {navLinks.map(({ href, key, featured }) => (
+                <Link
+                  href={href}
+                  key={href}
+                  className={featured ? "field-mobile-feature" : undefined}
+                  onClick={() => setOpen(false)}
+                  aria-current={isNavActive(href, pathname) ? "page" : undefined}
+                >
+                  <span className="inline-flex items-center gap-2.5">
+                    {featured && <FileText size={16} aria-hidden="true" />}
+                    <span>{t(key)}</span>
+                    {featured && <span className="field-nav-badge">{t("nav.free_badge")}</span>}
+                  </span>
+                  <ArrowUpRight size={17} aria-hidden="true" />
+                </Link>
+              ))}
+            </nav>
+            <div className="field-mobile-settings"><ThemeToggle mounted={mounted} theme={theme} setTheme={setTheme} compact /><LangToggle lang={lang} setLang={setLang} /></div>
+          </Container>
+        </div>
+      )}
     </header>
   );
 }

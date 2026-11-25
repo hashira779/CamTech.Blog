@@ -19,77 +19,64 @@ import { Logo } from "@/components/ui/Logo";
  * invents a Khmer translation: an untranslated English label is honest, a wrong
  * one is not.
  */
-type FooterLink = { href: string; label: string; external?: boolean };
+type FooterLink = { href: string; label: string; key?: string; external?: boolean };
 
-const columns: { heading: string; links: FooterLink[] }[] = [
+const columns: { headingKey: string; fallbackHeading: string; links: FooterLink[] }[] = [
   {
-    heading: "Sections",
+    headingKey: "footer.col_sections",
+    fallbackHeading: "Sections",
     links: [
-      { href: "/cambodia", label: "Cambodia" },
-      { href: "/world", label: "World" },
-      { href: "/discover", label: "Discover" },
-      { href: "/trending", label: "Trending" },
+      { href: "/cambodia", label: "Cambodia", key: "nav.cambodia" },
+      { href: "/world", label: "World", key: "nav.world" },
+      { href: "/discover", label: "Discover", key: "nav.discover" },
+      { href: "/trending", label: "Trending", key: "nav.trending" },
     ],
   },
   {
-    heading: "Travel",
+    headingKey: "footer.col_travel",
+    fallbackHeading: "Travel",
     links: [
-      { href: "/travel", label: "Guides" },
-      { href: "/travel/planner", label: "Trip Planner" },
-      { href: "/tools", label: "Tools" },
+      { href: "/travel", label: "Guides", key: "footer.guides" },
+      { href: "/travel/planner", label: "Trip Planner", key: "footer.trip_planner" },
+      { href: "/cv-builder", label: "CV Builder", key: "nav.cv_builder" },
+      { href: "/tools", label: "Tools", key: "nav.tools" },
     ],
   },
   {
-    heading: "Editorial",
+    headingKey: "footer.col_editorial",
+    fallbackHeading: "Editorial",
     links: [
-      { href: "/editorial-policy", label: "Editorial Policy" },
-      { href: "/content-standards", label: "Content Standards" },
-      { href: "/corrections-policy", label: "Corrections" },
-      { href: "/sources", label: "Our Sources" },
+      { href: "/editorial-policy", label: "Editorial Policy", key: "footer.editorial_policy" },
+      { href: "/content-standards", label: "Content Standards", key: "footer.content_standards" },
+      { href: "/corrections-policy", label: "Corrections", key: "footer.corrections" },
+      { href: "/sources", label: "Our Sources", key: "footer.sources" },
     ],
   },
   {
-    heading: "Company",
+    headingKey: "footer.col_company",
+    fallbackHeading: "Company",
     links: [
-      { href: "/about", label: "About" },
-      { href: "/advertising", label: "Advertising" },
-      { href: "/contact", label: "Contact" },
+      { href: "/about", label: "About", key: "footer.about" },
+      { href: "/advertising", label: "Advertising", key: "footer.advertising" },
+      { href: "/contact", label: "Contact", key: "footer.contact" },
     ],
   },
   {
-    heading: "Legal",
+    headingKey: "footer.col_legal",
+    fallbackHeading: "Legal",
     links: [
-      { href: "/privacy", label: "Privacy Policy" },
-      { href: "/terms", label: "Terms of Service" },
-      { href: "/cookie-policy", label: "Cookie Policy" },
+      { href: "/privacy", label: "Privacy Policy", key: "footer.privacy" },
+      { href: "/terms", label: "Terms of Service", key: "footer.terms" },
+      { href: "/cookie-policy", label: "Cookie Policy", key: "footer.cookies" },
     ],
   },
 ];
-
-/** Existing dictionary keys that already cover these routes in both languages. */
-const TRANSLATED: Record<string, string> = {
-  "/cambodia": "nav.cambodia",
-  "/world": "nav.world",
-  "/discover": "nav.discover",
-  "/trending": "nav.trending",
-  "/travel": "nav.travel",
-  "/tools": "nav.tools",
-  "/about": "footer.about",
-  "/contact": "footer.contact",
-  "/editorial-policy": "footer.editorial_policy",
-  "/corrections-policy": "footer.corrections",
-  "/advertising": "footer.advertising",
-  "/privacy": "footer.privacy",
-  "/terms": "footer.terms",
-  "/cookie-policy": "footer.cookies",
-};
 
 export function Footer() {
   const { lang, t } = useI18n();
 
   const label = (link: FooterLink) => {
-    const key = TRANSLATED[link.href];
-    return key ? t(key) : link.label;
+    return link.key ? t(link.key) : link.label;
   };
 
   return (
@@ -121,7 +108,7 @@ export function Footer() {
               className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
             >
               <ArrowUpRight size={14} aria-hidden="true" />
-              {lang === "km" ? "ប្រភព" : "All sources"}
+              {t("footer.all_sources")}
             </Link>
           </div>
         </div>
@@ -131,8 +118,8 @@ export function Footer() {
           className="grid grid-cols-2 gap-x-6 gap-y-8 py-10 sm:grid-cols-3 lg:grid-cols-5"
         >
           {columns.map((column) => (
-            <div key={column.heading}>
-              <h2 className="kicker section-label text-accent">{column.heading}</h2>
+            <div key={column.headingKey}>
+              <h2 className="kicker section-label text-accent">{t(column.headingKey) || column.fallbackHeading}</h2>
               <ul className="mt-4 space-y-2.5 text-sm">
                 {column.links.map((link) => (
                   <li key={link.href}>

@@ -47,6 +47,7 @@ export interface Article {
   summary: string;
   summary_km?: string;
   content: string;
+  content_km?: string;
   key_points?: string; // JSON string
   why_it_matters?: string;
   timeline?: string; // JSON string

@@ -26,10 +26,11 @@ const STYLE_OPTIONS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
 };
 
 /** "14 October 2026" / "14 Oct 2026" / "14 Oct". Empty string when unknown. */
-export function formatDate(value?: string | number | Date | null, style: DateStyle = "medium"): string {
+export function formatDate(value?: string | number | Date | null, style: DateStyle = "medium", lang: string = "en"): string {
   const date = toDate(value);
   if (!date) return "";
-  return new Intl.DateTimeFormat("en-GB", STYLE_OPTIONS[style]).format(date);
+  const locale = lang === "km" ? "km-KH" : "en-GB";
+  return new Intl.DateTimeFormat(locale, STYLE_OPTIONS[style]).format(date);
 }
 
 /** ISO string for <time datetime>, safe to pass through when absent. */
@@ -59,10 +60,11 @@ export function estimateReadingMinutes(content?: string | null): number | null {
   return Math.max(1, Math.round(words / 225));
 }
 
-/** "3 min read" or "" — never a fabricated number. */
-export function formatReadingTime(content?: string | null): string {
+/** "3 min read" or "3 នាទីអាន" — never a fabricated number. */
+export function formatReadingTime(content?: string | null, lang: string = "en"): string {
   const minutes = estimateReadingMinutes(content);
-  return minutes === null ? "" : `${minutes} min read`;
+  if (minutes === null) return "";
+  return lang === "km" ? `${minutes} នាទីអាន` : `${minutes} min read`;
 }
 
 /** Sentence-case a slug or label without shouting: "phnom-penh" -> "Phnom Penh". */

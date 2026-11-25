@@ -62,7 +62,8 @@ export function NewsCard({
   const source = article.primary_source?.name || null;
   const sourceUrl = article.primary_source_url || article.primary_source?.website_url || null;
   const date = article.published_at || article.created_at || null;
-  const readingTime = formatReadingTime(article.content);
+  const rawContent = lang === "km" && article.content_km ? article.content_km : article.content;
+  const readingTime = formatReadingTime(rawContent, lang);
   const views = article.views_count > 0 ? article.views_count : null;
   const location = article.province_or_city || null;
 
@@ -82,6 +83,7 @@ export function NewsCard({
       readingTime={readingTime}
       views={views}
       location={location}
+      lang={lang}
     />
   );
 

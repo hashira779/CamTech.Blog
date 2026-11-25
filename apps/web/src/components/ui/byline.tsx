@@ -32,6 +32,7 @@ export interface BylineProps {
   readingTime?: string | number | null;
   views?: number | string | null;
   location?: string | null;
+  lang?: string;
   showAvatar?: boolean;
   size?: "sm" | "md";
   /** "invert" flips the palette for text sitting on a photograph. */
@@ -49,20 +50,27 @@ export function Byline({
   readingTime,
   views,
   location,
+  lang = "en",
   showAvatar = false,
   size = "sm",
   tone = "default",
   className,
 }: BylineProps) {
   const invert = tone === "invert";
-  const dateLabel = formatDate(date, dateStyle);
+  const dateLabel = formatDate(date, dateStyle, lang);
   const readLabel =
-    typeof readingTime === "number" ? `${readingTime} min read` : readingTime || "";
+    typeof readingTime === "number"
+      ? (lang === "km" ? `${readingTime} នាទីអាន` : `${readingTime} min read`)
+      : readingTime || "";
   const viewsLabel = formatCount(views);
 
   const parts: React.ReactNode[] = [];
 
   if (author) {
+    const displayAuthor =
+      lang === "km" && (author === "AI Editorial Desk" || author === "Editorial Desk")
+        ? "ការិយាល័យនិពន្ធ AI"
+        : author;
     parts.push(
       authorHref ? (
         <Link
@@ -73,11 +81,11 @@ export function Byline({
             invert ? "text-white" : "text-foreground"
           )}
         >
-          {author}
+          {displayAuthor}
         </Link>
       ) : (
         <span key="author" className={cn("font-medium", invert ? "text-white" : "text-foreground/90")}>
-          {author}
+          {displayAuthor}
         </span>
       )
     );
