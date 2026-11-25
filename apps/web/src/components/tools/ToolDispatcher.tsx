@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import { Tool } from "@/types";
 import { PercentageCalculator } from "./PercentageCalculator";
 import { LoanCalculator } from "./LoanCalculator";
@@ -35,6 +36,9 @@ import { CryptoKhrConverter } from "./CryptoKhrConverter";
 import { DnsLookupInspector } from "./DnsLookupInspector";
 import { KnowledgeSearchTool } from "./KnowledgeSearchTool";
 import { UniversalVideoDownloader } from "./UniversalVideoDownloader";
+const CvBuilder = dynamic(() => import("./cv/CvBuilder").then((module) => module.CvBuilder), {
+  loading: () => <p role="status" className="py-10 text-center text-sm text-muted-foreground">Loading CV builder…</p>,
+});
 
 /**
  * Maps a tool slug to the component that runs it.
@@ -44,6 +48,8 @@ import { UniversalVideoDownloader } from "./UniversalVideoDownloader";
  */
 export function ToolDispatcher({ tool }: { tool: Tool }) {
   switch (tool.slug) {
+    case "cv-builder":
+      return <CvBuilder />;
     // 2026-2028 Universal Media Downloader
     case "universal-video-downloader":
     case "video-audio-downloader":

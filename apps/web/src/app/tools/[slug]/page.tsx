@@ -45,7 +45,7 @@ export default async function ToolExecutionPage({
   return (
     <Section className="pb-12 pt-6 sm:pt-8">
       <Container>
-        <div className="mx-auto w-full max-w-3xl">
+        <div className={`mx-auto w-full ${tool.slug === "cv-builder" ? "max-w-7xl" : "max-w-3xl"}`}>
           <Breadcrumbs
             items={[
               { label: "Tools", href: "/tools" },
@@ -63,7 +63,7 @@ export default async function ToolExecutionPage({
 
           {/* One panel per tool: the calculator supplies the fields, the page
               supplies the paper, styled with Nuxt-grade studio squircle elevation. */}
-          <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-b from-surface via-surface/95 to-surface-muted/30 p-6 shadow-sm backdrop-blur-xl sm:p-8">
+          <div className={`relative rounded-3xl border border-border/80 bg-gradient-to-b from-surface via-surface/95 to-surface-muted/30 shadow-sm ${tool.slug === "cv-builder" ? "p-3 sm:p-6" : "overflow-hidden p-6 backdrop-blur-xl sm:p-8"}`}>
             <ToolDispatcher tool={tool} />
           </div>
 

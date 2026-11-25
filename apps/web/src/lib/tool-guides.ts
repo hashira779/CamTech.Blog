@@ -1,4 +1,13 @@
 export const TOOL_GUIDES: Record<string, { intro: string; steps: string[]; note: string }> = {
+  "cv-builder": {
+    intro: "Build a job-focused CV in English, Khmer, or both languages without creating an account.",
+    steps: [
+      "Enter your contact details, a short profile, and relevant experience. Write the text for each language you want to include.",
+      "Choose one of 24 free templates and review the live preview. List the most recent experience first and leave out unnecessary sensitive information.",
+      "Choose Print / save PDF, select Save as PDF and A4 paper in your browser, and turn off browser headers and footers. Download before leaving or refreshing the page.",
+    ],
+    note: "Drafts exist only in the open page. No cloud save or automatic translation is provided. Employer requirements vary; no template guarantees acceptance. Telegram QR delivery is not connected in this version.",
+  },
   "universal-video-downloader": {
     intro: "Download high-definition videos (1080p, 720p, 480p) or extract clean MP3 audio from TikTok (no watermark), YouTube, Facebook, Instagram Reels, Twitter/X, and Douyin.",
     steps: [

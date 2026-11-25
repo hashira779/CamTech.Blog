@@ -1,6 +1,19 @@
 import { Tool } from "@/types";
 
 export const ALL_TOOLS: Tool[] = [
+  {
+    id: "tool-cv-builder",
+    slug: "cv-builder",
+    name: "Free Khmer & English CV Builder",
+    name_km: "កម្មវិធីបង្កើត CV ខ្មែរ និងអង់គ្លេសឥតគិតថ្លៃ",
+    category: "TEXT",
+    description: "Create a professional CV with 24 free templates. Use English, Khmer, or both languages in one document, preview it live, and print or save as PDF. Your temporary draft stays in this tab only.",
+    description_km: "បង្កើត CV ជាមួយគំរូឥតគិតថ្លៃ ២៤។ ប្រើភាសាខ្មែរ អង់គ្លេស ឬទាំងពីរ ក្នុងឯកសារតែមួយ ហើយបោះពុម្ព ឬរក្សាទុកជា PDF។ សេចក្ដីព្រាងស្ថិតក្នុងទំព័រនេះតែប៉ុណ្ណោះ។",
+    icon: "FileText",
+    is_popular: false,
+    usage_count: 0,
+    version: "1.0",
+  },
   // --- UNIVERSAL MEDIA & EVERYDAY UTILITIES ---
   {
     id: "tool-universal-downloader",
