@@ -6,7 +6,7 @@ import { ShieldCheck } from "lucide-react";
 import { Container, Section } from "@/components/ui/container";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
-import { TOOL_GUIDES } from "@/lib/tool-guides";
+import { ToolGuideSection } from "@/components/tools/ToolGuideSection";
 import { useI18n } from "@/lib/i18n";
 
 const CvBuilder = dynamic(
@@ -27,12 +27,6 @@ const CvBuilder = dynamic(
 export function CvBuilderFeaturePage() {
   const { lang, t } = useI18n();
   const isKm = lang === "km";
-  const guide = TOOL_GUIDES["cv-builder"];
-  const guideStepsKm = [
-    "បំពេញព័ត៌មានទំនាក់ទំនង សេចក្តីសង្ខេប និងបទពិសោធន៍ការងារ។ សរសេរអត្ថបទតាមភាសាខ្មែរ អង់គ្លេស ឬទាំងពីរភាសា។",
-    "ជ្រើសរើសគំរូ CV ឥតគិតថ្លៃណាមួយក្នុងចំណោម ៣០ ម៉ូដ និងពិនិត្យមើលផ្ទាល់លើទំព័រ A4។ ដាក់បទពិសោធន៍ថ្មីបំផុតនៅខាងលើ។",
-    "ចុច បោះពុម្ព / រក្សាទុក PDF ឬ ផ្ញើទៅ Telegram / QR តាមរយៈ @CamTech_Blog_bot មុនពេលចាកចេញ ឬ refresh ទំព័រ។",
-  ];
 
   return (
     <Section className="pb-12 pt-6 sm:pt-8" lang={isKm ? "km" : undefined}>
@@ -63,32 +57,7 @@ export function CvBuilderFeaturePage() {
             </span>
           </div>
 
-          {guide && (
-            <section className="field-tool-guide" aria-labelledby="cv-guide-title">
-              <p className="field-eyebrow">{isKm ? "ការណែនាំរហ័ស" : "A quick guide"}</p>
-              <h2 id="cv-guide-title">
-                {isKm ? "បង្កើត CV ពីរភាសាស្អាតៗក្នុងរយៈពេលប៉ុន្មាននាទី។" : "Build a clean bilingual CV in minutes."}
-              </h2>
-              <p>
-                {isKm
-                  ? "បង្កើត CV សម្រាប់ដាក់ពាក្យការងារជាភាសាអង់គ្លេស ខ្មែរ ឬទាំងពីរភាសាព្រមគ្នា ដោយមិនចាំបាច់បង្កើតគណនីឡើយ។"
-                  : guide.intro}
-              </p>
-              <ol>
-                {(isKm ? guideStepsKm : guide.steps).map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ol>
-              <aside>
-                <strong>{isKm ? "គួរដឹងបន្ថែម" : "Good to know"}</strong>
-                <p>
-                  {isKm
-                    ? "ទិន្នន័យ CV ស្ថិតតែក្នុងទំព័រដែលកំពុងបើកប៉ុណ្ណោះ ដោយមិនរក្សាទុកក្នុងគណនី ឬ Database ឡើយ។ នៅពេលអ្នកចុច ផ្ញើទៅ Telegram ឯកសារ PDF បណ្ដោះអាសន្នតែមួយត្រូវបានផ្ទុកក្នុង RAM cache ត្រឹម ១៥ នាទី រហូតដល់ផ្ញើរួច។"
-                    : guide.note}
-                </p>
-              </aside>
-            </section>
-          )}
+          <ToolGuideSection slug="cv-builder" headingId="cv-guide-title" />
         </div>
       </Container>
     </Section>

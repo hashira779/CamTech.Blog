@@ -34,7 +34,7 @@ const bad = (name, detail = "") => results.push({ pass: false, name, detail });
 
 /* ── Parsing helpers ─────────────────────────────────────────────────────── */
 
-const css = readFileSync(CSS_PATH, "utf8");
+const css = readFileSync(CSS_PATH, "utf8").replace(/\r\n/g, "\n");
 
 /** Token values per theme block, keyed by the declaration text inside the block. */
 function parseBlock(source, label) {

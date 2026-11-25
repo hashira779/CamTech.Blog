@@ -3487,6 +3487,17 @@
     grid-template-columns: 1fr;
   }
 
+  .previewTopActions {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px 12px;
+  }
+
+  .previewTopActions small {
+    min-width: 0;
+    line-height: 1.5;
+  }
+
   .toolbar h2 {
     font-size: 17px;
   }

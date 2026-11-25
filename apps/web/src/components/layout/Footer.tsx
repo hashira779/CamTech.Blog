@@ -73,7 +73,7 @@ const columns: { headingKey: string; fallbackHeading: string; links: FooterLink[
 ];
 
 export function Footer() {
-  const { lang, t } = useI18n();
+  const { t } = useI18n();
 
   const label = (link: FooterLink) => {
     return link.key ? t(link.key) : link.label;

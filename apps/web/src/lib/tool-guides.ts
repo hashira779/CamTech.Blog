@@ -1,12 +1,32 @@
-export const TOOL_GUIDES: Record<string, { intro: string; steps: string[]; note: string }> = {
+export interface ToolGuide {
+  title?: string;
+  title_km?: string;
+  intro: string;
+  intro_km?: string;
+  steps: string[];
+  steps_km?: string[];
+  note: string;
+  note_km?: string;
+}
+
+export const TOOL_GUIDES: Record<string, ToolGuide> = {
   "cv-builder": {
+    title: "Build a clean bilingual CV in minutes.",
+    title_km: "បង្កើត CV ពីរភាសាស្អាតៗក្នុងរយៈពេលប៉ុន្មាននាទី។",
     intro: "Build a job-focused CV in English, Khmer, or both languages without creating an account. Runs independently from the news and CMS APIs for uninterrupted availability.",
+    intro_km: "បង្កើត CV សម្រាប់ដាក់ពាក្យការងារជាភាសាអង់គ្លេស ខ្មែរ ឬទាំងពីរភាសាព្រមគ្នា ដោយមិនចាំបាច់បង្កើតគណនីឡើយ។",
     steps: [
       "Enter your contact details, a short profile, and relevant experience. Write the text for each language you want to include.",
       "Choose one of 30 free templates and review the live preview. List the most recent experience first and leave out unnecessary sensitive information.",
       "Choose Print / save PDF (or Send to Telegram / QR to deliver via @CamTech_Blog_bot), select Save as PDF and A4 paper, and download before leaving or refreshing.",
     ],
+    steps_km: [
+      "បំពេញព័ត៌មានទំនាក់ទំនង សេចក្តីសង្ខេប និងបទពិសោធន៍ការងារ។ សរសេរអត្ថបទតាមភាសាខ្មែរ អង់គ្លេស ឬទាំងពីរភាសា។",
+      "ជ្រើសរើសគំរូ CV ឥតគិតថ្លៃណាមួយក្នុងចំណោម ៣០ ម៉ូដ និងពិនិត្យមើលផ្ទាល់លើទំព័រ A4។ ដាក់បទពិសោធន៍ថ្មីបំផុតនៅខាងលើ។",
+      "ចុច បោះពុម្ព / រក្សាទុក PDF ឬ ផ្ញើទៅ Telegram / QR តាមរយៈ @CamTech_Blog_bot មុនពេលចាកចេញ ឬ refresh ទំព័រ។",
+    ],
     note: "Drafts exist only in the open page. No account or database storage is used. When you tap Send to Telegram, a single-session temporary PDF is held in isolated memory cache for up to 15 minutes until your Telegram / QR handoff completes.",
+    note_km: "ទិន្នន័យ CV ស្ថិតតែក្នុងទំព័រដែលកំពុងបើកប៉ុណ្ណោះ ដោយមិនរក្សាទុកក្នុងគណនី ឬ Database ឡើយ។ នៅពេលអ្នកចុច ផ្ញើទៅ Telegram ឯកសារ PDF បណ្ដោះអាសន្នតែមួយត្រូវបានផ្ទុកក្នុង RAM cache ត្រឹម ១៥ នាទី រហូតដល់ផ្ញើរួច។",
   },
   "universal-video-downloader": {
     intro: "Download high-definition videos (1080p, 720p, 480p) or extract clean MP3 audio from TikTok (no watermark), YouTube, Facebook, Instagram Reels, Twitter/X, and Douyin.",
@@ -53,3 +73,15 @@ export const TOOL_GUIDES: Record<string, { intro: string; steps: string[]; note:
     note: "An identifier is not an authentication secret. Do not use a UUID in place of a password, access control, or a secure session token.",
   },
 };
+
+export function resolveToolGuide(slug: string, lang: string) {
+  const guide = TOOL_GUIDES[slug];
+  if (!guide) return null;
+  const isKm = lang === "km";
+  return {
+    title: (isKm && guide.title_km) || guide.title || (isKm ? "ការប្រើប្រាស់ឧបករណ៍នេះឱ្យមានប្រសិទ្ធភាព" : "Make the most of this tool."),
+    intro: (isKm && guide.intro_km) || guide.intro,
+    steps: (isKm && guide.steps_km) || guide.steps,
+    note: (isKm && guide.note_km) || guide.note,
+  };
+}

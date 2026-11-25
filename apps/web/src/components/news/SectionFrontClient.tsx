@@ -10,7 +10,7 @@ import { CategoryMark, categoryKey, type CategoryKey } from "@/components/ui/cat
 import { NewsCard } from "@/components/shared/news-card";
 import { Reveal } from "@/components/ui/reveal";
 import { SectionHeader } from "@/components/ui/section-header";
-import { cleanText, formatCount, formatDate } from "@/lib/format";
+import { cleanText, formatCount } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import type { Article, TrendingResponse } from "@/types";
 
