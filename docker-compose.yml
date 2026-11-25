@@ -61,6 +61,7 @@ services:
       - TELEGRAM_CV_BOT_TOKEN=${TELEGRAM_CV_BOT_TOKEN:-}
       - TELEGRAM_CV_BOT_USERNAME=${TELEGRAM_CV_BOT_USERNAME:-}
       - TELEGRAM_CV_WEBHOOK_SECRET=${TELEGRAM_CV_WEBHOOK_SECRET:-}
+      - TELEGRAM_FEEDBACK_CHAT_ID=${TELEGRAM_FEEDBACK_CHAT_ID:-}
     depends_on:
       api:
         condition: service_healthy

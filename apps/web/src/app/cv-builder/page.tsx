@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
 import { CvBuilderFeaturePage } from "@/components/tools/cv/CvBuilderFeaturePage";
-import { getPublicContactEmail } from "@/lib/contact";
-
-export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Free Khmer & English CV Builder — 30+ A4 Studio & ATS Templates",
@@ -17,5 +14,5 @@ export const metadata: Metadata = {
 };
 
 export default function CvBuilderRoutePage() {
-  return <CvBuilderFeaturePage feedbackEmail={getPublicContactEmail()} />;
+  return <CvBuilderFeaturePage />;
 }

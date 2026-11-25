@@ -1,16 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, Calculator, FileText, Mail, MessageSquare, Newspaper } from "lucide-react";
-import { buildFeedbackMailto } from "@/lib/contact";
+import { ArrowUpRight, Calculator, FileText, MessageSquare, Newspaper } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
 /**
- * Calm editorial next-step bridges & optional direct feedback strip shown below
- * the CV Builder studio so visitors can transition to career utilities or send feedback.
- * Zero ads rendered here; styled strictly with semantic design tokens.
+ * Calm editorial next-step bridges & private feedback link shown below
+ * the CV Builder studio so visitors can transition to career utilities or send private feedback
+ * without exposing raw emails or public GitHub issue trackers.
  */
-export function CvNextSteps({ feedbackEmail = null }: { feedbackEmail?: string | null }) {
+export function CvNextSteps() {
   const { lang } = useI18n();
   const isKm = lang === "km";
 
@@ -79,11 +78,7 @@ export function CvNextSteps({ feedbackEmail = null }: { feedbackEmail?: string |
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-surface-muted/50 px-5 py-4">
         <div className="flex items-start gap-3">
-          {feedbackEmail ? (
-            <Mail size={18} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
-          ) : (
-            <MessageSquare size={18} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
-          )}
+          <MessageSquare size={18} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
           <div>
             <p className="text-sm font-semibold text-foreground">
               {isKm
@@ -91,29 +86,16 @@ export function CvNextSteps({ feedbackEmail = null }: { feedbackEmail?: string |
                 : "Have feedback or found something to improve?"}
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {feedbackEmail
-                ? isKm
-                  ? "ផ្ញើអ៊ីមែលមកយើងដោយផ្ទាល់ មិនចាំបាច់មានគណនីឡើយ។"
-                  : "Send feedback directly—no account required."
-                : isKm
-                  ? "ចូលទៅទំព័រទំនាក់ទំនង ដើម្បីផ្ញើមតិកែលម្អមកក្រុមការងារយើង។"
-                  : "Visit the contact page to send suggestions or report an issue."}
+              {isKm
+                ? "ផ្ញើមតិកែលម្អដោយឯកជនតាមទម្រង់ការពារ Spam មិនចាំបាច់មានគណនីឡើយ។"
+                : "Send feedback privately through our anti-spam form—no account needed and never public."}
             </p>
           </div>
         </div>
 
-        {feedbackEmail ? (
-          <a
-            href={buildFeedbackMailto(feedbackEmail, "CamTech CV Builder Feedback")}
-            className="field-button-secondary"
-          >
-            {feedbackEmail} <ArrowUpRight size={15} aria-hidden="true" />
-          </a>
-        ) : (
-          <Link href="/contact" className="field-button-secondary">
-            {isKm ? "ផ្ញើមតិកែលម្អ" : "Send feedback"} <ArrowUpRight size={15} aria-hidden="true" />
-          </Link>
-        )}
+        <Link href="/contact?topic=cv-builder" className="field-button-secondary">
+          {isKm ? "ផ្ញើមតិកែលម្អ" : "Send private feedback"} <ArrowUpRight size={15} aria-hidden="true" />
+        </Link>
       </div>
     </section>
   );

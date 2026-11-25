@@ -19,13 +19,7 @@ import type { Tool } from "@/types";
  * Localized shell around `/tools/[slug]` so navigation, headers, guide copy,
  * and CV Builder promotion respond cleanly to English & Khmer selection.
  */
-export function ToolPageView({
-  tool,
-  feedbackEmail = null,
-}: {
-  tool: Tool;
-  feedbackEmail?: string | null;
-}) {
+export function ToolPageView({ tool }: { tool: Tool }) {
   const { lang, t } = useI18n();
   const isKm = lang === "km";
   const isCv = tool.slug === "cv-builder";
@@ -100,7 +94,7 @@ export function ToolPageView({
 
           <ToolGuideSection slug={tool.slug} />
 
-          {isCv && <CvNextSteps feedbackEmail={feedbackEmail} />}
+          {isCv && <CvNextSteps />}
 
           <Link
             href="/tools"
