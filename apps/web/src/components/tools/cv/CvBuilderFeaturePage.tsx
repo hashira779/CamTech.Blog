@@ -25,7 +25,11 @@ const CvBuilder = dynamic(
  * Dedicated top-level studio shell for the Free Khmer & English CV Builder feature.
  * Uses only design-system semantic tokens and responds cleanly to EN / KM language switches.
  */
-export function CvBuilderFeaturePage() {
+export function CvBuilderFeaturePage({
+  feedbackEmail = null,
+}: {
+  feedbackEmail?: string | null;
+}) {
   const { lang, t } = useI18n();
   const isKm = lang === "km";
 
@@ -59,7 +63,7 @@ export function CvBuilderFeaturePage() {
           </div>
 
           <ToolGuideSection slug="cv-builder" headingId="cv-guide-title" />
-          <CvNextSteps />
+          <CvNextSteps feedbackEmail={feedbackEmail} />
         </div>
       </Container>
     </Section>

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { getToolBySlug } from "@/lib/api";
+import { getPublicContactEmail } from "@/lib/contact";
 import { ToolPageView } from "@/components/tools/ToolPageView";
 
 export const revalidate = 60;
@@ -31,5 +32,10 @@ export default async function ToolExecutionPage({
     notFound();
   }
 
-  return <ToolPageView tool={tool} />;
+  return (
+    <ToolPageView
+      tool={tool}
+      feedbackEmail={tool.slug === "cv-builder" ? getPublicContactEmail() : null}
+    />
+  );
 }
