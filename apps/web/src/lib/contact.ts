@@ -8,10 +8,12 @@ export const FEEDBACK_MAX_MESSAGE_CHARS = 1500;
 export const FEEDBACK_MIN_MESSAGE_CHARS = 10;
 
 export const ALLOWED_FEEDBACK_TOPICS = new Set([
-  "cv-builder",
   "bug",
-  "suggestion",
+  "cv-builder",
   "article",
+  "travel",
+  "tools",
+  "suggestion",
   "other",
 ]);
 

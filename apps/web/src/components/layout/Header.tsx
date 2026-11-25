@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Sun, Moon, Laptop, ArrowUpRight, FileText } from "lucide-react";
+import { Menu, X, Sun, Moon, Laptop, ArrowUpRight, FileText, Flag } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { SuperSearch } from "@/components/shared/SuperSearch";
@@ -53,9 +53,28 @@ export function Header() {
     return () => window.removeEventListener("keydown", onKey);
   }, [menuPath]);
 
+  const reportHref =
+    pathname && pathname !== "/contact"
+      ? `/contact?topic=bug&page=${encodeURIComponent(pathname)}`
+      : "/contact";
+
   return (
     <header className="field-header">
-      <div className="field-topline"><Container><span>{t("header.topline_tagline")}</span><Link href="/about">{t("header.topline_corner")} <ArrowUpRight size={11} aria-hidden="true" /></Link></Container></div>
+      <div className="field-topline">
+        <Container>
+          <span>{t("header.topline_tagline")}</span>
+          <div className="field-topline-links">
+            <Link href={reportHref}>
+              <Flag size={11} aria-hidden="true" />
+              <span>{t("nav.feedback")}</span>
+            </Link>
+            <span className="field-topline-divider" aria-hidden="true">·</span>
+            <Link href="/about" className="field-topline-corner">
+              {t("header.topline_corner")} <ArrowUpRight size={11} aria-hidden="true" />
+            </Link>
+          </div>
+        </Container>
+      </div>
       <Container className="field-masthead">
         <Link href="/" aria-label="CamTech.Blog home" className="shrink-0"><Logo size="md" variant="wordmark" /></Link>
         <nav aria-label="Main navigation" className="field-desktop-nav">
@@ -99,6 +118,18 @@ export function Header() {
                   <ArrowUpRight size={17} aria-hidden="true" />
                 </Link>
               ))}
+              <Link
+                href={reportHref}
+                className="field-mobile-report"
+                onClick={() => setOpen(false)}
+                aria-current={pathname === "/contact" ? "page" : undefined}
+              >
+                <span className="inline-flex items-center gap-2.5">
+                  <Flag size={16} aria-hidden="true" />
+                  <span>{t("nav.feedback")}</span>
+                </span>
+                <ArrowUpRight size={17} aria-hidden="true" />
+              </Link>
             </nav>
             <div className="field-mobile-settings"><ThemeToggle mounted={mounted} theme={theme} setTheme={setTheme} compact /><LangToggle lang={lang} setLang={setLang} /></div>
           </Container>

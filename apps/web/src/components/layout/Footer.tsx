@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Rss, ArrowUpRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { Container } from "@/components/ui/container";
@@ -58,7 +59,7 @@ const columns: { headingKey: string; fallbackHeading: string; links: FooterLink[
     links: [
       { href: "/about", label: "About", key: "footer.about" },
       { href: "/advertising", label: "Advertising", key: "footer.advertising" },
-      { href: "/contact", label: "Contact", key: "footer.contact" },
+      { href: "/contact", label: "Report an issue / Feedback", key: "footer.report_issue" },
     ],
   },
   {
@@ -74,6 +75,14 @@ const columns: { headingKey: string; fallbackHeading: string; links: FooterLink[
 
 export function Footer() {
   const { t } = useI18n();
+  const pathname = usePathname();
+
+  const resolveHref = (href: string) => {
+    if (href === "/contact" && pathname && pathname !== "/contact") {
+      return `/contact?topic=bug&page=${encodeURIComponent(pathname)}`;
+    }
+    return href;
+  };
 
   const label = (link: FooterLink) => {
     return link.key ? t(link.key) : link.label;
@@ -135,7 +144,7 @@ export function Footer() {
                       </a>
                     ) : (
                       <Link
-                        href={link.href}
+                        href={resolveHref(link.href)}
                         className="title-sweep text-muted-foreground transition-colors hover:text-accent"
                       >
                         {label(link)}

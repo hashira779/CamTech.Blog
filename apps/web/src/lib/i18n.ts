@@ -78,6 +78,7 @@ export const translations = {
     // Header topline
     "header.topline_tagline": "CAMBODIA / LIFE / TECHNOLOGY",
     "header.topline_corner": "A useful corner of the internet",
+    "nav.feedback": "Report / Feedback",
 
     // Navigation
     "nav.home": "Home",
@@ -258,6 +259,7 @@ export const translations = {
     "footer.cookies": "Cookie Policy",
     "footer.advertising": "Advertising & Transparency",
     "footer.contact": "Contact Newsroom",
+    "footer.report_issue": "Report an issue / Feedback",
     "footer.copyright": "CamTech.Blog. All verified citations and original editorial analyses reserved.",
 
     // Homepage CV Builder Feature & Page
@@ -302,6 +304,7 @@ export const translations = {
     // Header topline
     "header.topline_tagline": "កម្ពុជា / ជីវិត / បច្ចេកវិទ្យា",
     "header.topline_corner": "ជ្រុងមានប្រយោជន៍នៃអ៊ីនធឺណិត",
+    "nav.feedback": "រាយការណ៍ / មតិកែលម្អ",
 
     // Navigation
     "nav.home": "ទំព័រដើម",
@@ -482,6 +485,7 @@ export const translations = {
     "footer.cookies": "គោលការណ៍ខូគី",
     "footer.advertising": "ការផ្សាយពាណិជ្ជកម្ម និងតម្លាភាព",
     "footer.contact": "ទំនាក់ទំនងការិយាល័យនិពន្ធ",
+    "footer.report_issue": "រាយការណ៍បញ្ហា / មតិកែលម្អ",
     "footer.copyright": "CamTech.Blog រក្សាសិទ្ធិគ្រប់យ៉ាង។",
 
     // Homepage CV Builder Feature & Page

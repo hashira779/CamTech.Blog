@@ -13,7 +13,8 @@ import {
   Database,
   Sparkles,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  MessageSquareWarning
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -35,6 +36,7 @@ export default function Sidebar() {
     { name: 'Discoveries', path: '/discoveries', icon: Sparkles },
     { name: 'Destinations', path: '/tourism', icon: MapPin },
     { name: 'Place Approvals', path: '/suggestions', icon: ShieldCheck },
+    { name: 'User Reports', path: '/feedback', icon: MessageSquareWarning },
     { name: 'Media Storage', path: '/storage', icon: HardDrive },
   ];
 

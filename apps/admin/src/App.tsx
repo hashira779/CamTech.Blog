@@ -25,6 +25,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const Tourism = lazy(() => import('./pages/Tourism'));
 const ProvinceDetails = lazy(() => import('./pages/ProvinceDetails'));
 const PlaceSuggestions = lazy(() => import('./pages/PlaceSuggestions'));
+const FeedbackReports = lazy(() => import('./pages/FeedbackReports'));
 const DatabaseMigration = lazy(() => import('./pages/Database'));
 const Login = lazy(() => import('./pages/Login'));
 
@@ -74,6 +75,7 @@ function App() {
                 <Route path="tourism" element={<Tourism />} />
                 <Route path="tourism/:slug" element={<ProvinceDetails />} />
                 <Route path="suggestions" element={<PlaceSuggestions />} />
+                <Route path="feedback" element={<FeedbackReports />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
