@@ -8,13 +8,27 @@ import styles from "./CvBuilder.module.css";
 
 type Entry = { id: string; title: CvText; organization: CvText; details: CvText; from: string; to: string; current: boolean };
 type Project = { id: string; title: CvText; details: CvText };
-type CvData = { name: CvText; role: CvText; location: CvText; email: string; phone: string; website: string;
+type CvData = { name: CvText; role: CvText; location: CvText; email: string; phone: string; website: string; photo: string;
   summary: CvText; skills: CvText; languages: CvText; experience: Entry[]; education: Entry[]; projects: Project[] };
 const pair = (): CvText => ({ en: "", km: "" });
 const entry = (id: string): Entry => ({ id, title: pair(), organization: pair(), details: pair(), from: "", to: "", current: false });
-const emptyCv = (): CvData => ({ name: pair(), role: pair(), location: pair(), email: "", phone: "", website: "",
+const emptyCv = (): CvData => ({ name: pair(), role: pair(), location: pair(), email: "", phone: "", website: "", photo: "",
   summary: pair(), skills: pair(), languages: pair(), experience: [entry("experience-1")], education: [entry("education-1")], projects: [] });
 const hasData = (cv: CvData) => JSON.stringify(cv) !== JSON.stringify(emptyCv());
+
+// Clearly labelled gallery examples, never inserted into a visitor's own draft.
+const sampleCv: CvData = {
+  ...emptyCv(), name: { en: "SOK DARA", km: "" }, role: { en: "PRODUCT DESIGNER", km: "" },
+  email: "dara@example.com", phone: "+855 00 000 000", location: { en: "Phnom Penh, Cambodia", km: "" },
+  summary: { en: "Thoughtful designer creating useful digital experiences. Combining clear communication, research and attention to detail.", km: "" },
+  experience: [{ ...entry("sample-work"), title: { en: "Senior Product Designer", km: "" }, organization: { en: "Example Studio", km: "" }, from: "2022-01", current: true,
+    details: { en: "Led the design of accessible digital services.\nCollaborated with engineering and research teams.\nTurned customer feedback into practical improvements.", km: "" } },
+    { ...entry("sample-work-two"), title: { en: "Visual Designer", km: "" }, organization: { en: "Creative Company", km: "" }, from: "2020-01", to: "2021-12", details: { en: "Created consistent visual systems across web and print.\nPresented design concepts to clients and stakeholders.", km: "" } }],
+  education: [{ ...entry("sample-study"), title: { en: "Bachelor of Design", km: "" }, organization: { en: "Example University", km: "" }, from: "2016-01", to: "2020-01" }],
+  skills: { en: "User research\nInterface design\nPrototyping\nDesign systems\nTeam collaboration", km: "" },
+  languages: { en: "Khmer · Native\nEnglish · Professional", km: "" },
+  projects: [{ id: "sample-project", title: { en: "Community Services Platform", km: "" }, details: { en: "Designed an approachable service that helps people find local resources.", km: "" } }],
+};
 
 function CvPair({ value, language }: { value: CvText; language: CvLanguage }) {
   return <>{cvTextLines(value, language).map((line, index) => <span key={line.language} lang={line.language} className={`${styles.textLine} ${index > 0 ? styles.secondary : ""}`}>{line.text}</span>)}</>;
@@ -43,10 +57,14 @@ function CvPreview({ data, template, language }: { data: CvData; template: CvTem
   const education = entries(data.education, "Education", "ការអប់រំ");
   const experience = entries(data.experience, "Experience", "បទពិសោធន៍ការងារ");
   const projects = data.projects.filter((item) => cvTextLines(item.title, language).length || cvTextLines(item.details, language).length);
-  return <article data-cv-document className={[styles.paper, styles[template.layout], styles[template.heading], template.serif ? styles.serif : "", template.compact ? styles.compact : ""].join(" ")} style={{ "--cv-accent": template.accent } as CSSProperties} lang={language === "km" ? "km" : "en"}>
-    <header className={styles.cvHeader}><h2 className={styles.name}>{cvTextLines(data.name, language).length ? <CvPair value={data.name} language={language} /> : <span className={styles.placeholder}>{language === "km" ? "ឈ្មោះរបស់អ្នក" : "Your name"}</span>}</h2>
+  return <article data-cv-document data-template={template.id} className={[styles.paper, styles[template.layout], styles[template.heading], template.serif ? styles.serif : "", template.compact ? styles.compact : ""].join(" ")} style={{ "--cv-accent": template.accent } as CSSProperties} lang={language === "km" ? "km" : "en"}>
+    <header className={`${styles.cvHeader} ${data.photo ? styles.withPhoto : ""}`}>
+      {/* A local data URL keeps the optional portrait inside the temporary draft. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {data.photo && <img className={styles.portrait} src={data.photo} alt="" />}
+      <div className={styles.identity}><h2 className={styles.name}>{cvTextLines(data.name, language).length ? <CvPair value={data.name} language={language} /> : <span className={styles.placeholder}>{language === "km" ? "ឈ្មោះរបស់អ្នក" : "Your name"}</span>}</h2>
       {cvTextLines(data.role, language).length > 0 && <div className={styles.role}><CvPair value={data.role} language={language} /></div>}
-      <div className={styles.contact}>{[data.email, data.phone, ...cvTextLines(data.location, language).map((line) => line.text), data.website].filter((text) => text.trim()).map((text, i) => <span key={i}>{text}</span>)}</div>
+      <div className={styles.contact}>{[data.email, data.phone, ...cvTextLines(data.location, language).map((line) => line.text), data.website].filter((text) => text.trim()).map((text, i) => <span key={i}>{text}</span>)}</div></div>
     </header>
     <div className={styles.cvBody}>
       <div className={styles.mainContent}>
@@ -63,8 +81,9 @@ function CvPreview({ data, template, language }: { data: CvData; template: CvTem
 }
 
 function MiniTemplate({ template }: { template: CvTemplate }) {
-  const blocks = (count: number) => Array.from({ length: count }, (_, index) => <span className={styles.miniSection} key={index}>{[0, 1, 2].map((i) => <span key={i} className={styles.miniLine} />)}</span>);
-  return <span aria-hidden="true" className={styles.mini} data-layout={template.layout} data-education={template.educationFirst || false} style={{ "--mini-accent": template.accent, fontFamily: template.serif ? "Georgia, serif" : undefined } as CSSProperties}><span className={styles.miniHeader} /><span className={styles.miniBody}><span className={styles.miniColumn}>{blocks(template.compact ? 4 : 3)}</span>{["sidebar", "split"].includes(template.layout) && <span className={styles.miniColumn}>{blocks(3)}</span>}</span></span>;
+  const portrait = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="150" height="180" viewBox="0 0 150 180"><rect width="150" height="180" fill="#e8ded1"/><path d="M14 180v-22c0-41 122-41 122 0v22" fill="#354b52"/><ellipse cx="75" cy="72" rx="33" ry="43" fill="#c79b79"/><path d="M40 69c-8-63 85-66 71 9L98 50 44 65z" fill="#3b3532"/><path d="M61 107h28v25H61z" fill="#c79b79"/></svg>');
+  const sample = ["sidebar", "banner", "split"].includes(template.layout) ? { ...sampleCv, photo: portrait } : sampleCv;
+  return <div aria-hidden="true" className={styles.templateSheet} inert><CvPreview data={sample} template={template} language="en" /></div>;
 }
 
 function Field({ id, label, value, onChange, multiline = false, type = "text", maxLength = 160, placeholder }: {
@@ -89,6 +108,8 @@ export function CvBuilder() {
   const [printing, setPrinting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState(false);
+  const [templateFilter, setTemplateFilter] = useState("all");
+  const photoInput = useRef<HTMLInputElement>(null);
   const preview = useRef<HTMLDivElement>(null);
   const picker = useRef<HTMLDialogElement>(null);
   const printFrame = useRef<HTMLIFrameElement | null>(null);
@@ -115,7 +136,24 @@ export function CvBuilder() {
   function reset() {
     if (!dirty || window.confirm(t("Clear this temporary CV? Download a PDF first if you want to keep it.", "លុប CV បណ្ដោះអាសន្ននេះ? សូមរក្សាទុក PDF ជាមុន បើអ្នកចង់រក្សាវាទុក។"))) {
       setData(emptyCv()); setMessage(""); setError(false);
+      if (photoInput.current) photoInput.current.value = "";
     }
+  }
+  async function choosePhoto(file?: File) {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 3 * 1024 * 1024) {
+      setError(true); setMessage(t("Choose a JPG, PNG or WebP image up to 3 MB.", "សូមជ្រើសរើសរូប JPG, PNG ឬ WebP មិនលើស 3 MB។"));
+      if (photoInput.current) photoInput.current.value = "";
+      return;
+    }
+    try {
+      const photo = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file);
+      });
+      const image = new Image(); image.src = photo; await image.decode();
+      setData((current) => ({ ...current, photo })); setError(false); setMessage("");
+    } catch { setError(true); setMessage(t("This image could not be opened. Choose another image.", "មិនអាចបើករូបនេះបានទេ។ សូមជ្រើសរើសរូបផ្សេង។")); }
   }
   async function savePdf() {
     if (!canExport || printing || !preview.current?.firstElementChild) return;
@@ -150,6 +188,7 @@ export function CvBuilder() {
       // Font readiness matters for Khmer shaping and selectable PDF text.
       void doc.body.offsetHeight;
       await Promise.race([doc.fonts.ready, new Promise((_, reject) => setTimeout(() => reject(new Error("Print fonts timed out")), 15000))]);
+      await Promise.race([Promise.all(Array.from(doc.images, (image) => image.decode())), new Promise((_, reject) => setTimeout(() => reject(new Error("Print image timed out")), 15000))]);
       win.addEventListener("afterprint", cleanup, { once: true });
       printTimer.current = setTimeout(cleanup, 120000);
       win.focus(); win.print();
@@ -183,6 +222,7 @@ export function CvBuilder() {
         <p className={styles.notice}><ShieldCheck size={16} className="mb-2" aria-hidden="true" /><strong>{t("Temporary and private.", "បណ្ដោះអាសន្ន និងឯកជន។")}</strong> {t("No CV data is sent to our server or saved in browser storage. Enter both languages yourself; changing the display language does not translate your content.", "ទិន្នន័យ CV មិនត្រូវបានផ្ញើទៅ server ឬរក្សាទុកក្នុង browser storage ទេ។ សូមបំពេញភាសាទាំងពីរដោយខ្លួនឯង។ ការប្ដូរភាសាបង្ហាញមិនបកប្រែអត្ថបទរបស់អ្នកទេ។")}</p>
         <div className={styles.preferences}><label className={styles.field}><span>{t("CV language", "ភាសា CV")}</span><select aria-label="CV language" value={language} onChange={(event) => setLanguage(event.target.value as CvLanguage)}><option value="bilingual">English + ខ្មែរ</option><option value="en">English</option><option value="km">ខ្មែរ</option></select></label><label className={styles.field}><span>{t("Selected template", "គំរូដែលបានជ្រើសរើស")}</span><select aria-label="CV template" value={templateId} onChange={(event) => setTemplateId(event.target.value)}>{CV_TEMPLATES.map((item) => <option value={item.id} key={item.id}>{item.name} · {item.layout}</option>)}</select></label></div>
         <details className={styles.section} open><summary>{t("1. Personal details", "១. ព័ត៌មានផ្ទាល់ខ្លួន")}</summary><div className={styles.sectionBody}>
+          <div className={styles.photoField}><label className={styles.field} htmlFor="cv-photo"><span>{t("Portrait photo (optional)", "រូបថតប្រវត្តិរូប (ជាជម្រើស)")}</span><input ref={photoInput} id="cv-photo" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void choosePhoto(event.target.files?.[0])} /></label><p className={styles.guidance}>{t("JPG, PNG or WebP · up to 3 MB. Stays in this tab. Include a photo only when appropriate for your application.", "JPG, PNG ឬ WebP · មិនលើស 3 MB។ ស្ថិតក្នុងទំព័រនេះតែប៉ុណ្ណោះ។ ដាក់រូបថតតែពេលសមស្របនឹងការដាក់ពាក្យ។")}</p>{data.photo && <button className={styles.remove} type="button" onClick={() => { setData((current) => ({ ...current, photo: "" })); if (photoInput.current) photoInput.current.value = ""; }}>{t("Remove photo", "លុបរូបថត")}</button>}</div>
           <PairField id="cv-name" label={t("Full name", "ឈ្មោះពេញ")} value={data.name} onChange={(value) => update("name", value)} />
           <PairField id="cv-role" label={t("Professional title", "តួនាទីវិជ្ជាជីវៈ")} value={data.role} onChange={(value) => update("role", value)} />
           <div className={styles.pair}><Field id="cv-email" label={t("Email", "អ៊ីមែល")} type="email" value={data.email} onChange={(email) => setData((current) => ({ ...current, email }))} /><Field id="cv-phone" label={t("Phone", "លេខទូរស័ព្ទ")} type="tel" value={data.phone} onChange={(phone) => setData((current) => ({ ...current, phone }))} /></div>
@@ -199,6 +239,16 @@ export function CvBuilder() {
       </div>
       <div className={styles.previewWrap}><div className={styles.previewTop}><span>{t("Live preview", "មើលលទ្ធផលភ្លាមៗ")}</span><small>{template.name} · A4 · {language === "bilingual" ? "EN + ខ្មែរ" : language === "en" ? "English" : "ខ្មែរ"}</small></div><div className={styles.previewScroll} aria-label={t("CV preview", "មើល CV")} tabIndex={0}><div ref={preview}><CvPreview data={data} template={template} language={language} /></div></div><p className={styles.previewHelp}>{t("Empty sections are omitted. A long CV continues onto additional PDF pages. Add your name to enable export; check the print preview before saving.", "ផ្នែកដែលមិនបានបំពេញនឹងមិនបង្ហាញ។ CV វែងនឹងបន្តទៅទំព័រ PDF បន្ទាប់។ បំពេញឈ្មោះដើម្បីរក្សាទុក ហើយពិនិត្យផ្ទាំងបោះពុម្ពជាមុន។")}</p></div>
     </div>
-    <dialog ref={picker} className={styles.modal} aria-labelledby="cv-template-heading"><div className={styles.modalHeader}><div><h2 id="cv-template-heading">{t("Choose your style", "ជ្រើសរើសរចនាបទរបស់អ្នក")}</h2><p>{t("24 free templates across six layouts. Switch designs without losing your information. Single-column layouts are the simplest starting point for application systems.", "គំរូឥតគិតថ្លៃ ២៤ ជាមួយរចនាសម្ព័ន្ធ ៦ ប្រភេទ។ ប្ដូរគំរូដោយមិនបាត់ព័ត៌មាន។ គំរូមួយជួរឈរជាជម្រើសសាមញ្ញសម្រាប់ប្រព័ន្ធដាក់ពាក្យ។")}</p></div><button className={styles.button} type="button" onClick={() => picker.current?.close()} aria-label={t("Close templates", "បិទគំរូ")}><X size={18} /></button></div><div className={styles.templateGrid}>{CV_TEMPLATES.map((item) => <button key={item.id} type="button" className={styles.templateButton} aria-pressed={templateId === item.id} aria-label={`${item.name}, ${item.layout}${item.educationFirst ? ", education first" : ""}`} onClick={() => { setTemplateId(item.id); picker.current?.close(); }}><MiniTemplate template={item} /><strong>{templateId === item.id && <Check size={12} className="mr-1 inline" aria-hidden="true" />}{item.name}</strong><small>{item.layout}{item.educationFirst ? " · education first" : item.compact ? " · compact" : item.serif ? " · serif" : " · standard"}</small></button>)}</div></dialog>
+    <dialog ref={picker} className={styles.modal} aria-labelledby="cv-template-heading">
+      <div className={styles.modalHeader}><div><span className={styles.galleryEyebrow}>{t("THE CV COLLECTION", "បណ្ដុំគំរូ CV")}</span><h2 id="cv-template-heading">{t("Find your next first impression.", "ជ្រើសរើសរចនាបទសម្រាប់ឱកាសថ្មី។")}</h2><p>{t("24 free designs. Real document previews with example content. Your information stays unchanged when you switch.", "រចនាបទឥតគិតថ្លៃ ២៤។ មើលគំរូឯកសារពិតជាមួយព័ត៌មានឧទាហរណ៍។ ការប្ដូរគំរូមិនផ្លាស់ប្ដូរព័ត៌មានរបស់អ្នកទេ។")}</p></div><button className={styles.button} type="button" onClick={() => picker.current?.close()} aria-label={t("Close templates", "បិទគំរូ")}><X size={18} /></button></div>
+      <div className={styles.templateFilters} aria-label={t("Filter templates", "ត្រងគំរូ")}>
+        {["all", "classic", "sidebar", "banner", "split", "timeline", "minimal"].map((filter) => <button type="button" key={filter} aria-pressed={templateFilter === filter} onClick={() => setTemplateFilter(filter)}>{filter === "all" ? t("All 24", "ទាំង ២៤") : filter}<span>{filter === "all" ? "" : "4"}</span></button>)}
+      </div>
+      <div className={styles.templateGrid}>{CV_TEMPLATES.filter((item) => templateFilter === "all" || item.layout === templateFilter).map((item) => <div key={item.id} className={styles.templateCard} data-selected={templateId === item.id}>
+        <MiniTemplate template={item} />
+        <div className={styles.templateCaption}><div><strong>{item.name}</strong><small>{item.layout}{item.educationFirst ? " · education first" : item.compact ? " · compact" : item.serif ? " · serif" : " · standard"}</small></div><span className={styles.freeBadge}>{t("FREE", "ឥតគិតថ្លៃ")}</span></div>
+        <button type="button" className={styles.templateButton} aria-pressed={templateId === item.id} aria-label={`${t("Use template", "ប្រើគំរូ")} ${item.name}`} onClick={() => { setTemplateId(item.id); picker.current?.close(); }}>{templateId === item.id ? <><Check size={13} aria-hidden="true" />{t("Selected", "បានជ្រើសរើស")}</> : t("Use this template", "ប្រើគំរូនេះ")}</button>
+      </div>)}</div>
+    </dialog>
   </div>;
 }
