@@ -90,7 +90,8 @@ export function ContactPageView({
   const [message, setMessage] = useState("");
   const [companyUrl, setCompanyUrl] = useState("");
   const [sending, setSending] = useState(false);
-  const [statusError, setStatusError] = useState("");
+  const [errorCode, setErrorCode] = useState<"" | "min_chars" | "max_chars" | "network" | "submit_failed" | "reveal_failed">("");
+  const [serverError, setServerError] = useState("");
   const [sent, setSent] = useState(false);
   const [submittedTopic, setSubmittedTopic] = useState<string>(initialTopic);
   const [submittedPage, setSubmittedPage] = useState<string>(initialPage);
@@ -106,26 +107,49 @@ export function ContactPageView({
   const trimmedLength = message.trim().length;
   const charCountInvalid = trimmedLength > FEEDBACK_MAX_MESSAGE_CHARS;
 
+  const statusError = useMemo(() => {
+    if (serverError) return serverError;
+    if (errorCode === "min_chars") {
+      return isKm
+        ? `សូមសរសេរយ៉ាងតិច ${FEEDBACK_MIN_MESSAGE_CHARS} តួអក្សរ។`
+        : `Please enter at least ${FEEDBACK_MIN_MESSAGE_CHARS} characters so we can act on it.`;
+    }
+    if (errorCode === "max_chars") {
+      return isKm
+        ? `សារមិនអាចលើសពី ${FEEDBACK_MAX_MESSAGE_CHARS} តួអក្សរបានទេ។`
+        : `Message cannot exceed ${FEEDBACK_MAX_MESSAGE_CHARS} characters.`;
+    }
+    if (errorCode === "network") {
+      return isKm
+        ? "បណ្តាញមានបញ្ហា។ សូមព្យាយាមម្តងទៀត។"
+        : "Network error while sending. Please check your connection and try again.";
+    }
+    if (errorCode === "submit_failed") {
+      return isKm
+        ? "មិនអាចផ្ញើមតិកែលម្អបានទេនៅពេលនេះ។ សូមព្យាយាមម្តងទៀត។"
+        : "Could not submit feedback right now. Please try again.";
+    }
+    if (errorCode === "reveal_failed") {
+      return isKm
+        ? "មិនអាចបង្ហាញអ៊ីមែលបានទេ។"
+        : "Could not load direct email right now.";
+    }
+    return "";
+  }, [errorCode, isKm, serverError]);
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setStatusError("");
+    setErrorCode("");
+    setServerError("");
 
     const trimmed = message.trim();
     if (trimmed.length < FEEDBACK_MIN_MESSAGE_CHARS) {
-      setStatusError(
-        isKm
-          ? `សូមសរសេរយ៉ាងតិច ${FEEDBACK_MIN_MESSAGE_CHARS} តួអក្សរ។`
-          : `Please enter at least ${FEEDBACK_MIN_MESSAGE_CHARS} characters so we can act on it.`,
-      );
+      setErrorCode("min_chars");
       return;
     }
 
     if (trimmed.length > FEEDBACK_MAX_MESSAGE_CHARS) {
-      setStatusError(
-        isKm
-          ? `សារមិនអាចលើសពី ${FEEDBACK_MAX_MESSAGE_CHARS} តួអក្សរបានទេ។`
-          : `Message cannot exceed ${FEEDBACK_MAX_MESSAGE_CHARS} characters.`,
-      );
+      setErrorCode("max_chars");
       return;
     }
 
@@ -155,12 +179,11 @@ export function ContactPageView({
       };
 
       if (!response.ok) {
-        setStatusError(
-          data.error ||
-            (isKm
-              ? "មិនអាចផ្ញើមតិកែលម្អបានទេនៅពេលនេះ។ សូមព្យាយាមម្តងទៀត។"
-              : "Could not submit feedback right now. Please try again."),
-        );
+        if (data.error) {
+          setServerError(data.error);
+        } else {
+          setErrorCode("submit_failed");
+        }
         return;
       }
 
@@ -169,11 +192,7 @@ export function ContactPageView({
       setSent(true);
       setMessage("");
     } catch {
-      setStatusError(
-        isKm
-          ? "បណ្តាញមានបញ្ហា។ សូមព្យាយាមម្តងទៀត។"
-          : "Network error while sending. Please check your connection and try again.",
-      );
+      setErrorCode("network");
     } finally {
       setSending(false);
     }
@@ -182,7 +201,8 @@ export function ContactPageView({
   async function handleRevealEmail() {
     if (revealedEmail || revealing) return;
     setRevealing(true);
-    setStatusError("");
+    setErrorCode("");
+    setServerError("");
     try {
       const response = await fetch("/api/feedback", {
         method: "POST",
@@ -198,16 +218,14 @@ export function ContactPageView({
         error?: string;
       };
       if (!response.ok) {
-        setStatusError(data.error || "Please wait a moment before revealing email.");
+        setServerError(data.error || "Please wait a moment before revealing email.");
         return;
       }
       if (data.email) {
         setRevealedEmail(data.email);
       }
     } catch {
-      setStatusError(
-        isKm ? "មិនអាចបង្ហាញអ៊ីមែលបានទេ។" : "Could not load direct email right now.",
-      );
+      setErrorCode("reveal_failed");
     } finally {
       setRevealing(false);
     }
@@ -282,7 +300,8 @@ export function ContactPageView({
                   type="button"
                   onClick={() => {
                     setSent(false);
-                    setStatusError("");
+                    setErrorCode("");
+                    setServerError("");
                   }}
                   className={
                     submittedPage && submittedPage !== "/contact"
