@@ -47,7 +47,6 @@ export interface DashboardStatsResponse {
     published_articles: number;
     pending_reviews: number;
     total_discoveries: number;
-    total_quizzes: number;
     total_tools: number;
     total_sources: number;
     active_sources: number;

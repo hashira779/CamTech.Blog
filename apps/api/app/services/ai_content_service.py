@@ -1,9 +1,8 @@
 """
 AI Content Service — extends the site's AI automation beyond news.
 
-Generates, with the existing Gemini setup (Google Search grounding when available):
+Generates, with the existing AI Gateway setup (web search when available):
   * Visual Discoveries  -> evergreen "how things work" explainers (Discover section)
-  * Daily Quiz          -> one fresh quiz per day (Cambodia time)
   * Travel Guides       -> evergreen destination guides
   * Travel Events       -> upcoming festivals/events with ISO dates
 
@@ -33,7 +32,6 @@ from app.models.audit import AuditLog
 from app.models.discovery import Discovery
 from app.models.guide_event import Event, TravelGuide
 from app.models.location import Destination
-from app.models.quiz import Quiz, QuizQuestion
 from app.services.image_search_service import image_search_service
 from app.services.ai_tourism_engine import content_image_matches, filter_live_images
 from app.services import ai_gateway
@@ -41,15 +39,6 @@ from app.services import ai_gateway
 logger = logging.getLogger(__name__)
 
 KH_TZ = timezone(timedelta(hours=7))  # Cambodia time, no DST
-
-QUIZ_TOPIC_POOL = [
-    "Science and space exploration",
-    "World geography and capitals",
-    "History and ancient civilizations",
-    "Technology and the internet",
-    "Cambodia culture, provinces and landmarks",
-    "Nature, animals and the ocean",
-]
 
 
 def _slugify(text: str, max_len: int = 80) -> str:
@@ -62,7 +51,7 @@ def _meta(engine: str) -> str:
 
 
 class AIContentService:
-    """Generators for Discoveries, Daily Quiz and Travel content.
+    """Generators for Discoveries and Travel content.
 
     All AI calls go through the pluggable multi-provider gateway (see ai_gateway), so any
     enabled vendor (Gemini, OpenAI, Anthropic, Groq, ...) can back generation and a single
@@ -253,83 +242,6 @@ Return a JSON array of {count} objects, each with:
             finally:
                 db.close()
         return {"status": "success", "generated": generated, "engine": model}
-
-    # ------------------------------------------------------------------ #
-    # Daily quiz                                                          #
-    # ------------------------------------------------------------------ #
-    async def generate_daily_quiz(self) -> Dict[str, Any]:
-        today = datetime.now(KH_TZ).strftime("%Y-%m-%d")
-        db = SessionLocal()
-        try:
-            existing = db.query(Quiz).filter(Quiz.featured_date == today).first()
-            if existing:
-                return {"status": "skipped", "reason": "already_exists", "generated": 0}
-        finally:
-            db.close()
-
-        if not ai_gateway.has_any_configured_provider():
-            return {"status": "skipped", "reason": "no_ai_key", "generated": 0}
-
-        day_index = datetime.now(KH_TZ).timetuple().tm_yday
-        topic = QUIZ_TOPIC_POOL[day_index % len(QUIZ_TOPIC_POOL)]
-        prompt = f"""Create today's daily quiz ({today}) on the topic: {topic}.
-Write 5 original, factual, family-friendly questions with 4 choices each.
-Return JSON with:
-- title: short quiz title (max 90 chars)
-- description: 1-2 sentence intro (max 200 chars)
-- category: one of [Daily Challenge, Science, World, History, Tech, Cambodia]
-- difficulty: one of [EASY, MEDIUM, HARD]
-- estimated_minutes: integer 2-6
-- questions: array of 5 objects {{question, choices (4 strings), correct_answer_idx (0-3), explanation (1-2 sentences), source_reference (source name or URL)}}
-"""
-        data, model = await self._generate_json(prompt, use_search=True, timeout=60.0)
-        if not isinstance(data, dict) or not data.get("questions") or not model:
-            return {"status": "failed", "error": "generation_failed", "generated": 0}
-
-        db = SessionLocal()
-        try:
-            quiz = Quiz(
-                slug=f"daily-quiz-{today}",
-                title=str(data.get("title") or f"Daily Quiz {today}")[:255],
-                description=str(data.get("description") or "Today's daily challenge.")[:2000],
-                category=str(data.get("category") or "Daily Challenge")[:100],
-                difficulty=str(data.get("difficulty") or "MEDIUM")[:50],
-                is_daily=True,
-                featured_date=today,
-                estimated_minutes=int(data.get("estimated_minutes") or 3),
-                ai_metadata=_meta(model),
-            )
-            db.add(quiz)
-            db.flush()
-            for idx, q in enumerate(data["questions"][:5]):
-                if not isinstance(q, dict) or not q.get("question"):
-                    continue
-                choices = [str(c) for c in (q.get("choices") or [])][:4]
-                if len(choices) != 4:
-                    continue
-                correct = int(q.get("correct_answer_idx") or 0)
-                if not 0 <= correct <= 3:
-                    continue
-                db.add(QuizQuestion(
-                    quiz_id=quiz.id,
-                    question=str(q["question"])[:2000],
-                    choices_json=json.dumps(choices),
-                    correct_answer_idx=correct,
-                    explanation=str(q.get("explanation") or "")[:2000],
-                    source_reference=str(q.get("source_reference") or "")[:500] or None,
-                    difficulty=quiz.difficulty,
-                    category=quiz.category,
-                    order_num=idx,
-                ))
-            db.commit()
-            self._audit(db, "AI_GENERATE", "QUIZ", quiz.id, f"Daily quiz {today} drafted by {model}")
-            return {"status": "success", "generated": 1, "engine": model, "date": today}
-        except Exception as e:
-            logger.error(f"[AIContent] quiz save failed: {e}")
-            db.rollback()
-            return {"status": "failed", "error": str(e), "generated": 0}
-        finally:
-            db.close()
 
     # ------------------------------------------------------------------ #
     # Travel guides & events                                              #

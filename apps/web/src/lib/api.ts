@@ -1,7 +1,6 @@
 import {
   Article,
   Discovery,
-  Quiz,
   Tool,
   TrendingResponse,
   SearchResultItem,
@@ -109,10 +108,6 @@ export async function getDiscoveries(category?: string): Promise<{ items: Discov
 
 export async function getDiscoveryBySlug(slug: string): Promise<Discovery | null> {
   return fetchNullableWithFallback<Discovery>(`${API_BASE}/discoveries/${slug}`);
-}
-
-export async function getDailyQuiz(): Promise<Quiz | null> {
-  return fetchNullableWithFallback<Quiz>(`${API_BASE}/quizzes/daily`, 300);
 }
 
 export async function getTools(): Promise<Tool[]> {

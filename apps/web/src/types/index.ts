@@ -111,33 +111,6 @@ export interface Discovery {
   published_at?: string;
 }
 
-export interface QuizQuestion {
-  id: string;
-  question: string;
-  question_km?: string;
-  choices: string[];
-  order_num: number;
-  difficulty: string;
-  category?: string;
-  correct_answer_idx?: number;
-  explanation?: string;
-  source_reference?: string;
-}
-
-export interface Quiz {
-  id: string;
-  slug: string;
-  title: string;
-  title_km?: string;
-  description: string;
-  category: string;
-  difficulty: string;
-  is_daily: boolean;
-  featured_date?: string;
-  estimated_minutes: number;
-  questions: QuizQuestion[];
-}
-
 export interface Tool {
   id: string;
   slug: string;
@@ -176,7 +149,7 @@ export interface TrendingResponse {
 
 export interface SearchResultItem {
   id: string;
-  type: "ARTICLE" | "DISCOVERY" | "QUIZ" | "TOOL" | "PLACE" | "DESTINATION" | "GUIDE" | "EVENT" | "AUTHOR";
+  type: "ARTICLE" | "DISCOVERY" | "TOOL" | "PLACE" | "DESTINATION" | "GUIDE" | "EVENT" | "AUTHOR";
   title: string;
   title_km?: string;
   summary: string;

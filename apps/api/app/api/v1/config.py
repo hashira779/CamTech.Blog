@@ -16,7 +16,11 @@ router = APIRouter(prefix="/config", tags=["Configuration"])
 def get_navigation_items(db: Session = Depends(get_db)):
     return (
         db.query(NavigationItem)
-        .filter(NavigationItem.enabled == True)
+        .filter(
+            NavigationItem.enabled == True,
+            NavigationItem.route != "/quiz",
+            NavigationItem.label_key != "nav.quiz",
+        )
         .order_by(NavigationItem.position)
         .all()
     )
@@ -25,30 +29,40 @@ def get_navigation_items(db: Session = Depends(get_db)):
 def get_homepage_sections(db: Session = Depends(get_db)):
     return (
         db.query(HomepageSection)
-        .filter(HomepageSection.enabled == True)
+        .filter(
+            HomepageSection.enabled == True,
+            ~HomepageSection.section_key.ilike("%quiz%"),
+        )
         .order_by(HomepageSection.position)
         .all()
     )
 
 @router.get("/feature-flags", response_model=List[FeatureFlagOut])
 def get_feature_flags(db: Session = Depends(get_db)):
-    return db.query(FeatureFlag).all()
+    return db.query(FeatureFlag).filter(~FeatureFlag.name.ilike("%quiz%")).all()
 
 @router.get("/site-config", response_model=SiteConfigResponse)
 def get_full_site_config(db: Session = Depends(get_db)):
     navs = (
         db.query(NavigationItem)
-        .filter(NavigationItem.enabled == True)
+        .filter(
+            NavigationItem.enabled == True,
+            NavigationItem.route != "/quiz",
+            NavigationItem.label_key != "nav.quiz",
+        )
         .order_by(NavigationItem.position)
         .all()
     )
     sections = (
         db.query(HomepageSection)
-        .filter(HomepageSection.enabled == True)
+        .filter(
+            HomepageSection.enabled == True,
+            ~HomepageSection.section_key.ilike("%quiz%"),
+        )
         .order_by(HomepageSection.position)
         .all()
     )
-    flags = db.query(FeatureFlag).all()
+    flags = db.query(FeatureFlag).filter(~FeatureFlag.name.ilike("%quiz%")).all()
     flags_dict = {f.name: f.enabled for f in flags}
     return SiteConfigResponse(
         navigation=navs,

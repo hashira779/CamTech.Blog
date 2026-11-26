@@ -437,6 +437,7 @@ async def khmer_backfill_job():
     from app.services.seed_sources import (
         ensure_production_pipeline_v4,
         ensure_production_pipeline_v5,
+        ensure_production_pipeline_v6,
         ensure_regional_hygiene_v3,
     )
     db = SessionLocal()
@@ -444,7 +445,8 @@ async def khmer_backfill_job():
         ensure_regional_hygiene_v3(db)
         ensure_production_pipeline_v4(db)
         ensure_production_pipeline_v5(db)
-        res = await bilingual_service.translate_missing_khmer_batch(db, article_limit=8, discovery_limit=3)
+        ensure_production_pipeline_v6(db)
+        res = await bilingual_service.translate_missing_khmer_batch(db, article_limit=25, discovery_limit=6)
         if res.get("articles_translated") or res.get("discoveries_translated"):
             logger.info(
                 f"🇰🇭 Khmer Backfill: articles={res.get('articles_translated', 0)}, "
@@ -464,7 +466,7 @@ async def news_autopilot_job():
     try:
         # Upgrade drafts written while no AI provider answered, before deciding what publishes
         redraft = await news_autopilot.redraft_held_drafts(db, get_ai_provider().gemini)
-        kh_backfill = await bilingual_service.translate_missing_khmer_batch(db, article_limit=10, discovery_limit=3)
+        kh_backfill = await bilingual_service.translate_missing_khmer_batch(db, article_limit=20, discovery_limit=4)
         result = news_autopilot.run_lifecycle(db)
         logger.info(
             f"🤖 News Autopilot: redrafted={redraft.get('redrafted', 0)} "
@@ -565,7 +567,7 @@ async def worker_main():
         # RSS ingestion respects per-source fetch intervals.
         await ingest_rss_feeds_job()
 
-        # 3. Content Autopilot: draft discoveries, daily quiz, travel guides & events
+        # 3. Content Autopilot: draft discoveries, travel guides & events
         await content_autopilot_job()
 
         # 4. News Autopilot: auto-publish reviewed-window drafts, archive & purge stale ones

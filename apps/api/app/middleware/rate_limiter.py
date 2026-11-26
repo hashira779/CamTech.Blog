@@ -98,7 +98,6 @@ BOT_EXEMPT_PREFIXES = (
     "/api/v1/sources",
     "/api/v1/trending",
     "/api/v1/discoveries",
-    "/api/v1/quizzes",
     "/api/v1/tools",
     "/api/v1/travel",
     "/sitemap.xml",

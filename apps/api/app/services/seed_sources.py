@@ -384,3 +384,46 @@ def ensure_production_pipeline_v5(db: Session) -> Dict[str, object]:
     ))
     db.commit()
     return {"model_updated": model_updated}
+
+
+def ensure_production_pipeline_v6(db: Session) -> Dict[str, object]:
+    """Re-align domestic Cambodia stories misfiled as TH and permanently retire Quiz navigation/config."""
+    from app.models.audit import SiteSetting
+    from app.models.config import FeatureFlag, HomepageSection, NavigationItem
+
+    flag = db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V6").first()
+    if flag:
+        return {"already_ran": True}
+
+    desks = reconcile_existing_article_desks(db)
+
+    disabled_nav = 0
+    for item in db.query(NavigationItem).all():
+        route = (item.route or "").strip().lower()
+        key = (item.label_key or "").strip().lower()
+        label = (item.label or "").strip().lower()
+        if route.startswith("/quiz") or key == "nav.quiz" or label == "quiz":
+            if item.enabled:
+                item.enabled = False
+                disabled_nav += 1
+
+    for sec in db.query(HomepageSection).all():
+        if "quiz" in (sec.section_key or "").lower() or "quiz" in (sec.title or "").lower():
+            if sec.enabled:
+                sec.enabled = False
+
+    for ff in db.query(FeatureFlag).all():
+        if "quiz" in (ff.name or "").lower():
+            ff.enabled = False
+
+    quiz_setting = db.query(SiteSetting).filter(SiteSetting.key == "AUTOPILOT_QUIZ_ENABLED").first()
+    if quiz_setting:
+        quiz_setting.value_json = "false"
+
+    db.add(SiteSetting(
+        key="PIPELINE_RECOVERY_V6",
+        value_json="done",
+        description="Re-filed domestic Cambodia stories back to KH desk and disabled retired Quiz navigation",
+    ))
+    db.commit()
+    return {"desks": desks, "disabled_nav": disabled_nav}

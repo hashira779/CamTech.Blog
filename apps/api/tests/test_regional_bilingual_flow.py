@@ -415,3 +415,62 @@ def test_pipeline_recovery_v4_fixes_dead_feeds_and_gemini_model():
             assert stored_provs[0]["model"] == "gemini-3-flash-preview"
     finally:
         engine.dispose()
+
+
+def test_domestic_cambodia_outlet_not_misfiled_as_thai_desk():
+    # Domestic ThmeyThmey report about CP Cambodia mentioning parent company or regional trade
+    # in the body must remain on Cambodia (KH) desk, not Thai-Cambodia (TH).
+    assert filing.resolve_country(
+        "cambodia", "KH",
+        "Opportunity for feed distributor of CP Cambodia Co., Ltd - Thmey",
+        "CP Cambodia Co., Ltd. opened distributor opportunities across Cambodia's provinces.",
+        "The parent group operates across Thailand and ASEAN border trade corridors.",
+        source_name="ThmeyThmey",
+    ) == "KH"
+
+
+def test_bilingual_tagged_extraction_handles_markdown_quotes_and_v6_retires_quiz():
+    from app.common.database import Base
+    from app.models.config import NavigationItem
+    from app.models.audit import SiteSetting
+
+    raw = (
+        '<title_km>ឱកាសសម្រាប់អ្នកចែកចាយ "ចំណីសត្វ" ស៊ីភី ខេមបូឌា</title_km>\n'
+        '<summary_km>ក្រុមហ៊ុន ស៊ីភី ខេមបូឌា បានប្រកាសឱកាសអាជីវកម្មថ្មីនៅកម្ពុជា។</summary_km>\n'
+        '<content_km>## ព័ត៌មានលម្អិត\n\nអត្ថបទពេញលេញជាភាសាខ្មែរ "ស្តីពីអាជីវកម្ម" និងការពង្រីកខ្សែសង្វាក់ផ្គត់ផ្គង់នៅកម្ពុជា។</content_km>'
+    )
+    parsed = bilingual_service._extract_tagged_sections(raw, ("title_km", "summary_km", "content_km"))
+    assert parsed is not None
+    assert "ស៊ីភី ខេមបូឌា" in parsed["title_km"]
+    assert "អត្ថបទពេញលេញជាភាសាខ្មែរ" in parsed["content_km"]
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    try:
+        with Session(engine) as db:
+            author = Author(id="au-v6", name="AI Desk", slug="ai-desk-v6")
+            kh_cat = Category(id="cat-v6", name="Cambodia", slug="cambodia", scope="CAMBODIA")
+            quiz_nav = NavigationItem(id="nav-q", label="Quiz", label_key="nav.quiz", route="/quiz", position=6, enabled=True)
+            th_art = Article(
+                id="art-v6",
+                slug="cp-cambodia-thmey",
+                title="Opportunity for feed distributor of CP Cambodia Co., Ltd - Thmey",
+                summary="CP Cambodia opened opportunities in Phnom Penh.",
+                content=("CP Cambodia expands across Cambodian provinces. " * 25).strip(),
+                country="TH",
+                category_id="cat-v6",
+                author_id="au-v6",
+                primary_source_url="https://thmeythmey.com/1",
+                source_attribution_text="ThmeyThmey",
+                status="PUBLISHED",
+            )
+            db.add_all([author, kh_cat, quiz_nav, th_art])
+            db.commit()
+
+            res = seed_sources.ensure_production_pipeline_v6(db)
+            assert res["disabled_nav"] == 1
+            assert db.query(NavigationItem).filter(NavigationItem.id == "nav-q").first().enabled is False
+            assert db.query(Article).filter(Article.id == "art-v6").first().country == "KH"
+            assert db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V6").first() is not None
+    finally:
+        engine.dispose()

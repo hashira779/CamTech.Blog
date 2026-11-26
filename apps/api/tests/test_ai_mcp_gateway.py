@@ -17,11 +17,9 @@ from app.main import app
 from app.models.article import Article
 from app.models.author import Author
 from app.models.category import Category
-from app.models.quiz import Quiz
 from app.models.user import User
 from app.services import ai_gateway
 from app.services.auth_service import get_current_user
-from app.services.quiz_service import QuizService
 
 
 class _FakeResponse:
@@ -243,39 +241,6 @@ def test_discover_models_and_batch_test_endpoints(monkeypatch):
         assert r_all.json()["ok_count"] == 2
     finally:
         app.dependency_overrides.pop(get_current_user, None)
-
-
-def test_quiz_service_uses_pluggable_ai_gateway(monkeypatch):
-    tag = uuid.uuid4().hex[:6]
-    monkeypatch.setattr(ai_gateway, "has_any_configured_provider", lambda: True)
-    monkeypatch.setattr(
-        ai_gateway,
-        "generate_json",
-        lambda prompt, **kw: ({
-            "title": f"MCP Gateway Quiz {tag}",
-            "category": "Tech",
-            "difficulty": "MEDIUM",
-            "description": "Tests multi-provider gateway routing.",
-            "estimated_minutes": 2,
-            "questions": [{
-                "question": "Which protocol does MCP use?",
-                "choices": ["FTP", "JSON-RPC 2.0", "SMTP", "ICMP"],
-                "correct_answer_idx": 1,
-                "explanation": "MCP uses JSON-RPC 2.0 over stdio or Streamable HTTP.",
-                "source_reference": "MCP Specification",
-            }],
-        }, {"provider": "openai", "engine": "openai:gpt-4o-mini"}),
-    )
-
-    res = asyncio.run(QuizService.scan_and_generate_quizzes(count=1))
-    assert res["created_count"] == 1
-    created_id = res["quizzes"][0]["id"]
-    db = SessionLocal()
-    try:
-        db.query(Quiz).filter(Quiz.id == created_id).delete()
-        db.commit()
-    finally:
-        db.close()
 
 
 def test_inbound_mcp_server_published_only_and_rbac(monkeypatch):

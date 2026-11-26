@@ -15,7 +15,6 @@ from app.common.database import get_db
 from app.models.article import Article, ArticleRevision
 from app.models.source import Source, SourceFetchLog
 from app.models.discovery import Discovery
-from app.models.quiz import Quiz
 from app.models.tool import Tool
 from app.models.audit import AuditLog, SiteSetting
 from app.models.user import User
@@ -39,7 +38,6 @@ def get_dashboard_stats(db: Session = Depends(get_db), current_user: User = Depe
     published_articles = db.query(Article).filter(Article.status == "PUBLISHED").count()
     pending_reviews = db.query(Article).filter(Article.status.in_(["AI_DRAFT", "IN_REVIEW", "DRAFT"])).count()
     total_discoveries = db.query(Discovery).count()
-    total_quizzes = db.query(Quiz).count()
     total_tools = db.query(Tool).count()
     total_sources = db.query(Source).count()
     active_sources = db.query(Source).filter(Source.is_active == True).count()
@@ -56,7 +54,6 @@ def get_dashboard_stats(db: Session = Depends(get_db), current_user: User = Depe
             "published_articles": published_articles,
             "pending_reviews": pending_reviews,
             "total_discoveries": total_discoveries,
-            "total_quizzes": total_quizzes,
             "total_tools": total_tools,
             "total_sources": total_sources,
             "active_sources": active_sources,
@@ -399,27 +396,14 @@ async def scan_discoveries(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/ai/scan/quizzes")
-async def scan_quizzes(
-    current_user: User = Depends(require_admin)
-):
-    """Scan and generate new interactive daily challenge quiz."""
-    from app.services.quiz_service import QuizService
-    try:
-        res = await QuizService.scan_and_generate_quizzes(count=1)
-        return res
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @router.post("/ai/scan/all")
 async def scan_all_content_sections(
     current_user: User = Depends(require_admin)
 ):
     """
-    Master Scanner: scans Cambodia News, World News, Visual Discoveries, and Quizzes in one operation.
+    Master Scanner: scans Cambodia News, Thai News on Cambodia, ASEAN, World News, and Visual Discoveries in one operation.
     """
     from app.services.discovery_service import discovery_service
-    from app.services.quiz_service import QuizService
 
     results = {}
     # 1. Cambodia News
@@ -451,12 +435,6 @@ async def scan_all_content_sections(
         results["discoveries"] = await discovery_service.scan_and_generate_discoveries(count=2)
     except Exception as e:
         results["discoveries"] = {"error": str(e)}
-
-    # 6. Quizzes
-    try:
-        results["quizzes"] = await QuizService.scan_and_generate_quizzes(count=1)
-    except Exception as e:
-        results["quizzes"] = {"error": str(e)}
 
     return {
         "status": "success",

@@ -45,9 +45,6 @@ class BaseAIProvider:
     async def classify_category(self, title: str, content: str) -> str:
         raise NotImplementedError
 
-    async def generate_quiz_draft(self, topic: str) -> Dict[str, Any]:
-        raise NotImplementedError
-
 
 class LocalAIProvider(BaseAIProvider):
     """
@@ -213,27 +210,6 @@ class LocalAIProvider(BaseAIProvider):
             return "Cambodia"
         return best
 
-    async def generate_quiz_draft(self, topic: str) -> Dict[str, Any]:
-        return {
-            "title": f"Quick Knowledge Challenge: {topic}",
-            "description": f"Test your understanding of {topic} with factual, educational questions.",
-            "category": "Science",
-            "questions": [
-                {
-                    "question": f"What is a primary documented principle behind {topic}?",
-                    "choices": [
-                        "Established empirical observations verified through research",
-                        "Random statistical fluctuations",
-                        "Unsubstantiated claims",
-                        "None of the above",
-                    ],
-                    "correct_answer_idx": 0,
-                    "explanation": f"Factual understanding of {topic} is based on verified scientific principles and empirical research.",
-                    "source_reference": "Encyclopedia Britannica",
-                }
-            ],
-        }
-
 
 class GeminiAIProvider(BaseAIProvider):
     """
@@ -291,18 +267,6 @@ Return only valid JSON."""
                 return v
         return "World"
 
-    async def generate_quiz_draft(self, topic: str) -> Dict[str, Any]:
-        prompt = (
-            f"Generate a high-quality educational quiz challenge on '{topic}'. "
-            "Include 3 questions with 4 choices each, the correct choice index (0-3), and a clear "
-            "educational explanation. Return JSON with: title, description, category, "
-            "questions (each having question, choices (4 strings), correct_answer_idx, explanation, source_reference)."
-        )
-        data, _meta = await asyncio.to_thread(ai_gateway.generate_json, prompt, use_search=False, timeout=25.0)
-        if not isinstance(data, dict):
-            raise RuntimeError("No AI provider produced a quiz draft")
-        return data
-
 
 class HybridAIProvider(BaseAIProvider):
     """
@@ -327,13 +291,6 @@ class HybridAIProvider(BaseAIProvider):
         except Exception as e:
             logger.debug(f"Gateway classification unavailable ({e}), using local classification fallback.")
             return await self.local.classify_category(title, content)
-
-    async def generate_quiz_draft(self, topic: str) -> Dict[str, Any]:
-        try:
-            return await self.gemini.generate_quiz_draft(topic)
-        except Exception as e:
-            logger.debug(f"Gateway quiz draft unavailable ({e}), using local quiz fallback.")
-            return await self.local.generate_quiz_draft(topic)
 
 
 _provider_instance = HybridAIProvider()

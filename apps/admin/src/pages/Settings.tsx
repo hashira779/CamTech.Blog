@@ -41,7 +41,6 @@ const AUTOPILOT_DEFAULTS: Record<string, string> = {
   AUTOPILOT_PURGE_AFTER_DAYS: '30',
   AUTOPILOT_DISCOVERY_ENABLED: 'true',
   AUTOPILOT_DISCOVERY_INTERVAL_HOURS: '24',
-  AUTOPILOT_QUIZ_ENABLED: 'false',
   AUTOPILOT_TRAVEL_ENABLED: 'true',
   AUTOPILOT_TRAVEL_INTERVAL_HOURS: '24',
 };
@@ -336,7 +335,7 @@ export default function Settings() {
     }
   };
 
-  const runAutopilotAction = async (action: 'lifecycle' | 'discoveries' | 'quiz' | 'travel') => {
+  const runAutopilotAction = async (action: 'lifecycle' | 'discoveries' | 'travel') => {
     setRunning(action);
     try {
       const res = action === 'lifecycle'

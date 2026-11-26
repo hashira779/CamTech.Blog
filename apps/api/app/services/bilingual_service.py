@@ -10,8 +10,10 @@ import asyncio
 import json
 import logging
 import re
-from typing import Any, Dict, Optional
+import time
+from typing import Any, Dict, List, Optional, Tuple
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.common.html_hygiene import sanitize_stored_html
@@ -24,6 +26,27 @@ logger = logging.getLogger(__name__)
 
 _KHMER_CHAR_RE = re.compile(r"[\u1780-\u17FF]")
 _FOREIGN_SCRIPT_RE = re.compile(r"[\u0E00-\u0E7F\u0E80-\u0EFF]")
+
+# Per-article failure backoff (seconds) so one problematic item never stalls the rest of the backlog.
+_BACKFILL_COOLDOWN_UNTIL: Dict[str, float] = {}
+_BACKFILL_COOLDOWN_SECS = 1200.0
+
+
+def _extract_tagged_sections(raw_text: str, keys: Tuple[str, ...]) -> Optional[Dict[str, str]]:
+    """Parse XML-style <key>...</key> sections first, falling back to JSON extraction."""
+    if not raw_text:
+        return None
+    found: Dict[str, str] = {}
+    for key in keys:
+        m = re.search(rf"<{key}>\s*(.*?)\s*</{key}>", raw_text, flags=re.IGNORECASE | re.DOTALL)
+        if m and m.group(1).strip():
+            found[key] = m.group(1).strip()
+    if found:
+        return found
+    parsed = ai_gateway.extract_json(raw_text)
+    if isinstance(parsed, dict):
+        return {k: str(v).strip() for k, v in parsed.items() if k in keys and v is not None}
+    return None
 
 
 def count_khmer_chars(text: Optional[str]) -> int:
@@ -100,21 +123,24 @@ English Summary: {clean_summary}
 English Article Body:
 {clean_content}
 
-Return ONLY valid JSON with keys:
-- "title_km": Formal Khmer news headline
-- "summary_km": Natural 2-3 sentence Khmer summary
-- "content_km": Full Khmer translation of the entire article body in Markdown (using ## subheadings)
+Output EXACTLY using these three tags (no extra JSON escaping needed):
+<title_km>Formal Khmer news headline</title_km>
+<summary_km>Natural 2-3 sentence Khmer summary</summary_km>
+<content_km>
+Full Khmer translation of the entire article body in Markdown using ## subheadings
+</content_km>
 """
-    data, meta = await asyncio.to_thread(
-        ai_gateway.generate_json,
+    raw_text, meta = await asyncio.to_thread(
+        ai_gateway.generate_text,
         prompt,
         use_search=False,
-        timeout=60.0,
-        max_tokens=6144,
+        timeout=75.0,
+        max_tokens=8192,
     )
+    data = _extract_tagged_sections(raw_text or "", ("title_km", "summary_km", "content_km"))
     if not isinstance(data, dict):
         logger.warning(
-            "[Bilingual] Article translation returned no JSON: %s",
+            "[Bilingual] Article translation returned no structured Khmer: %s",
             (meta or {}).get("details") or (meta or {}).get("error"),
         )
         return None
@@ -188,18 +214,21 @@ Intro: {clean_intro}
 Explanation:
 {clean_body}
 
-Return ONLY valid JSON:
-- "title_km": Clear Khmer title
-- "intro_km": Fluent 2-3 sentence Khmer hook
-- "main_explanation_km": Complete Markdown translation in natural Khmer using ## subheadings (pure Khmer script only, never mix Thai or Lao script)
+Output EXACTLY using these three tags (pure Khmer script only, never mix Thai or Lao script):
+<title_km>Clear Khmer title</title_km>
+<intro_km>Fluent 2-3 sentence Khmer hook</intro_km>
+<main_explanation_km>
+Complete Markdown translation in natural Khmer using ## subheadings
+</main_explanation_km>
 """
-    data, _meta = await asyncio.to_thread(
-        ai_gateway.generate_json,
+    raw_text, _meta = await asyncio.to_thread(
+        ai_gateway.generate_text,
         prompt,
         use_search=False,
-        timeout=60.0,
-        max_tokens=6144,
+        timeout=75.0,
+        max_tokens=8192,
     )
+    data = _extract_tagged_sections(raw_text or "", ("title_km", "intro_km", "main_explanation_km"))
     if not isinstance(data, dict):
         return None
 
@@ -213,67 +242,125 @@ Return ONLY valid JSON:
     return out or None
 
 
+def _needs_sql_filter(col):
+    return or_(col.is_(None), col == "")
+
+
 async def translate_missing_khmer_batch(
     db: Session,
-    article_limit: int = 5,
-    discovery_limit: int = 2,
+    article_limit: int = 25,
+    discovery_limit: int = 6,
 ) -> Dict[str, int]:
-    """Backfill missing Khmer fields on published/draft articles and discoveries."""
+    """Backfill missing Khmer fields across ALL published/draft articles and discoveries."""
     if not await asyncio.to_thread(ai_gateway.has_any_configured_provider):
         return {"articles_translated": 0, "discoveries_translated": 0, "skipped_no_provider": 1}
 
-    # Prioritize live PUBLISHED articles first so visitors switching to Khmer see complete translations.
+    now = time.monotonic()
+
+    # Query ALL live PUBLISHED articles missing Khmer first (never stop at an arbitrary 80-row slice),
+    # then recent drafts waiting for editorial review.
     published_rows = (
         db.query(Article)
-        .filter(Article.status == "PUBLISHED")
+        .filter(
+            Article.status == "PUBLISHED",
+            or_(
+                _needs_sql_filter(Article.title_km),
+                _needs_sql_filter(Article.summary_km),
+                _needs_sql_filter(Article.content_km),
+            ),
+        )
         .order_by(Article.published_at.desc().nullslast(), Article.created_at.desc())
-        .limit(80)
+        .limit(500)
         .all()
     )
     draft_rows = (
         db.query(Article)
-        .filter(Article.status.in_(["AI_DRAFT", "DRAFT", "IN_REVIEW", "APPROVED"]))
+        .filter(
+            Article.status.in_(["AI_DRAFT", "DRAFT", "IN_REVIEW", "APPROVED"]),
+            or_(
+                _needs_sql_filter(Article.title_km),
+                _needs_sql_filter(Article.summary_km),
+                _needs_sql_filter(Article.content_km),
+            ),
+        )
         .order_by(Article.created_at.desc())
-        .limit(60)
+        .limit(120)
         .all()
     )
 
-    candidates = [a for a in (published_rows + draft_rows) if article_needs_khmer(a)][:article_limit]
-    art_done = 0
-    for art in candidates:
-        res = await translate_article_to_khmer(
-            title=art.title,
-            summary=art.summary or "",
-            content=art.content or "",
-            source_name=art.source_attribution_text or "",
+    # Also catch any rows holding short/corrupt Khmer strings not caught by NULL/empty filter
+    if len(published_rows) + len(draft_rows) < article_limit:
+        extra_rows = (
+            db.query(Article)
+            .filter(Article.status.in_(["PUBLISHED", "AI_DRAFT", "DRAFT", "IN_REVIEW", "APPROVED"]))
+            .order_by(Article.published_at.desc().nullslast(), Article.created_at.desc())
+            .limit(200)
+            .all()
         )
-        if not res:
+        seen_ids = {a.id for a in published_rows} | {a.id for a in draft_rows}
+        for row in extra_rows:
+            if row.id not in seen_ids:
+                published_rows.append(row)
+
+    candidates: List[Article] = []
+    for art in (published_rows + draft_rows):
+        if _BACKFILL_COOLDOWN_UNTIL.get(art.id, 0.0) > now:
             continue
-        changed = False
-        if not has_clean_khmer_script(art.title_km, 3) and res.get("title_km"):
-            art.title_km = res["title_km"]
-            changed = True
-        if not has_clean_khmer_script(art.summary_km, 10) and res.get("summary_km"):
-            art.summary_km = res["summary_km"]
-            changed = True
-        if not has_clean_khmer_script(art.content_km, 25) and res.get("content_km"):
-            art.content_km = sanitize_stored_html(res["content_km"])
-            changed = True
-        if changed:
-            db.add(AuditLog(
-                user_id=None,
-                action="AI_TRANSLATE_KM",
-                entity="ARTICLE",
-                entity_id=art.id,
-                new_value_json=json.dumps({"slug": art.slug, "has_content_km": bool(art.content_km)}),
-                request_id="bilingual-backfill",
-            ))
-            db.commit()
-            art_done += 1
+        if article_needs_khmer(art):
+            candidates.append(art)
+        if len(candidates) >= article_limit:
+            break
+
+    sem = asyncio.Semaphore(4)
+
+    async def _translate_one(art: Article) -> Tuple[Article, Optional[Dict[str, str]]]:
+        async with sem:
+            try:
+                res = await translate_article_to_khmer(
+                    title=art.title,
+                    summary=art.summary or "",
+                    content=art.content or "",
+                    source_name=art.source_attribution_text or "",
+                )
+                return art, res
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("[Bilingual] Backfill failed for %s: %s", art.slug, exc)
+                return art, None
+
+    art_done = 0
+    if candidates:
+        translated_pairs = await asyncio.gather(*(_translate_one(a) for a in candidates))
+        for art, res in translated_pairs:
+            if not res:
+                _BACKFILL_COOLDOWN_UNTIL[art.id] = time.monotonic() + _BACKFILL_COOLDOWN_SECS
+                continue
+            changed = False
+            if not has_clean_khmer_script(art.title_km, 3) and res.get("title_km"):
+                art.title_km = res["title_km"]
+                changed = True
+            if not has_clean_khmer_script(art.summary_km, 10) and res.get("summary_km"):
+                art.summary_km = res["summary_km"]
+                changed = True
+            if not has_clean_khmer_script(art.content_km, 25) and res.get("content_km"):
+                art.content_km = sanitize_stored_html(res["content_km"])
+                changed = True
+            if changed:
+                db.add(AuditLog(
+                    user_id=None,
+                    action="AI_TRANSLATE_KM",
+                    entity="ARTICLE",
+                    entity_id=art.id,
+                    new_value_json=json.dumps({"slug": art.slug, "has_content_km": bool(art.content_km)}),
+                    request_id="bilingual-backfill",
+                ))
+                db.commit()
+                art_done += 1
+            if article_needs_khmer(art):
+                _BACKFILL_COOLDOWN_UNTIL[art.id] = time.monotonic() + _BACKFILL_COOLDOWN_SECS
 
     disc_candidates = [
-        d for d in db.query(Discovery).filter(Discovery.is_published == 1).order_by(Discovery.created_at.desc()).limit(40).all()
-        if discovery_needs_khmer(d)
+        d for d in db.query(Discovery).filter(Discovery.is_published == 1).order_by(Discovery.created_at.desc()).limit(100).all()
+        if _BACKFILL_COOLDOWN_UNTIL.get(d.id, 0.0) <= now and discovery_needs_khmer(d)
     ][:discovery_limit]
 
     disc_done = 0
@@ -284,6 +371,7 @@ async def translate_missing_khmer_batch(
             main_explanation=disc.main_explanation or "",
         )
         if not res:
+            _BACKFILL_COOLDOWN_UNTIL[disc.id] = time.monotonic() + _BACKFILL_COOLDOWN_SECS
             continue
         changed = False
         if not has_clean_khmer_script(disc.title_km, 3) and res.get("title_km"):

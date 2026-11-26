@@ -12,7 +12,7 @@ async def search_answer(
     q: str = Query(..., min_length=3, max_length=300),
     db: Session = Depends(get_db)
 ):
-    """AI answer grounded in the site's own verified content (news, travel, quizzes, tools...)."""
+    """AI answer grounded in the site's own verified content (news, travel, discoveries, tools...)."""
     from app.services.ai_content_service import ai_content_service
     from app.services import ai_gateway
 

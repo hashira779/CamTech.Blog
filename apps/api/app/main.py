@@ -33,7 +33,6 @@ except Exception:  # non-fatal: lifespan retries at real startup
 from app.api.v1.articles import router as articles_router
 from app.api.v1.authors import router as authors_router
 from app.api.v1.discoveries import router as discoveries_router
-from app.api.v1.quizzes import router as quizzes_router
 from app.api.v1.tools import router as tools_router
 from app.api.v1.sources import router as sources_router
 from app.api.v1.search import router as search_router
@@ -64,6 +63,7 @@ async def lifespan(app: FastAPI):
         from app.services.seed_sources import (
             ensure_production_pipeline_v4,
             ensure_production_pipeline_v5,
+            ensure_production_pipeline_v6,
             ensure_regional_hygiene_v3,
         )
         db = SessionLocal()
@@ -71,6 +71,7 @@ async def lifespan(app: FastAPI):
             ensure_regional_hygiene_v3(db)
             ensure_production_pipeline_v4(db)
             ensure_production_pipeline_v5(db)
+            ensure_production_pipeline_v6(db)
         finally:
             db.close()
         logger.info("Database schema and regional hygiene verified.")
@@ -178,7 +179,6 @@ app.include_router(system_router)
 app.include_router(articles_router, prefix="/api/v1")
 app.include_router(authors_router, prefix="/api/v1")
 app.include_router(discoveries_router, prefix="/api/v1")
-app.include_router(quizzes_router, prefix="/api/v1")
 app.include_router(tools_router, prefix="/api/v1")
 app.include_router(sources_router, prefix="/api/v1")
 app.include_router(search_router, prefix="/api/v1")

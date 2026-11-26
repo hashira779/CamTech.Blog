@@ -91,7 +91,6 @@ export const translations = {
     "nav.world": "World",
     "nav.discover": "Discover",
     "nav.travel": "Travel & Trips",
-    "nav.quiz": "Daily Quiz",
     "nav.tools": "Useful Tools",
     "nav.trending": "Trending",
     "nav.wedding": "Wedding",
@@ -173,8 +172,6 @@ export const translations = {
     "home.editor_picks": "Editor's Picks",
     "home.todays_discovery": "Today's Discovery",
     "home.discovery_subtitle": "Visual explanations of science, technology, and how the world works.",
-    "home.daily_quiz_title": "Daily Knowledge Challenge",
-    "home.daily_quiz_subtitle": "Can you answer these 5 verified questions? Test your mind today.",
     "home.popular_tools": "Useful Everyday Tools",
     "home.popular_tools_subtitle": "Fast, private, and 100% functional calculators and developer utilities.",
     "home.latest_cambodia": "Latest Cambodia News",
@@ -296,15 +293,6 @@ export const translations = {
     "article.body_pending": "The full text of this story is still being filed.",
     "article.km_translating_notice": "Full Khmer translation is being prepared — original reporting is shown below.",
 
-    // Quiz
-    "quiz.start": "Start Challenge",
-    "quiz.question": "Question",
-    "quiz.of": "of",
-    "quiz.score": "Your Score",
-    "quiz.complete": "Challenge Complete!",
-    "quiz.source_ref": "Verified Source",
-    "quiz.try_again": "Play Again",
-
     // Tools
     "tool.calculate": "Calculate",
     "tool.format": "Format",
@@ -391,7 +379,6 @@ export const translations = {
     "nav.world": "អន្តរជាតិ",
     "nav.discover": "ស្វែងយល់",
     "nav.travel": "ទេសចរណ៍ & ដំណើរកម្សាន្ត",
-    "nav.quiz": "កម្រងសំណួរ",
     "nav.tools": "ឧបករណ៍មានប្រយោជន៍",
     "nav.trending": "ពេញនិយម",
     "nav.wedding": "អាពាហ៍ពិពាហ៍",
@@ -473,8 +460,6 @@ export const translations = {
     "home.editor_picks": "ជម្រើសនិពន្ធនាយក",
     "home.todays_discovery": "ការស្វែងយល់ថ្ងៃនេះ",
     "home.discovery_subtitle": "ការពន្យល់បែបវិទ្យាសាស្ត្រ បច្ចេកវិទ្យា និងរបៀបដំណើរការនៃពិភពលោក។",
-    "home.daily_quiz_title": "សំណួរចំណេះដឹងប្រចាំថ្ងៃ",
-    "home.daily_quiz_subtitle": "តើអ្នកអាចឆ្លើយសំណួរទាំង ៥ នេះបានទេ? សាកល្បងចំណេះដឹងរបស់អ្នកថ្ងៃនេះ។",
     "home.popular_tools": "ឧបករណ៍ប្រើប្រាស់ប្រចាំថ្ងៃ",
     "home.popular_tools_subtitle": "ម៉ាស៊ីនគិតលេខ និងឧបករណ៍អភិវឌ្ឍន៍រហ័ស ឯកជន និងដំណើរការ ១០០%។",
     "home.latest_cambodia": "ព័ត៌មានកម្ពុជាចុងក្រោយ",
@@ -595,15 +580,6 @@ export const translations = {
     "article.updated": "ធ្វើបច្ចុប្បន្នភាព",
     "article.body_pending": "ខ្លឹមសារពេញលេញនៃអត្ថបទនេះកំពុងរៀបចំចុះផ្សាយ។",
     "article.km_translating_notice": "ការបកប្រែអត្ថបទពេញលេញជាភាសាខ្មែរកំពុងរៀបចំ — ខាងក្រោមជាអត្ថបទដើមជាភាសាអង់គ្លេស។",
-
-    // Quiz
-    "quiz.start": "ចាប់ផ្តើមការប្រកួត",
-    "quiz.question": "សំណួរ",
-    "quiz.of": "នៃ",
-    "quiz.score": "ពិន្ទុរបស់អ្នក",
-    "quiz.complete": "បានបញ្ចប់ការប្រកួត!",
-    "quiz.source_ref": "ប្រភពផ្ទៀងផ្ទាត់",
-    "quiz.try_again": "លេងម្តងទៀត",
 
     // Tools
     "tool.calculate": "គណនា",

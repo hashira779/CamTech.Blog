@@ -141,10 +141,25 @@ def resolve_country(
 ) -> str:
     """File a story on the desk it is about: KH, TH (Thai news on Cambodia), ASEAN, or WORLD."""
     cat = _norm(detected_category)
+    src_ctry = _norm(source_country)
+    src_lower = _norm(source_name)
+    is_thai_source = src_ctry == "th" or any(m in src_lower for m in TH_OUTLET_MARKERS)
+
     if cat in ("thailand-cambodia", "thai-cambodia", "thai news on cambodia", "thai-news-cambodia", "thailand"):
         return "TH"
-    if mentions_thai_cambodia(*story_texts, source_name=source_name, source_country=source_country):
+    if is_thai_source and mentions_cambodia(*story_texts):
         return "TH"
+
+    # For domestic Cambodian publishers (e.g. ThmeyThmey, Khmer Times, Kiripost) or Cambodia-categorized
+    # stories, only escalate to Thai-Cambodia (TH) when the headline+lead itself frames bilateral Thailand-Cambodia
+    # affairs—not because of a passing background mention inside the body copy.
+    if cat in ("cambodia", "khmer", "cambodia news") or src_ctry == "kh":
+        lead_texts = story_texts[:2] if len(story_texts) > 2 else story_texts
+        if mentions_thai_cambodia(*lead_texts, source_name=source_name, source_country=source_country):
+            return "TH"
+    elif mentions_thai_cambodia(*story_texts, source_name=source_name, source_country=source_country):
+        return "TH"
+
     if cat in ("cambodia", "khmer", "cambodia news"):
         return "KH"
     if mentions_cambodia(*story_texts):
@@ -153,9 +168,9 @@ def resolve_country(
         return "ASEAN"
     if mentions_asean(*story_texts, source_country=source_country, source_name=source_name):
         return "ASEAN"
-    if not detected_category and _norm(source_country) == "kh":
+    if not detected_category and src_ctry == "kh":
         return "KH"
-    if not detected_category and _norm(source_country) == "asean":
+    if not detected_category and src_ctry == "asean":
         return "ASEAN"
     return "WORLD"
 

@@ -54,30 +54,9 @@ def test_list_discoveries():
     assert data["total"] >= 2
     assert any("GPS" in d["title"] for d in data["items"])
 
-def test_daily_quiz():
+def test_quizzes_endpoint_removed():
     response = client.get("/api/v1/quizzes/daily")
-    assert response.status_code == 200
-    quiz = response.json()
-    assert quiz["is_daily"] is True
-    assert len(quiz["questions"]) >= 5
-
-def test_quiz_attempt_scoring():
-    response = client.get("/api/v1/quizzes/daily")
-    quiz = response.json()
-    quiz_id = quiz["id"]
-    q1 = quiz["questions"][0]
-
-    # Submit an answer
-    payload = {
-        "session_id": "test_session_123",
-        "answers": {q1["id"]: 0}  # Choosing 0
-    }
-    submit_res = client.post(f"/api/v1/quizzes/{quiz_id}/attempt", json=payload)
-    assert submit_res.status_code == 200
-    result = submit_res.json()
-    assert "score" in result
-    assert "percentage" in result
-    assert len(result["results"]) > 0
+    assert response.status_code == 404
 
 def test_tool_percentage_calculator():
     res = ToolService.execute_tool(
@@ -320,7 +299,7 @@ def test_dynamic_navigation_config():
     assert "World" in labels
     assert "Discover" in labels
     assert "Travel" in labels
-    assert "Quiz" in labels
+    assert "Quiz" not in labels
     assert "Tools" in labels
 
 def test_list_transport_operators():

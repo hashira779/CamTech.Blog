@@ -56,7 +56,6 @@ DEFAULTS = {
     "AUTOPILOT_PURGE_AFTER_DAYS": "30",          # ARCHIVED (never public) -> deleted
     "AUTOPILOT_DISCOVERY_ENABLED": "true",       # AI visual discoveries (Discover section)
     "AUTOPILOT_DISCOVERY_INTERVAL_HOURS": "24",  # how often new discoveries are drafted
-    "AUTOPILOT_QUIZ_ENABLED": "false",           # retired feature; retained for legacy settings
     "AUTOPILOT_TRAVEL_ENABLED": "true",          # AI travel guides & events
     "AUTOPILOT_TRAVEL_INTERVAL_HOURS": "24",     # daily guide/event refresh
 }
@@ -64,7 +63,6 @@ DEFAULTS = {
 LAST_DAILY_RUN_KEY = "AUTOPILOT_DAILY_NEWS_LAST_RUN"
 LAST_DISCOVERY_RUN_KEY = "AUTOPILOT_DISCOVERY_LAST_RUN"
 LAST_TRAVEL_RUN_KEY = "AUTOPILOT_TRAVEL_LAST_RUN"
-LAST_QUIZ_RUN_KEY = "AUTOPILOT_QUIZ_LAST_RUN"
 
 # Engines whose output is trusted enough for hybrid auto-publish.
 TRUSTED_ENGINES = {"gemini", "gemini_search_grounded"}
@@ -136,7 +134,6 @@ def get_config(db: Session) -> dict:
         LAST_DAILY_RUN_KEY: get_setting(db, LAST_DAILY_RUN_KEY) or None,
         LAST_DISCOVERY_RUN_KEY: get_setting(db, LAST_DISCOVERY_RUN_KEY) or None,
         LAST_TRAVEL_RUN_KEY: get_setting(db, LAST_TRAVEL_RUN_KEY) or None,
-        LAST_QUIZ_RUN_KEY: get_setting(db, LAST_QUIZ_RUN_KEY) or None,
     }
 
 

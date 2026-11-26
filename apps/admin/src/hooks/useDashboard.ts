@@ -41,7 +41,6 @@ export function useDashboardStats(timeRange?: string) {
           published_articles: published,
           pending_reviews: pending,
           total_discoveries: 0,
-          total_quizzes: 0,
           total_tools: 0,
           total_sources: 0,
           active_sources: 0,
