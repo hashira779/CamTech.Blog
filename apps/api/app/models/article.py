@@ -26,6 +26,7 @@ class Article(Base):
     key_points = Column(Text, nullable=True)  # JSON array of bullet points
     why_it_matters = Column(Text, nullable=True)  # Context & editorial explanation
     content = Column(Text, nullable=False)  # Full editorial text
+    content_km = Column(Text, nullable=True)  # Full editorial text in Khmer
     timeline = Column(Text, nullable=True)  # JSON array of {time, event}
     
     # Neutral political/electoral fields (Section 11)

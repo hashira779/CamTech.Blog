@@ -67,10 +67,13 @@ async def ingest_rss_feeds_job():
     """
     db = SessionLocal()
     try:
-        from app.services.seed_sources import ensure_regional_hygiene_v3
+        from app.services.seed_sources import ensure_production_pipeline_v4, ensure_regional_hygiene_v3
         hygiene = ensure_regional_hygiene_v3(db)
         if not hygiene.get("already_ran"):
             logger.info(f"🧹 Regional hygiene V3 applied: {hygiene}")
+        v4 = ensure_production_pipeline_v4(db)
+        if not v4.get("already_ran"):
+            logger.info(f"🔧 Pipeline recovery V4 applied: {v4}")
 
         sources = db.query(Source).filter(
             Source.is_active == True,

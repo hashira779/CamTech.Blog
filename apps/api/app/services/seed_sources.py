@@ -288,3 +288,64 @@ def ensure_regional_hygiene_v3(db: Session) -> Dict[str, object]:
     ))
     db.commit()
     return {"seed": seed_stats, "desks": desk_stats, "scrub": scrub_stats}
+
+
+def ensure_production_pipeline_v4(db: Session) -> Dict[str, object]:
+    """Repair dead legacy RSS feed URLs and switch exhausted Gemini default model once."""
+    import json
+    from app.models.audit import SiteSetting
+
+    flag = db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V4").first()
+    if flag:
+        return {"already_ran": True}
+
+    fixed_feeds = 0
+    reuters_row = db.query(Source).filter(Source.slug == "reuters").first()
+    if reuters_row and "reutersagency.com" in (reuters_row.feed_url or ""):
+        reuters_row.feed_url = (
+            "https://news.google.com/rss/search?q=site:reuters.com+(tech+OR+AI+OR+world+OR+economy)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        )
+        reuters_row.country = "WORLD"
+        fixed_feeds += 1
+
+    akp_row = db.query(Source).filter(Source.slug == "akp-cambodia").first()
+    if akp_row and "akp.gov.kh/feed" in (akp_row.feed_url or ""):
+        akp_row.feed_url = (
+            "https://news.google.com/rss/search?q=site:akp.gov.kh+OR+%22Agence+Kampuchea+Presse%22"
+            "&hl=en-US&gl=US&ceid=US:en"
+        )
+        akp_row.country = "KH"
+        fixed_feeds += 1
+
+    # Deactivate duplicate legacy cna-asia if cna-asia-news is present to avoid hammering CNA twice
+    cna_new = db.query(Source).filter(Source.slug == "cna-asia-news").first()
+    cna_old = db.query(Source).filter(Source.slug == "cna-asia").first()
+    if cna_new and cna_old and cna_old.is_active:
+        cna_old.is_active = False
+        fixed_feeds += 1
+
+    model_updated = False
+    ai_row = db.query(SiteSetting).filter(SiteSetting.key == "AI_PROVIDERS_JSON").first()
+    if ai_row and (ai_row.value_json or "").strip():
+        try:
+            providers = json.loads(ai_row.value_json)
+            if isinstance(providers, list):
+                for p in providers:
+                    if isinstance(p, dict) and p.get("id") == "gemini" and p.get("model") in (
+                        "gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"
+                    ):
+                        p["model"] = "gemini-3.6-flash"
+                        model_updated = True
+                if model_updated:
+                    ai_row.value_json = json.dumps(providers, ensure_ascii=False)
+        except Exception:
+            pass
+
+    db.add(SiteSetting(
+        key="PIPELINE_RECOVERY_V4",
+        value_json="done",
+        description="Updated broken Reuters/AKP feeds, deduped CNA feed, and upgraded Gemini default model",
+    ))
+    db.commit()
+    return {"fixed_feeds": fixed_feeds, "model_updated": model_updated}

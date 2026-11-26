@@ -66,7 +66,7 @@ class AIProvider:
 # Array order == fallback priority. Only Gemini is enabled by default (via the legacy key);
 # everything else starts disabled until the editor pastes a key.
 DEFAULT_PROVIDERS: List[Dict[str, Any]] = [
-    {"id": "gemini", "label": "Google Gemini", "style": "gemini", "model": "gemini-3.5-flash-lite",
+    {"id": "gemini", "label": "Google Gemini", "style": "gemini", "model": "gemini-3.6-flash",
      "base_url": "https://generativelanguage.googleapis.com", "enabled": True, "supports_search": False},
     {"id": "openai", "label": "OpenAI", "style": "openai", "model": "gpt-4o-mini",
      "base_url": "https://api.openai.com/v1"},
@@ -262,8 +262,24 @@ def _call_anthropic(p: AIProvider, prompt: str, system: Optional[str], timeout: 
     return "".join(b.get("text", "") for b in parts if b.get("type") == "text")
 
 
-def _call_gemini(p: AIProvider, prompt: str, system: Optional[str], timeout: float, use_search: bool,
-                 max_tokens: Optional[int] = None) -> str:
+GEMINI_FALLBACK_MODELS: Tuple[str, ...] = (
+    "gemini-3.6-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-3-flash-preview",
+    "gemini-3.5-flash-lite",
+    "gemini-3.5-flash",
+    "gemini-3.7-flash",
+)
+
+
+def _call_gemini_with_model(
+    p: AIProvider,
+    prompt: str,
+    system: Optional[str],
+    timeout: float,
+    use_search: bool,
+    max_tokens: Optional[int] = None,
+) -> Tuple[str, str]:
     body: Dict[str, Any] = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": p.temperature, "maxOutputTokens": _effective_max_tokens(p, max_tokens)},
@@ -272,14 +288,51 @@ def _call_gemini(p: AIProvider, prompt: str, system: Optional[str], timeout: flo
         body["systemInstruction"] = {"parts": [{"text": system}]}
     if use_search and p.supports_search:
         body["tools"] = [{"google_search": {}}]
-    r = requests.post(f"{p.base_url.rstrip('/')}/v1beta/models/{p.model}:generateContent",
-                      headers={"Content-Type": "application/json", "x-goog-api-key": p.api_key},
-                      json=body, timeout=timeout)
-    r.raise_for_status()
-    data = r.json()
-    cand = (data.get("candidates") or [{}])[0]
-    parts = (cand.get("content") or {}).get("parts") or []
-    return "".join(pt.get("text", "") for pt in parts)
+
+    candidates: List[str] = []
+    for m in (p.model, *GEMINI_FALLBACK_MODELS):
+        if m and m not in candidates:
+            candidates.append(m)
+
+    last_exc: Optional[Exception] = None
+    for idx, model_name in enumerate(candidates):
+        try:
+            r = requests.post(
+                f"{p.base_url.rstrip('/')}/v1beta/models/{model_name}:generateContent",
+                headers={"Content-Type": "application/json", "x-goog-api-key": p.api_key},
+                json=body,
+                timeout=timeout,
+            )
+            r.raise_for_status()
+            data = r.json()
+            cand = (data.get("candidates") or [{}])[0]
+            parts = (cand.get("content") or {}).get("parts") or []
+            setattr(p, "_used_model", model_name)
+            return "".join(pt.get("text", "") for pt in parts), model_name
+        except requests.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else 0
+            last_exc = exc
+            if status in (404, 429, 500, 502, 503, 504) and idx < len(candidates) - 1:
+                logger.warning(f"Gemini model {model_name} failed (HTTP {status}); trying fallback model.")
+                continue
+            raise
+        except requests.RequestException as exc:
+            last_exc = exc
+            if idx < len(candidates) - 1:
+                logger.warning(f"Gemini model {model_name} request error ({type(exc).__name__}); trying fallback model.")
+                continue
+            raise
+    if last_exc:
+        raise last_exc
+    return "", p.model
+
+
+def _call_gemini(p: AIProvider, prompt: str, system: Optional[str], timeout: float, use_search: bool,
+                 max_tokens: Optional[int] = None) -> str:
+    text, _used_model = _call_gemini_with_model(
+        p, prompt, system, timeout, use_search, max_tokens=max_tokens
+    )
+    return text
 
 
 def call_provider(p: AIProvider, prompt: str, *, system: Optional[str] = None,
@@ -319,8 +372,14 @@ def generate_text(prompt: str, *, system: Optional[str] = None, use_search: bool
         try:
             text = call_provider(p, prompt, system=system, use_search=use_search,
                                  timeout=timeout, max_tokens=max_tokens)
+            used_model = getattr(p, "_used_model", p.model)
             if text and text.strip():
-                return text, {"provider": p.id, "label": p.label, "model": p.model, "engine": p.engine()}
+                return text, {
+                    "provider": p.id,
+                    "label": p.label,
+                    "model": used_model,
+                    "engine": f"{p.id}:{used_model}",
+                }
             errors.append(f"{p.id}: empty response")
         except requests.HTTPError as e:
             status = e.response.status_code if e.response is not None else "?"

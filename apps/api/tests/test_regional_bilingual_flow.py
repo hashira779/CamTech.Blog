@@ -326,3 +326,91 @@ def test_hygiene_v3_reconciles_cambodia_category_and_holds_defective_published()
             assert corrupt.status == "IN_REVIEW"
     finally:
         engine.dispose()
+
+
+def test_gemini_gateway_falls_back_across_models_on_429(monkeypatch):
+    from app.services import ai_gateway
+    from app.common.database import Base
+    from app.models.audit import SiteSetting
+
+    calls = []
+
+    class FakeResp:
+        def __init__(self, status, payload):
+            self.status_code = status
+            self._payload = payload
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                import requests
+                err = requests.HTTPError(f"HTTP {self.status_code}")
+                err.response = self
+                raise err
+
+        def json(self):
+            return self._payload
+
+    def fake_post(url, **kwargs):
+        calls.append(url)
+        if "gemini-3.5-flash-lite" in url:
+            return FakeResp(429, {"error": {"message": "quota exceeded"}})
+        return FakeResp(200, {"candidates": [{"content": {"parts": [{"text": "OK fallback"}]}}]})
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        db.add(SiteSetting(
+            key="AI_PROVIDERS_JSON",
+            value_json=json.dumps([
+                {"id": "gemini", "label": "Google Gemini", "style": "gemini", "model": "gemini-3.5-flash-lite",
+                 "base_url": "https://generativelanguage.googleapis.com", "api_key": "test-key-xyz", "enabled": True}
+            ]),
+        ))
+        db.commit()
+
+        from app.common import database as db_mod
+        monkeypatch.setattr(db_mod, "SessionLocal", lambda: Session(engine))
+        monkeypatch.setattr(ai_gateway.requests, "post", fake_post)
+
+        txt, meta = ai_gateway.generate_text("Ping", timeout=5.0)
+        assert txt == "OK fallback"
+        assert meta["model"] == "gemini-3.6-flash"
+        assert len(calls) >= 2
+    engine.dispose()
+
+
+def test_pipeline_recovery_v4_fixes_dead_feeds_and_gemini_model():
+    from app.common.database import Base
+    from app.models.audit import SiteSetting
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    try:
+        with Session(engine) as db:
+            db.add(Source(
+                name="Reuters International", slug="reuters", country="US", language="en",
+                website_url="https://www.reuters.com",
+                feed_url="https://www.reutersagency.com/feed/?best-topics=tech&post_type=best",
+                is_active=True,
+            ))
+            db.add(Source(
+                name="AKP", slug="akp-cambodia", country="KH", language="en",
+                website_url="https://www.akp.gov.kh",
+                feed_url="https://www.akp.gov.kh/feed",
+                is_active=True,
+            ))
+            db.add(SiteSetting(
+                key="AI_PROVIDERS_JSON",
+                value_json=json.dumps([{"id": "gemini", "model": "gemini-3.5-flash-lite", "enabled": True}]),
+            ))
+            db.commit()
+
+            res = seed_sources.ensure_production_pipeline_v4(db)
+            assert res["fixed_feeds"] == 2
+            assert res["model_updated"] is True
+            assert "news.google.com" in db.query(Source).filter(Source.slug == "reuters").first().feed_url
+            assert "news.google.com" in db.query(Source).filter(Source.slug == "akp-cambodia").first().feed_url
+            stored_provs = json.loads(db.query(SiteSetting).filter(SiteSetting.key == "AI_PROVIDERS_JSON").first().value_json)
+            assert stored_provs[0]["model"] == "gemini-3.6-flash"
+    finally:
+        engine.dispose()

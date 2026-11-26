@@ -2,6 +2,7 @@ import re
 import time
 import feedparser
 import httpx
+from urllib.parse import urlsplit
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 from app.common.ssrf import validate_url_safe
@@ -9,6 +10,15 @@ from app.common.circuit_breaker import get_circuit_breaker, CircuitBreakerOpenEx
 from app.common.html_hygiene import safe_link, sanitize_stored_html, strip_for_text
 
 MAX_FEED_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB payload limit to prevent resource exhaustion
+
+def _is_root_domain(url: Optional[str]) -> bool:
+    if not url:
+        return True
+    try:
+        p = urlsplit(url)
+        return not p.path or p.path.strip("/") == ""
+    except Exception:
+        return True
 
 async def fetch_rss_feed(feed_url: str, timeout_seconds: int = 12) -> List[Dict[str, Any]]:
     """
@@ -20,10 +30,11 @@ async def fetch_rss_feed(feed_url: str, timeout_seconds: int = 12) -> List[Dict[
     if not is_safe:
         raise ValueError(f"SSRF Protection Rejected URL: {error_msg}")
 
-    # 2. Circuit Breaker check
-    cb = get_circuit_breaker("rss_fetcher", failure_threshold=5, recovery_timeout=45.0)
+    # 2. Circuit Breaker check per host/domain so one broken feed doesn't trip others
+    host = urlsplit(feed_url).hostname or "default"
+    cb = get_circuit_breaker(f"rss_fetcher_{host}", failure_threshold=5, recovery_timeout=45.0)
     if not cb.can_execute():
-        raise CircuitBreakerOpenException(f"Circuit breaker 'rss_fetcher' is OPEN. External feed requests paused.")
+        raise CircuitBreakerOpenException(f"Circuit breaker for '{host}' is OPEN. External feed requests paused.")
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 (Compatible; CamTechBot/2.0; +https://blog.camtech.cam)",
@@ -101,9 +112,9 @@ async def fetch_rss_feed(feed_url: str, timeout_seconds: int = 12) -> List[Dict[
         image_url = extract_entry_image(entry, summary)
 
         if title and safe_url:
-            # If link is a syndicated redirect (e.g. news.google.com), prefer source_href as primary url
+            # If link is a syndicated redirect (e.g. news.google.com), prefer source_href only if it has a specific article path
             article_url = safe_url
-            if safe_source_href and "news.google.com" in safe_url:
+            if safe_source_href and "news.google.com" in safe_url and not _is_root_domain(safe_source_href):
                 article_url = safe_source_href
 
             items.append({

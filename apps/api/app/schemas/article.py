@@ -81,6 +81,7 @@ class ArticleBase(BaseModel):
     summary: str  # Original editorial summary
     summary_km: Optional[str] = None
     content: str  # Full structured editorial text
+    content_km: Optional[str] = None  # Full structured editorial text in Khmer
     key_points: Optional[str] = "[]"  # JSON string of bullets
     why_it_matters: Optional[str] = None
     timeline: Optional[str] = "[]"
@@ -123,6 +124,7 @@ class ArticleUpdate(BaseModel):
     summary: Optional[str] = None
     summary_km: Optional[str] = None
     content: Optional[str] = None
+    content_km: Optional[str] = None
     key_points: Optional[str] = None
     why_it_matters: Optional[str] = None
     timeline: Optional[str] = None
