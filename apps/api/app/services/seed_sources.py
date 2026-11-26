@@ -524,6 +524,9 @@ def _record_hold_audit(db: Session, art_id: str, reason: str, request_id: str) -
     db.commit()
 
 
+LAST_STARTUP_TRACE: Dict[str, object] = {}
+
+
 def _demote_published_defects(
     db: Session,
     *,
@@ -531,14 +534,12 @@ def _demote_published_defects(
     reason_prefix: str,
     limit: int | None = None,
 ) -> Dict[str, object]:
-    """Pull thin/stub (<1000 char) or corrupt-Khmer PUBLISHED rows back to AI_DRAFT safely."""
-    import json
+    """Pull thin/stub (<1000 char) or corrupt-Khmer PUBLISHED rows back to AI_DRAFT safely in batches."""
     import logging
     from app.models.article import Article
     from app.services.content_quality import body_quality_issue, khmer_quality_issue
 
     logger = logging.getLogger("recovery")
-    is_pg = db.bind is not None and not str(db.bind.url).startswith("sqlite")
     rows = (
         db.query(
             Article.id,
@@ -553,109 +554,119 @@ def _demote_published_defects(
         .order_by(Article.published_at.desc().nullslast(), Article.id.asc())
         .all()
     )
-    candidates = []
+    thin_ids: List[str] = []
+    corrupt_km_only_ids: List[str] = []
+    reason_by_id: Dict[str, str] = {}
     for row in rows:
+        art_id = str(row.id)
         body_err = body_quality_issue(row.content, row.summary, row.why_it_matters)
         km_err = khmer_quality_issue(row.title_km, row.summary_km, row.content_km, require_complete=False)
         reason = body_err or km_err
-        if reason:
-            candidates.append((str(row.id), reason, bool(body_err), bool(km_err)))
-            if limit is not None and len(candidates) >= limit:
-                break
+        if not reason:
+            continue
+        if limit is not None and (len(thin_ids) + len(corrupt_km_only_ids)) >= limit:
+            break
+        reason_by_id[art_id] = reason
+        if body_err:
+            thin_ids.append(art_id)
+        elif km_err:
+            corrupt_km_only_ids.append(art_id)
 
-    held_thin = 0
-    held_corrupt_km = 0
+    all_ids = thin_ids + corrupt_km_only_ids
+    held_total = 0
     errors = 0
     last_error = None
-    for art_id, reason, is_body, is_km in candidates:
+    chunk_size = 100
+    for idx in range(0, len(all_ids), chunk_size):
+        chunk = all_ids[idx:idx + chunk_size]
         try:
-            q = db.query(Article).filter(Article.id == art_id, Article.status == "PUBLISHED")
-            if is_pg:
-                q = q.with_for_update(skip_locked=True)
-            art = q.first()
-            if not art:
-                db.rollback()
-                continue
-            art.status = "AI_DRAFT"
-            art.quality_checklist_passed = False
-            try:
-                meta = json.loads(art.ai_draft_metadata) if art.ai_draft_metadata else {}
-                if not isinstance(meta, dict):
-                    meta = {}
-            except Exception:
-                meta = {}
-            meta["autopilot_hold_reason"] = f"{reason_prefix}: {reason}"
-            if not meta.get("engine"):
-                meta["engine"] = "fallback"
-            art.ai_draft_metadata = json.dumps(meta)
+            updated = (
+                db.query(Article)
+                .filter(Article.id.in_(chunk), Article.status == "PUBLISHED")
+                .update(
+                    {
+                        Article.status: "AI_DRAFT",
+                        Article.quality_checklist_passed: False,
+                    },
+                    synchronize_session=False,
+                )
+            )
             db.commit()
-            if is_body:
-                held_thin += 1
-            if is_km:
-                held_corrupt_km += 1
-        except Exception as hold_exc:
+            held_total += int(updated or 0)
+        except Exception as batch_exc:
             db.rollback()
             errors += 1
-            last_error = f"{type(hold_exc).__name__}: {str(hold_exc)[:180]}"
-            logger.error(f"[{request_id}] Failed holding article {art_id}: {last_error}")
-            continue
+            last_error = f"{type(batch_exc).__name__}: {str(batch_exc)[:180]}"
+            logger.error(f"[{request_id}] Batch hold failed at offset {idx}: {last_error}")
 
+    # Best-effort audit records (capped to avoid long boot stalls on huge backlogs; never rolls back holds).
+    for art_id in all_ids[:200]:
         try:
-            _record_hold_audit(db, art_id=art_id, reason=reason, request_id=request_id)
-        except Exception as audit_exc:
+            _record_hold_audit(db, art_id=art_id, reason=reason_by_id.get(art_id, reason_prefix), request_id=request_id)
+        except Exception:
             db.rollback()
-            logger.warning(f"[{request_id}] Revision/audit skipped for {art_id}: {type(audit_exc).__name__}")
+            break
 
     return {
         "scanned_published": len(rows),
-        "candidates": len(candidates),
-        "held_thin": held_thin,
-        "held_corrupt_km": held_corrupt_km,
+        "candidates": len(all_ids),
+        "held_thin": min(len(thin_ids), held_total),
+        "held_corrupt_km": max(0, held_total - len(thin_ids)),
+        "held_total": held_total,
         "errors": errors,
         "last_error": last_error,
     }
 
 
-def demote_defective_published_articles_step(db: Session, limit: int = 50) -> Dict[str, object]:
+def demote_defective_published_articles_step(db: Session, limit: int = 100) -> Dict[str, object]:
     """Continuous worker guard so no thin/corrupt article stays live after manual or edge writes."""
-    return _demote_published_defects(
+    res = _demote_published_defects(
         db,
         request_id="worker-guard",
         reason_prefix="Worker quality guard",
         limit=limit,
     )
+    LAST_STARTUP_TRACE["worker_guard"] = {
+        "scanned_published": res.get("scanned_published"),
+        "held_total": res.get("held_total"),
+        "errors": res.get("errors"),
+        "last_error": res.get("last_error"),
+    }
+    return res
 
 
-def ensure_production_pipeline_v9(db: Session) -> Dict[str, object]:
-    """Revision-isolated, deadlock-safe recovery: move all thin/corrupt PUBLISHED rows into AI_DRAFT."""
+def ensure_production_pipeline_v10(db: Session) -> Dict[str, object]:
+    """Fast batched SQL recovery: move all thin (<1000 char) or corrupt PUBLISHED rows into AI_DRAFT."""
     import logging
     from sqlalchemy.exc import IntegrityError
     from app.models.audit import SiteSetting
 
     logger = logging.getLogger("recovery")
-    if db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V9").first():
-        return {"already_ran": True}
+    if db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V10").first():
+        res = {"already_ran": True}
+        LAST_STARTUP_TRACE["v10"] = res
+        return res
 
     try:
         desks = reconcile_existing_article_desks(db)
     except Exception as desk_exc:
         db.rollback()
         desks = {"error": f"{type(desk_exc).__name__}: {str(desk_exc)[:120]}"}
-        logger.warning(f"[pipeline-v9] Desk reconciliation notice: {desks['error']}")
+        logger.warning(f"[pipeline-v10] Desk reconciliation notice: {desks['error']}")
 
     stats = _demote_published_defects(
         db,
-        request_id="pipeline-v9",
-        reason_prefix="Pipeline recovery v9",
+        request_id="pipeline-v10",
+        reason_prefix="Pipeline recovery v10",
     )
 
-    if stats["errors"] == 0 and not db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V9").first():
+    if stats["errors"] == 0 and not db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V10").first():
         try:
             db.add(SiteSetting(
-                key="PIPELINE_RECOVERY_V9",
+                key="PIPELINE_RECOVERY_V10",
                 value_json="done",
                 description=(
-                    f"Held {stats['held_thin']} thin/stub and {stats['held_corrupt_km']} "
+                    f"Batch-held {stats['held_thin']} thin and {stats['held_corrupt_km']} "
                     "corrupt published articles into AI_DRAFT"
                 )[:255],
             ))
@@ -663,9 +674,16 @@ def ensure_production_pipeline_v9(db: Session) -> Dict[str, object]:
         except IntegrityError:
             db.rollback()
 
-    return {"desks": desks, **stats}
+    res = {"desks": desks, **stats}
+    LAST_STARTUP_TRACE["v10"] = res
+    return res
+
+
+def ensure_production_pipeline_v9(db: Session) -> Dict[str, object]:
+    """Compatibility alias forwarding callers to ensure_production_pipeline_v10."""
+    return ensure_production_pipeline_v10(db)
 
 
 def ensure_production_pipeline_v8(db: Session) -> Dict[str, object]:
-    """Compatibility alias forwarding callers to ensure_production_pipeline_v9."""
-    return ensure_production_pipeline_v9(db)
+    """Compatibility alias forwarding callers to ensure_production_pipeline_v10."""
+    return ensure_production_pipeline_v10(db)

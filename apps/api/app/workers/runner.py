@@ -71,7 +71,7 @@ async def ingest_rss_feeds_job():
             ensure_production_pipeline_v4,
             ensure_production_pipeline_v5,
             ensure_production_pipeline_v6,
-            ensure_production_pipeline_v9,
+            ensure_production_pipeline_v10,
             ensure_regional_hygiene_v3,
         )
         hygiene = ensure_regional_hygiene_v3(db)
@@ -84,9 +84,9 @@ async def ingest_rss_feeds_job():
         if not v5.get("already_ran"):
             logger.info(f"⚡ Pipeline recovery V5 applied: {v5}")
         ensure_production_pipeline_v6(db)
-        v9 = ensure_production_pipeline_v9(db)
-        if not v9.get("already_ran"):
-            logger.info(f"🛡️ Pipeline recovery V9 applied: {v9}")
+        v10 = ensure_production_pipeline_v10(db)
+        if not v10.get("already_ran"):
+            logger.info(f"🛡️ Pipeline recovery V10 applied: {v10}")
 
         sources = db.query(Source).filter(
             Source.is_active == True,
@@ -449,7 +449,7 @@ async def khmer_backfill_job():
         ensure_production_pipeline_v4,
         ensure_production_pipeline_v5,
         ensure_production_pipeline_v6,
-        ensure_production_pipeline_v9,
+        ensure_production_pipeline_v10,
         ensure_regional_hygiene_v3,
     )
     db = SessionLocal()
@@ -458,9 +458,9 @@ async def khmer_backfill_job():
         ensure_production_pipeline_v4(db)
         ensure_production_pipeline_v5(db)
         ensure_production_pipeline_v6(db)
-        v9 = ensure_production_pipeline_v9(db)
-        if not v9.get("already_ran"):
-            logger.info(f"🛡️ Pipeline recovery V9 applied: {v9}")
+        v10 = ensure_production_pipeline_v10(db)
+        if not v10.get("already_ran"):
+            logger.info(f"🛡️ Pipeline recovery V10 applied: {v10}")
         guard = demote_defective_published_articles_step(db, limit=50)
         if guard.get("held_thin") or guard.get("held_corrupt_km"):
             logger.info(f"🛡️ Worker quality guard held defective published rows: {guard}")

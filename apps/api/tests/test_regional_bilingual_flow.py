@@ -546,7 +546,7 @@ def test_pipeline_v9_holds_thin_published_stubs_and_publish_all_enforces_quality
             db.add_all([thin_stub, valid_full, draft_thin])
             db.commit()
 
-            res = seed_sources.ensure_production_pipeline_v9(db)
+            res = seed_sources.ensure_production_pipeline_v10(db)
             assert res["held_thin"] == 1
             assert res["errors"] == 0
             db.refresh(thin_stub)
@@ -554,7 +554,7 @@ def test_pipeline_v9_holds_thin_published_stubs_and_publish_all_enforces_quality
             assert thin_stub.status == "AI_DRAFT"
             assert thin_stub.category_id == th_cat.id
             assert valid_full.status == "PUBLISHED"
-            assert db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V9").first() is not None
+            assert db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V10").first() is not None
 
             # Revision/audit write failure must never roll back holding a defective published stub.
             manual_stub = Article(

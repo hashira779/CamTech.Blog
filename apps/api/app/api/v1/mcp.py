@@ -401,6 +401,21 @@ def _read_resource(uri: str, db: Session) -> Tuple[Optional[Dict[str, Any]], Opt
     if uri == "camtech://trending":
         payload = TrendingService.get_trending_items(db, limit=6)
         return {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(payload, ensure_ascii=False)}]}, None
+    if uri == "camtech://editorial-status":
+        from app.services import seed_sources as _seed_sources
+        from app.services.content_quality import body_quality_issue
+        pub_rows = (
+            db.query(Article.content, Article.summary, Article.why_it_matters)
+            .filter(Article.status == "PUBLISHED")
+            .all()
+        )
+        thin_count = sum(1 for r in pub_rows if body_quality_issue(r.content, r.summary, r.why_it_matters))
+        payload = {
+            "published_total": len(pub_rows),
+            "published_thin_count": thin_count,
+            "startup_trace": _seed_sources.LAST_STARTUP_TRACE,
+        }
+        return {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(payload, ensure_ascii=False)}]}, None
     if uri.startswith("camtech://articles/"):
         slug = uri.removeprefix("camtech://articles/").strip("/")
         art = ArticleService.get_article_by_slug(db, slug)

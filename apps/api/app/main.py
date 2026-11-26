@@ -53,31 +53,45 @@ async def lifespan(app: FastAPI):
     import logging
     logger = logging.getLogger("startup")
 
-    # 1. Initialize database tables & migrations safely
+    # 1. Initialize database tables & migrations safely (each step isolated so recovery always runs)
+    from app.services import seed_sources as _seed_sources
     try:
         Base.metadata.create_all(bind=engine)
-        # TODO: Remove schema_migration after Alembic is verified working
+        _seed_sources.LAST_STARTUP_TRACE["create_all"] = "ok"
+    except Exception as e:
+        _seed_sources.LAST_STARTUP_TRACE["create_all"] = type(e).__name__
+        logger.error(f"Database create_all notice: {e}")
+
+    try:
         from app.common.schema_migration import ensure_database_schema
         ensure_database_schema()
+        _seed_sources.LAST_STARTUP_TRACE["schema_migration"] = "ok"
+    except Exception as e:
+        _seed_sources.LAST_STARTUP_TRACE["schema_migration"] = type(e).__name__
+        logger.error(f"Database schema migration notice: {e}")
+
+    try:
         from app.common.database import SessionLocal
-        from app.services.seed_sources import (
-            ensure_production_pipeline_v4,
-            ensure_production_pipeline_v5,
-            ensure_production_pipeline_v6,
-            ensure_production_pipeline_v9,
-            ensure_regional_hygiene_v3,
-        )
         db = SessionLocal()
         try:
-            ensure_regional_hygiene_v3(db)
-            ensure_production_pipeline_v4(db)
-            ensure_production_pipeline_v5(db)
-            ensure_production_pipeline_v6(db)
-            ensure_production_pipeline_v9(db)
+            for step_name, fn in (
+                ("v3", _seed_sources.ensure_regional_hygiene_v3),
+                ("v4", _seed_sources.ensure_production_pipeline_v4),
+                ("v5", _seed_sources.ensure_production_pipeline_v5),
+                ("v6", _seed_sources.ensure_production_pipeline_v6),
+                ("v10", _seed_sources.ensure_production_pipeline_v10),
+            ):
+                try:
+                    _seed_sources.LAST_STARTUP_TRACE[step_name] = fn(db)
+                except Exception as step_err:
+                    db.rollback()
+                    _seed_sources.LAST_STARTUP_TRACE[step_name] = {"error_type": type(step_err).__name__}
+                    logger.error(f"Startup recovery {step_name} notice: {step_err}")
         finally:
             db.close()
         logger.info("Database schema and regional hygiene verified.")
     except Exception as e:
+        _seed_sources.LAST_STARTUP_TRACE["session"] = type(e).__name__
         logger.error(f"Non-critical database initialization notice: {e}")
 
     # 2. Start background schedulers (isolated from API serving)
