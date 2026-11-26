@@ -476,7 +476,7 @@ def test_bilingual_tagged_extraction_handles_markdown_quotes_and_v6_retires_quiz
         engine.dispose()
 
 
-def test_pipeline_v7_holds_thin_published_stubs_and_publish_all_enforces_quality_and_khmer():
+def test_pipeline_v9_holds_thin_published_stubs_and_publish_all_enforces_quality_and_khmer(monkeypatch):
     from fastapi.testclient import TestClient
     from app.common.database import Base
     from app.common.database import get_db
@@ -546,14 +546,42 @@ def test_pipeline_v7_holds_thin_published_stubs_and_publish_all_enforces_quality
             db.add_all([thin_stub, valid_full, draft_thin])
             db.commit()
 
-            res = seed_sources.ensure_production_pipeline_v8(db)
+            res = seed_sources.ensure_production_pipeline_v9(db)
             assert res["held_thin"] == 1
+            assert res["errors"] == 0
             db.refresh(thin_stub)
             db.refresh(valid_full)
             assert thin_stub.status == "AI_DRAFT"
             assert thin_stub.category_id == th_cat.id
             assert valid_full.status == "PUBLISHED"
-            assert db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V8").first() is not None
+            assert db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V9").first() is not None
+
+            # Revision/audit write failure must never roll back holding a defective published stub.
+            manual_stub = Article(
+                id="manual-empty-pub",
+                slug="manual-empty-pub-1",
+                title="Empty body force published stub",
+                summary="",
+                content="\n\n",
+                country="WORLD",
+                category_id=kh_cat.id,
+                author_id=author.id,
+                primary_source_url="https://example.com/news/empty-1",
+                source_attribution_text="Source: Wire",
+                status="PUBLISHED",
+            )
+            db.add(manual_stub)
+            db.commit()
+
+            def _broken_audit(*args, **kwargs):
+                raise RuntimeError("simulated revision constraint")
+
+            monkeypatch.setattr(seed_sources, "_record_hold_audit", _broken_audit)
+            guard_res = seed_sources.demote_defective_published_articles_step(db, limit=10)
+            assert guard_res["held_thin"] == 1
+            assert guard_res["errors"] == 0
+            db.refresh(manual_stub)
+            assert manual_stub.status == "AI_DRAFT"
 
             app.dependency_overrides[get_db] = lambda: db
             app.dependency_overrides[require_admin] = lambda: User(id="a-v7", email="a@test.local", role="ADMIN", is_active=True)
@@ -563,7 +591,7 @@ def test_pipeline_v7_holds_thin_published_stubs_and_publish_all_enforces_quality
                 assert pub_res.status_code == 200
                 data = pub_res.json()
                 assert data["published_count"] == 0
-                assert data["skipped_count"] == 2
+                assert data["skipped_count"] == 3
             finally:
                 app.dependency_overrides.pop(get_db, None)
                 app.dependency_overrides.pop(require_admin, None)

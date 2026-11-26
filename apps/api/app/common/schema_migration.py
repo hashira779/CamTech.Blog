@@ -46,7 +46,22 @@ def ensure_database_schema():
         _ensure_columns("quizzes", [("ai_metadata", "TEXT")])
         _ensure_columns("travel_guides", [("ai_metadata", "TEXT")])
         _ensure_columns("travel_events", [("ai_metadata", "TEXT")])
-        _ensure_columns("audit_logs", [("user_agent", "VARCHAR(300)")])
+        _ensure_columns("audit_logs", [("user_agent", "VARCHAR(300)"), ("request_id", "VARCHAR(100)")])
+        _ensure_columns("article_revisions", [
+            ("previous_status", "VARCHAR(50)"),
+            ("new_status", "VARCHAR(50)"),
+            ("change_summary", "VARCHAR(255)"),
+            ("diff_json", "TEXT"),
+        ])
+
+        is_pg_conn = not engine.url.drivername.startswith("sqlite")
+        if is_pg_conn:
+            for tbl, col in (("article_revisions", "editor_user_id"), ("audit_logs", "user_id")):
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text(f"ALTER TABLE {tbl} ALTER COLUMN {col} DROP NOT NULL"))
+                except Exception as alter_err:
+                    logger.warning(f"Nullable column check notice ({tbl}.{col}): {alter_err}")
 
         inspector = inspect(engine)
         if not inspector.has_table("destinations"):

@@ -71,7 +71,7 @@ async def ingest_rss_feeds_job():
             ensure_production_pipeline_v4,
             ensure_production_pipeline_v5,
             ensure_production_pipeline_v6,
-            ensure_production_pipeline_v8,
+            ensure_production_pipeline_v9,
             ensure_regional_hygiene_v3,
         )
         hygiene = ensure_regional_hygiene_v3(db)
@@ -84,9 +84,9 @@ async def ingest_rss_feeds_job():
         if not v5.get("already_ran"):
             logger.info(f"⚡ Pipeline recovery V5 applied: {v5}")
         ensure_production_pipeline_v6(db)
-        v8 = ensure_production_pipeline_v8(db)
-        if not v8.get("already_ran"):
-            logger.info(f"🛡️ Pipeline recovery V8 applied: {v8}")
+        v9 = ensure_production_pipeline_v9(db)
+        if not v9.get("already_ran"):
+            logger.info(f"🛡️ Pipeline recovery V9 applied: {v9}")
 
         sources = db.query(Source).filter(
             Source.is_active == True,
@@ -445,10 +445,11 @@ async def khmer_backfill_job():
     """Backfill missing or scrubbed Khmer fields before slow RSS ingestion cycles."""
     from app.services import bilingual_service
     from app.services.seed_sources import (
+        demote_defective_published_articles_step,
         ensure_production_pipeline_v4,
         ensure_production_pipeline_v5,
         ensure_production_pipeline_v6,
-        ensure_production_pipeline_v8,
+        ensure_production_pipeline_v9,
         ensure_regional_hygiene_v3,
     )
     db = SessionLocal()
@@ -457,9 +458,12 @@ async def khmer_backfill_job():
         ensure_production_pipeline_v4(db)
         ensure_production_pipeline_v5(db)
         ensure_production_pipeline_v6(db)
-        v8 = ensure_production_pipeline_v8(db)
-        if not v8.get("already_ran"):
-            logger.info(f"🛡️ Pipeline recovery V8 applied: {v8}")
+        v9 = ensure_production_pipeline_v9(db)
+        if not v9.get("already_ran"):
+            logger.info(f"🛡️ Pipeline recovery V9 applied: {v9}")
+        guard = demote_defective_published_articles_step(db, limit=50)
+        if guard.get("held_thin") or guard.get("held_corrupt_km"):
+            logger.info(f"🛡️ Worker quality guard held defective published rows: {guard}")
         res = await bilingual_service.translate_missing_khmer_batch(db, article_limit=30, discovery_limit=6)
         if res.get("articles_translated") or res.get("discoveries_translated"):
             logger.info(

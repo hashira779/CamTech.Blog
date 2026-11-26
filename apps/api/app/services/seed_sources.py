@@ -150,12 +150,14 @@ def seed_recommended_sources(db: Session) -> Dict[str, int]:
 
 def reconcile_existing_article_desks(db: Session) -> Dict[str, int]:
     """Re-classify existing articles cleanly into KH, TH, ASEAN, or WORLD desks."""
+    from sqlalchemy.orm import joinedload
     from app.models.article import Article
     from app.models.category import Category
     from app.services.filing import category_is_cambodia, mentions_cambodia, resolve_country
 
     articles = (
         db.query(Article)
+        .options(joinedload(Article.category), joinedload(Article.primary_source))
         .filter(Article.status.in_(["PUBLISHED", "AI_DRAFT", "DRAFT", "IN_REVIEW", "APPROVED"]))
         .all()
     )
@@ -498,106 +500,172 @@ def ensure_production_pipeline_v7(db: Session) -> Dict[str, object]:
     return {"desks": desks, "held_thin": held_thin, "held_corrupt_km": held_corrupt_km}
 
 
-def ensure_production_pipeline_v8(db: Session) -> Dict[str, object]:
-    """Deadlock-safe recovery: pull ALL thin/stub (<1000 char) or corrupt published articles back into AI_DRAFT."""
+def _record_hold_audit(db: Session, art_id: str, reason: str, request_id: str) -> None:
+    """Best-effort revision + audit record when returning a defective published article to AI_DRAFT."""
+    from app.models.article import ArticleRevision
+    from app.models.audit import AuditLog
+
+    db.add(ArticleRevision(
+        article_id=str(art_id),
+        editor_user_id=None,
+        previous_status="PUBLISHED",
+        new_status="AI_DRAFT",
+        change_summary=f"Returned to AI_DRAFT: {reason[:180]}",
+    ))
+    db.add(AuditLog(
+        user_id=None,
+        action="QUALITY_AUDIT_HOLD",
+        entity="ARTICLE",
+        entity_id=str(art_id),
+        old_value_json="PUBLISHED",
+        new_value_json="AI_DRAFT",
+        request_id=request_id,
+    ))
+    db.commit()
+
+
+def _demote_published_defects(
+    db: Session,
+    *,
+    request_id: str,
+    reason_prefix: str,
+    limit: int | None = None,
+) -> Dict[str, object]:
+    """Pull thin/stub (<1000 char) or corrupt-Khmer PUBLISHED rows back to AI_DRAFT safely."""
     import json
-    from sqlalchemy import text
-    from app.models.article import Article, ArticleRevision
-    from app.models.audit import AuditLog, SiteSetting
+    import logging
+    from app.models.article import Article
     from app.services.content_quality import body_quality_issue, khmer_quality_issue
 
-    if db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V8").first():
-        return {"already_ran": True}
-
-    # Prevent API + Worker boot race on Postgres using a non-blocking session advisory lock.
+    logger = logging.getLogger("recovery")
     is_pg = db.bind is not None and not str(db.bind.url).startswith("sqlite")
-    lock_acquired = False
-    if is_pg:
-        try:
-            lock_acquired = bool(db.execute(text("SELECT pg_try_advisory_lock(884208)")).scalar())
-        except Exception:
-            lock_acquired = True
-        if not lock_acquired:
-            return {"skipped_lock_held": True}
-        # Re-check after acquiring lock in case the peer just finished.
-        if db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V8").first():
-            try:
-                db.execute(text("SELECT pg_advisory_unlock(884208)"))
-            except Exception:
-                pass
-            return {"already_ran": True}
+    rows = (
+        db.query(
+            Article.id,
+            Article.content,
+            Article.summary,
+            Article.why_it_matters,
+            Article.title_km,
+            Article.summary_km,
+            Article.content_km,
+        )
+        .filter(Article.status == "PUBLISHED")
+        .order_by(Article.published_at.desc().nullslast(), Article.id.asc())
+        .all()
+    )
+    candidates = []
+    for row in rows:
+        body_err = body_quality_issue(row.content, row.summary, row.why_it_matters)
+        km_err = khmer_quality_issue(row.title_km, row.summary_km, row.content_km, require_complete=False)
+        reason = body_err or km_err
+        if reason:
+            candidates.append((str(row.id), reason, bool(body_err), bool(km_err)))
+            if limit is not None and len(candidates) >= limit:
+                break
 
     held_thin = 0
     held_corrupt_km = 0
     errors = 0
+    last_error = None
+    for art_id, reason, is_body, is_km in candidates:
+        try:
+            q = db.query(Article).filter(Article.id == art_id, Article.status == "PUBLISHED")
+            if is_pg:
+                q = q.with_for_update(skip_locked=True)
+            art = q.first()
+            if not art:
+                db.rollback()
+                continue
+            art.status = "AI_DRAFT"
+            art.quality_checklist_passed = False
+            try:
+                meta = json.loads(art.ai_draft_metadata) if art.ai_draft_metadata else {}
+                if not isinstance(meta, dict):
+                    meta = {}
+            except Exception:
+                meta = {}
+            meta["autopilot_hold_reason"] = f"{reason_prefix}: {reason}"
+            if not meta.get("engine"):
+                meta["engine"] = "fallback"
+            art.ai_draft_metadata = json.dumps(meta)
+            db.commit()
+            if is_body:
+                held_thin += 1
+            if is_km:
+                held_corrupt_km += 1
+        except Exception as hold_exc:
+            db.rollback()
+            errors += 1
+            last_error = f"{type(hold_exc).__name__}: {str(hold_exc)[:180]}"
+            logger.error(f"[{request_id}] Failed holding article {art_id}: {last_error}")
+            continue
+
+        try:
+            _record_hold_audit(db, art_id=art_id, reason=reason, request_id=request_id)
+        except Exception as audit_exc:
+            db.rollback()
+            logger.warning(f"[{request_id}] Revision/audit skipped for {art_id}: {type(audit_exc).__name__}")
+
+    return {
+        "scanned_published": len(rows),
+        "candidates": len(candidates),
+        "held_thin": held_thin,
+        "held_corrupt_km": held_corrupt_km,
+        "errors": errors,
+        "last_error": last_error,
+    }
+
+
+def demote_defective_published_articles_step(db: Session, limit: int = 50) -> Dict[str, object]:
+    """Continuous worker guard so no thin/corrupt article stays live after manual or edge writes."""
+    return _demote_published_defects(
+        db,
+        request_id="worker-guard",
+        reason_prefix="Worker quality guard",
+        limit=limit,
+    )
+
+
+def ensure_production_pipeline_v9(db: Session) -> Dict[str, object]:
+    """Revision-isolated, deadlock-safe recovery: move all thin/corrupt PUBLISHED rows into AI_DRAFT."""
+    import logging
+    from sqlalchemy.exc import IntegrityError
+    from app.models.audit import SiteSetting
+
+    logger = logging.getLogger("recovery")
+    if db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V9").first():
+        return {"already_ran": True}
+
     try:
         desks = reconcile_existing_article_desks(db)
-        pub_ids = [
-            row[0]
-            for row in db.query(Article.id)
-            .filter(Article.status == "PUBLISHED")
-            .order_by(Article.id.asc())
-            .all()
-        ]
-        for art_id in pub_ids:
-            art = db.query(Article).filter(Article.id == art_id).first()
-            if not art or art.status != "PUBLISHED":
-                continue
-            body_err = body_quality_issue(art.content, art.summary, art.why_it_matters)
-            km_err = khmer_quality_issue(art.title_km, art.summary_km, art.content_km, require_complete=False)
-            reason = body_err or km_err
-            if not reason:
-                continue
-            try:
-                if body_err:
-                    held_thin += 1
-                if km_err:
-                    held_corrupt_km += 1
-                art.status = "AI_DRAFT"
-                art.quality_checklist_passed = False
-                try:
-                    meta = json.loads(art.ai_draft_metadata) if art.ai_draft_metadata else {}
-                    if not isinstance(meta, dict):
-                        meta = {}
-                except Exception:
-                    meta = {}
-                meta["autopilot_hold_reason"] = f"Pipeline recovery v8: {reason}"
-                if not meta.get("engine"):
-                    meta["engine"] = "fallback"
-                art.ai_draft_metadata = json.dumps(meta)
-                db.add(ArticleRevision(
-                    article_id=art.id,
-                    editor_user_id=None,
-                    previous_status="PUBLISHED",
-                    new_status="AI_DRAFT",
-                    change_summary=f"Returned to AI_DRAFT: {reason[:180]}",
-                ))
-                db.add(AuditLog(
-                    user_id=None,
-                    action="QUALITY_AUDIT_HOLD",
-                    entity="ARTICLE",
-                    entity_id=art.id,
-                    old_value_json="PUBLISHED",
-                    new_value_json="AI_DRAFT",
-                    request_id="pipeline-v8",
-                ))
-                db.commit()
-            except Exception:
-                db.rollback()
-                errors += 1
+    except Exception as desk_exc:
+        db.rollback()
+        desks = {"error": f"{type(desk_exc).__name__}: {str(desk_exc)[:120]}"}
+        logger.warning(f"[pipeline-v9] Desk reconciliation notice: {desks['error']}")
 
-        if not db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V8").first():
+    stats = _demote_published_defects(
+        db,
+        request_id="pipeline-v9",
+        reason_prefix="Pipeline recovery v9",
+    )
+
+    if stats["errors"] == 0 and not db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V9").first():
+        try:
             db.add(SiteSetting(
-                key="PIPELINE_RECOVERY_V8",
+                key="PIPELINE_RECOVERY_V9",
                 value_json="done",
-                description=f"Held {held_thin} thin/stub and {held_corrupt_km} corrupt published articles into AI_DRAFT",
+                description=(
+                    f"Held {stats['held_thin']} thin/stub and {stats['held_corrupt_km']} "
+                    "corrupt published articles into AI_DRAFT"
+                )[:255],
             ))
             db.commit()
-        return {"desks": desks, "held_thin": held_thin, "held_corrupt_km": held_corrupt_km, "errors": errors}
-    finally:
-        if is_pg and lock_acquired:
-            try:
-                db.execute(text("SELECT pg_advisory_unlock(884208)"))
-                db.commit()
-            except Exception:
-                pass
+        except IntegrityError:
+            db.rollback()
+
+    return {"desks": desks, **stats}
+
+
+def ensure_production_pipeline_v8(db: Session) -> Dict[str, object]:
+    """Compatibility alias forwarding callers to ensure_production_pipeline_v9."""
+    return ensure_production_pipeline_v9(db)
