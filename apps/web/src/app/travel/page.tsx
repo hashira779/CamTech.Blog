@@ -25,10 +25,18 @@ const MAP_TYPES = "ATTRACTION,TEMPLE,WATERFALL,BEACH,NATIONAL_PARK,LAKE,MUSEUM,M
 async function getAllPlaces() {
   const first = await getPlaces({ type: MAP_TYPES, limit: 100, offset: 0 });
   const items = [...first.items];
-  for (let offset = 100; offset < Math.min(first.total, 1000); offset += 100) {
-    const page = await getPlaces({ type: MAP_TYPES, limit: 100, offset });
-    if (!page.items.length) break;
-    items.push(...page.items);
+  const maxTotal = Math.min(first.total, 1000);
+  const offsets: number[] = [];
+  for (let offset = 100; offset < maxTotal; offset += 100) {
+    offsets.push(offset);
+  }
+  if (offsets.length > 0) {
+    const pages = await Promise.all(
+      offsets.map((offset) => getPlaces({ type: MAP_TYPES, limit: 100, offset })),
+    );
+    for (const page of pages) {
+      if (page.items.length) items.push(...page.items);
+    }
   }
   return items;
 }

@@ -16,12 +16,12 @@ import {
   HomepageSection,
   TransportOperator,
   TransportHub,
-  TransportRoute,
   RouteSearchResponse,
   NearbySearchResponse,
   TravelGuide,
   TravelEvent
 } from "@/types";
+import { fetchWithSWR } from "./api-cache";
 import { ALL_TOOLS } from "./tools-data";
 
 
@@ -39,37 +39,17 @@ function getTimeoutSignal(ms = 8000): AbortSignal {
 }
 
 async function fetchWithFallback<T>(url: string, fallbackData: T, revalidate = 60, timeoutMs = 8000): Promise<T> {
-  try {
-    const res = await fetch(url, {
-      next: { revalidate },
-      signal: getTimeoutSignal(timeoutMs),
-    });
-    if (res.ok) {
-      return await res.json();
-    }
-    console.warn(`API request to ${url} returned status ${res.status}, evaluating fallback.`);
-  } catch (err) {
-    console.warn(`API request to ${url} failed, evaluating fallback:`, err);
-  }
+  const result = await fetchWithSWR<T>(url, fallbackData, { revalidate, timeoutMs });
+  return result.data;
+}
 
-  // Resilient failover: If internal docker network URL failed, retry against public API if running on server
-  const publicApi = process.env.NEXT_PUBLIC_API_URL || "https://cms.camtech.cam/api/v1";
-  if (typeof window === "undefined" && url.includes("api:8000/api/v1") && !url.startsWith(publicApi)) {
-    try {
-      const fallbackUrl = url.replace("http://api:8000/api/v1", publicApi);
-      const res = await fetch(fallbackUrl, {
-        next: { revalidate },
-        signal: getTimeoutSignal(timeoutMs),
-      });
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch {
-      // secondary fallback also failed
-    }
-  }
-
-  return fallbackData;
+async function fetchNullableWithFallback<T>(url: string, revalidate = 60, timeoutMs = 8000): Promise<T | null> {
+  const result = await fetchWithSWR<T | null>(url, null, {
+    revalidate,
+    timeoutMs,
+    allowNotFound: true,
+  });
+  return result.data;
 }
 
 export async function getArticles(params: {
@@ -94,13 +74,7 @@ export async function getArticles(params: {
 }
 
 export async function getAuthorBySlug(slug: string): Promise<Author | null> {
-  try {
-    const res = await fetch(`${API_BASE}/authors/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    return null;
-  }
+  return fetchNullableWithFallback<Author>(`${API_BASE}/authors/${slug}`);
 }
 
 export async function getSources(): Promise<Source[]> {
@@ -109,24 +83,11 @@ export async function getSources(): Promise<Source[]> {
 }
 
 export async function getSourceBySlug(slug: string): Promise<Source | null> {
-  try {
-    const res = await fetch(`${API_BASE}/sources/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    return null;
-  }
+  return fetchNullableWithFallback<Source>(`${API_BASE}/sources/${slug}`);
 }
 
 export async function getArticleBySlug(slug: string): Promise<Article | null> {
-  try {
-    const res = await fetch(`${API_BASE}/articles/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    console.error("Failed to fetch article:", err);
-    return null;
-  }
+  return fetchNullableWithFallback<Article>(`${API_BASE}/articles/${slug}`);
 }
 
 export async function getTrending(): Promise<TrendingResponse> {
@@ -147,23 +108,11 @@ export async function getDiscoveries(category?: string): Promise<{ items: Discov
 }
 
 export async function getDiscoveryBySlug(slug: string): Promise<Discovery | null> {
-  try {
-    const res = await fetch(`${API_BASE}/discoveries/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    return null;
-  }
+  return fetchNullableWithFallback<Discovery>(`${API_BASE}/discoveries/${slug}`);
 }
 
 export async function getDailyQuiz(): Promise<Quiz | null> {
-  try {
-    const res = await fetch(`${API_BASE}/quizzes/daily`, { next: { revalidate: 300 }, signal: getTimeoutSignal(4000) });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    return null;
-  }
+  return fetchNullableWithFallback<Quiz>(`${API_BASE}/quizzes/daily`, 300);
 }
 
 export async function getTools(): Promise<Tool[]> {
@@ -178,26 +127,21 @@ export async function getTools(): Promise<Tool[]> {
 }
 
 export async function getToolBySlug(slug: string): Promise<Tool | null> {
-  try {
-    const res = await fetch(`${API_BASE}/tools/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
-    if (res.ok) return await res.json();
-  } catch (err) {
-    // Fallback to local catalog
-  }
+  const remote = await fetchNullableWithFallback<Tool>(`${API_BASE}/tools/${slug}`);
+  if (remote) return remote;
   return ALL_TOOLS.find((t) => t.slug === slug) || null;
 }
 
 
 export async function searchGlobal(q: string, type?: string): Promise<{ query: string; total: number; results: SearchResultItem[] }> {
-  try {
-    const params = new URLSearchParams({ q, limit: "50" });
-    if (type) params.set("type", type);
-    const res = await fetch(`${API_BASE}/search?${params.toString()}`, { signal: getTimeoutSignal(4000) });
-    if (!res.ok) return { query: q, total: 0, results: [] };
-    return await res.json();
-  } catch (err) {
-    return { query: q, total: 0, results: [] };
-  }
+  const params = new URLSearchParams({ q, limit: "50" });
+  if (type) params.set("type", type);
+  return fetchWithFallback(
+    `${API_BASE}/search?${params.toString()}`,
+    { query: q, total: 0, results: [] },
+    30,
+    6000,
+  );
 }
 
 export interface SearchAnswer {
@@ -212,7 +156,7 @@ export async function getSearchAnswer(q: string): Promise<SearchAnswer | null> {
     const res = await fetch(`${API_BASE}/search/answer?q=${encodeURIComponent(q)}`, { signal: getTimeoutSignal(12000) });
     if (!res.ok) return null;
     return await res.json();
-  } catch (err) {
+  } catch {
     return null;
   }
 }
@@ -225,13 +169,7 @@ export async function getDestinations(featuredOnly = false): Promise<Destination
 }
 
 export async function getDestinationBySlug(slug: string): Promise<Destination | null> {
-  try {
-    const res = await fetch(`${API_BASE}/travel/destinations/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    return null;
-  }
+  return fetchNullableWithFallback<Destination>(`${API_BASE}/travel/destinations/${slug}`);
 }
 
 export async function getPlaces(params: {
@@ -255,13 +193,7 @@ export async function getPlaces(params: {
 }
 
 export async function getPlaceBySlug(slug: string): Promise<Place | null> {
-  try {
-    const res = await fetch(`${API_BASE}/travel/places/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    return null;
-  }
+  return fetchNullableWithFallback<Place>(`${API_BASE}/travel/places/${slug}`);
 }
 
 export async function getTrips(params: {
@@ -277,13 +209,7 @@ export async function getTrips(params: {
 }
 
 export async function getTripBySlug(slug: string): Promise<Trip | null> {
-  try {
-    const res = await fetch(`${API_BASE}/travel/trips/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    return null;
-  }
+  return fetchNullableWithFallback<Trip>(`${API_BASE}/travel/trips/${slug}`);
 }
 
 export async function generateTripPlan(payload: {
@@ -318,7 +244,7 @@ export async function submitPlaceSuggestion(data: PlaceSuggestionCreate): Promis
     });
     if (!res.ok) return { success: false, message: "Submission rejected" };
     return { success: true };
-  } catch (err) {
+  } catch {
     return { success: false, message: "Network connection error" };
   }
 }
@@ -357,13 +283,7 @@ export async function getTransportOperators(type?: string): Promise<TransportOpe
 }
 
 export async function getTransportOperator(slug: string): Promise<TransportOperator | null> {
-  try {
-    const res = await fetch(`${API_BASE}/transport/operators/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    return null;
-  }
+  return fetchNullableWithFallback<TransportOperator>(`${API_BASE}/transport/operators/${slug}`);
 }
 
 export async function getTransportHubs(destinationId?: string, type?: string): Promise<TransportHub[]> {
@@ -382,21 +302,15 @@ export async function searchNearby(params: {
   type?: string;
   limit?: number;
 }): Promise<NearbySearchResponse | null> {
-  try {
-    const query = new URLSearchParams();
-    if (params.place) query.set("place", params.place);
-    if (params.lat !== undefined) query.set("lat", params.lat.toString());
-    if (params.lng !== undefined) query.set("lng", params.lng.toString());
-    if (params.radius) query.set("radius", params.radius.toString());
-    if (params.type) query.set("type", params.type);
-    if (params.limit) query.set("limit", params.limit.toString());
+  const query = new URLSearchParams();
+  if (params.place) query.set("place", params.place);
+  if (params.lat !== undefined) query.set("lat", params.lat.toString());
+  if (params.lng !== undefined) query.set("lng", params.lng.toString());
+  if (params.radius) query.set("radius", params.radius.toString());
+  if (params.type) query.set("type", params.type);
+  if (params.limit) query.set("limit", params.limit.toString());
 
-    const res = await fetch(`${API_BASE}/nearby?${query.toString()}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    return null;
-  }
+  return fetchNullableWithFallback<NearbySearchResponse>(`${API_BASE}/nearby?${query.toString()}`, 60);
 }
 
 export async function getTravelGuides(destination?: string): Promise<TravelGuide[]> {
@@ -407,13 +321,7 @@ export async function getTravelGuides(destination?: string): Promise<TravelGuide
 }
 
 export async function getTravelGuide(slug: string): Promise<TravelGuide | null> {
-  try {
-    const res = await fetch(`${API_BASE}/travel-guides/${slug}`, { next: { revalidate: 60 }, signal: getTimeoutSignal(4000) });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    return null;
-  }
+  return fetchNullableWithFallback<TravelGuide>(`${API_BASE}/travel-guides/${slug}`);
 }
 
 export async function getTravelEvents(destination?: string): Promise<TravelEvent[]> {
@@ -422,4 +330,3 @@ export async function getTravelEvents(destination?: string): Promise<TravelEvent
   const url = `${API_BASE}/events${query.toString() ? `?${query.toString()}` : ""}`;
   return fetchWithFallback(url, []);
 }
-

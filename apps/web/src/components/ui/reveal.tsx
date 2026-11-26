@@ -27,7 +27,7 @@ export interface RevealProps extends React.HTMLAttributes<HTMLElement> {
  * card, and it keeps the two ways an element can qualify in the same place.
  */
 
-const revealMargin = () => (typeof window === "undefined" ? 0 : window.innerHeight * 0.92);
+const revealMargin = () => (typeof window === "undefined" ? 0 : window.innerHeight * 1.05);
 
 const pending = new Map<HTMLElement, () => void>();
 let shared: IntersectionObserver | null = null;

@@ -95,8 +95,11 @@ export function TouristAttractionsGrid({ places, total, imageWidths = {}, destin
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   // The server-rendered first page is the base; any other tab/search (or a "load more") lives in
-  // `result`, keyed by the query it answers so a stale response can never overwrite a newer one.
-  const [result, setResult] = useState<{ key: string; items: Place[]; count: number; offline?: boolean } | null>(null);
+  // `tabCache`, keyed by query so switching tabs reuses cached results without losing prior data.
+  const [tabCache, setTabCache] = useState<
+    Record<string, { items: Place[]; count: number; offline?: boolean }>
+  >({});
+  const [lastKey, setLastKey] = useState<string>("ALL|");
   const [paging, setPaging] = useState<"idle" | "more" | "error">("idle");
 
   useEffect(() => {
@@ -106,11 +109,15 @@ export function TouristAttractionsGrid({ places, total, imageWidths = {}, destin
 
   const key = `${activeFilter}|${debounced}`;
   const isBase = key === "ALL|";
-  const current = result?.key === key ? result : null;
+  const current = tabCache[key] ?? null;
+  const fallbackEntry = tabCache[lastKey] ?? null;
   const loading = !isBase && !current;
   const baseItems = useMemo(() => photoFirst(places), [places]);
-  const items = useMemo(() => (current ? current.items : isBase ? baseItems : result?.items ?? []), [current, isBase, baseItems, result]);
-  const count = current ? current.count : isBase ? total ?? places.length : result?.count ?? 0;
+  const items = useMemo(
+    () => (current ? current.items : isBase ? baseItems : fallbackEntry?.items ?? baseItems),
+    [current, isBase, baseItems, fallbackEntry],
+  );
+  const count = current ? current.count : isBase ? total ?? places.length : fallbackEntry?.count ?? (total ?? places.length);
   const offline = Boolean(current?.offline);
 
   const fetchPage = useCallback(async (tab: string, q: string, offset: number) => {
@@ -121,25 +128,33 @@ export function TouristAttractionsGrid({ places, total, imageWidths = {}, destin
     return (await res.json()) as { items: Place[]; total: number };
   }, []);
 
-  // A new tab or search term fetches the first page of the new query.
+  // A new uncached tab or search term fetches from the API and retains cached entries per query.
   useEffect(() => {
-    if (isBase) return;
+    if (isBase || current) return;
+    const requestKey = key;
     let cancelled = false;
     const [tab, q] = [activeFilter, debounced];
     fetchPage(tab, q, 0)
       .then((data) => {
-        if (!cancelled) setResult({ key: `${tab}|${q}`, items: photoFirst(data.items), count: data.total });
+        if (cancelled) return;
+        const entry = { items: photoFirst(data.items), count: data.total };
+        setTabCache((prev) => ({ ...prev, [requestKey]: entry }));
+        setLastKey(requestKey);
       })
       .catch(() => {
         if (cancelled) return;
         // API unreachable: filter what this page already holds, and say so.
         const fallback = photoFirst(localFilter(places, tab, q));
-        setResult({ key: `${tab}|${q}`, items: fallback, count: fallback.length, offline: true });
+        setTabCache((prev) => ({
+          ...prev,
+          [requestKey]: { items: fallback, count: fallback.length, offline: true },
+        }));
+        setLastKey(requestKey);
       });
     return () => {
       cancelled = true;
     };
-  }, [isBase, activeFilter, debounced, places, fetchPage]);
+  }, [isBase, current, key, activeFilter, debounced, places, fetchPage]);
 
   const loadMore = async () => {
     const requestKey = key;
@@ -147,7 +162,12 @@ export function TouristAttractionsGrid({ places, total, imageWidths = {}, destin
     try {
       const data = await fetchPage(activeFilter, debounced, items.length);
       const seen = new Set(items.map((p) => p.slug));
-      setResult({ key: requestKey, items: [...items, ...photoFirst(data.items.filter((p) => !seen.has(p.slug)))], count: data.total });
+      const merged = [...items, ...photoFirst(data.items.filter((p) => !seen.has(p.slug)))];
+      setTabCache((prev) => ({
+        ...prev,
+        [requestKey]: { items: merged, count: data.total },
+      }));
+      setLastKey(requestKey);
       setPaging("idle");
     } catch {
       setPaging("error");
@@ -244,7 +264,7 @@ export function TouristAttractionsGrid({ places, total, imageWidths = {}, destin
         ) : (
           <motion.div layout className={`grid grid-flow-dense grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 ${loading ? "opacity-60" : ""}`}>
             <AnimatePresence mode="popLayout" initial={false}>
-              {items.map((place, index) => {
+              {items.map((place) => {
                 const featured = place.slug === featuredSlug;
                 const description = lang === "km" && place.description_km ? place.description_km : place.description;
                 const saved = {
@@ -271,20 +291,14 @@ export function TouristAttractionsGrid({ places, total, imageWidths = {}, destin
                       tabIndex={-1}
                       className={`relative block ${featured ? "aspect-[4/3] lg:aspect-auto lg:min-h-[320px] lg:flex-1" : "aspect-[4/3]"}`}
                     >
-                      <motion.div
-                        className="absolute inset-0"
-                        initial={{ clipPath: "inset(0 0 100% 0)" }}
-                        whileInView={{ clipPath: "inset(0 0 0% 0)" }}
-                        viewport={{ once: true, margin: "0px 0px -10% 0px" }}
-                        transition={{ duration: 1, ease, delay: Math.min(index % PAGE, 6) * 0.06 }}
-                      >
+                      <div className="absolute inset-0">
                         <ParallaxPhoto
                           place={place}
                           alt={place.name}
                           label={copy.photoMissing}
                           sizes={featured ? "(min-width: 1024px) 640px, (min-width: 640px) 100vw, 100vw" : "(min-width: 1024px) 320px, (min-width: 640px) 50vw, 100vw"}
                         />
-                      </motion.div>
+                      </div>
                       {featured && (
                         <span className="absolute left-4 top-4 rounded-full bg-tv-night/75 px-3 py-1 text-xs font-semibold text-tv-gold-soft backdrop-blur-sm">
                           {copy.featured}

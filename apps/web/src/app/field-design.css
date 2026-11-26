@@ -167,7 +167,8 @@
 .field-footer-linkbox { display: flex; align-items: center; gap: 12px; }
 .field-footer-linkbox a { font-size: 11px; padding: 11px 14px; border: 1px solid var(--border-strong); border-radius: 6px; }
 .field-anchor { scroll-margin-top: 125px; }
-.field-travel-hero { display: grid; grid-template-columns: 1.1fr 1fr; align-items: center; gap: 50px; padding: 54px 0 40px; }
+.field-travel-hero { display: grid; grid-template-columns: 1.1fr 1fr; align-items: start; gap: 50px; padding: 44px 0 40px; }
+.field-travel-hero > div { padding-top: 12px; }
 .field-travel-hero h1 { font-family: var(--font-serif),Georgia,serif; font-size: clamp(40px,4.8vw,65px); line-height: 1.1; letter-spacing: -.05em; margin-top: 22px; font-weight: 450; }
 .field-travel-hero h1 em { color: var(--field-green); }
 .field-travel-hero > div > p:not(.field-eyebrow) { max-width: 420px; color: var(--muted-foreground); font-size: 14px; line-height: 1.9; margin-top: 22px; }
