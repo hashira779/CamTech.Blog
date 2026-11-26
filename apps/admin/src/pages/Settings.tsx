@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { 
+import {
   Save,
   Key,
   Bot,
@@ -10,7 +10,11 @@ import {
   Trash2,
   ArrowUp,
   ArrowDown,
-  Zap
+  Zap,
+  Copy,
+  Check,
+  Globe,
+  Search
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useToast } from '../components/ui/Toast';
@@ -49,9 +53,9 @@ type AutopilotField =
 const AUTOPILOT_FIELDS: AutopilotField[] = [
   { key: 'AUTOPILOT_REQUIRE_EDITOR_REVIEW', type: 'toggle', label: 'Require editor approval', help: 'Keep generated news, discoveries, guides and events unpublished until an editor reviews them. Recommended during content quality remediation.' },
   { key: 'AUTOPILOT_NEWS_ENABLED', type: 'toggle', label: 'Autopilot master switch', help: 'Turn off to stop all automatic publishing, archiving and daily AI news.' },
-  { key: 'AUTOPILOT_DAILY_NEWS_ENABLED', type: 'toggle', label: 'Daily AI news generation', help: 'Gemini writes fresh stories for every category once a day.' },
+  { key: 'AUTOPILOT_DAILY_NEWS_ENABLED', type: 'toggle', label: 'Daily AI news generation', help: 'Active AI providers write fresh stories for every category once a day.' },
   { key: 'AUTOPILOT_DAILY_NEWS_HOUR', type: 'number', min: 0, max: 23, suffix: 'h (Cambodia time)', label: 'Daily news hour', help: 'Hour of the day the daily AI news run starts.' },
-  { key: 'AUTOPILOT_AUTO_PUBLISH_ENABLED', type: 'toggle', label: 'Hybrid auto-publish', help: 'Gemini drafts that pass the quality gate go live after the review window unless you reject them.' },
+  { key: 'AUTOPILOT_AUTO_PUBLISH_ENABLED', type: 'toggle', label: 'Hybrid auto-publish', help: 'AI drafts that pass the quality gate go live after the review window unless you reject them.' },
   { key: 'AUTOPILOT_PUBLISH_DELAY_HOURS', type: 'number', min: 0, max: 168, suffix: 'hours', label: 'Review window', help: 'Time you have to reject a draft before it auto-publishes.' },
   { key: 'AUTOPILOT_MAX_PUBLISH_PER_RUN', type: 'number', min: 0, max: 100, suffix: 'per 5 min', label: 'Publish limit', help: 'Safety cap on how many stories go live per worker cycle.' },
   { key: 'AUTOPILOT_MIN_CONTENT_CHARS', type: 'number', min: 0, max: 5000, suffix: 'characters', label: 'Minimum length', help: 'Shorter drafts are held for manual review.' },
@@ -59,9 +63,9 @@ const AUTOPILOT_FIELDS: AutopilotField[] = [
   { key: 'AUTOPILOT_MAX_REDRAFT_PER_RUN', type: 'number', min: 0, max: 50, suffix: 'per 5 min', label: 'Re-draft limit', help: 'AI calls spent on re-drafting per worker cycle. Each story is tried at most 3 times.' },
   { key: 'AUTOPILOT_ARCHIVE_AFTER_DAYS', type: 'number', min: 1, max: 365, suffix: 'days', label: 'Archive stale drafts after', help: 'Unpublished AI drafts and rejected stories are hidden (restorable).' },
   { key: 'AUTOPILOT_PURGE_AFTER_DAYS', type: 'number', min: 7, max: 3650, suffix: 'days', label: 'Delete archived after', help: 'Archived AI stories that were never public are permanently removed.' },
-  { key: 'AUTOPILOT_DISCOVERY_ENABLED', type: 'toggle', label: 'AI Visual Discoveries', help: 'Gemini drafts evergreen "how things work" explainers for the Discover section.' },
+  { key: 'AUTOPILOT_DISCOVERY_ENABLED', type: 'toggle', label: 'AI Visual Discoveries', help: 'Active AI providers draft evergreen "how things work" explainers for the Discover section.' },
   { key: 'AUTOPILOT_DISCOVERY_INTERVAL_HOURS', type: 'number', min: 1, max: 720, suffix: 'hours', label: 'Discovery interval', help: 'How often new discoveries are drafted.' },
-  { key: 'AUTOPILOT_TRAVEL_ENABLED', type: 'toggle', label: 'AI Travel Guides & Events', help: 'Gemini drafts destination guides and upcoming festivals with real dates.' },
+  { key: 'AUTOPILOT_TRAVEL_ENABLED', type: 'toggle', label: 'AI Travel Guides & Events', help: 'Active AI providers draft destination guides and upcoming festivals with real dates.' },
   { key: 'AUTOPILOT_TRAVEL_INTERVAL_HOURS', type: 'number', min: 1, max: 2160, suffix: 'hours', label: 'Travel interval', help: 'How often guides and events are refreshed.' },
 ];
 
@@ -80,7 +84,12 @@ interface ProviderRow {
   has_key?: boolean;
 }
 
-const PROVIDER_STYLES = ['openai', 'gemini', 'anthropic'];
+const PROVIDER_STYLES: Array<{ value: string; label: string }> = [
+  { value: 'openai', label: 'openai (OpenAI / Groq / Ollama / LiteLLM / Custom)' },
+  { value: 'gemini', label: 'gemini (Google Gemini REST)' },
+  { value: 'anthropic', label: 'anthropic (Claude Messages API)' },
+  { value: 'mcp', label: 'mcp (MCP AI Server JSON-RPC 2.0)' },
+];
 
 export default function Settings() {
   const [, setSettings] = useState<SystemSetting[]>([]);
@@ -108,6 +117,10 @@ export default function Settings() {
   const [dirtyKeys, setDirtyKeys] = useState<Record<string, boolean>>({});
   const [savingProviders, setSavingProviders] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [testingAll, setTestingAll] = useState(false);
+  const [discoveringId, setDiscoveringId] = useState<string | null>(null);
+  const [discoveredModels, setDiscoveredModels] = useState<Record<string, string[]>>({});
+  const [copiedMcp, setCopiedMcp] = useState(false);
   const [testResults, setTestResults] = useState<Record<string, string>>({});
   const [providerLoading, setProviderLoading] = useState(true);
   const [addPick, setAddPick] = useState('');
@@ -190,12 +203,24 @@ export default function Settings() {
     setAddPick('');
   };
 
-  const addCustomProvider = () => {
-    const id = `custom-${Date.now().toString(36)}`;
+  const addCustomProvider = (style: 'openai' | 'mcp' = 'openai') => {
+    const id = `${style}-${Date.now().toString(36)}`;
     setProviders(prev => [
       ...prev,
-      { id, label: 'Custom Provider', style: 'openai', model: '', base_url: '', api_key: '',
-        enabled: false, temperature: 0.5, max_tokens: 2048, supports_search: false, requires_key: true, has_key: false },
+      {
+        id,
+        label: style === 'mcp' ? 'Custom MCP Server' : 'Custom AI Provider',
+        style,
+        model: style === 'mcp' ? 'auto' : '',
+        base_url: style === 'mcp' ? 'http://localhost:3100/mcp' : '',
+        api_key: '',
+        enabled: false,
+        temperature: 0.5,
+        max_tokens: 4096,
+        supports_search: style === 'mcp',
+        requires_key: style !== 'mcp',
+        has_key: false,
+      },
     ]);
   };
 
@@ -210,7 +235,7 @@ export default function Settings() {
         base_url: p.base_url,
         enabled: !!p.enabled,
         temperature: Number(p.temperature) || 0.5,
-        max_tokens: Number(p.max_tokens) || 2048,
+        max_tokens: Number(p.max_tokens) || 4096,
         supports_search: !!p.supports_search,
         requires_key: p.requires_key !== false,
         api_key: dirtyKeys[p.id] ? ((p.api_key || '').trim() || '__CLEAR__') : '',
@@ -235,7 +260,7 @@ export default function Settings() {
       const ok = !!res.data?.ok;
       const detail = ok
         ? `Works (${res.data.model})`
-        : `Failed: ${JSON.stringify(res.data?.detail ?? res.data ?? '')}`.slice(0, 90);
+        : `Failed: ${JSON.stringify(res.data?.detail ?? res.data ?? '')}`.slice(0, 120);
       setTestResults(prev => ({ ...prev, [id]: detail }));
       showToast(ok ? 'success' : 'error', `${id}: ${detail}`);
     } catch (err) {
@@ -243,6 +268,46 @@ export default function Settings() {
       showToast('error', 'Provider test request failed.');
     } finally {
       setTestingId(null);
+    }
+  };
+
+  const testAllActiveProviders = async () => {
+    setTestingAll(true);
+    try {
+      const res = await api.post('/admin/ai-providers/test-all');
+      const items: Array<any> = res.data?.results ?? [];
+      const next: Record<string, string> = {};
+      for (const item of items) {
+        next[item.provider] = item.ok
+          ? `Works (${item.model})`
+          : `Failed: ${JSON.stringify(item.detail ?? '')}`.slice(0, 120);
+      }
+      setTestResults(prev => ({ ...prev, ...next }));
+      showToast(
+        (res.data?.ok_count ?? 0) > 0 ? 'success' : 'error',
+        `${res.data?.ok_count ?? 0}/${res.data?.total_tested ?? 0} active providers passed`,
+      );
+    } catch {
+      showToast('error', 'Batch provider test failed.');
+    } finally {
+      setTestingAll(false);
+    }
+  };
+
+  const discoverModels = async (id: string) => {
+    setDiscoveringId(id);
+    try {
+      const res = await api.post('/admin/ai-providers/models', { provider_id: id });
+      if (res.data?.ok && Array.isArray(res.data?.models) && res.data.models.length > 0) {
+        setDiscoveredModels(prev => ({ ...prev, [id]: res.data.models }));
+        showToast('success', `${id}: found ${res.data.models.length} models/tools`);
+      } else {
+        showToast('error', `${id}: ${res.data?.detail || 'No models returned (save provider first)'}`);
+      }
+    } catch {
+      showToast('error', 'Model/tool discovery failed.');
+    } finally {
+      setDiscoveringId(null);
     }
   };
 
@@ -281,7 +346,7 @@ export default function Settings() {
       showToast('success', `${action} finished: ${detail.slice(0, 120)}`);
     } catch (err) {
       console.error('Autopilot action failed:', err);
-      showToast('error', `Action "${action}" failed. Check that the Gemini key is set.`);
+      showToast('error', `Action "${action}" failed. Check that an AI provider is active in AI Providers.`);
     } finally {
       setRunning(null);
     }
@@ -469,244 +534,373 @@ export default function Settings() {
           )}
 
           {activeTab === 'providers' && (
-            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden">
-              <div className="p-4 border-b border-zinc-800 bg-zinc-950/40 flex items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-sm font-semibold text-zinc-100">AI Providers Fallback Chain</h2>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">
-                    Tried top-to-bottom automatically whenever a key runs out or an endpoint errors.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={saveProviders}
-                  disabled={savingProviders}
-                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-3.5 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-50"
-                >
-                  {savingProviders ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
-                  <span>{savingProviders ? 'Saving…' : 'Save Providers'}</span>
-                </button>
-              </div>
-              <div className="p-5 space-y-4">
-                {providerLoading ? (
-                  <div className="space-y-3">
-                    <div className="h-16 w-full skeleton-shimmer rounded-lg" />
-                    <div className="h-16 w-full skeleton-shimmer rounded-lg" />
+            <div className="space-y-6">
+              <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden">
+                <div className="p-4 border-b border-zinc-800 bg-zinc-950/40 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-sm font-semibold text-zinc-100">AI Providers &amp; MCP Fallback Chain</h2>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                      Supports OpenAI, Gemini, Anthropic, Groq, DeepSeek, Perplexity, Ollama, LM Studio, LiteLLM, custom gateways, and outbound MCP AI servers.
+                    </p>
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    {providers.map((p, idx) => (
-                      <div key={p.id} className="border border-zinc-800 rounded-lg p-3.5 space-y-3 bg-zinc-950/40">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <button
-                              type="button"
-                              role="switch"
-                              aria-checked={p.enabled}
-                              onClick={() => toggleProvider(p.id)}
-                              className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${
-                                p.enabled ? 'bg-emerald-500' : 'bg-zinc-700'
-                              }`}
-                            >
-                              <span
-                                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                                  p.enabled ? 'translate-x-4' : ''
-                                }`}
-                              />
-                            </button>
-                            <input
-                              value={p.label}
-                              onChange={(e) => updateProvider(p.id, { label: e.target.value })}
-                              className="bg-transparent text-sm font-medium text-zinc-100 focus:outline-none focus:border-b focus:border-blue-500 min-w-0"
-                            />
-                            {p.has_key && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
-                                key saved
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              title="Move up"
-                              onClick={() => moveProvider(idx, -1)}
-                              disabled={idx === 0}
-                              className="p-1.5 rounded-md text-zinc-400 hover:bg-zinc-800 disabled:opacity-30"
-                            >
-                              <ArrowUp size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              title="Move down"
-                              onClick={() => moveProvider(idx, 1)}
-                              disabled={idx === providers.length - 1}
-                              className="p-1.5 rounded-md text-zinc-400 hover:bg-zinc-800 disabled:opacity-30"
-                            >
-                              <ArrowDown size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              title="Remove"
-                              onClick={() => removeProvider(p.id)}
-                              className="p-1.5 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-500/10"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
-                              Vendor API style
-                            </label>
-                            <select
-                              value={p.style}
-                              onChange={(e) => updateProvider(p.id, { style: e.target.value })}
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500"
-                            >
-                              {PROVIDER_STYLES.map((s) => (
-                                <option key={s} value={s}>
-                                  {s}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
-                              Model
-                            </label>
-                            <input
-                              value={p.model}
-                              onChange={(e) => updateProvider(p.id, { model: e.target.value })}
-                              placeholder="e.g. gemini-2.5-flash"
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
-                            />
-                          </div>
-                          <div className="sm:col-span-2">
-                            <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
-                              Base URL
-                            </label>
-                            <input
-                              value={p.base_url}
-                              onChange={(e) => updateProvider(p.id, { base_url: e.target.value })}
-                              placeholder="https://api.example.com/v1"
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
-                            />
-                          </div>
-                          <div className="sm:col-span-2">
-                            <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
-                              API key
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="password"
-                                value={p.api_key}
-                                onChange={(e) => setProviderKey(p.id, e.target.value)}
-                                placeholder={
-                                  p.has_key
-                                    ? '••••••••  (saved — type to replace)'
-                                    : p.requires_key
-                                      ? 'Paste API key'
-                                      : 'No key needed (local)'
-                                }
-                                className="flex-1 bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
-                              />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={testAllActiveProviders}
+                      disabled={testingAll || testingId !== null}
+                      className="flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 font-medium px-3 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-50"
+                    >
+                      <Zap size={13} className={testingAll ? 'animate-pulse text-amber-400' : 'text-amber-400'} />
+                      <span>{testingAll ? 'Testing All…' : 'Test All Active'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={saveProviders}
+                      disabled={savingProviders}
+                      className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-3.5 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-50"
+                    >
+                      {savingProviders ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
+                      <span>{savingProviders ? 'Saving…' : 'Save Providers'}</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="p-5 space-y-4">
+                  {providerLoading ? (
+                    <div className="space-y-3">
+                      <div className="h-16 w-full skeleton-shimmer rounded-lg" />
+                      <div className="h-16 w-full skeleton-shimmer rounded-lg" />
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {providers.map((p, idx) => (
+                        <div key={p.id} className="border border-zinc-800 rounded-lg p-3.5 space-y-3 bg-zinc-950/40">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
                               <button
                                 type="button"
-                                onClick={() => testProvider(p.id)}
-                                disabled={testingId !== null}
-                                className="flex items-center gap-1 shrink-0 px-2.5 py-1.5 text-[11px] font-medium rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
-                              >
-                                <Zap
-                                  size={12}
-                                  className={testingId === p.id ? 'animate-pulse text-amber-400' : 'text-zinc-400'}
-                                />
-                                Test
-                              </button>
-                            </div>
-                            {testResults[p.id] && (
-                              <p
-                                className={`text-[10px] mt-1 ${
-                                  testResults[p.id].startsWith('Works')
-                                    ? 'text-emerald-400'
-                                    : testResults[p.id] === 'Testing…'
-                                      ? 'text-zinc-400'
-                                      : 'text-red-400'
+                                role="switch"
+                                aria-checked={p.enabled}
+                                onClick={() => toggleProvider(p.id)}
+                                className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${
+                                  p.enabled ? 'bg-emerald-500' : 'bg-zinc-700'
                                 }`}
                               >
-                                {testResults[p.id]}
+                                <span
+                                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                                    p.enabled ? 'translate-x-4' : ''
+                                  }`}
+                                />
+                              </button>
+                              <input
+                                value={p.label}
+                                onChange={(e) => updateProvider(p.id, { label: e.target.value })}
+                                className="bg-transparent text-sm font-medium text-zinc-100 focus:outline-none focus:border-b focus:border-blue-500 min-w-0"
+                              />
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 shrink-0 font-mono uppercase">
+                                {p.style}
+                              </span>
+                              {p.supports_search && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20 shrink-0">
+                                  web search
+                                </span>
+                              )}
+                              {p.has_key && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                                  key saved
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                title="Move up"
+                                onClick={() => moveProvider(idx, -1)}
+                                disabled={idx === 0}
+                                className="p-1.5 rounded-md text-zinc-400 hover:bg-zinc-800 disabled:opacity-30"
+                              >
+                                <ArrowUp size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                title="Move down"
+                                onClick={() => moveProvider(idx, 1)}
+                                disabled={idx === providers.length - 1}
+                                className="p-1.5 rounded-md text-zinc-400 hover:bg-zinc-800 disabled:opacity-30"
+                              >
+                                <ArrowDown size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                title="Remove"
+                                onClick={() => removeProvider(p.id)}
+                                className="p-1.5 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-500/10"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                                Vendor / Protocol Style
+                              </label>
+                              <select
+                                value={p.style}
+                                onChange={(e) => updateProvider(p.id, { style: e.target.value })}
+                                className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500"
+                              >
+                                {PROVIDER_STYLES.map((s) => (
+                                  <option key={s.value} value={s.value}>
+                                    {s.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                                {p.style === 'mcp' ? 'MCP Tool / Model (`auto`, `sampling`, or `tool:name`)' : 'Model'}
+                              </label>
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  value={p.model}
+                                  onChange={(e) => updateProvider(p.id, { model: e.target.value })}
+                                  placeholder={p.style === 'mcp' ? 'auto or tool:ask_ai' : 'e.g. gpt-4o-mini'}
+                                  className="flex-1 bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => discoverModels(p.id)}
+                                  disabled={discoveringId !== null}
+                                  title="Fetch available models or MCP tools from saved endpoint"
+                                  className="flex items-center gap-1 shrink-0 px-2 py-1.5 text-[11px] font-medium rounded-md border border-zinc-700 text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+                                >
+                                  <Search size={11} className={discoveringId === p.id ? 'animate-spin text-blue-400' : 'text-zinc-400'} />
+                                  <span>{p.style === 'mcp' ? 'Tools' : 'Models'}</span>
+                                </button>
+                              </div>
+                              {discoveredModels[p.id] && discoveredModels[p.id].length > 0 && (
+                                <select
+                                  value=""
+                                  onChange={(e) => {
+                                    if (e.target.value) updateProvider(p.id, { model: e.target.value });
+                                  }}
+                                  className="mt-1.5 w-full bg-zinc-900 border border-zinc-700 rounded-md py-1 px-2 text-[11px] text-emerald-300 focus:outline-none"
+                                >
+                                  <option value="">
+                                    Pick from {discoveredModels[p.id].length} discovered {p.style === 'mcp' ? 'tools/modes' : 'models'}…
+                                  </option>
+                                  {discoveredModels[p.id].slice(0, 60).map((m) => (
+                                    <option key={m} value={m}>
+                                      {m}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                                {p.style === 'mcp' ? 'MCP Streamable HTTP Endpoint URL' : 'Base URL'}
+                              </label>
+                              <input
+                                value={p.base_url}
+                                onChange={(e) => updateProvider(p.id, { base_url: e.target.value })}
+                                placeholder={p.style === 'mcp' ? 'http://localhost:3100/mcp' : 'https://api.example.com/v1'}
+                                className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                                {p.style === 'mcp' ? 'Bearer / API Key (optional for open local MCP servers)' : 'API Key / Token'}
+                              </label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="password"
+                                  value={p.api_key}
+                                  onChange={(e) => setProviderKey(p.id, e.target.value)}
+                                  placeholder={
+                                    p.has_key
+                                      ? '••••••••  (saved — type to replace)'
+                                      : p.requires_key
+                                        ? 'Paste API key'
+                                        : 'Optional — no key required'
+                                  }
+                                  className="flex-1 bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => testProvider(p.id)}
+                                  disabled={testingId !== null || testingAll}
+                                  className="flex items-center gap-1 shrink-0 px-2.5 py-1.5 text-[11px] font-medium rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+                                >
+                                  <Zap
+                                    size={12}
+                                    className={testingId === p.id ? 'animate-pulse text-amber-400' : 'text-zinc-400'}
+                                  />
+                                  Test
+                                </button>
+                              </div>
+                              {testResults[p.id] && (
+                                <p
+                                  className={`text-[10px] mt-1 ${
+                                    testResults[p.id].startsWith('Works')
+                                      ? 'text-emerald-400'
+                                      : testResults[p.id] === 'Testing…'
+                                        ? 'text-zinc-400'
+                                        : 'text-red-400'
+                                  }`}
+                                >
+                                  {testResults[p.id]}
+                                </p>
+                              )}
+                              <p className="text-[10px] text-zinc-500 mt-1">
+                                Save providers first before clicking Test or Fetch {p.style === 'mcp' ? 'Tools' : 'Models'}.
                               </p>
-                            )}
-                            <p className="text-[10px] text-zinc-500 mt-1">
-                              Save providers first, then click Test to verify the saved credential.
-                            </p>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
-                              Temperature
-                            </label>
-                            <input
-                              type="number"
-                              step="0.1"
-                              min="0"
-                              max="2"
-                              value={p.temperature}
-                              onChange={(e) => updateProvider(p.id, { temperature: Number(e.target.value) })}
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500 font-mono"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
-                              Max tokens
-                            </label>
-                            <input
-                              type="number"
-                              step="1"
-                              min="1"
-                              max="32000"
-                              value={p.max_tokens}
-                              onChange={(e) => updateProvider(p.id, { max_tokens: Number(e.target.value) })}
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500 font-mono"
-                            />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                                Temperature
+                              </label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                max="2"
+                                value={p.temperature}
+                                onChange={(e) => updateProvider(p.id, { temperature: Number(e.target.value) })}
+                                className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500 font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                                Max tokens
+                              </label>
+                              <input
+                                type="number"
+                                step="1"
+                                min="1"
+                                max="65536"
+                                value={p.max_tokens}
+                                onChange={(e) => updateProvider(p.id, { max_tokens: Number(e.target.value) })}
+                                className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500 font-mono"
+                              />
+                            </div>
+                            <div className="sm:col-span-2 flex flex-wrap items-center gap-4 pt-1">
+                              <label className="inline-flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={!!p.supports_search}
+                                  onChange={(e) => updateProvider(p.id, { supports_search: e.target.checked })}
+                                  className="rounded border-zinc-700 bg-zinc-950 text-blue-500 focus:ring-0"
+                                />
+                                <Globe size={12} className="text-blue-400" />
+                                <span>Supports web search / research grounding</span>
+                              </label>
+                              <label className="inline-flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={p.requires_key !== false}
+                                  onChange={(e) => updateProvider(p.id, { requires_key: e.target.checked })}
+                                  className="rounded border-zinc-700 bg-zinc-950 text-emerald-500 focus:ring-0"
+                                />
+                                <Key size={12} className="text-emerald-400" />
+                                <span>API key required (uncheck for local Ollama / LM Studio / open MCP)</span>
+                              </label>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
 
-                    <div className="flex flex-wrap items-center gap-2 pt-2">
-                      <select
-                        value={addPick}
-                        onChange={(e) => setAddPick(e.target.value)}
-                        className="bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500"
-                      >
-                        <option value="">Add a vendor…</option>
-                        {catalog
-                          .filter((c) => !providers.some((p) => p.id === c.id))
-                          .map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.label}
-                            </option>
-                          ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={addProvider}
-                        disabled={!addPick}
-                        className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
-                      >
-                        <Plus size={12} /> Add vendor
-                      </button>
-                      <button
-                        type="button"
-                        onClick={addCustomProvider}
-                        className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800"
-                      >
-                        <Plus size={12} /> Custom (OpenAI-compatible)
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2 pt-2">
+                        <select
+                          value={addPick}
+                          onChange={(e) => setAddPick(e.target.value)}
+                          className="bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500"
+                        >
+                          <option value="">Add a built-in vendor / gateway…</option>
+                          {catalog
+                            .filter((c) => !providers.some((p) => p.id === c.id))
+                            .map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.label}
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={addProvider}
+                          disabled={!addPick}
+                          className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
+                        >
+                          <Plus size={12} /> Add vendor
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addCustomProvider('openai')}
+                          className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800"
+                        >
+                          <Plus size={12} /> Custom AI Provider
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => addCustomProvider('mcp')}
+                          className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                        >
+                          <Plus size={12} /> Custom MCP Server
+                        </button>
+                      </div>
                     </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden">
+                <div className="p-4 border-b border-zinc-800 bg-zinc-950/40 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-sm font-semibold text-zinc-100">Built-in MCP Server (Connect Any AI Client)</h2>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                      External MCP clients (Cursor, Claude, Windsurf, Antigravity, custom agents) can query CamTechBlog via Streamable HTTP JSON-RPC 2.0.
+                    </p>
                   </div>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const base = (api.defaults.baseURL || '/api/v1').replace(/\/+$/, '');
+                      const url = base.startsWith('http')
+                        ? `${base}/mcp`
+                        : `${window.location.origin}${base.startsWith('/') ? '' : '/'}${base}/mcp`;
+                      const snippet = JSON.stringify({
+                        mcpServers: {
+                          'camtech-blog': {
+                            type: 'http',
+                            url,
+                          },
+                        },
+                      }, null, 2);
+                      navigator.clipboard?.writeText(snippet);
+                      setCopiedMcp(true);
+                      setTimeout(() => setCopiedMcp(false), 2000);
+                      showToast('success', 'Copied MCP client JSON configuration.');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-700 bg-zinc-950 text-zinc-200 hover:bg-zinc-800"
+                  >
+                    {copiedMcp ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                    <span>{copiedMcp ? 'Copied MCP JSON' : 'Copy MCP Config'}</span>
+                  </button>
+                </div>
+                <div className="p-5 space-y-2 text-xs text-zinc-400">
+                  <div className="p-3 rounded-lg bg-zinc-950 border border-zinc-800 font-mono text-[11px] text-emerald-300 break-all">
+                    {(() => {
+                      const base = (api.defaults.baseURL || '/api/v1').replace(/\/+$/, '');
+                      return base.startsWith('http')
+                        ? `${base}/mcp`
+                        : `${typeof window !== 'undefined' ? window.location.origin : 'https://cms.camtech.cam'}${base.startsWith('/') ? '' : '/'}${base}/mcp`;
+                    })()}
+                  </div>
+                  <p className="text-[11px] text-zinc-500 leading-relaxed">
+                    Public callers can inspect <span className="text-zinc-300 font-mono">PUBLISHED</span> news, trending stories, discoveries, and Cambodia travel guides. Sending an Admin Bearer JWT also unlocks <span className="text-zinc-300 font-mono">ask_ai</span>, <span className="text-zinc-300 font-mono">pipeline_health</span>, <span className="text-zinc-300 font-mono">trigger_khmer_backfill</span>, and <span className="text-zinc-300 font-mono">trigger_desk_scan</span>.
+                  </p>
+                </div>
               </div>
             </div>
           )}

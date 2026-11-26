@@ -416,8 +416,8 @@ async def daily_ai_news_job():
 
     try:
         from app.services import ai_gateway
-        if not ai_gateway.has_search_provider():
-            logger.info("Daily news uses registered RSS sources; web grounding is not enabled.")
+        if not ai_gateway.has_any_configured_provider():
+            logger.info("Daily news uses registered RSS sources; no AI provider is configured.")
             await ingest_rss_feeds_job()
             return
         from app.services.ai_news_service import ai_news_service

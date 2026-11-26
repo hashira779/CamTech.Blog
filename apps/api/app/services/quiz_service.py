@@ -65,33 +65,21 @@ class QuizService:
 
     @classmethod
     async def scan_and_generate_quizzes(cls, count: int = 1) -> Dict[str, Any]:
-        """Generates interactive daily quizzes with 5 questions each."""
+        """Generates interactive daily quizzes with 5 questions each via any configured AI provider."""
+        import asyncio
         import re
         import uuid
         from datetime import datetime, timezone
-        from app.common.config import settings
-        from app.models.audit import SiteSetting
-        try:
-            from google import genai
-            from google.genai import types
-        except ImportError:
-            genai = None
+        from app.services import ai_gateway
 
         from app.common.database import SessionLocal
         db = SessionLocal()
         created = []
         try:
-            client = None
-            if genai:
-                api_key_setting = db.query(SiteSetting).filter(SiteSetting.key == 'GEMINI_API_KEY').first()
-                api_key = api_key_setting.value_json if api_key_setting else settings.AI_API_KEY
-                if api_key:
-                    client = genai.Client(api_key=api_key)
-
             existing_titles = set(q.title.lower().strip() for q in db.query(Quiz).all())
 
             quiz_data = []
-            if client:
+            if await asyncio.to_thread(ai_gateway.has_any_configured_provider):
                 prompt = """Generate 1 daily interactive technology challenge quiz.
 STRICT JSON output format:
 {
@@ -111,20 +99,20 @@ STRICT JSON output format:
   ]
 }
 Include exactly 5 questions."""
-                for m in ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']:
-                    try:
-                        res = client.models.generate_content(
-                            model=m,
-                            contents=prompt,
-                            config=types.GenerateContentConfig(temperature=0.7, response_mime_type="application/json")
-                        )
-                        if res and res.text:
-                            data = json.loads(res.text)
-                            if isinstance(data, dict) and data.get("questions"):
-                                quiz_data = [data]
-                                break
-                    except Exception:
-                        pass
+                try:
+                    data, _meta = await asyncio.to_thread(
+                        ai_gateway.generate_json,
+                        prompt,
+                        use_search=False,
+                        timeout=45.0,
+                        max_tokens=4096,
+                    )
+                    if isinstance(data, dict) and data.get("questions"):
+                        quiz_data = [data]
+                    elif isinstance(data, list) and data and isinstance(data[0], dict) and data[0].get("questions"):
+                        quiz_data = [data[0]]
+                except Exception:
+                    pass
 
             if not quiz_data:
                 # Curated fallback quiz

@@ -995,6 +995,23 @@ def test_ai_provider(
     from app.services import ai_gateway
     return ai_gateway.test_provider(payload.provider_id)
 
+@router.post("/ai-providers/test-all")
+def test_all_ai_providers(
+    current_user: User = Depends(require_infra_admin),
+):
+    """Ping every enabled and configured AI/MCP provider in priority order."""
+    from app.services import ai_gateway
+    return ai_gateway.test_all_providers()
+
+@router.post("/ai-providers/models")
+def discover_ai_provider_models(
+    payload: ProviderTest,
+    current_user: User = Depends(require_infra_admin),
+):
+    """Discover available models or MCP tools from a saved provider endpoint."""
+    from app.services import ai_gateway
+    return ai_gateway.discover_provider_models(payload.provider_id)
+
 from app.services.ai_tourism_engine import (                       # noqa: E402
     ai_tourism_engine,
     image_set_changed,
