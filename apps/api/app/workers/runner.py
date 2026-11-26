@@ -67,26 +67,12 @@ async def ingest_rss_feeds_job():
     """
     db = SessionLocal()
     try:
-        from app.services.seed_sources import (
-            ensure_production_pipeline_v4,
-            ensure_production_pipeline_v5,
-            ensure_production_pipeline_v6,
-            ensure_production_pipeline_v10,
-            ensure_regional_hygiene_v3,
-        )
-        hygiene = ensure_regional_hygiene_v3(db)
-        if not hygiene.get("already_ran"):
-            logger.info(f"🧹 Regional hygiene V3 applied: {hygiene}")
-        v4 = ensure_production_pipeline_v4(db)
-        if not v4.get("already_ran"):
-            logger.info(f"🔧 Pipeline recovery V4 applied: {v4}")
-        v5 = ensure_production_pipeline_v5(db)
-        if not v5.get("already_ran"):
-            logger.info(f"⚡ Pipeline recovery V5 applied: {v5}")
-        ensure_production_pipeline_v6(db)
-        v10 = ensure_production_pipeline_v10(db)
-        if not v10.get("already_ran"):
-            logger.info(f"🛡️ Pipeline recovery V10 applied: {v10}")
+        from app.services.seed_sources import run_pipeline_maintenance
+        maint = run_pipeline_maintenance(db, include_guard=False)
+        for key in ("v3", "v4", "v5", "v6", "v10"):
+            res_k = maint.get(key)
+            if isinstance(res_k, dict) and not res_k.get("already_ran"):
+                logger.info(f"🛡️ Pipeline maintenance {key}: {res_k}")
 
         sources = db.query(Source).filter(
             Source.is_active == True,
@@ -444,25 +430,16 @@ async def daily_ai_news_job():
 async def khmer_backfill_job():
     """Backfill missing or scrubbed Khmer fields before slow RSS ingestion cycles."""
     from app.services import bilingual_service
-    from app.services.seed_sources import (
-        demote_defective_published_articles_step,
-        ensure_production_pipeline_v4,
-        ensure_production_pipeline_v5,
-        ensure_production_pipeline_v6,
-        ensure_production_pipeline_v10,
-        ensure_regional_hygiene_v3,
-    )
+    from app.services.seed_sources import run_pipeline_maintenance
     db = SessionLocal()
     try:
-        ensure_regional_hygiene_v3(db)
-        ensure_production_pipeline_v4(db)
-        ensure_production_pipeline_v5(db)
-        ensure_production_pipeline_v6(db)
-        v10 = ensure_production_pipeline_v10(db)
-        if not v10.get("already_ran"):
-            logger.info(f"🛡️ Pipeline recovery V10 applied: {v10}")
-        guard = demote_defective_published_articles_step(db, limit=50)
-        if guard.get("held_thin") or guard.get("held_corrupt_km"):
+        maint = run_pipeline_maintenance(db, include_guard=True)
+        for key in ("v3", "v4", "v5", "v6", "v10"):
+            res_k = maint.get(key)
+            if isinstance(res_k, dict) and not res_k.get("already_ran"):
+                logger.info(f"🛡️ Pipeline maintenance {key}: {res_k}")
+        guard = maint.get("worker_guard") or {}
+        if isinstance(guard, dict) and (guard.get("held_thin") or guard.get("held_corrupt_km")):
             logger.info(f"🛡️ Worker quality guard held defective published rows: {guard}")
         res = await bilingual_service.translate_missing_khmer_batch(db, article_limit=30, discovery_limit=6)
         if res.get("articles_translated") or res.get("discoveries_translated"):

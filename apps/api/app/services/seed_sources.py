@@ -414,7 +414,10 @@ def ensure_production_pipeline_v6(db: Session) -> Dict[str, object]:
                 disabled_nav += 1
 
     for sec in db.query(HomepageSection).all():
-        if "quiz" in (sec.section_key or "").lower() or "quiz" in (sec.title or "").lower():
+        sec_type = (getattr(sec, "section_type", None) or "").lower()
+        sec_title_key = (getattr(sec, "title_key", None) or "").lower()
+        sec_title = (sec.title or "").lower()
+        if "quiz" in sec_type or "quiz" in sec_title_key or "quiz" in sec_title:
             if sec.enabled:
                 sec.enabled = False
 
@@ -687,3 +690,33 @@ def ensure_production_pipeline_v9(db: Session) -> Dict[str, object]:
 def ensure_production_pipeline_v8(db: Session) -> Dict[str, object]:
     """Compatibility alias forwarding callers to ensure_production_pipeline_v10."""
     return ensure_production_pipeline_v10(db)
+
+
+def run_pipeline_maintenance(db: Session, *, include_guard: bool = False) -> Dict[str, object]:
+    """Run all idempotent startup/worker maintenance steps safely in isolation."""
+    import logging
+
+    logger = logging.getLogger("recovery")
+    results: Dict[str, object] = {}
+    steps = [
+        ("v3", ensure_regional_hygiene_v3),
+        ("v4", ensure_production_pipeline_v4),
+        ("v5", ensure_production_pipeline_v5),
+        ("v6", ensure_production_pipeline_v6),
+        ("v10", ensure_production_pipeline_v10),
+    ]
+    if include_guard:
+        steps.append(("worker_guard", lambda s: demote_defective_published_articles_step(s, limit=100)))
+
+    for name, fn in steps:
+        try:
+            res = fn(db)
+            results[name] = res
+            LAST_STARTUP_TRACE[name] = res
+        except Exception as exc:
+            db.rollback()
+            err = {"error_type": type(exc).__name__, "detail": str(exc)[:140]}
+            results[name] = err
+            LAST_STARTUP_TRACE[name] = err
+            logger.error(f"[maintenance] Step '{name}' failed cleanly: {err}")
+    return results

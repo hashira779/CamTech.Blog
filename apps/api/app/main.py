@@ -74,19 +74,7 @@ async def lifespan(app: FastAPI):
         from app.common.database import SessionLocal
         db = SessionLocal()
         try:
-            for step_name, fn in (
-                ("v3", _seed_sources.ensure_regional_hygiene_v3),
-                ("v4", _seed_sources.ensure_production_pipeline_v4),
-                ("v5", _seed_sources.ensure_production_pipeline_v5),
-                ("v6", _seed_sources.ensure_production_pipeline_v6),
-                ("v10", _seed_sources.ensure_production_pipeline_v10),
-            ):
-                try:
-                    _seed_sources.LAST_STARTUP_TRACE[step_name] = fn(db)
-                except Exception as step_err:
-                    db.rollback()
-                    _seed_sources.LAST_STARTUP_TRACE[step_name] = {"error_type": type(step_err).__name__}
-                    logger.error(f"Startup recovery {step_name} notice: {step_err}")
+            _seed_sources.run_pipeline_maintenance(db, include_guard=False)
         finally:
             db.close()
         logger.info("Database schema and regional hygiene verified.")

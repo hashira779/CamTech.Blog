@@ -4,7 +4,7 @@ import { getArticleBySlug } from "@/lib/api";
 import { ArticleReader } from "@/components/news/ArticleReader";
 import { articleSeoTitle, generateArticleJsonLd, generateOgMeta, SITE_URL } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
-import { isArticleEligible } from "@/lib/content-quality";
+import { hasSubstantiveContent, isArticleEligible } from "@/lib/content-quality";
 
 export const revalidate = 60;
 
@@ -15,7 +15,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolvedParams = await params;
   const article = await getArticleBySlug(resolvedParams.slug);
-  if (!article) {
+  if (!article || !hasSubstantiveContent(article.content, article.summary, article.why_it_matters)) {
     return { title: "Article Not Found" };
   }
 
@@ -48,7 +48,7 @@ export default async function WorldArticlePage({
   const resolvedParams = await params;
   const article = await getArticleBySlug(resolvedParams.slug);
 
-  if (!article) {
+  if (!article || !hasSubstantiveContent(article.content, article.summary, article.why_it_matters)) {
     notFound();
   }
 

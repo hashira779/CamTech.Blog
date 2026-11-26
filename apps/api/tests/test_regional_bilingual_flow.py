@@ -431,7 +431,7 @@ def test_domestic_cambodia_outlet_not_misfiled_as_thai_desk():
 
 def test_bilingual_tagged_extraction_handles_markdown_quotes_and_v6_retires_quiz():
     from app.common.database import Base
-    from app.models.config import NavigationItem
+    from app.models.config import HomepageSection, NavigationItem
     from app.models.audit import SiteSetting
 
     raw = (
@@ -451,6 +451,7 @@ def test_bilingual_tagged_extraction_handles_markdown_quotes_and_v6_retires_quiz
             author = Author(id="au-v6", name="AI Desk", slug="ai-desk-v6")
             kh_cat = Category(id="cat-v6", name="Cambodia", slug="cambodia", scope="CAMBODIA")
             quiz_nav = NavigationItem(id="nav-q", label="Quiz", label_key="nav.quiz", route="/quiz", position=6, enabled=True)
+            quiz_sec = HomepageSection(id="sec-q", section_type="QUIZ", title="Daily Quiz", title_key="home.quiz", position=4, enabled=True)
             th_art = Article(
                 id="art-v6",
                 slug="cp-cambodia-thmey",
@@ -464,12 +465,13 @@ def test_bilingual_tagged_extraction_handles_markdown_quotes_and_v6_retires_quiz
                 source_attribution_text="ThmeyThmey",
                 status="PUBLISHED",
             )
-            db.add_all([author, kh_cat, quiz_nav, th_art])
+            db.add_all([author, kh_cat, quiz_nav, quiz_sec, th_art])
             db.commit()
 
             res = seed_sources.ensure_production_pipeline_v6(db)
             assert res["disabled_nav"] == 1
             assert db.query(NavigationItem).filter(NavigationItem.id == "nav-q").first().enabled is False
+            assert db.query(HomepageSection).filter(HomepageSection.id == "sec-q").first().enabled is False
             assert db.query(Article).filter(Article.id == "art-v6").first().country == "KH"
             assert db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V6").first() is not None
     finally:
