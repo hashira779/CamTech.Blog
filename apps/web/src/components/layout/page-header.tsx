@@ -54,11 +54,11 @@ export function PageHeader({
             ) : (
               <p className="section-label text-accent">{eyebrow}</p>
             ))}
-          <h1 className="hero-rise hero-rise-2 mt-3 font-display text-4xl leading-[1.05] tracking-tight text-foreground sm:text-5xl">
+          <h1 className="page-enter mt-3 font-display text-4xl leading-[1.05] tracking-tight text-foreground sm:text-5xl">
             {title}
           </h1>
           {description && (
-            <p className="hero-rise hero-rise-3 mt-4 text-base leading-relaxed text-muted-foreground sm:text-lg">
+            <p className="page-enter mt-4 text-base leading-relaxed text-muted-foreground sm:text-lg">
               {description}
             </p>
           )}

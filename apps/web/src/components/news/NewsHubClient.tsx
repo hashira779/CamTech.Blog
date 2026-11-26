@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { ArrowRight, Globe2, Landmark, Newspaper, ShieldAlert } from "lucide-react";
 import { AdSlot } from "@/components/ads/AdSlot";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -53,15 +52,9 @@ export function NewsHubClient({
   trending,
   unavailable,
 }: NewsHubClientProps) {
-  const searchParams = useSearchParams();
   const { lang, t } = useI18n();
   const isKm = lang === "km";
-
-  const paramDesk = (searchParams.get("desk") || "").toUpperCase();
-  const desk: DeskKey =
-    paramDesk === "KH" || paramDesk === "TH" || paramDesk === "ASEAN" || paramDesk === "WORLD" || paramDesk === "ALL"
-      ? (paramDesk as DeskKey)
-      : initialDesk;
+  const [desk, setDesk] = useState<DeskKey>(initialDesk);
 
   const itemsByDesk: Record<DeskKey, Article[]> = useMemo(
     () => ({
@@ -78,6 +71,7 @@ export function NewsHubClient({
   const activeMeta = DESK_LIST.find((d) => d.key === desk) || DESK_LIST[0];
 
   const handleDeskSwitch = (nextDesk: DeskKey) => {
+    setDesk(nextDesk);
     const nextUrl = nextDesk === "ALL" ? "/news" : `/news?desk=${nextDesk}`;
     window.history.replaceState(null, "", nextUrl);
   };
@@ -216,7 +210,7 @@ export function NewsHubClient({
                   <SectionHeader label={t("section.in_this_issue")} title={t(activeMeta.labelKey)} />
                   <div className="grid gap-6 sm:grid-cols-2">
                     {secondary.map((article, index) => (
-                      <Reveal key={article.id} index={index} className="h-full">
+                      <Reveal key={article.id} immediate index={index} className="h-full">
                         <NewsCard article={article} variant="standard" lang={lang} />
                       </Reveal>
                     ))}

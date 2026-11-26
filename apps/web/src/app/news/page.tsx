@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { Metadata } from "next";
 import { getArticles, getTrending } from "@/lib/api";
 import { NewsHubClient, type DeskKey } from "@/components/news/NewsHubClient";
@@ -33,17 +32,16 @@ export default async function NewsPage({
   ]);
 
   return (
-    <Suspense fallback={null}>
-      <NewsHubClient
-        initialDesk={initialDesk}
-        allItems={allRes.items}
-        khItems={khRes.items}
-        thItems={thRes.items}
-        aseanItems={aseanRes.items}
-        worldItems={worldRes.items}
-        trending={trending}
-        unavailable={allRes.unavailable}
-      />
-    </Suspense>
+    <NewsHubClient
+      key={initialDesk}
+      initialDesk={initialDesk}
+      allItems={allRes.items}
+      khItems={khRes.items}
+      thItems={thRes.items}
+      aseanItems={aseanRes.items}
+      worldItems={worldRes.items}
+      trending={trending}
+      unavailable={allRes.unavailable}
+    />
   );
 }
