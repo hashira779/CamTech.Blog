@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Sun, Moon, Laptop, ArrowUpRight, FileText, Flag } from "lucide-react";
+import { Menu, X, Sun, Moon, Laptop, ArrowUpRight, Flag } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 import { SuperSearch } from "@/components/shared/SuperSearch";
@@ -11,9 +11,8 @@ import { Container } from "@/components/ui/container";
 import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/utils";
 
-const navLinks: { href: string; key: string; featured?: boolean }[] = [
+const navLinks: { href: string; key: string }[] = [
   { href: "/", key: "nav.home" },
-  { href: "/cv-builder", key: "nav.cv_builder", featured: true },
   { href: "/travel", key: "nav.travel" },
   { href: "/tools", key: "nav.tools" },
   { href: "/discover", key: "nav.discover" },
@@ -23,11 +22,8 @@ const navLinks: { href: string; key: string; featured?: boolean }[] = [
 function isNavActive(href: string, pathname: string | null) {
   if (!pathname) return false;
   if (href === "/") return pathname === "/";
-  if (href === "/cv-builder") {
-    return pathname.startsWith("/cv-builder") || pathname === "/tools/cv-builder";
-  }
   if (href === "/tools") {
-    return pathname.startsWith("/tools") && pathname !== "/tools/cv-builder";
+    return pathname.startsWith("/tools") || pathname.startsWith("/cv-builder");
   }
   return pathname.startsWith(href);
 }
@@ -78,16 +74,13 @@ export function Header() {
       <Container className="field-masthead">
         <Link href="/" aria-label="CamTech.Blog home" className="shrink-0"><Logo size="md" variant="wordmark" /></Link>
         <nav aria-label="Main navigation" className="field-desktop-nav">
-          {navLinks.map(({ href, key, featured }) => (
+          {navLinks.map(({ href, key }) => (
             <Link
               href={href}
               key={href}
-              className={featured ? "field-nav-feature" : undefined}
               aria-current={isNavActive(href, pathname) ? "page" : undefined}
             >
-              {featured && <FileText size={14} aria-hidden="true" />}
               <span>{t(key)}</span>
-              {featured && <span className="field-nav-badge">{t("nav.free_badge")}</span>}
             </Link>
           ))}
         </nav>
@@ -102,19 +95,14 @@ export function Header() {
         <div id="mobile-navigation" className="field-mobile-nav">
           <Container>
             <nav aria-label="Mobile navigation">
-              {navLinks.map(({ href, key, featured }) => (
+              {navLinks.map(({ href, key }) => (
                 <Link
                   href={href}
                   key={href}
-                  className={featured ? "field-mobile-feature" : undefined}
                   onClick={() => setOpen(false)}
                   aria-current={isNavActive(href, pathname) ? "page" : undefined}
                 >
-                  <span className="inline-flex items-center gap-2.5">
-                    {featured && <FileText size={16} aria-hidden="true" />}
-                    <span>{t(key)}</span>
-                    {featured && <span className="field-nav-badge">{t("nav.free_badge")}</span>}
-                  </span>
+                  <span>{t(key)}</span>
                   <ArrowUpRight size={17} aria-hidden="true" />
                 </Link>
               ))}

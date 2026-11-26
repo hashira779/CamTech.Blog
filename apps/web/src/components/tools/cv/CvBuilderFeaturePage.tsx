@@ -34,7 +34,10 @@ export function CvBuilderFeaturePage() {
       <Container>
         <div className="mx-auto w-full max-w-7xl">
           <Breadcrumbs
-            items={[{ label: t("nav.cv_builder") }]}
+            items={[
+              { label: t("nav.tools"), href: "/tools" },
+              { label: t("nav.cv_builder") },
+            ]}
             className="mb-6"
           />
 

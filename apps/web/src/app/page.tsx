@@ -20,7 +20,12 @@ export default async function HomePage() {
 
   const journal = articles.items.filter(isArticleEligible).slice(0, 3);
   const explainers = discoveries.items.slice(0, 3);
-  const selectedTools = ["image-compressor", "qr-code-generator", "json-formatter", "word-counter"]
+  const selectedTools = [
+    "cv-builder",
+    "cambodia-change-calculator",
+    "qr-code-generator",
+    "image-compressor",
+  ]
     .map((slug) => tools.find((tool) => tool.slug === slug))
     .filter((tool) => tool !== undefined);
 

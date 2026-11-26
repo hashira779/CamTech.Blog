@@ -39,8 +39,8 @@ const columns: { headingKey: string; fallbackHeading: string; links: FooterLink[
     links: [
       { href: "/travel", label: "Guides", key: "footer.guides" },
       { href: "/travel/planner", label: "Trip Planner", key: "footer.trip_planner" },
-      { href: "/cv-builder", label: "CV Builder", key: "nav.cv_builder" },
       { href: "/tools", label: "Tools", key: "nav.tools" },
+      { href: "/tools/cv-builder", label: "CV Builder", key: "nav.cv_builder" },
     ],
   },
   {

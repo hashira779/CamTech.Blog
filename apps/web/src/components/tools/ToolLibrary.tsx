@@ -14,6 +14,10 @@ import {
   Zap,
   Coins,
   ShieldCheck,
+  Sparkles,
+  LayoutTemplate,
+  Languages,
+  QrCode,
 } from "lucide-react";
 import type { Tool } from "@/types";
 import { ToolCard } from "@/components/shared/tool-card";
@@ -51,13 +55,15 @@ export function ToolLibrary({ tools }: { tools: Tool[] }) {
     });
   }, [tools, query, group]);
 
-  // Featured utilities for the top Bento Spotlight (Clean, high-demand 2026 everyday tools)
+  // Featured utilities for the top Bento Spotlight (CV Builder promoted as #1 top flagship tool)
+  const cvTool = tools.find((t) => t.slug === "cv-builder");
   const videoTool = tools.find((t) => t.slug === "universal-video-downloader");
   const taxTool = tools.find((t) => t.slug === "cambodia-salary-tax-calculator");
   const edcTool = tools.find((t) => t.slug === "edc-electricity-calculator");
   const changeTool = tools.find((t) => t.slug === "cambodia-change-calculator");
 
   const bentoHeroSlugs = new Set([
+    "cv-builder",
     "universal-video-downloader",
     "cambodia-salary-tax-calculator",
     "edc-electricity-calculator",
@@ -154,6 +160,56 @@ export function ToolLibrary({ tools }: { tools: Tool[] }) {
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {/* ── #1 Top Tool: Free Khmer & English CV Builder (Full Width Top Card) ── */}
+            {cvTool && (
+              <Link
+                href="/tools/cv-builder"
+                className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border-strong bg-surface p-6 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/40 hover:shadow-sm md:col-span-3"
+              >
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-surface-muted px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-accent">
+                      <Sparkles size={12} aria-hidden="true" />
+                      #1 Top Tool · Bilingual CV Studio
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+                      <ShieldCheck size={13} aria-hidden="true" />
+                      Zero Login · Private in Browser
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <h4 className="font-serif text-xl font-bold text-foreground transition-colors group-hover:text-accent sm:text-2xl">
+                      Free Khmer &amp; English CV Builder
+                    </h4>
+                    <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                      Build clean A4 studio or ATS-ready résumés in English, Khmer, or Bilingual mode across 30+ free templates. Automatically loads a realistic example preview when choosing a template, exports crisp PDF immediately, or sends to your phone via Telegram QR.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <span className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-surface-muted/60 px-2.5 py-1 text-xs font-medium text-foreground">
+                      <LayoutTemplate size={14} aria-hidden="true" />
+                      <span>30+ A4 Templates</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-surface-muted/60 px-2.5 py-1 text-xs font-medium text-foreground">
+                      <Languages size={14} aria-hidden="true" />
+                      <span>EN · ខ្មែរ · Bilingual</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-surface-muted/60 px-2.5 py-1 text-xs font-medium text-foreground">
+                      <QrCode size={14} aria-hidden="true" />
+                      <span>Instant PDF &amp; Telegram QR</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-5 flex items-center justify-between border-t border-border/60 pt-3.5 text-xs font-semibold text-accent">
+                  <span>Open CV Builder</span>
+                  <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
+                </div>
+              </Link>
+            )}
+
             {/* ── Bento Card 1: Universal Video Downloader (Spans 2 Cols) ── */}
             {videoTool && (
               <Link

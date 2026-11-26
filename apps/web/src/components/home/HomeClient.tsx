@@ -9,7 +9,6 @@ import {
   ArrowUpRight,
   BookOpen,
   Compass,
-  FileText,
   Languages,
   LayoutTemplate,
   MapPin,
@@ -105,11 +104,11 @@ export function HomeClient({
             </h1>
             <p className="field-hero-deck">{t("home.hero_deck")}</p>
             <div className="field-actions">
-              <Link href="/cv-builder" className="field-button">
-                <FileText size={16} aria-hidden="true" /> {t("home.cv_cta_hero")} <ArrowUpRight size={17} aria-hidden="true" />
+              <Link href="/travel" className="field-button">
+                {t("home.explore_cambodia")} <ArrowUpRight size={17} aria-hidden="true" />
               </Link>
-              <Link href="/travel" className="field-button-secondary">
-                {t("home.explore_cambodia")} <ArrowUpRight size={16} aria-hidden="true" />
+              <Link href="/tools" className="field-button-secondary">
+                <Wrench size={16} aria-hidden="true" /> {t("nav.tools")} <ArrowUpRight size={16} aria-hidden="true" />
               </Link>
             </div>
             <a href="#start-exploring" className="field-scroll">
@@ -174,82 +173,6 @@ export function HomeClient({
           ))}
         </nav>
 
-        <section className="field-cv-showcase" aria-labelledby="cv-feature-title">
-          <div className="field-cv-copy">
-            <p className="field-eyebrow">
-              <Sparkles size={13} aria-hidden="true" /> {t("home.cv_eyebrow")}
-            </p>
-            <h2 id="cv-feature-title">{t("home.cv_title")}</h2>
-            <p className="field-cv-deck">{t("home.cv_desc")}</p>
-            <ul className="field-cv-highlights">
-              <li>
-                <LayoutTemplate size={15} aria-hidden="true" />
-                <span>{t("home.cv_feat_1")}</span>
-              </li>
-              <li>
-                <Languages size={15} aria-hidden="true" />
-                <span>{t("home.cv_feat_2")}</span>
-              </li>
-              <li>
-                <QrCode size={15} aria-hidden="true" />
-                <span>{t("home.cv_feat_3")}</span>
-              </li>
-            </ul>
-            <div className="field-cv-cta-row">
-              <Link href="/cv-builder" className="field-button">
-                {t("home.cv_button")} <ArrowUpRight size={17} aria-hidden="true" />
-              </Link>
-              <Link href="/cv-builder" className="field-text-link">
-                {t("home.cv_secondary_link")} <ArrowUpRight size={15} aria-hidden="true" />
-              </Link>
-            </div>
-          </div>
-
-          <Link href="/cv-builder" className="field-cv-preview group" aria-label={t("home.cv_button")}>
-            <div className="field-cv-sheet">
-              <div className="field-cv-sheet-top">
-                <span className="field-cv-badge">{t("home.cv_preview_badge")}</span>
-                <span className="field-cv-lang-pill">EN · ខ្មែរ</span>
-              </div>
-              <div className="field-cv-sheet-profile">
-                <span className="field-cv-avatar" aria-hidden="true">SD</span>
-                <div>
-                  <strong>{t("home.cv_preview_name")}</strong>
-                  <small>{t("home.cv_preview_role")}</small>
-                </div>
-              </div>
-              <div className="field-cv-sheet-cols" aria-hidden="true">
-                <div className="field-cv-col-main">
-                  <span className="field-cv-bar accent" />
-                  <span className="field-cv-bar wide" />
-                  <span className="field-cv-bar mid" />
-                  <span className="field-cv-bar wide" />
-                  <span className="field-cv-bar short" />
-                </div>
-                <div className="field-cv-col-side">
-                  <span className="field-cv-bar accent" />
-                  <span className="field-cv-bar wide" />
-                  <span className="field-cv-bar mid" />
-                  <span className="field-cv-tag-row">
-                    <span>ATS</span>
-                    <span>A4</span>
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="field-cv-float-chip">
-              <span className="field-note-icon">
-                <QrCode size={18} aria-hidden="true" />
-              </span>
-              <span>
-                <small>{t("home.cv_feat_3")}</small>
-                <strong>{t("home.cv_preview_chip")}</strong>
-              </span>
-              <ArrowUpRight size={17} aria-hidden="true" />
-            </div>
-          </Link>
-        </section>
-
         <section className="field-section" aria-labelledby="places-title">
           <div className="field-section-heading">
             <div>
@@ -305,6 +228,82 @@ export function HomeClient({
               {t("home.open_toolbox")} <ArrowUpRight size={16} aria-hidden="true" />
             </Link>
           </div>
+
+          <section className="field-cv-showcase" aria-labelledby="cv-feature-title">
+            <div className="field-cv-copy">
+              <p className="field-eyebrow">
+                <Sparkles size={13} aria-hidden="true" /> {t("home.cv_eyebrow")}
+              </p>
+              <h3 id="cv-feature-title">{t("home.cv_title")}</h3>
+              <p className="field-cv-deck">{t("home.cv_desc")}</p>
+              <ul className="field-cv-highlights">
+                <li>
+                  <LayoutTemplate size={15} aria-hidden="true" />
+                  <span>{t("home.cv_feat_1")}</span>
+                </li>
+                <li>
+                  <Languages size={15} aria-hidden="true" />
+                  <span>{t("home.cv_feat_2")}</span>
+                </li>
+                <li>
+                  <QrCode size={15} aria-hidden="true" />
+                  <span>{t("home.cv_feat_3")}</span>
+                </li>
+              </ul>
+              <div className="field-cv-cta-row">
+                <Link href="/tools/cv-builder" className="field-button">
+                  {t("home.cv_button")} <ArrowUpRight size={17} aria-hidden="true" />
+                </Link>
+                <Link href="/tools" className="field-text-link">
+                  {t("home.open_toolbox")} <ArrowUpRight size={15} aria-hidden="true" />
+                </Link>
+              </div>
+            </div>
+
+            <Link href="/tools/cv-builder" className="field-cv-preview group" aria-label={t("home.cv_button")}>
+              <div className="field-cv-sheet">
+                <div className="field-cv-sheet-top">
+                  <span className="field-cv-badge">{t("home.cv_preview_badge")}</span>
+                  <span className="field-cv-lang-pill">EN · ខ្មែរ</span>
+                </div>
+                <div className="field-cv-sheet-profile">
+                  <span className="field-cv-avatar" aria-hidden="true">SD</span>
+                  <div>
+                    <strong>{t("home.cv_preview_name")}</strong>
+                    <small>{t("home.cv_preview_role")}</small>
+                  </div>
+                </div>
+                <div className="field-cv-sheet-cols" aria-hidden="true">
+                  <div className="field-cv-col-main">
+                    <span className="field-cv-bar accent" />
+                    <span className="field-cv-bar wide" />
+                    <span className="field-cv-bar mid" />
+                    <span className="field-cv-bar wide" />
+                    <span className="field-cv-bar short" />
+                  </div>
+                  <div className="field-cv-col-side">
+                    <span className="field-cv-bar accent" />
+                    <span className="field-cv-bar wide" />
+                    <span className="field-cv-bar mid" />
+                    <span className="field-cv-tag-row">
+                      <span>ATS</span>
+                      <span>A4</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="field-cv-float-chip">
+                <span className="field-note-icon">
+                  <QrCode size={18} aria-hidden="true" />
+                </span>
+                <span>
+                  <small>{t("home.cv_feat_3")}</small>
+                  <strong>{t("home.cv_preview_chip")}</strong>
+                </span>
+                <ArrowUpRight size={17} aria-hidden="true" />
+              </div>
+            </Link>
+          </section>
 
           <div className="field-tools-grid">
             {selectedTools.map((tool) =>
