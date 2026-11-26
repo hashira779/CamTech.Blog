@@ -1256,6 +1256,31 @@ export function CvBuilder() {
     }));
   }
 
+  function applyExamplePreview(customMessage?: string) {
+    setData(sampleCv);
+    setMessage(
+      customMessage ||
+        t(
+          "Example CV loaded into this tab. Edit any field or switch templates to compare.",
+          "បានបញ្ចូលគំរូ CV ក្នុងទំព័រនេះ។ អ្នកអាចកែអត្ថបទ ឬប្ដូរគំរូមើលបានភ្លាមៗ។",
+        ),
+    );
+    setError(false);
+    if (photoInput.current) photoInput.current.value = "";
+  }
+
+  function selectTemplate(nextTemplateId: string) {
+    setTemplateId(nextTemplateId);
+    if (!dirty) {
+      applyExamplePreview(
+        t(
+          "Example CV loaded for this template. Edit any field or clear it anytime.",
+          "បានបញ្ចូលគំរូ CV ដោយស្វ័យប្រវត្តិសម្រាប់គំរូនេះ។ អ្នកអាចកែអត្ថបទ ឬលុបចោលពេលណាក៏បាន។",
+        ),
+      );
+    }
+  }
+
   function loadExample() {
     if (
       !dirty ||
@@ -1266,15 +1291,7 @@ export function CvBuilder() {
         ),
       )
     ) {
-      setData(sampleCv);
-      setMessage(
-        t(
-          "Example CV loaded into this tab. Edit any field or switch templates to compare.",
-          "បានបញ្ចូលគំរូ CV ក្នុងទំព័រនេះ។ អ្នកអាចកែអត្ថបទ ឬប្ដូរគំរូមើលបានភ្លាមៗ។",
-        ),
-      );
-      setError(false);
-      if (photoInput.current) photoInput.current.value = "";
+      applyExamplePreview();
     }
   }
 
@@ -1798,7 +1815,7 @@ export function CvBuilder() {
               <select
                 aria-label="CV template"
                 value={templateId}
-                onChange={(event) => setTemplateId(event.target.value)}
+                onChange={(event) => selectTemplate(event.target.value)}
               >
                 {CV_TEMPLATES.map((item) => (
                   <option value={item.id} key={item.id}>
@@ -2188,7 +2205,7 @@ export function CvBuilder() {
                   className={styles.cardSelect}
                   aria-pressed={templateId === item.id}
                   onClick={() => {
-                    setTemplateId(item.id);
+                    selectTemplate(item.id);
                     picker.current?.close();
                   }}
                 >
