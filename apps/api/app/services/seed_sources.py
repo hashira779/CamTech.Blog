@@ -496,3 +496,108 @@ def ensure_production_pipeline_v7(db: Session) -> Dict[str, object]:
     ))
     db.commit()
     return {"desks": desks, "held_thin": held_thin, "held_corrupt_km": held_corrupt_km}
+
+
+def ensure_production_pipeline_v8(db: Session) -> Dict[str, object]:
+    """Deadlock-safe recovery: pull ALL thin/stub (<1000 char) or corrupt published articles back into AI_DRAFT."""
+    import json
+    from sqlalchemy import text
+    from app.models.article import Article, ArticleRevision
+    from app.models.audit import AuditLog, SiteSetting
+    from app.services.content_quality import body_quality_issue, khmer_quality_issue
+
+    if db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V8").first():
+        return {"already_ran": True}
+
+    # Prevent API + Worker boot race on Postgres using a non-blocking session advisory lock.
+    is_pg = db.bind is not None and not str(db.bind.url).startswith("sqlite")
+    lock_acquired = False
+    if is_pg:
+        try:
+            lock_acquired = bool(db.execute(text("SELECT pg_try_advisory_lock(884208)")).scalar())
+        except Exception:
+            lock_acquired = True
+        if not lock_acquired:
+            return {"skipped_lock_held": True}
+        # Re-check after acquiring lock in case the peer just finished.
+        if db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V8").first():
+            try:
+                db.execute(text("SELECT pg_advisory_unlock(884208)"))
+            except Exception:
+                pass
+            return {"already_ran": True}
+
+    held_thin = 0
+    held_corrupt_km = 0
+    errors = 0
+    try:
+        desks = reconcile_existing_article_desks(db)
+        pub_ids = [
+            row[0]
+            for row in db.query(Article.id)
+            .filter(Article.status == "PUBLISHED")
+            .order_by(Article.id.asc())
+            .all()
+        ]
+        for art_id in pub_ids:
+            art = db.query(Article).filter(Article.id == art_id).first()
+            if not art or art.status != "PUBLISHED":
+                continue
+            body_err = body_quality_issue(art.content, art.summary, art.why_it_matters)
+            km_err = khmer_quality_issue(art.title_km, art.summary_km, art.content_km, require_complete=False)
+            reason = body_err or km_err
+            if not reason:
+                continue
+            try:
+                if body_err:
+                    held_thin += 1
+                if km_err:
+                    held_corrupt_km += 1
+                art.status = "AI_DRAFT"
+                art.quality_checklist_passed = False
+                try:
+                    meta = json.loads(art.ai_draft_metadata) if art.ai_draft_metadata else {}
+                    if not isinstance(meta, dict):
+                        meta = {}
+                except Exception:
+                    meta = {}
+                meta["autopilot_hold_reason"] = f"Pipeline recovery v8: {reason}"
+                if not meta.get("engine"):
+                    meta["engine"] = "fallback"
+                art.ai_draft_metadata = json.dumps(meta)
+                db.add(ArticleRevision(
+                    article_id=art.id,
+                    editor_user_id=None,
+                    previous_status="PUBLISHED",
+                    new_status="AI_DRAFT",
+                    change_summary=f"Returned to AI_DRAFT: {reason[:180]}",
+                ))
+                db.add(AuditLog(
+                    user_id=None,
+                    action="QUALITY_AUDIT_HOLD",
+                    entity="ARTICLE",
+                    entity_id=art.id,
+                    old_value_json="PUBLISHED",
+                    new_value_json="AI_DRAFT",
+                    request_id="pipeline-v8",
+                ))
+                db.commit()
+            except Exception:
+                db.rollback()
+                errors += 1
+
+        if not db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V8").first():
+            db.add(SiteSetting(
+                key="PIPELINE_RECOVERY_V8",
+                value_json="done",
+                description=f"Held {held_thin} thin/stub and {held_corrupt_km} corrupt published articles into AI_DRAFT",
+            ))
+            db.commit()
+        return {"desks": desks, "held_thin": held_thin, "held_corrupt_km": held_corrupt_km, "errors": errors}
+    finally:
+        if is_pg and lock_acquired:
+            try:
+                db.execute(text("SELECT pg_advisory_unlock(884208)"))
+                db.commit()
+            except Exception:
+                pass
