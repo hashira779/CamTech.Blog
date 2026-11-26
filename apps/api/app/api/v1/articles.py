@@ -86,11 +86,12 @@ def create_article(
 @router.post("/{article_id}/publish", response_model=ArticleOut)
 def publish_article(
     article_id: str,
+    force: bool = Query(False, description="Admin-only quality gate bypass (default false)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
     try:
-        article, checklist = ArticleService.publish_article(db, article_id, editor_user_id=current_user.id, force=True)
+        article, checklist = ArticleService.publish_article(db, article_id, editor_user_id=current_user.id, force=force)
         return article
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

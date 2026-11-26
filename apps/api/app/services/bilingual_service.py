@@ -302,8 +302,16 @@ async def translate_missing_khmer_batch(
             if row.id not in seen_ids:
                 published_rows.append(row)
 
+    # Prioritize valid full-body live PUBLISHED articles first so every public story finishes
+    # translating immediately before shorter/held drafts.
     candidates: List[Article] = []
-    for art in (published_rows + draft_rows):
+    seen_pub: set = set()
+    full_body_pub = [a for a in published_rows if len(re.sub(r"\s+", "", re.sub(r"<[^>]+>", " ", a.content or ""))) >= 900]
+    other_pub = [a for a in published_rows if len(re.sub(r"\s+", "", re.sub(r"<[^>]+>", " ", a.content or ""))) < 900]
+    for art in (full_body_pub + other_pub + draft_rows):
+        if art.id in seen_pub:
+            continue
+        seen_pub.add(art.id)
         if _BACKFILL_COOLDOWN_UNTIL.get(art.id, 0.0) > now:
             continue
         if article_needs_khmer(art):

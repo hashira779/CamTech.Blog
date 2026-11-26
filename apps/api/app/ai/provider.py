@@ -243,7 +243,11 @@ Write a professional editorial draft as JSON with keys:
 - seo_description: max 155 chars
 Return only valid JSON."""
         data, meta = await asyncio.to_thread(
-            ai_gateway.generate_json, prompt, use_search=False, timeout=45.0, max_tokens=6144
+            ai_gateway.generate_json,
+            prompt,
+            use_search=len(clean_content) < 250,
+            timeout=60.0,
+            max_tokens=6144,
         )
         if not isinstance(data, dict):
             raise RuntimeError(f"No AI provider produced an editorial draft: {(meta or {}).get('details') or (meta or {}).get('error') or 'unparseable response'}")

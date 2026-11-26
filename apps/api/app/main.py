@@ -64,6 +64,7 @@ async def lifespan(app: FastAPI):
             ensure_production_pipeline_v4,
             ensure_production_pipeline_v5,
             ensure_production_pipeline_v6,
+            ensure_production_pipeline_v7,
             ensure_regional_hygiene_v3,
         )
         db = SessionLocal()
@@ -72,6 +73,7 @@ async def lifespan(app: FastAPI):
             ensure_production_pipeline_v4(db)
             ensure_production_pipeline_v5(db)
             ensure_production_pipeline_v6(db)
+            ensure_production_pipeline_v7(db)
         finally:
             db.close()
         logger.info("Database schema and regional hygiene verified.")

@@ -474,3 +474,98 @@ def test_bilingual_tagged_extraction_handles_markdown_quotes_and_v6_retires_quiz
             assert db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V6").first() is not None
     finally:
         engine.dispose()
+
+
+def test_pipeline_v7_holds_thin_published_stubs_and_publish_all_enforces_quality_and_khmer():
+    from fastapi.testclient import TestClient
+    from app.common.database import Base
+    from app.common.database import get_db
+    from app.main import app
+    from app.models.audit import SiteSetting
+    from app.models.user import User
+    from app.services.auth_service import require_admin
+
+    from sqlalchemy.pool import StaticPool
+
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    try:
+        with Session(engine) as db:
+            author = Author(id="au-v7", name="AI Desk", slug="ai-desk-v7")
+            kh_cat = Category(id="cat-kh-v7", name="Cambodia", slug="cambodia", scope="CAMBODIA")
+            th_cat = Category(id="cat-th-v7", name="Thai News on Cambodia", slug="thailand-cambodia", scope="CAMBODIA")
+            db.add_all([author, kh_cat, th_cat])
+            db.commit()
+
+            thin_stub = Article(
+                id="stub-pub",
+                slug="anutin-stub-1594",
+                title="Anutin rules out talks, demands Cambodia meet thai terms Nation Thailand",
+                summary="Anutin rules out talks, demands Cambodia meet thai terms Nation Thailand",
+                content="Anutin rules out talks, demands Cambodia meet thai terms Nation Thailand\n\n",
+                country="TH",
+                category_id=kh_cat.id,
+                author_id=author.id,
+                primary_source_url="https://nationthailand.com/news/1594",
+                source_attribution_text="Source: Nation Thailand",
+                status="PUBLISHED",
+            )
+            valid_full = Article(
+                id="valid-pub",
+                slug="valid-full-kh",
+                title="Cambodia digital payment volume expands",
+                title_km="ការទូទាត់ឌីជីថលនៅកម្ពុជាកើនឡើង",
+                summary="Digital payments grew across Phnom Penh and provinces.",
+                summary_km="ប្រព័ន្ធទូទាត់ឌីជីថលនៅរាជធានីភ្នំពេញ និងតាមបណ្តាខេត្តបានកើនឡើង។",
+                content=("Cambodia expanded its instant QR payment infrastructure across provincial banks. " * 20).strip(),
+                content_km=("ប្រព័ន្ធទូទាត់ QR រហ័សនៅកម្ពុជាបានពង្រីកនៅតាមធនាគារខេត្ត។ " * 3).strip(),
+                country="KH",
+                category_id=kh_cat.id,
+                author_id=author.id,
+                primary_source_url="https://example.com/news/bakong-1",
+                source_attribution_text="Source: National Bank of Cambodia",
+                status="PUBLISHED",
+            )
+            draft_thin = Article(
+                id="draft-stub",
+                slug="draft-stub-1",
+                title="Short RSS title",
+                summary="Short RSS title",
+                content="Short RSS title",
+                country="WORLD",
+                category_id=kh_cat.id,
+                author_id=author.id,
+                primary_source_url="https://example.com/news/short-1",
+                source_attribution_text="Source: Wire",
+                status="AI_DRAFT",
+            )
+            db.add_all([thin_stub, valid_full, draft_thin])
+            db.commit()
+
+            res = seed_sources.ensure_production_pipeline_v7(db)
+            assert res["held_thin"] == 1
+            db.refresh(thin_stub)
+            db.refresh(valid_full)
+            assert thin_stub.status == "AI_DRAFT"
+            assert thin_stub.category_id == th_cat.id
+            assert valid_full.status == "PUBLISHED"
+            assert db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V7").first() is not None
+
+            app.dependency_overrides[get_db] = lambda: db
+            app.dependency_overrides[require_admin] = lambda: User(id="a-v7", email="a@test.local", role="ADMIN", is_active=True)
+            try:
+                client = TestClient(app)
+                pub_res = client.post("/api/v1/admin/articles/publish-all")
+                assert pub_res.status_code == 200
+                data = pub_res.json()
+                assert data["published_count"] == 0
+                assert data["skipped_count"] == 2
+            finally:
+                app.dependency_overrides.pop(get_db, None)
+                app.dependency_overrides.pop(require_admin, None)
+    finally:
+        engine.dispose()

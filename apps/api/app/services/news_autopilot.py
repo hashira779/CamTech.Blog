@@ -328,9 +328,9 @@ async def redraft_held_drafts(db: Session, drafter) -> dict:
     window = _utcnow_naive() - timedelta(days=get_int(db, "AUTOPILOT_ARCHIVE_AFTER_DAYS"))
     rows = (
         db.query(Article)
-        .filter(Article.status == "AI_DRAFT", Article.ai_draft_metadata.isnot(None), Article.created_at >= window)
+        .filter(Article.status == "AI_DRAFT", Article.created_at >= window)
         .order_by(Article.created_at.desc())
-        .limit(200)
+        .limit(300)
         .all()
     )
     held = [

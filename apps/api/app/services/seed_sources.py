@@ -161,6 +161,7 @@ def reconcile_existing_article_desks(db: Session) -> Dict[str, int]:
     )
     world_cat = db.query(Category).filter(Category.slug == "world").first()
     asean_cat = db.query(Category).filter(Category.slug == "asean").first()
+    th_cat = db.query(Category).filter(Category.slug == "thailand-cambodia").first()
 
     updated = 0
     for art in articles:
@@ -189,7 +190,10 @@ def reconcile_existing_article_desks(db: Session) -> Dict[str, int]:
             art.content,
             source_name=src_name,
         )
-        if cambodia_cat_mismatch:
+        if new_country == "TH" and th_cat and art.category_id != th_cat.id:
+            art.category_id = th_cat.id
+            updated += 1
+        elif cambodia_cat_mismatch:
             if new_country == "ASEAN" and asean_cat:
                 art.category_id = asean_cat.id
             elif new_country == "WORLD" and world_cat:
@@ -427,3 +431,68 @@ def ensure_production_pipeline_v6(db: Session) -> Dict[str, object]:
     ))
     db.commit()
     return {"desks": desks, "disabled_nav": disabled_nav}
+
+
+def ensure_production_pipeline_v7(db: Session) -> Dict[str, object]:
+    """Pull thin/stub (<1000 char) or corrupt published articles back into AI_DRAFT for full rewrite & translation."""
+    import json
+    from app.models.article import Article, ArticleRevision
+    from app.models.audit import AuditLog, SiteSetting
+    from app.services.content_quality import body_quality_issue, khmer_quality_issue
+
+    flag = db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V7").first()
+    if flag:
+        return {"already_ran": True}
+
+    desks = reconcile_existing_article_desks(db)
+    held_thin = 0
+    held_corrupt_km = 0
+
+    for art in db.query(Article).filter(Article.status == "PUBLISHED").all():
+        body_err = body_quality_issue(art.content, art.summary, art.why_it_matters)
+        km_err = khmer_quality_issue(art.title_km, art.summary_km, art.content_km, require_complete=False)
+        reason = body_err or km_err
+        if not reason:
+            continue
+
+        if body_err:
+            held_thin += 1
+        if km_err:
+            held_corrupt_km += 1
+
+        art.status = "AI_DRAFT"
+        art.quality_checklist_passed = False
+        try:
+            meta = json.loads(art.ai_draft_metadata) if art.ai_draft_metadata else {}
+            if not isinstance(meta, dict):
+                meta = {}
+        except Exception:
+            meta = {}
+        meta["autopilot_hold_reason"] = f"Pipeline recovery v7: {reason}"
+        if not meta.get("engine"):
+            meta["engine"] = "fallback"
+        art.ai_draft_metadata = json.dumps(meta)
+        db.add(ArticleRevision(
+            article_id=art.id,
+            editor_user_id=None,
+            previous_status="PUBLISHED",
+            new_status="AI_DRAFT",
+            change_summary=f"Returned to AI_DRAFT: {reason[:180]}",
+        ))
+        db.add(AuditLog(
+            user_id=None,
+            action="QUALITY_AUDIT_HOLD",
+            entity="ARTICLE",
+            entity_id=art.id,
+            old_value_json="PUBLISHED",
+            new_value_json="AI_DRAFT",
+            request_id="pipeline-v7",
+        ))
+
+    db.add(SiteSetting(
+        key="PIPELINE_RECOVERY_V7",
+        value_json="done",
+        description="Held thin/stub force-published articles back to AI_DRAFT for AI enrichment & Khmer translation",
+    ))
+    db.commit()
+    return {"desks": desks, "held_thin": held_thin, "held_corrupt_km": held_corrupt_km}

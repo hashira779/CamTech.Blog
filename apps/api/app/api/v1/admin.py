@@ -684,16 +684,25 @@ def publish_all_ready_articles(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    """Publish all AI_DRAFT articles that meet the quality gate in one operation."""
+    """Publish all AI_DRAFT articles that pass BOTH the quality gate and complete Khmer check."""
     from app.models.article import Article
     from app.services.article_service import ArticleService
+    from app.services.content_quality import khmer_quality_issue
 
     drafts = db.query(Article).filter(Article.status == "AI_DRAFT").all()
     published = []
     skipped = []
     for art in drafts:
+        km_err = khmer_quality_issue(
+            art.title_km, art.summary_km, art.content_km,
+            art.title, art.summary, art.content,
+            require_complete=True,
+        )
+        if km_err:
+            skipped.append({"title": art.title, "reason": km_err})
+            continue
         try:
-            ArticleService.publish_article(db, art.id, editor_user_id=current_user.id, force=True)
+            ArticleService.publish_article(db, art.id, editor_user_id=current_user.id, force=False)
             published.append(art.title)
         except Exception as e:
             skipped.append({"title": art.title, "reason": str(e)})

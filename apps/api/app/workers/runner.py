@@ -70,6 +70,8 @@ async def ingest_rss_feeds_job():
         from app.services.seed_sources import (
             ensure_production_pipeline_v4,
             ensure_production_pipeline_v5,
+            ensure_production_pipeline_v6,
+            ensure_production_pipeline_v7,
             ensure_regional_hygiene_v3,
         )
         hygiene = ensure_regional_hygiene_v3(db)
@@ -81,6 +83,10 @@ async def ingest_rss_feeds_job():
         v5 = ensure_production_pipeline_v5(db)
         if not v5.get("already_ran"):
             logger.info(f"⚡ Pipeline recovery V5 applied: {v5}")
+        ensure_production_pipeline_v6(db)
+        v7 = ensure_production_pipeline_v7(db)
+        if not v7.get("already_ran"):
+            logger.info(f"🛡️ Pipeline recovery V7 applied: {v7}")
 
         sources = db.query(Source).filter(
             Source.is_active == True,
@@ -254,7 +260,11 @@ async def ingest_rss_feeds_job():
                         raw_summary,
                         source_name=effective_source_name,
                     )
-                    if matched_cat is not None and category_is_cambodia(matched_cat.slug, matched_cat.scope) and country != "TH":
+                    if country == "TH":
+                        th_cat = db.query(Category).filter(Category.slug == "thailand-cambodia").first()
+                        if th_cat:
+                            article_category_id = th_cat.id
+                    elif matched_cat is not None and category_is_cambodia(matched_cat.slug, matched_cat.scope):
                         country = "KH"
 
                     base_slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')[:80]
@@ -438,6 +448,7 @@ async def khmer_backfill_job():
         ensure_production_pipeline_v4,
         ensure_production_pipeline_v5,
         ensure_production_pipeline_v6,
+        ensure_production_pipeline_v7,
         ensure_regional_hygiene_v3,
     )
     db = SessionLocal()
@@ -446,7 +457,10 @@ async def khmer_backfill_job():
         ensure_production_pipeline_v4(db)
         ensure_production_pipeline_v5(db)
         ensure_production_pipeline_v6(db)
-        res = await bilingual_service.translate_missing_khmer_batch(db, article_limit=25, discovery_limit=6)
+        v7 = ensure_production_pipeline_v7(db)
+        if not v7.get("already_ran"):
+            logger.info(f"🛡️ Pipeline recovery V7 applied: {v7}")
+        res = await bilingual_service.translate_missing_khmer_batch(db, article_limit=30, discovery_limit=6)
         if res.get("articles_translated") or res.get("discoveries_translated"):
             logger.info(
                 f"🇰🇭 Khmer Backfill: articles={res.get('articles_translated', 0)}, "
