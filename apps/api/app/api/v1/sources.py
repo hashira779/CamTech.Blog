@@ -72,48 +72,112 @@ async def fetch_source_now(source_id: str, db: Session = Depends(get_db), user: 
         duplicates = 0
         ai = get_ai_provider()
 
+        from app.models.author import Author
+        from app.models.category import Category
+        from app.services.filing import resolve_country
+        from app.services.news_autopilot import is_trusted_engine
+        from app.services.bilingual_service import ensure_article_khmer_fields, has_khmer_script
+        from app.services.image_search_service import image_search_service
+        import json
+        import re
+        import uuid
+
+        default_author = db.query(Author).filter(Author.slug == "ai-editorial-desk").first() or db.query(Author).first()
+        default_category = (
+            db.query(Category).filter(Category.name.ilike(f"%{source.category or ''}%")).first()
+            or db.query(Category).first()
+        )
+
         for item in raw_items[:10]:  # Batch limit per manual fetch
             dups = detect_duplicates(item["title"], item["url"], candidates)
-            if dups and dups[0]["similarity"] > 0.8:
+            if dups and dups[0]["similarity"] >= 0.55:
                 duplicates += 1
                 continue
 
-            # Generate AI draft assistance (Section 10)
-            draft = await ai.generate_draft_editorial(item["title"], item["raw_summary"], source.name)
-            
-            # Find default author
-            from app.models.author import Author
-            from app.models.category import Category
-            author = db.query(Author).first()
-            category = db.query(Category).first()
+            effective_source_name = (item.get("source_name") or source.name or "").strip() or source.name
+            detected_category = None
+            try:
+                detected_category = await ai.classify_category(item["title"], item["raw_summary"])
+                draft = await ai.generate_draft_editorial(item["title"], item["raw_summary"], effective_source_name)
+                if is_trusted_engine(draft.get("engine", "")):
+                    draft = await ensure_article_khmer_fields(draft, item["title"], effective_source_name)
+            except Exception:
+                draft = {
+                    "summary": item["title"],
+                    "key_points": [],
+                    "why_it_matters": "",
+                    "seo_title": item["title"][:150],
+                    "seo_description": item["title"][:155],
+                    "engine": "fallback",
+                }
 
-            import json
-            import re
-            slug = re.sub(r"[^\w-]", "", item["title"].lower().replace(" ", "-"))[:80]
+            matched_cat = (
+                db.query(Category).filter(Category.name.ilike(f"%{detected_category}%")).first()
+                if detected_category else None
+            )
+            cat_id = matched_cat.id if matched_cat else (default_category.id if default_category else None)
+            story_country = resolve_country(
+                detected_category,
+                source.country,
+                item["title"],
+                item["raw_summary"],
+                source_name=effective_source_name,
+            )
+
+            base_slug = re.sub(r"[^a-z0-9]+", "-", item["title"].lower()).strip("-")[:80] or "story"
+            slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
+
+            hero_img_url = item.get("image_url")
+            hero_img_credit = f"Image: {effective_source_name}" if hero_img_url else None
+            hero_img_alt = item["title"][:255] if hero_img_url else None
+            if not hero_img_url:
+                try:
+                    hero_img_url, hero_img_credit, hero_img_alt = await image_search_service.search_news_image(
+                        title=item["title"],
+                        category=(matched_cat.slug if matched_cat else (source.category or "world").lower()),
+                        country=story_country,
+                    )
+                except Exception:
+                    hero_img_url, hero_img_credit, hero_img_alt = None, None, None
+
+            body_text = draft.get("content") or (
+                (draft.get("summary") or item["title"])
+                + "\n\n"
+                + "\n".join(f"- {kp}" for kp in (draft.get("key_points") or []))
+            )
 
             new_article = Article(
-                slug=f"{slug}-{int(time.time())}",
+                slug=slug,
                 title=item["title"],
-                summary=draft["summary"],
-                key_points=json.dumps(draft["key_points"]),
-                why_it_matters=draft["why_it_matters"],
-                # The manual "Fetch now" path writes the publisher's own summary as the body, so it
-                # gets the same treatment as the scheduled worker: markup that executes never
-                # reaches the row.
-                content=sanitize_stored_html(
-                    f"{item['raw_summary']}\n\n*Original editorial summary compiled by Daily Discovery Newsroom.*"
-                ),
-                category_id=category.id if category else None,
-                author_id=author.id if author else None,
-                country=source.country,
+                title_km=str(draft["title_km"]).strip()[:255] if has_khmer_script(draft.get("title_km"), 3) else None,
+                summary=draft.get("summary") or item["title"],
+                summary_km=str(draft["summary_km"]).strip() if has_khmer_script(draft.get("summary_km"), 10) else None,
+                key_points=json.dumps(draft.get("key_points", [])),
+                why_it_matters=draft.get("why_it_matters", ""),
+                content=sanitize_stored_html(body_text),
+                content_km=sanitize_stored_html(str(draft["content_km"]).strip()) if has_khmer_script(draft.get("content_km"), 25) else None,
+                category_id=cat_id,
+                author_id=default_author.id if default_author else None,
+                country=story_country,
                 primary_source_id=source.id,
                 primary_source_url=item["url"],
-                source_attribution_text=source.name,
+                source_attribution_text=f"Source: {effective_source_name}",
+                hero_image_url=hero_img_url,
+                hero_image_credit=hero_img_credit,
+                hero_image_alt=hero_img_alt,
+                hero_image_license="EDITORIAL_USE",
                 status="AI_DRAFT",  # Lands strictly in editorial review queue!
-                seo_title=strip_brand_suffix(draft["seo_title"]),
-                seo_description=draft["seo_description"]
+                seo_title=strip_brand_suffix(draft.get("seo_title") or item["title"][:150]),
+                seo_description=draft.get("seo_description") or (draft.get("summary") or item["title"])[:155],
+                ai_draft_metadata=json.dumps({
+                    "source": effective_source_name,
+                    "feed_url": source.feed_url,
+                    "pipeline": "manual_source_sync",
+                    "engine": draft.get("engine", "unknown"),
+                }),
             )
             db.add(new_article)
+            candidates.append({"id": slug, "title": item["title"], "url": item["url"]})
             ingested += 1
 
         duration_ms = int((time.time() - start_time) * 1000)

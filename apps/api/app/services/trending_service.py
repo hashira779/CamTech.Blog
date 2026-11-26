@@ -87,6 +87,26 @@ class TrendingService:
             .all()
         )
 
+        # ASEAN trending
+        asean_articles = (
+            db.query(Article)
+            .options(joinedload(Article.category))
+            .filter(Article.status == "PUBLISHED", Article.country == "ASEAN")
+            .order_by(desc(Article.trend_score), desc(Article.published_at))
+            .limit(limit)
+            .all()
+        )
+
+        # Thai media reporting on Cambodia
+        th_articles = (
+            db.query(Article)
+            .options(joinedload(Article.category))
+            .filter(Article.status == "PUBLISHED", Article.country == "TH")
+            .order_by(desc(Article.trend_score), desc(Article.published_at))
+            .limit(limit)
+            .all()
+        )
+
         # Editor's picks
         picks = (
             db.query(Article)
@@ -116,6 +136,8 @@ class TrendingService:
         result = {
             "cambodia": [format_item(a) for a in kh_articles],
             "world": [format_item(a) for a in world_articles],
+            "asean": [format_item(a) for a in asean_articles],
+            "thai_cambodia": [format_item(a) for a in th_articles],
             "editor_picks": [format_item(a) for a in picks]
         }
 

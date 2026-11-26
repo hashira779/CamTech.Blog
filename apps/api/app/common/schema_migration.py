@@ -29,10 +29,20 @@ def _ensure_columns(table_name: str, columns: list) -> None:
             logger.warning(f"Column '{col_name}' migration notice: {col_err}")
 
 def ensure_database_schema():
-    """Ensure database schema is up-to-date with dynamic destination symbol columns."""
+    """Ensure database schema is up-to-date with dynamic destination symbol & bilingual columns."""
     try:
-        # AI provenance metadata for autopilot-generated content (Discover, Quiz, Guides, Events)
-        _ensure_columns("discoveries", [("ai_metadata", "TEXT")])
+        _ensure_columns("articles", [
+            ("title_km", "VARCHAR(255)"),
+            ("summary_km", "TEXT"),
+            ("content_km", "TEXT"),
+        ])
+        # AI provenance metadata and bilingual Khmer columns for autopilot-generated content
+        _ensure_columns("discoveries", [
+            ("title_km", "VARCHAR(255)"),
+            ("intro_km", "TEXT"),
+            ("main_explanation_km", "TEXT"),
+            ("ai_metadata", "TEXT"),
+        ])
         _ensure_columns("quizzes", [("ai_metadata", "TEXT")])
         _ensure_columns("travel_guides", [("ai_metadata", "TEXT")])
         _ensure_columns("travel_events", [("ai_metadata", "TEXT")])

@@ -10,9 +10,10 @@ import {
   estimateReadingMinutes,
   formatDate,
   formatReadingTime,
+  hasKhmerText,
 } from "@/lib/format";
 import { safeHref, sanitizeHtml } from "@/lib/sanitize";
-import { useI18n } from "@/lib/i18n";
+import { localizeCategory, localizeDesk, useI18n } from "@/lib/i18n";
 import { Container } from "@/components/ui/container";
 import { Reveal } from "@/components/ui/reveal";
 import { Photo } from "@/components/ui/photo";
@@ -218,10 +219,15 @@ function useReadingProgress(): number {
 export function ArticleReader({ article }: { article: Article }) {
   const { lang, t } = useI18n();
   const progress = useReadingProgress();
-  const title = cleanText(lang === "km" && article.title_km ? article.title_km : article.title);
-  const summary = cleanText(lang === "km" && article.summary_km ? article.summary_km : article.summary);
-  const rawContent = lang === "km" && article.content_km ? article.content_km : article.content;
+  const hasKmTitle = hasKhmerText(article.title_km, 3);
+  const hasKmSummary = hasKhmerText(article.summary_km, 8);
+  const hasKmBody = hasKhmerText(article.content_km, 25);
+
+  const title = cleanText(lang === "km" && hasKmTitle ? article.title_km : article.title);
+  const summary = cleanText(lang === "km" && hasKmSummary ? article.summary_km : article.summary);
+  const rawContent = lang === "km" && hasKmBody ? article.content_km : article.content;
   const readingMinutes = estimateReadingMinutes(rawContent);
+  const showKmTranslationNotice = lang === "km" && !hasKmBody && Boolean((article.content || "").trim());
 
   const [copied, setCopied] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
@@ -280,15 +286,15 @@ export function ArticleReader({ article }: { article: Article }) {
   const publishedAt = article.published_at || article.created_at || null;
   const updatedLabel =
     article.updated_at && !sameDay(article.updated_at, publishedAt)
-      ? formatDate(article.updated_at, "medium")
+      ? formatDate(article.updated_at, "medium", lang)
       : "";
 
-  const sectionName = cleanText(
-    lang === "km"
-      ? (article.country === "KH" ? t("cambodia.eyebrow") : t("world.eyebrow"))
-      : (article.category?.name || (article.country === "KH" ? "Cambodia" : "World"))
-  );
-  const sectionHref = article.country === "KH" ? "/cambodia" : "/world";
+  const deskInfo = localizeDesk(article.country, lang);
+  const sectionName = cleanText(deskInfo.label);
+  const sectionHref = deskInfo.href;
+  const localizedCategoryName = article.category?.name
+    ? localizeCategory(article.category.name, lang, article.category.name_km)
+    : "";
 
   const actionClasses =
     "inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-border-strong hover:bg-surface-muted hover:text-foreground";
@@ -340,15 +346,15 @@ export function ArticleReader({ article }: { article: Article }) {
           />
           {article.is_breaking && (
             <CategoryMark category="breaking" tone="chip">
-              Breaking
+              {t("article.breaking")}
             </CategoryMark>
           )}
-          {article.category?.name && (
+          {localizedCategoryName && (
             <CategoryMark
-              category={categoryKey(article.category.name)}
+              category={categoryKey(article.category?.name)}
               tone="dot"
             >
-              {cleanText(article.category.name)}
+              {cleanText(localizedCategoryName)}
             </CategoryMark>
           )}
         </div>
@@ -380,7 +386,7 @@ export function ArticleReader({ article }: { article: Article }) {
             <p className="mt-1.5 text-xs text-muted-foreground">
               {authorRole && <span>{authorRole}</span>}
               {authorRole && updatedLabel && <span> · </span>}
-              {updatedLabel && <span>Updated {updatedLabel}</span>}
+              {updatedLabel && <span>{t("article.updated")} {updatedLabel}</span>}
             </p>
           )}
         </div>
@@ -491,6 +497,11 @@ export function ArticleReader({ article }: { article: Article }) {
           <div
             className={cn("space-y-6 text-foreground", khmerCopy ? "leading-[2]" : "leading-[1.85]")}
           >
+          {showKmTranslationNotice && (
+            <div className="rounded-lg border border-border bg-surface-muted px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+              {t("article.km_translating_notice")}
+            </div>
+          )}
           {blocks.map((block, index) => {
             if (block.kind === "list") {
               return (
@@ -554,7 +565,7 @@ export function ArticleReader({ article }: { article: Article }) {
 
           {blocks.length === 0 && (
             <p className="text-base leading-[1.85] text-muted-foreground">
-              The full text of this story is still being filed.
+              {t("article.body_pending")}
             </p>
           )}
           </div>

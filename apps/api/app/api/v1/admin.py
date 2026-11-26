@@ -314,6 +314,78 @@ async def scan_world_news(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.post("/ai/scan/thailand-cambodia")
+async def scan_thailand_cambodia_news(
+    count: int = Query(3, ge=1, le=10),
+    current_user: User = Depends(require_admin)
+):
+    """Scan Thai media reporting about Cambodia (Bangkok Post, Nation Thailand, Khaosod, Thai PBS)."""
+    try:
+        res = await ai_news_service.generate_news_for_category(
+            category_slug="thailand-cambodia",
+            count=count,
+            override_author_id=current_user.id
+        )
+        return {
+            "status": "success",
+            "section": "Thai News on Cambodia",
+            "country": "TH",
+            "result": res
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/ai/scan/asean-news")
+async def scan_asean_news(
+    count: int = Query(3, ge=1, le=10),
+    current_user: User = Depends(require_admin)
+):
+    """Scan ASEAN & Southeast Asia regional developments relevant to Cambodia."""
+    try:
+        res = await ai_news_service.generate_news_for_category(
+            category_slug="asean",
+            count=count,
+            override_author_id=current_user.id
+        )
+        return {
+            "status": "success",
+            "section": "ASEAN News",
+            "country": "ASEAN",
+            "result": res
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/ai/translate-missing")
+async def translate_missing_khmer_content(
+    article_limit: int = Query(10, ge=1, le=30),
+    discovery_limit: int = Query(5, ge=0, le=20),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Backfill missing Khmer headline/summary/body translations on existing articles and discoveries."""
+    from app.services.bilingual_service import translate_missing_khmer_batch
+    try:
+        res = await translate_missing_khmer_batch(
+            db, article_limit=article_limit, discovery_limit=discovery_limit
+        )
+        return {"status": "success", **res}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/sources/seed-recommended")
+def seed_default_news_sources(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Ensure recommended Cambodia, Thai-on-Cambodia, ASEAN, and World RSS feeds exist."""
+    from app.services.seed_sources import seed_recommended_sources
+    return {"status": "success", **seed_recommended_sources(db)}
+
 @router.post("/ai/scan/discoveries")
 async def scan_discoveries(
     count: int = Query(2, ge=1, le=5),
@@ -356,19 +428,31 @@ async def scan_all_content_sections(
     except Exception as e:
         results["cambodia_news"] = {"error": str(e)}
 
-    # 2. World News
+    # 2. Thai News on Cambodia
+    try:
+        results["thailand_cambodia"] = await ai_news_service.generate_news_for_category("thailand-cambodia", count=2, override_author_id=current_user.id)
+    except Exception as e:
+        results["thailand_cambodia"] = {"error": str(e)}
+
+    # 3. ASEAN Regional News
+    try:
+        results["asean_news"] = await ai_news_service.generate_news_for_category("asean", count=2, override_author_id=current_user.id)
+    except Exception as e:
+        results["asean_news"] = {"error": str(e)}
+
+    # 4. World News
     try:
         results["world_news"] = await ai_news_service.generate_news_for_category("technology", count=2, override_author_id=current_user.id)
     except Exception as e:
         results["world_news"] = {"error": str(e)}
 
-    # 3. Discoveries
+    # 5. Discoveries
     try:
         results["discoveries"] = await discovery_service.scan_and_generate_discoveries(count=2)
     except Exception as e:
         results["discoveries"] = {"error": str(e)}
 
-    # 4. Quizzes
+    # 6. Quizzes
     try:
         results["quizzes"] = await QuizService.scan_and_generate_quizzes(count=1)
     except Exception as e:
@@ -376,7 +460,7 @@ async def scan_all_content_sections(
 
     return {
         "status": "success",
-        "message": "Full multi-section scan completed across News (Cambodia & World), Discoveries, and Quizzes.",
+        "message": "Full multi-section scan completed across Cambodia, Thai Watch, ASEAN, World, and Discoveries.",
         "results": results
     }
 
@@ -702,14 +786,15 @@ async def generate_topic_news(
 
     region_labels = {
         "KH": "Cambodia (Domestic tech, economy, digital finance)",
-        "TH": "Thailand (Regional economy, cross-border trade, tech)",
+        "TH": "Thai Media on Cambodia (Bangkok Post, Nation Thailand, Khaosod reporting on Cambodia)",
+        "ASEAN": "ASEAN & Southeast Asia (Regional trade, tech, digital corridors)",
         "VN": "Vietnam (Semiconductors, regional tech & business)",
         "CN": "China & Hong Kong (Tech, EV, AI, global finance)",
         "WORLD": "World / Global (AI, robotics, cybersecurity, big tech)"
     }
     region_label = region_labels.get(req.region or "KH", "Cambodia / Southeast Asia")
 
-    prompt = f"""You are an elite, neutral journalist writing for CamTech.Blog (focusing on Cambodia, Southeast Asia, and Technology).
+    prompt = f"""You are an elite, neutral bilingual (English & Khmer) journalist writing for CamTech.Blog (focusing on Cambodia, ASEAN, Thailand-Cambodia reporting, and Technology).
 Write a comprehensive, professional, factual news article about the following topic:
 Topic: {topic}
 Target Region: {region_label}
@@ -717,13 +802,17 @@ Target Region: {region_label}
 CRITICAL RULES:
 1. Content must be factual, balanced, and structured with journalistic integrity.
 2. The article body MUST be in Markdown with ## subheadings, between 400 and 600 words (at least 2,000 characters).
-3. Do not invent unverified quotes. Provide realistic industry context, background analysis, and significance.
-4. Attribute facts to credible reporting or public statements.
+3. Produce complete formal Khmer translations (title_km, summary_km, content_km) matching the full depth of the story.
+4. Do not invent unverified quotes. Provide realistic industry context, background analysis, and significance.
+5. Attribute facts to credible reporting or public statements.
 
 Return only valid JSON with keys:
 - title: Compelling headline (50-100 chars)
+- title_km: Natural formal Khmer translation of the headline
 - summary: 2-sentence objective summary (100-200 chars)
+- summary_km: Fluent Khmer 2-3 sentence summary
 - content: Full article body in Markdown (400-600 words with ## subheadings)
+- content_km: Complete formal Khmer Markdown translation matching all sections
 - source_name: Name of credible primary reporting outlet (e.g. Khmer Times, AKP, Phnom Penh Post, CNA, Reuters, Al Jazeera, Bangkok Post, VnExpress, SCMP)
 - source_url: A credible reference URL for the story (must include full path)
 - key_points: Array of 3-4 factual takeaways
@@ -739,7 +828,9 @@ Return only valid JSON with keys:
         )
 
     try:
-        data, meta = await asyncio.to_thread(ai_gateway.generate_json, prompt, use_search=False, timeout=45.0)
+        data, meta = await asyncio.to_thread(
+            ai_gateway.generate_json, prompt, use_search=False, timeout=60.0, max_tokens=6144
+        )
     except Exception as exc:
         logger.exception("AI generation call failed: %s", exc)
         raise HTTPException(status_code=502, detail=f"AI generation request failed: {str(exc)[:150]}")
@@ -750,11 +841,19 @@ Return only valid JSON with keys:
         logger.error("AI generation failed to produce valid article JSON%s", detail_str)
         raise HTTPException(status_code=502, detail=f"AI generation failed to produce valid article JSON{detail_str}")
 
-    cat_slug = "cambodia" if req.region == "KH" else "technology"
+    from app.services.bilingual_service import ensure_article_khmer_fields, has_khmer_script
+
+    target_region = (req.region or "KH").upper()
+    cat_slug = "cambodia" if target_region == "KH" else (
+        "thailand-cambodia" if target_region == "TH" else (
+            "asean" if target_region == "ASEAN" else "technology"
+        )
+    )
     category = db.query(Category).filter(Category.slug == cat_slug).first() or db.query(Category).first()
     author = db.query(Author).filter(Author.id == current_user.id).first() or db.query(Author).first()
 
     title = data.get("title", topic)
+    data = await ensure_article_khmer_fields(data, title, str(data.get("source_name") or ""))
     base_slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')[:80]
     slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
 
@@ -770,12 +869,15 @@ Return only valid JSON with keys:
 
     art = Article(
         title=title,
+        title_km=str(data["title_km"]).strip()[:255] if has_khmer_script(data.get("title_km"), 3) else None,
         slug=slug,
         summary=data.get("summary", ""),
+        summary_km=str(data["summary_km"]).strip() if has_khmer_script(data.get("summary_km"), 10) else None,
         content=sanitize_stored_html(data.get("content", "")),
+        content_km=sanitize_stored_html(str(data["content_km"]).strip()) if has_khmer_script(data.get("content_km"), 25) else None,
         key_points=json.dumps(data.get("key_points", [])),
         why_it_matters=data.get("why_it_matters", ""),
-        country=req.region or "KH",
+        country=target_region,
         hero_image_url=hero_url,
         hero_image_credit=hero_credit,
         primary_source_url=data.get("source_url") or "https://camtech.cam",

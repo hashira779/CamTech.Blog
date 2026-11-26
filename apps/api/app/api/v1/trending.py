@@ -12,5 +12,7 @@ def get_trending(limit: int = Query(6, ge=1, le=20), db: Session = Depends(get_d
     return TrendingResponse(
         cambodia=data["cambodia"],
         world=data["world"],
+        asean=data.get("asean", []),
+        thai_cambodia=data.get("thai_cambodia", []),
         editor_picks=data["editor_picks"]
     )

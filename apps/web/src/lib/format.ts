@@ -99,3 +99,15 @@ export function cleanText(value?: string | null): string {
     .trim();
 }
 
+export function articleHref(article: { slug: string; country?: string | null }): string {
+  return (article.country || "").toUpperCase() === "KH"
+    ? `/cambodia/news/${article.slug}`
+    : `/world/news/${article.slug}`;
+}
+
+export function hasKhmerText(value?: string | null, minChars: number = 12): boolean {
+  if (!value) return false;
+  const matches = value.match(/[\u1780-\u17FF]/g);
+  return Boolean(matches && matches.length >= minChars);
+}
+

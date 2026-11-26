@@ -27,7 +27,10 @@ const columns: { headingKey: string; fallbackHeading: string; links: FooterLink[
     headingKey: "footer.col_sections",
     fallbackHeading: "Sections",
     links: [
+      { href: "/news", label: "All News", key: "news.desk_all" },
       { href: "/cambodia", label: "Cambodia", key: "nav.cambodia" },
+      { href: "/news?desk=TH", label: "Thai → Cambodia", key: "nav.thailand_cambodia" },
+      { href: "/news?desk=ASEAN", label: "ASEAN", key: "nav.asean" },
       { href: "/world", label: "World", key: "nav.world" },
       { href: "/discover", label: "Discover", key: "nav.discover" },
       { href: "/trending", label: "Trending", key: "nav.trending" },

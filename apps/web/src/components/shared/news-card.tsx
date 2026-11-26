@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils";
 import { Photo } from "@/components/ui/photo";
 import { Byline } from "@/components/ui/byline";
 import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
-import { cleanText, formatReadingTime } from "@/lib/format";
+import { articleHref, cleanText, formatReadingTime, hasKhmerText } from "@/lib/format";
+import { localizeCategory, localizeDesk } from "@/lib/i18n";
 
 export type NewsCardVariant = "hero" | "feature" | "standard" | "compact" | "list" | "text";
 
@@ -49,21 +50,35 @@ export function NewsCard({
   showCredit = true,
   className,
 }: NewsCardProps) {
-  const href = article.country === "KH" ? `/cambodia/news/${article.slug}` : `/world/news/${article.slug}`;
+  const uiLang = lang === "km" ? "km" : "en";
+  const href = articleHref(article);
 
-  const title = cleanText(lang === "km" && article.title_km ? article.title_km : article.title);
-  const summary = cleanText(lang === "km" && article.summary_km ? article.summary_km : article.summary);
+  const hasKmTitle = hasKhmerText(article.title_km, 3);
+  const hasKmSummary = hasKhmerText(article.summary_km, 8);
+  const hasKmBody = hasKhmerText(article.content_km, 25);
+
+  const title = cleanText(uiLang === "km" && hasKmTitle ? article.title_km : article.title);
+  const summary = cleanText(uiLang === "km" && hasKmSummary ? article.summary_km : article.summary);
   const image = article.hero_image_url || null;
 
-  const categoryLabel = article.category?.name || (article.country === "KH" ? "Cambodia" : "World");
-  const category = article.is_breaking ? "breaking" : categoryKey(article.category?.name || categoryLabel);
+  const desk = localizeDesk(article.country, uiLang);
+  const rawCategoryName = article.category?.name || desk.label;
+  const categoryLabel =
+    localizeCategory(rawCategoryName, uiLang, article.category?.name_km) || desk.label;
+  const badgeText = article.is_breaking
+    ? (uiLang === "km" ? "ព័ត៌មានបន្ទាន់" : "Breaking")
+    : (article.country && article.country !== "KH" && article.country !== "WORLD"
+        ? `${desk.label} · ${categoryLabel}`
+        : categoryLabel);
+  const readMoreLabel = uiLang === "km" ? "អានអត្ថបទ" : "Read the story";
+  const category = article.is_breaking ? "breaking" : categoryKey(rawCategoryName);
 
   const author = article.author?.name || null;
   const source = article.primary_source?.name || null;
   const sourceUrl = article.primary_source_url || article.primary_source?.website_url || null;
   const date = article.published_at || article.created_at || null;
-  const rawContent = lang === "km" && article.content_km ? article.content_km : article.content;
-  const readingTime = formatReadingTime(rawContent, lang);
+  const rawContent = uiLang === "km" && hasKmBody ? article.content_km : article.content;
+  const readingTime = formatReadingTime(rawContent, uiLang);
   const views = article.views_count > 0 ? article.views_count : null;
   const location = article.province_or_city || null;
 
@@ -118,7 +133,7 @@ export function NewsCard({
         <div className="relative flex min-h-[clamp(20rem,46vw,34rem)] flex-col justify-end gap-3 p-6 sm:p-10">
           <div className="flex flex-wrap items-center gap-3">
             <CategoryMark category={category} tone="chip" className="bg-white/90 text-neutral-900">
-              {article.is_breaking ? "Breaking" : categoryLabel}
+              {badgeText}
             </CategoryMark>
             {article.hero_image_credit && showCredit && (
               <span className="rounded-md bg-black/40 px-2 py-1 text-xs text-white/80 backdrop-blur-sm">
@@ -143,7 +158,7 @@ export function NewsCard({
           {/* A lead this big needs to say it is clickable. The line is invisible until the
               pointer is on the card, so it never competes with the headline. */}
           <span className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-white/90 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
-            Read the story
+            {readMoreLabel}
             <ArrowRight size={15} className="link-nudge" aria-hidden="true" />
           </span>
         </div>
@@ -175,7 +190,7 @@ export function NewsCard({
 
         <div className="flex flex-1 flex-col gap-3 p-5 sm:p-7">
           <CategoryMark category={category}>
-            {article.is_breaking ? "Breaking" : categoryLabel}
+            {badgeText}
           </CategoryMark>
 
           <h3 className="font-display text-2xl leading-tight tracking-tight text-foreground sm:text-3xl">
@@ -218,7 +233,7 @@ export function NewsCard({
 
         <div className="flex flex-1 flex-col gap-2.5 p-5">
           <CategoryMark category={category}>
-            {article.is_breaking ? "Breaking" : categoryLabel}
+            {badgeText}
           </CategoryMark>
 
           <h3 className="text-lg font-semibold leading-snug tracking-tight text-foreground">
@@ -247,7 +262,7 @@ export function NewsCard({
         )}
       >
         <CategoryMark category={category}>
-          {article.is_breaking ? "Breaking" : categoryLabel}
+          {badgeText}
         </CategoryMark>
 
         <h3 className="font-display text-xl leading-snug tracking-tight text-foreground sm:text-2xl">

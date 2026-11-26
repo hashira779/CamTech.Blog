@@ -67,6 +67,19 @@ async def ingest_rss_feeds_job():
     """
     db = SessionLocal()
     try:
+        from app.models.audit import SiteSetting
+        seed_flag = db.query(SiteSetting).filter(SiteSetting.key == "RECOMMENDED_NEWS_SOURCES_V2").first()
+        if not seed_flag:
+            from app.services.seed_sources import seed_recommended_sources
+            seed_stats = seed_recommended_sources(db)
+            db.add(SiteSetting(
+                key="RECOMMENDED_NEWS_SOURCES_V2",
+                value_json="seeded",
+                description="Auto-seeded Cambodia, Thai-on-Cambodia, ASEAN, and World RSS feeds once",
+            ))
+            db.commit()
+            logger.info(f"🌱 Auto-seeded regional news feeds: {seed_stats}")
+
         sources = db.query(Source).filter(
             Source.is_active == True,
             Source.feed_url != None,
@@ -184,6 +197,7 @@ async def ingest_rss_feeds_job():
                         duplicates_dropped += 1
                         continue
 
+                    effective_source_name = (item.get("source_name") or source_name or "").strip() or source_name
                     # 5b. Draft the story. The local fallback engine quotes the publisher;
                     # it does not write editorial prose, so nothing here is invented.
                     matched_cat = None
@@ -199,10 +213,24 @@ async def ingest_rss_feeds_job():
                         else:
                             article_category_id = category.id
 
-                        # Generate AI editorial draft
-                        draft = await ai_provider.generate_draft_editorial(title, raw_summary, source_name)
+                        # Generate AI editorial draft + verify complete Khmer translation
+                        draft = await ai_provider.generate_draft_editorial(title, raw_summary, effective_source_name)
+                        from app.services.news_autopilot import is_trusted_engine
+                        if is_trusted_engine(draft.get("engine", "")):
+                            from app.services.bilingual_service import ensure_article_khmer_fields
+                            draft = await ensure_article_khmer_fields(draft, title, effective_source_name)
                     except Exception as ai_err:
                         logger.warning(f"AI processing failed for '{title}': {ai_err}")
+                        try:
+                            from app.services.alert_service import notify_stack_failure
+                            await notify_stack_failure(
+                                stack="AI_TRANSLATE",
+                                reason=f"AI rewrite & Khmer translation failed ({ai_err}). Article held in draft.",
+                                article_title=title,
+                                severity="WARNING"
+                            )
+                        except Exception:
+                            pass
                         # No summary is invented here. The headline is the publisher's own
                         # sentence; anything else would be us writing the news.
                         draft = {
@@ -215,10 +243,16 @@ async def ingest_rss_feeds_job():
                         }
                         article_category_id = category.id
 
-                    # 5c. File it on the desk the story is about, not the desk that printed it.
+                    # 5c. File it on the desk the story is about, not just the publisher's origin.
                     from app.services.filing import resolve_country, category_is_cambodia
-                    country = resolve_country(detected_category, source_country, title, raw_summary)
-                    if matched_cat is not None and category_is_cambodia(matched_cat.slug, matched_cat.scope):
+                    country = resolve_country(
+                        detected_category,
+                        source_country,
+                        title,
+                        raw_summary,
+                        source_name=effective_source_name,
+                    )
+                    if matched_cat is not None and category_is_cambodia(matched_cat.slug, matched_cat.scope) and country != "TH":
                         country = "KH"
 
                     base_slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')[:80]
@@ -251,15 +285,18 @@ async def ingest_rss_feeds_job():
                     ))
                     new_article = Article(
                         title=title,
+                        title_km=draft.get("title_km"),
                         slug=slug,
                         summary=draft.get("summary", title),
+                        summary_km=draft.get("summary_km"),
                         content=sanitize_stored_html(body_text),
+                        content_km=sanitize_stored_html(draft.get("content_km")) if draft.get("content_km") else None,
                         key_points=json.dumps(draft.get("key_points", [])),
                         why_it_matters=draft.get("why_it_matters", ""),
                         country=country,
                         primary_source_id=source_id,
                         primary_source_url=url,
-                        source_attribution_text=f"Source: {source_name}",
+                        source_attribution_text=f"Source: {effective_source_name}",
                         hero_image_url=hero_img_url,
                         hero_image_credit=hero_img_credit,
                         hero_image_alt=hero_img_alt,
@@ -301,6 +338,15 @@ async def ingest_rss_feeds_job():
                 error_message = str(fetch_err)
                 total_errors += 1
                 logger.error(f"  ❌ {source_name}: {error_message}")
+                try:
+                    from app.services.alert_service import notify_stack_failure
+                    await notify_stack_failure(
+                        stack="RSS_FETCH",
+                        reason=f"Source '{source_name}' fetch failed: {error_message[:200]}",
+                        severity="WARNING"
+                    )
+                except Exception:
+                    pass
                 # Don't let one source failure kill the entire pipeline
                 db.rollback()
 
@@ -384,15 +430,17 @@ async def daily_ai_news_job():
 
 
 async def news_autopilot_job():
-    """Hybrid auto-publish, archive stale AI drafts, purge old archives."""
-    from app.services import news_autopilot
+    """Hybrid auto-publish, re-draft held items, backfill missing Khmer translations, archive/purge."""
+    from app.services import bilingual_service, news_autopilot
     db = SessionLocal()
     try:
         # Upgrade drafts written while no AI provider answered, before deciding what publishes
         redraft = await news_autopilot.redraft_held_drafts(db, get_ai_provider().gemini)
+        kh_backfill = await bilingual_service.translate_missing_khmer_batch(db, article_limit=4, discovery_limit=2)
         result = news_autopilot.run_lifecycle(db)
         logger.info(
             f"🤖 News Autopilot: redrafted={redraft.get('redrafted', 0)} "
+            f"translated_km={kh_backfill.get('articles_translated', 0)}/{kh_backfill.get('discoveries_translated', 0)} "
             f"published={result['publish'].get('published', 0)} "
             f"held={result['publish'].get('skipped', 0)} "
             f"archived={result['archive'].get('archived', 0)} purged={result['purge'].get('purged', 0)}"

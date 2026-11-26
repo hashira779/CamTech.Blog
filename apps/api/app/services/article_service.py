@@ -55,7 +55,11 @@ class ArticleService:
             else:
                 query = query.filter(Article.status == status)
         if country:
-            query = query.filter(Article.country == country)
+            codes = [c.strip().upper() for c in country.split(",") if c.strip()]
+            if len(codes) == 1:
+                query = query.filter(Article.country == codes[0])
+            elif codes:
+                query = query.filter(Article.country.in_(codes))
         if category_slug:
             query = query.join(Article.category).filter(Category.slug == category_slug)
         if author_slug:
@@ -67,8 +71,11 @@ class ArticleService:
             query = query.filter(
                 or_(
                     Article.title.ilike(search_fmt),
+                    Article.title_km.ilike(search_fmt),
                     Article.summary.ilike(search_fmt),
-                    Article.content.ilike(search_fmt)
+                    Article.summary_km.ilike(search_fmt),
+                    Article.content.ilike(search_fmt),
+                    Article.content_km.ilike(search_fmt),
                 )
             )
 
@@ -204,6 +211,7 @@ class ArticleService:
         # export and the generators. Script-bearing markup and a link a reader must not follow are
         # removed here, at the door, so they never sit in the database waiting for a weaker reader.
         body = sanitize_stored_html(article_in.content)
+        body_km = sanitize_stored_html(article_in.content_km) if article_in.content_km else None
         source_url = safe_link(article_in.primary_source_url, allow_relative=False)
 
         article = Article(
@@ -214,6 +222,7 @@ class ArticleService:
             summary=article_in.summary,
             summary_km=article_in.summary_km,
             content=body,
+            content_km=body_km,
             key_points=article_in.key_points,
             why_it_matters=article_in.why_it_matters,
             timeline=article_in.timeline,

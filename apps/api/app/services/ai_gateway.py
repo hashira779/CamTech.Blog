@@ -49,7 +49,7 @@ class AIProvider:
     api_key: str = ""
     enabled: bool = False
     temperature: float = 0.5
-    max_tokens: int = 2048
+    max_tokens: int = 4096
     supports_search: bool = False    # web-grounded generation available (Gemini only today)
     requires_key: bool = True        # False for local servers like Ollama
 
@@ -226,11 +226,19 @@ def _headers_auth(p: AIProvider) -> Dict[str, str]:
     }
 
 
-def _call_openai(p: AIProvider, prompt: str, system: Optional[str], timeout: float) -> str:
+def _effective_max_tokens(p: AIProvider, max_tokens: Optional[int]) -> int:
+    base = int(p.max_tokens or 4096)
+    if base <= 2048:
+        base = 4096
+    return max(base, int(max_tokens)) if max_tokens else base
+
+
+def _call_openai(p: AIProvider, prompt: str, system: Optional[str], timeout: float,
+                 max_tokens: Optional[int] = None) -> str:
     messages = ([{"role": "system", "content": system}] if system else []) + \
                [{"role": "user", "content": prompt}]
     body = {"model": p.model, "messages": messages,
-            "temperature": p.temperature, "max_tokens": p.max_tokens}
+            "temperature": p.temperature, "max_tokens": _effective_max_tokens(p, max_tokens)}
     r = requests.post(p.base_url.rstrip("/") + "/chat/completions",
                       headers=_headers_auth(p), json=body, timeout=timeout)
     r.raise_for_status()
@@ -238,8 +246,9 @@ def _call_openai(p: AIProvider, prompt: str, system: Optional[str], timeout: flo
     return data["choices"][0]["message"]["content"]
 
 
-def _call_anthropic(p: AIProvider, prompt: str, system: Optional[str], timeout: float) -> str:
-    body = {"model": p.model, "max_tokens": p.max_tokens, "temperature": p.temperature,
+def _call_anthropic(p: AIProvider, prompt: str, system: Optional[str], timeout: float,
+                    max_tokens: Optional[int] = None) -> str:
+    body = {"model": p.model, "max_tokens": _effective_max_tokens(p, max_tokens), "temperature": p.temperature,
             "messages": [{"role": "user", "content": prompt}]}
     if system:
         body["system"] = system
@@ -253,10 +262,11 @@ def _call_anthropic(p: AIProvider, prompt: str, system: Optional[str], timeout: 
     return "".join(b.get("text", "") for b in parts if b.get("type") == "text")
 
 
-def _call_gemini(p: AIProvider, prompt: str, system: Optional[str], timeout: float, use_search: bool) -> str:
+def _call_gemini(p: AIProvider, prompt: str, system: Optional[str], timeout: float, use_search: bool,
+                 max_tokens: Optional[int] = None) -> str:
     body: Dict[str, Any] = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": p.temperature, "maxOutputTokens": p.max_tokens},
+        "generationConfig": {"temperature": p.temperature, "maxOutputTokens": _effective_max_tokens(p, max_tokens)},
     }
     if system:
         body["systemInstruction"] = {"parts": [{"text": system}]}
@@ -273,17 +283,19 @@ def _call_gemini(p: AIProvider, prompt: str, system: Optional[str], timeout: flo
 
 
 def call_provider(p: AIProvider, prompt: str, *, system: Optional[str] = None,
-                  use_search: bool = False, timeout: float = 60.0) -> str:
+                  use_search: bool = False, timeout: float = 60.0,
+                  max_tokens: Optional[int] = None) -> str:
     if p.style == "gemini":
-        return _call_gemini(p, prompt, system, timeout, use_search)
+        return _call_gemini(p, prompt, system, timeout, use_search, max_tokens=max_tokens)
     if p.style == "anthropic":
-        return _call_anthropic(p, prompt, system, timeout)
-    return _call_openai(p, prompt, system, timeout)
+        return _call_anthropic(p, prompt, system, timeout, max_tokens=max_tokens)
+    return _call_openai(p, prompt, system, timeout, max_tokens=max_tokens)
 
 
 # --------------------------------------------------------------------------- public API
 def generate_text(prompt: str, *, system: Optional[str] = None, use_search: bool = False,
-                  timeout: float = 60.0, only: Optional[str] = None) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+                  timeout: float = 60.0, only: Optional[str] = None,
+                  max_tokens: Optional[int] = None) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
     """Try each enabled+configured provider in order; return (text, provider_meta) or (None, errors)."""
     from app.common.database import SessionLocal
     db = SessionLocal()
@@ -305,7 +317,8 @@ def generate_text(prompt: str, *, system: Optional[str] = None, use_search: bool
             errors.append(f"{p.id}: web grounding is not enabled; cannot research current events")
             continue
         try:
-            text = call_provider(p, prompt, system=system, use_search=use_search, timeout=timeout)
+            text = call_provider(p, prompt, system=system, use_search=use_search,
+                                 timeout=timeout, max_tokens=max_tokens)
             if text and text.strip():
                 return text, {"provider": p.id, "label": p.label, "model": p.model, "engine": p.engine()}
             errors.append(f"{p.id}: empty response")
@@ -318,8 +331,10 @@ def generate_text(prompt: str, *, system: Optional[str] = None, use_search: bool
 
 
 def generate_json(prompt: str, *, system: Optional[str] = None, use_search: bool = False,
-                  timeout: float = 60.0, only: Optional[str] = None) -> Tuple[Any, Optional[Dict[str, Any]]]:
-    text, meta = generate_text(prompt, system=system, use_search=use_search, timeout=timeout, only=only)
+                  timeout: float = 60.0, only: Optional[str] = None,
+                  max_tokens: Optional[int] = None) -> Tuple[Any, Optional[Dict[str, Any]]]:
+    text, meta = generate_text(prompt, system=system, use_search=use_search,
+                               timeout=timeout, only=only, max_tokens=max_tokens)
     if text is None:
         return None, meta
     return extract_json(text), meta

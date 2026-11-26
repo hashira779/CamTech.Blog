@@ -82,9 +82,12 @@ export const translations = {
 
     // Navigation
     "nav.home": "Home",
+    "nav.news": "News",
     "nav.cv_builder": "CV Builder",
     "nav.free_badge": "Free",
     "nav.cambodia": "Cambodia",
+    "nav.thailand_cambodia": "Thai → Cambodia",
+    "nav.asean": "ASEAN",
     "nav.world": "World",
     "nav.discover": "Discover",
     "nav.travel": "Travel & Trips",
@@ -96,6 +99,72 @@ export const translations = {
     "nav.admin": "CMS Admin",
     "nav.search_placeholder": "Search news, discoveries, travel and tools...",
     "brand.tagline": "Cambodia, life & technology",
+
+    // Structured Newsroom Desks
+    "news.eyebrow": "Newsroom",
+    "news.title": "News & Regional Desks",
+    "news.description": "Clear, verified reporting organized cleanly for Cambodia: domestic stories, Thai press coverage on Cambodia, ASEAN neighbors, and global developments.",
+    "news.desk_all": "All News",
+    "news.desk_kh": "Cambodia",
+    "news.desk_th": "Thai News on Cambodia",
+    "news.desk_asean": "ASEAN & Region",
+    "news.desk_world": "World & Foreign",
+    "news.desk_kh_note": "Domestic economy, Bakong digital finance, Phnom Penh policy, and provincial life.",
+    "news.desk_th_note": "Tracking major Thai outlets (Bangkok Post, Nation Thailand, Khaosod English, Thai PBS) specifically reporting on Cambodia, border trade, migrant workers, and bilateral affairs.",
+    "news.desk_asean_note": "Regional ASEAN shifts in trade, RCEP supply chains, cross-border QR payments, and neighbors affecting Cambodia.",
+    "news.desk_world_note": "International geopolitics, artificial intelligence, semiconductors, and global markets.",
+    "news.empty_desk": "No stories published on this desk yet",
+    "news.empty_desk_desc": "New verified reports appear here as soon as they pass editorial review and bilingual translation.",
+    "news.open_section": "Open full section",
+    "news.switch_desk": "Filter by news desk",
+
+    // Discover & Trending & Search & Sources
+    "discover.eyebrow": "How things work",
+    "discover.title": "Stay a little curious.",
+    "discover.description": "Follow an idea a little further. Explore science, technology, and the mechanisms behind the things we use every day.",
+    "discover.all_topics": "All topics",
+    "discover.latest": "Latest explainers",
+    "discover.read_explainer": "Read the explainer",
+    "discover.anatomy": "Anatomy",
+    "discover.step_by_step": "Step by step",
+    "discover.key_facts": "Key facts",
+    "discover.sources": "Sources",
+    "discover.utilities": "Utilities",
+    "discover.everyday_tools": "Everyday tools",
+    "trending.eyebrow": "Reader engagement",
+    "trending.title": "Trending & Most Read",
+    "trending.description": "Ranked by what readers actually opened across Cambodia, ASEAN, Thailand watch, and global technology.",
+    "trending.top_ranking": "Top of the ranking",
+    "trending.read_most_now": "Read most, right now",
+    "trending.most_read_kh": "Most read in Cambodia",
+    "trending.most_read_th": "Thai reporting on Cambodia",
+    "trending.most_read_asean": "Most read in ASEAN",
+    "trending.most_read_world": "Most read worldwide",
+    "trending.reads": "reads",
+    "trending.editor_picks": "Editor's picks",
+    "trending.empty_desk": "Nothing ranked here yet — figures appear as readers open stories.",
+    "search.title": "Search",
+    "search.description": "One index across Cambodia news, Thai Watch, ASEAN, World, visual discoveries, travel provinces, places, and tools.",
+    "search.placeholder": "Search Cambodia, ASEAN, Thai border trade, Bakong, Kampot...",
+    "search.submit": "Search",
+    "search.all_results": "All results",
+    "search.searching": "Searching…",
+    "search.type_more": "Type at least two characters.",
+    "search.nothing_found": "Nothing found",
+    "search.try_different": "Try a place name, a topic, or search in English or Khmer.",
+    "search.quick_links": "Browse by section",
+    "sources.eyebrow": "Transparency & attribution",
+    "sources.title": "Source registry",
+    "sources.description": "Every publisher and wire feed this site draws on across Cambodia, Thailand, ASEAN, and global newsrooms.",
+    "sources.count_label": "Sources",
+    "sources.jurisdictions": "Jurisdictions",
+    "sources.recorded_title": "Recorded sources",
+    "sources.recorded_desc": "Values are shown as verified in the editorial registry.",
+    "sources.col_source": "Source",
+    "sources.col_country": "Country",
+    "sources.col_language": "Language",
+    "sources.col_trust": "Trust level",
+    "sources.col_license": "Licence notes",
 
     // Homepage sections
     "home.happening_today": "What's Happening Today",
@@ -221,6 +290,11 @@ export const translations = {
     "article.related_stories": "Related Coverage",
     "article.related_discoveries": "Related Visual Discoveries",
     "article.related_tools": "Useful Related Tools",
+    "article.breaking": "Breaking",
+    "article.read_story": "Read the story",
+    "article.updated": "Updated",
+    "article.body_pending": "The full text of this story is still being filed.",
+    "article.km_translating_notice": "Full Khmer translation is being prepared — original reporting is shown below.",
 
     // Quiz
     "quiz.start": "Start Challenge",
@@ -308,10 +382,13 @@ export const translations = {
 
     // Navigation
     "nav.home": "ទំព័រដើម",
+    "nav.news": "ព័ត៌មាន",
     "nav.cv_builder": "កម្មវិធីបង្កើត CV",
     "nav.free_badge": "ឥតគិតថ្លៃ",
     "nav.cambodia": "កម្ពុជា",
-    "nav.world": "ពិភពលោក",
+    "nav.thailand_cambodia": "ព័ត៌មានថៃអំពីកម្ពុជា",
+    "nav.asean": "អាស៊ាន",
+    "nav.world": "អន្តរជាតិ",
     "nav.discover": "ស្វែងយល់",
     "nav.travel": "ទេសចរណ៍ & ដំណើរកម្សាន្ត",
     "nav.quiz": "កម្រងសំណួរ",
@@ -320,8 +397,74 @@ export const translations = {
     "nav.wedding": "អាពាហ៍ពិពាហ៍",
     "nav.saved": "បានរក្សាទុក",
     "nav.admin": "គ្រប់គ្រង CMS",
-    "nav.search_placeholder": "ស្វែងរកព័ត៌មាន ចំណេះដឹង កម្រងសំណួរ ឧបករណ៍...",
-    "brand.tagline": "បច្ចេកវិទ្យា និងវិទ្យាសាស្ត្រ",
+    "nav.search_placeholder": "ស្វែងរកព័ត៌មាន ចំណេះដឹង ទេសចរណ៍ ឧបករណ៍...",
+    "brand.tagline": "កម្ពុជា ជីវិត និងបច្ចេកវិទ្យា",
+
+    // Structured Newsroom Desks (Khmer)
+    "news.eyebrow": "ការិយាល័យព័ត៌មាន",
+    "news.title": "ព័ត៌មាន និងផ្នែកតំបន់",
+    "news.description": "ការរាយការណ៍ច្បាស់លាស់ និងផ្ទៀងផ្ទាត់ប្រភព៖ ព័ត៌មានក្នុងប្រទេសកម្ពុជា ព័ត៌មានថៃអំពីកម្ពុជា តំបន់អាស៊ាន និងព័ត៌មានអន្តរជាតិសំខាន់ៗ។",
+    "news.desk_all": "ព័ត៌មានទាំងអស់",
+    "news.desk_kh": "កម្ពុជា",
+    "news.desk_th": "ព័ត៌មានថៃអំពីកម្ពុជា",
+    "news.desk_asean": "អាស៊ាន និងតំបន់",
+    "news.desk_world": "អន្តរជាតិ",
+    "news.desk_kh_note": "សេដ្ឋកិច្ចក្នុងស្រុក ប្រព័ន្ធទូទាត់បាគង គោលនយោបាយភ្នំពេញ និងជីវិតតាមបណ្តាខេត្ត។",
+    "news.desk_th_note": "តាមដានការចុះផ្សាយរបស់សារព័ត៌មានថៃ (Bangkok Post, Nation Thailand, Khaosod, Thai PBS) ដែលនិយាយពីកម្ពុជា ពាណិជ្ជកម្មព្រំដែន ពលករ និងទំនាក់ទំនងទ្វេភាគី។",
+    "news.desk_asean_note": "ការវិវត្តន៍ក្នុងតំបន់អាស៊ាន ពាណិជ្ជកម្ម RCEP បច្ចេកវិទ្យា និងគោលនយោបាយប្រទេសជិតខាងដែលប៉ះពាល់ដល់កម្ពុជា។",
+    "news.desk_world_note": "ភូមិសាស្ត្រនយោបាយពិភពលោក បច្ចេកវិទ្យា AI និងទីផ្សារអន្តរជាតិ។",
+    "news.empty_desk": "មិនទាន់មានព័ត៌មានក្នុងផ្នែកនេះនៅឡើយទេ",
+    "news.empty_desk_desc": "ព័ត៌មានដែលបានផ្ទៀងផ្ទាត់ និងបកប្រែរួចរាល់នឹងបង្ហាញនៅទីនេះភ្លាមៗ។",
+    "news.open_section": "បើកផ្នែកពេញ",
+    "news.switch_desk": "ជ្រើសរើសប្រភេទព័ត៌មាន",
+
+    // Discover & Trending & Search & Sources (Khmer)
+    "discover.eyebrow": "របៀបដំណើរការនៃអ្វីៗ",
+    "discover.title": "រក្សាការចង់ដឹងចង់ឃើញជានិច្ច។",
+    "discover.description": "ស្វែងយល់ពីវិទ្យាសាស្ត្រ បច្ចេកវិទ្យា និងយន្តការនៅពីក្រោយអ្វីដែលយើងប្រើប្រាស់ប្រចាំថ្ងៃ។",
+    "discover.all_topics": "ប្រធានបទទាំងអស់",
+    "discover.latest": "អត្ថបទពន្យល់ចុងក្រោយ",
+    "discover.read_explainer": "អានការពន្យល់",
+    "discover.anatomy": "រចនាសម្ព័ន្ធលម្អិត",
+    "discover.step_by_step": "ដំណាក់កាលនីមួយៗ",
+    "discover.key_facts": "ចំណុចសំខាន់ៗ",
+    "discover.sources": "ប្រភពឯកសារ",
+    "discover.utilities": "ឧបករណ៍ជំនួយ",
+    "discover.everyday_tools": "ឧបករណ៍ប្រើប្រាស់ប្រចាំថ្ងៃ",
+    "trending.eyebrow": "ការចាប់អារម្មណ៍ពីអ្នកអាន",
+    "trending.title": "ព័ត៌មានពេញនិយម និងអានច្រើនបំផុត",
+    "trending.description": "រៀបតាមចំនួនអ្នកបើកអានជាក់ស្តែងសម្រាប់កម្ពុជា អាស៊ាន ព័ត៌មានថៃអំពីកម្ពុជា និងពិភពលោក។",
+    "trending.top_ranking": "ចំណាត់ថ្នាក់កំពូល",
+    "trending.read_most_now": "អានច្រើនបំផុតឥឡូវនេះ",
+    "trending.most_read_kh": "អានច្រើនបំផុតនៅកម្ពុជា",
+    "trending.most_read_th": "ព័ត៌មានថៃអំពីកម្ពុជា",
+    "trending.most_read_asean": "អានច្រើនបំផុតក្នុងអាស៊ាន",
+    "trending.most_read_world": "អានច្រើនបំផុតទូទាំងពិភពលោក",
+    "trending.reads": "ដង",
+    "trending.editor_picks": "ជម្រើសនិពន្ធនាយក",
+    "trending.empty_desk": "មិនទាន់មានចំណាត់ថ្នាក់នៅឡើយទេ — ស្ថិតិនឹងបង្ហាញពេលមានអ្នកអាន។",
+    "search.title": "ស្វែងរក",
+    "search.description": "ស្វែងរកទូទាំងព័ត៌មានកម្ពុជា អាស៊ាន ព័ត៌មានថៃអំពីកម្ពុជា ពិភពលោក ការស្វែងយល់ ទេសចរណ៍ និងឧបករណ៍។",
+    "search.placeholder": "ស្វែងរក កម្ពុជា អាស៊ាន បាគង ព្រំដែនថៃ កំពត...",
+    "search.submit": "ស្វែងរក",
+    "search.all_results": "លទ្ធផលទាំងអស់",
+    "search.searching": "កំពុងស្វែងរក…",
+    "search.type_more": "សូមវាយបញ្ចូលយ៉ាងតិច ២ តួអក្សរ។",
+    "search.nothing_found": "រកមិនឃើញលទ្ធផល",
+    "search.try_different": "សាកល្បងពាក្យគន្លឹះ ទីកន្លែង ឬស្វែងរកជាភាសាខ្មែរ ឬអង់គ្លេស។",
+    "search.quick_links": "រុករកតាមផ្នែក",
+    "sources.eyebrow": "តម្លាភាព និងប្រភពដើម",
+    "sources.title": "បញ្ជីប្រភពព័ត៌មាន",
+    "sources.description": "ស្ថាប័នសារព័ត៌មាន និងប្រភពព័ត៌មានផ្លូវការនៅកម្ពុជា ថៃ អាស៊ាន និងអន្តរជាតិ។",
+    "sources.count_label": "ប្រភព",
+    "sources.jurisdictions": "តំបន់/ប្រទេស",
+    "sources.recorded_title": "ប្រភពដែលបានកត់ត្រា",
+    "sources.recorded_desc": "ព័ត៌មានលម្អិតបង្ហាញដូចដែលបានចុះឈ្មោះក្នុងប្រព័ន្ធ។",
+    "sources.col_source": "ស្ថាប័ន",
+    "sources.col_country": "ប្រទេស/តំបន់",
+    "sources.col_language": "ភាសា",
+    "sources.col_trust": "កម្រិតទំនុកចិត្ត",
+    "sources.col_license": "កំណត់សម្គាល់អាជ្ញាប័ណ្ណ",
 
     // Homepage sections
     "home.happening_today": "ព្រឹត្តិការណ៍សំខាន់ថ្ងៃនេះ",
@@ -447,6 +590,11 @@ export const translations = {
     "article.related_stories": "ព័ត៌មានពាក់ព័ន្ធ",
     "article.related_discoveries": "ចំណេះដឹងពាក់ព័ន្ធ",
     "article.related_tools": "ឧបករណ៍ពាក់ព័ន្ធ",
+    "article.breaking": "ព័ត៌មានបន្ទាន់",
+    "article.read_story": "អានអត្ថបទ",
+    "article.updated": "ធ្វើបច្ចុប្បន្នភាព",
+    "article.body_pending": "ខ្លឹមសារពេញលេញនៃអត្ថបទនេះកំពុងរៀបចំចុះផ្សាយ។",
+    "article.km_translating_notice": "ការបកប្រែអត្ថបទពេញលេញជាភាសាខ្មែរកំពុងរៀបចំ — ខាងក្រោមជាអត្ថបទដើមជាភាសាអង់គ្លេស។",
 
     // Quiz
     "quiz.start": "ចាប់ផ្តើមការប្រកួត",
@@ -692,4 +840,64 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
 export function useI18n(): I18nContextType {
   return useContext(I18nContext);
+}
+
+const CATEGORY_KM_MAP: Record<string, string> = {
+  cambodia: "កម្ពុជា",
+  "thailand-cambodia": "ព័ត៌មានថៃអំពីកម្ពុជា",
+  "thai-cambodia": "ព័ត៌មានថៃអំពីកម្ពុជា",
+  asean: "អាស៊ាន",
+  world: "អន្តរជាតិ",
+  technology: "បច្ចេកវិទ្យា",
+  business: "ធុរកិច្ច",
+  science: "វិទ្យាសាស្ត្រ",
+  travel: "ទេសចរណ៍",
+  blockchain: "ប្លុកឆេន",
+  news: "ព័ត៌មាន",
+};
+
+export function localizeCategory(
+  name: string | null | undefined,
+  lang: Language,
+  nameKm?: string | null
+): string {
+  if (lang === "km") {
+    if (nameKm && /[\u1780-\u17FF]/.test(nameKm)) return nameKm;
+    const key = String(name || "").trim().toLowerCase();
+    if (CATEGORY_KM_MAP[key]) return CATEGORY_KM_MAP[key];
+  }
+  return String(name || "").trim();
+}
+
+export function localizeDesk(
+  country: string | undefined | null,
+  lang: Language
+): { code: "KH" | "TH" | "ASEAN" | "WORLD"; label: string; href: string } {
+  const code = (country || "").toUpperCase();
+  if (code === "TH") {
+    return {
+      code: "TH",
+      label: lang === "km" ? "ព័ត៌មានថៃអំពីកម្ពុជា" : "Thai → Cambodia",
+      href: "/news?desk=TH",
+    };
+  }
+  if (code === "ASEAN") {
+    return {
+      code: "ASEAN",
+      label: lang === "km" ? "អាស៊ាន" : "ASEAN",
+      href: "/news?desk=ASEAN",
+    };
+  }
+  if (code === "KH") {
+    return {
+      code: "KH",
+      label: lang === "km" ? "កម្ពុជា" : "Cambodia",
+      href: "/cambodia",
+    };
+  }
+  return {
+    code: "WORLD",
+    label: lang === "km" ? "អន្តរជាតិ" : "World",
+    href: "/world",
+  };
 }

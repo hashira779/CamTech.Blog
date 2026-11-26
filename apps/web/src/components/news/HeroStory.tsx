@@ -5,8 +5,8 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { Article } from "@/types";
 import { cn } from "@/lib/utils";
-import { useI18n } from "@/lib/i18n";
-import { cleanText, formatReadingTime } from "@/lib/format";
+import { localizeCategory, localizeDesk, useI18n } from "@/lib/i18n";
+import { articleHref, cleanText, formatReadingTime, hasKhmerText } from "@/lib/format";
 import { Photo } from "@/components/ui/photo";
 import { Byline } from "@/components/ui/byline";
 import { CategoryMark, categoryKey } from "@/components/ui/category-mark";
@@ -29,22 +29,25 @@ function humanizeLicense(value?: string | null): string {
  * byline — which is what a magazine does when it has no art.
  */
 export function HeroStory({ article }: { article: Article }) {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
 
-  const title = cleanText(lang === "km" && article.title_km ? article.title_km : article.title);
-  const summary = cleanText(lang === "km" && article.summary_km ? article.summary_km : article.summary);
+  const title = cleanText(lang === "km" && hasKhmerText(article.title_km, 3) ? article.title_km : article.title);
+  const summary = cleanText(lang === "km" && hasKhmerText(article.summary_km, 8) ? article.summary_km : article.summary);
   const deck = cleanText(article.subheadline);
   const image = article.hero_image_url || null;
-  const url = article.country === "KH" ? `/cambodia/news/${article.slug}` : `/world/news/${article.slug}`;
+  const url = articleHref(article);
 
-  const sectionName = cleanText(article.category?.name) || (article.country === "KH" ? "Cambodia" : "World");
+  const desk = localizeDesk(article.country, lang);
+  const sectionName =
+    localizeCategory(article.category?.name, lang, article.category?.name_km) || desk.label;
 
   const author = cleanText(article.author?.name);
   const source = cleanText(article.primary_source?.name || article.source_attribution_text)
     .replace(/^(?:source|reported by)\s*:\s*/i, "");
   const sourceUrl = article.primary_source_url || article.primary_source?.website_url || null;
   const date = article.published_at || article.created_at || null;
-  const readingTime = formatReadingTime(article.content);
+  const bodyForTime = lang === "km" && hasKhmerText(article.content_km, 25) ? article.content_km : article.content;
+  const readingTime = formatReadingTime(bodyForTime, lang);
 
   return (
     <article
@@ -57,7 +60,7 @@ export function HeroStory({ article }: { article: Article }) {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           {article.is_breaking && (
             <CategoryMark category="breaking" tone="chip">
-              Breaking
+              {t("article.breaking")}
             </CategoryMark>
           )}
           <CategoryMark
@@ -94,6 +97,7 @@ export function HeroStory({ article }: { article: Article }) {
             readingTime={readingTime}
             views={article.views_count > 0 ? article.views_count : null}
             location={cleanText(article.province_or_city) || null}
+            lang={lang}
             size="md"
           />
 
@@ -101,7 +105,7 @@ export function HeroStory({ article }: { article: Article }) {
             href={url}
             className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-accent transition-colors hover:text-foreground"
           >
-            Read the story
+            {t("article.read_story")}
             <ArrowRight
               size={15}
               className="link-nudge"

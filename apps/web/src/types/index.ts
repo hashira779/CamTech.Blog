@@ -152,43 +152,26 @@ export interface Tool {
   version?: string;
 }
 
+export interface TrendingItemSummary {
+  id: string;
+  title: string;
+  title_km?: string;
+  slug: string;
+  url: string;
+  category: string;
+  country?: string;
+  hero_image_url?: string;
+  trend_score: number;
+  views_count: number;
+  published_at?: string;
+}
+
 export interface TrendingResponse {
-  cambodia: Array<{
-    id: string;
-    title: string;
-    title_km?: string;
-    slug: string;
-    url: string;
-    category: string;
-    hero_image_url?: string;
-    trend_score: number;
-    views_count: number;
-    published_at?: string;
-  }>;
-  world: Array<{
-    id: string;
-    title: string;
-    title_km?: string;
-    slug: string;
-    url: string;
-    category: string;
-    hero_image_url?: string;
-    trend_score: number;
-    views_count: number;
-    published_at?: string;
-  }>;
-  editor_picks: Array<{
-    id: string;
-    title: string;
-    title_km?: string;
-    slug: string;
-    url: string;
-    category: string;
-    hero_image_url?: string;
-    trend_score: number;
-    views_count: number;
-    published_at?: string;
-  }>;
+  cambodia: TrendingItemSummary[];
+  world: TrendingItemSummary[];
+  asean?: TrendingItemSummary[];
+  thai_cambodia?: TrendingItemSummary[];
+  editor_picks: TrendingItemSummary[];
 }
 
 export interface SearchResultItem {

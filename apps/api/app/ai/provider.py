@@ -68,9 +68,13 @@ class LocalAIProvider(BaseAIProvider):
     _CATEGORY_SIGNALS: List[tuple] = [
         ("Cambodia", [
             "cambodia", "cambodian", "phnom penh", "siem reap", "khmer", "angkor",
-            "asean", "mekong", "kratie", "mondulkiri", "ratanakiri", "preah vihear",
-            "sihanouk", "kampong", "kampot", "battambang", "pursat", "bavet",
+            "kratie", "mondulkiri", "ratanakiri", "preah vihear",
+            "sihanouk", "kampong", "kampot", "battambang", "pursat", "bavet", "poipet",
             "bakong", "funan", "hunsen", "hun manet", "soc son", "khmer times",
+        ]),
+        ("ASEAN", [
+            "asean", "southeast asia", "mekong", "rcep", "vietnam", "laos",
+            "indonesia", "malaysia", "philippines", "brunei",
         ]),
         ("Technology", [
             "ai", "artificial intelligence", "software", "tech", "technology", "gadget",
@@ -237,25 +241,34 @@ class GeminiAIProvider(BaseAIProvider):
     AI Gateway so any configured vendor (not just Google) can answer, with automatic fallback.
     Raises when no provider succeeds, letting HybridAIProvider fall back to the local engine.
     """
-    VALID_CATEGORIES = ["Cambodia", "Technology", "World", "Business", "Science", "Travel"]
+    VALID_CATEGORIES = ["Cambodia", "Thailand-Cambodia", "ASEAN", "Technology", "World", "Business", "Science", "Travel"]
 
     async def generate_draft_editorial(self, title: str, source_content: str, source_name: str) -> Dict[str, Any]:
         clean_content = re.sub(r"<[^>]+>", " ", source_content)[:3000]
-        prompt = f"""You are an elite, neutral news editor for Daily Discovery / CamTech.
+        prompt = f"""You are an elite, neutral bilingual (English and Khmer) investigative news editor for Daily Discovery / CamTech.
 A verified source ({source_name}) published the following article:
 Title: {title}
 Content snippet: {clean_content}
 
+Your mission:
+1. Synthesize and rewrite the story from scratch with original editorial prose (do NOT copy verbatim sentences). The original source is solely a factual reference.
+2. Produce a complete, high-quality Khmer version (title_km, summary_km, AND full content_km) with natural Cambodian journalism phrasing and accurate terminology. Never leave content_km empty or in English.
+
 Write a professional editorial draft as JSON with keys:
-- summary: 2-sentence original summary attributing to {source_name}
-- key_points: array of 3-4 factual takeaways
-- why_it_matters: 2-3 sentences of context
-- content: Full, substantive journalistic article body in Markdown (400-600 words, using ## subheadings) providing detailed coverage, background, and significance based strictly on the reported facts and industry context.
+- summary: 2-sentence original English summary attributing to {source_name}
+- title_km: Engaging, formal news headline translated and localized in natural Khmer (ចំណងជើងព័ត៌មានជាភាសាខ្មែរផ្លូវការ)
+- summary_km: 2-3 sentences fluent, idiomatic Khmer news summary explaining the core development clearly (សេចក្តីសង្ខេបព័ត៌មានជាភាសាខ្មែរយ៉ាងច្បាស់លាស់)
+- key_points: array of 3-4 factual takeaways in English
+- why_it_matters: 2-3 sentences of context and significance in English
+- content: Full, substantive journalistic article body in Markdown (400-600 words, using ## subheadings) providing detailed coverage, background, and significance based strictly on reported facts.
+- content_km: Full, substantive journalistic article body in natural, formal Khmer in Markdown (matching the complete depth and ## subheadings of the English article).
 - suggested_tags: array of 3-5 tags
 - seo_title: max 60 chars
 - seo_description: max 155 chars
 Return only valid JSON."""
-        data, meta = await asyncio.to_thread(ai_gateway.generate_json, prompt, use_search=False, timeout=25.0)
+        data, meta = await asyncio.to_thread(
+            ai_gateway.generate_json, prompt, use_search=False, timeout=45.0, max_tokens=6144
+        )
         if not isinstance(data, dict):
             raise RuntimeError(f"No AI provider produced an editorial draft: {(meta or {}).get('details') or (meta or {}).get('error') or 'unparseable response'}")
         data.setdefault("ai_draft_status", "AI_DRAFT_PENDING_EDITOR_REVIEW")

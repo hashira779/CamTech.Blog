@@ -13,8 +13,8 @@ import {
   Route,
   Sparkles,
 } from "lucide-react";
-import { cleanText, formatDate } from "@/lib/format";
-import { useI18n } from "@/lib/i18n";
+import { articleHref, cleanText, formatDate, hasKhmerText } from "@/lib/format";
+import { localizeCategory, localizeDesk, useI18n } from "@/lib/i18n";
 import { Container } from "@/components/ui/container";
 import { Photo } from "@/components/ui/photo";
 import { Reveal } from "@/components/ui/reveal";
@@ -64,11 +64,13 @@ export function HomeClient({ journal, explainers }: HomeClientProps) {
       tone: "green",
     },
     {
-      href: "/cambodia",
+      href: "/news",
       number: "02",
-      tag: isKm ? "ជីវិត" : "Life",
+      tag: isKm ? "ព័ត៌មាន & ជីវិត" : "News & Life",
       title: t("home.pathway_2_title"),
-      note: t("home.pathway_2_note"),
+      note: isKm
+        ? "កម្ពុជា ព័ត៌មានថៃអំពីកម្ពុជា អាស៊ាន និងអន្តរជាតិ។"
+        : "Cambodia, Thai news on Cambodia, ASEAN & World desks.",
       Icon: Newspaper,
       tone: "orange",
     },
@@ -101,7 +103,7 @@ export function HomeClient({ journal, explainers }: HomeClientProps) {
               <Link href="/travel" className="field-button">
                 {t("home.explore_cambodia")} <ArrowUpRight size={17} aria-hidden="true" />
               </Link>
-              <Link href="/cambodia" className="field-button-secondary">
+              <Link href="/news" className="field-button-secondary">
                 {t("home.browse_journal")} <ArrowUpRight size={16} aria-hidden="true" />
               </Link>
             </div>
@@ -221,22 +223,44 @@ export function HomeClient({ journal, explainers }: HomeClientProps) {
                   <p className="field-eyebrow">{t("home.journal_eyebrow")}</p>
                   <h2 id="journal-title">{t("home.journal_title")}</h2>
                 </div>
-                <Link href="/cambodia" className="field-text-link">
+                <Link href="/news" className="field-text-link">
                   {t("home.browse_journal")} <ArrowUpRight size={16} aria-hidden="true" />
                 </Link>
               </div>
             </Reveal>
 
+            <div className="mb-6 flex flex-wrap items-center gap-2">
+              {[
+                { href: "/news", label: t("news.desk_all") },
+                { href: "/cambodia", label: t("news.desk_kh") },
+                { href: "/news?desk=TH", label: t("news.desk_th") },
+                { href: "/news?desk=ASEAN", label: t("news.desk_asean") },
+                { href: "/world", label: t("news.desk_world") },
+              ].map((d) => (
+                <Link
+                  key={d.href}
+                  href={d.href}
+                  className="inline-flex items-center rounded-full border border-border bg-surface px-3.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                >
+                  {d.label}
+                </Link>
+              ))}
+            </div>
+
             <Reveal variant="left">
               <div className="field-journal-list">
                 {journal.map((article) => {
-                  const articleTitle = cleanText(isKm && article.title_km ? article.title_km : article.title);
+                  const articleTitle = cleanText(
+                    isKm && hasKhmerText(article.title_km, 3) ? article.title_km : article.title
+                  );
+                  const desk = localizeDesk(article.country, lang);
+                  const cat = localizeCategory(article.category?.name, lang, article.category?.name_km);
                   return (
-                    <Link
-                      key={article.id}
-                      href={`/${article.country === "KH" ? "cambodia" : "world"}/news/${article.slug}`}
-                    >
-                      <span className="field-eyebrow">{article.category?.name || (isKm ? "ព័ត៌មាន" : "Journal")}</span>
+                    <Link key={article.id} href={articleHref(article)}>
+                      <span className="field-eyebrow">
+                        {desk.label}
+                        {cat && cat !== desk.label ? ` · ${cat}` : ""}
+                      </span>
                       <h3>{articleTitle}</h3>
                       <time dateTime={article.published_at || article.created_at}>
                         {formatDate(article.published_at || article.created_at, "medium", lang)}
@@ -268,8 +292,12 @@ export function HomeClient({ journal, explainers }: HomeClientProps) {
             <div className="field-reading-grid">
               {explainers.map((item, index) => {
                 const localized = item as Discovery & { title_km?: string; intro_km?: string };
-                const itemTitle = cleanText(isKm && localized.title_km ? localized.title_km : item.title);
-                const itemIntro = cleanText(isKm && localized.intro_km ? localized.intro_km : item.intro);
+                const itemTitle = cleanText(
+                  isKm && hasKhmerText(localized.title_km, 3) ? localized.title_km : item.title
+                );
+                const itemIntro = cleanText(
+                  isKm && hasKhmerText(localized.intro_km, 8) ? localized.intro_km : item.intro
+                );
                 return (
                   <Reveal key={item.id} index={index} variant="up" className="min-w-0">
                     <Link className="field-reading-card group" href={`/discover/${item.slug}`}>

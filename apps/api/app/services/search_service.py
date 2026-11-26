@@ -34,7 +34,9 @@ class SearchService:
                     Article.title.ilike(search_pattern),
                     Article.title_km.ilike(search_pattern),
                     Article.summary.ilike(search_pattern),
-                    Article.content.ilike(search_pattern)
+                    Article.summary_km.ilike(search_pattern),
+                    Article.content.ilike(search_pattern),
+                    Article.content_km.ilike(search_pattern),
                 )
             )
             if country:

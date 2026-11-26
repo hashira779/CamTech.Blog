@@ -258,6 +258,17 @@ def auto_publish_ready_drafts(db: Session) -> dict:
                 meta["autopilot_hold_reason"] = verdict.reason
                 article.ai_draft_metadata = json.dumps(meta)
                 db.commit()
+                try:
+                    from app.services.alert_service import log_and_record_alert
+                    log_and_record_alert(
+                        stack="QUALITY_GATE",
+                        title=article.title or "Untitled Draft",
+                        message=f"Publication held: {verdict.reason}",
+                        severity="WARNING",
+                        article_id=article.id
+                    )
+                except Exception:
+                    pass
             continue
         try:
             ArticleService.publish_article(db, article.id, editor_user_id=None)
@@ -269,6 +280,17 @@ def auto_publish_ready_drafts(db: Session) -> dict:
             db.rollback()
             skipped += 1
             logger.warning(f"Auto-publish failed for {article.id}: {exc}")
+            try:
+                from app.services.alert_service import log_and_record_alert
+                log_and_record_alert(
+                    stack="AUTO_PUBLISH",
+                    title=article.title or "Untitled Draft",
+                    message=f"Auto-publish failed: {exc}",
+                    severity="ERROR",
+                    article_id=article.id
+                )
+            except Exception:
+                pass
 
     return {"published": published, "skipped": skipped}
 
@@ -329,13 +351,22 @@ async def redraft_held_drafts(db: Session, drafter) -> dict:
             logger.warning(f"Re-draft failed for {article.id}: {meta['redraft_error']}")
             continue
 
+        from app.services.bilingual_service import ensure_article_khmer_fields, has_khmer_script
+        draft = await ensure_article_khmer_fields(draft, article.title, source_name)
+
         key_points = [str(k).strip() for k in (draft.get("key_points") or []) if str(k).strip()]
         prev_engine = _engine(meta)
         article.summary = summary
+        if draft.get("title_km"):
+            article.title_km = str(draft["title_km"]).strip()[:255]
+        if draft.get("summary_km"):
+            article.summary_km = str(draft["summary_km"]).strip()
         article.key_points = json.dumps(key_points)
         article.why_it_matters = str(draft.get("why_it_matters") or "").strip()
         body_text = draft.get("content") or (summary + "\n\n" + "\n".join(f"- {k}" for k in key_points))
         article.content = sanitize_stored_html(body_text)
+        if draft.get("content_km") and has_khmer_script(str(draft["content_km"]), min_chars=20):
+            article.content_km = sanitize_stored_html(str(draft["content_km"]).strip())
         if draft.get("seo_title"):
             article.seo_title = strip_brand_suffix(str(draft["seo_title"]))[:150]
         if draft.get("seo_description"):

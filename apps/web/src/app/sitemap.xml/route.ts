@@ -21,6 +21,11 @@ export async function GET(request: Request) {
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>${baseUrl}/news</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.95</priority>
+  </url>
+  <url>
     <loc>${baseUrl}/cambodia</loc>
     <changefreq>hourly</changefreq>
     <priority>0.9</priority>

@@ -161,9 +161,12 @@ These topics already exist — do NOT repeat or rephrase them:
 
 Return a JSON array of {count} objects, each with:
 - title: engaging title (max 90 chars)
+- title_km: natural formal Khmer translation of the title
 - category: one of [Science, Technology, Space, AI, How Things Work, Nature]
 - intro: 2-3 sentence hook (max 300 chars)
+- intro_km: natural Khmer translation of the intro
 - main_explanation: 300-500 word clear explanation in Markdown with ## subheadings
+- main_explanation_km: natural formal Khmer Markdown translation of main_explanation
 - important_facts: array of 5 short factual bullets
 - timeline: array of 4-6 objects {{"year": "YYYY", "milestone": "short text"}}
 - visual_sections: array of 3 objects {{"title": str, "description": str (1-2 sentences), "caption": str}}
@@ -176,37 +179,62 @@ Return a JSON array of {count} objects, each with:
         if not data or not model:
             return {"status": "failed", "error": "generation_failed", "generated": 0}
 
+        from app.services.bilingual_service import has_khmer_script, translate_discovery_to_khmer
+
         generated = 0
-        db = SessionLocal()
-        try:
-            for item in data[:count]:
-                if not isinstance(item, dict) or not item.get("title"):
+        for item in data[:count]:
+            if not isinstance(item, dict) or not item.get("title"):
+                continue
+            title = str(item["title"])[:255]
+            intro = str(item.get("intro") or title)[:2000]
+            main_explanation = sanitize_stored_html(str(item.get("main_explanation") or item.get("intro") or ""))[:20000]
+
+            db_check = SessionLocal()
+            try:
+                exists = db_check.query(Discovery).filter(Discovery.title == title).first() is not None
+            finally:
+                db_check.close()
+            if exists:
+                continue
+
+            t_km = str(item.get("title_km") or "").strip()[:255]
+            i_km = str(item.get("intro_km") or "").strip()
+            m_km = str(item.get("main_explanation_km") or "").strip()
+            if not (has_khmer_script(t_km, 3) and has_khmer_script(i_km, 10) and has_khmer_script(m_km, 25)):
+                kh = await translate_discovery_to_khmer(title, intro, main_explanation)
+                if kh:
+                    t_km = kh.get("title_km", t_km)
+                    i_km = kh.get("intro_km", i_km)
+                    m_km = kh.get("main_explanation_km", m_km)
+
+            hero_url, hero_credit, hero_alt = await self._find_image(title, category="science")
+            visual_sections = []
+            for sec in (item.get("visual_sections") or [])[:3]:
+                if not isinstance(sec, dict):
                     continue
-                title = str(item["title"])[:255]
-                if db.query(Discovery).filter(Discovery.title == title).first():
-                    continue
-                hero_url, hero_credit, hero_alt = await self._find_image(title, category="science")
-                visual_sections = []
-                for sec in (item.get("visual_sections") or [])[:3]:
-                    if not isinstance(sec, dict):
-                        continue
-                    sec_title = str(sec.get("title") or "")[:200]
-                    img_url, _, _ = await self._find_image(sec_title or title, category="science")
-                    visual_sections.append({
-                        "title": sec_title,
-                        "description": str(sec.get("description") or "")[:600],
-                        "caption": str(sec.get("caption") or "")[:300],
-                        "image_url": img_url,
-                    })
+                sec_title = str(sec.get("title") or "")[:200]
+                img_url, _, _ = await self._find_image(sec_title or title, category="science")
+                visual_sections.append({
+                    "title": sec_title,
+                    "description": str(sec.get("description") or "")[:600],
+                    "caption": str(sec.get("caption") or "")[:300],
+                    "image_url": img_url,
+                })
+
+            db = SessionLocal()
+            try:
                 disc = Discovery(
                     slug=f"{_slugify(title)}-{uuid.uuid4().hex[:6]}",
                     title=title,
+                    title_km=t_km if has_khmer_script(t_km, 3) else None,
                     hero_image_url=hero_url or "",
                     hero_image_credit=hero_credit,
                     hero_image_alt=hero_alt or title[:255],
                     category=str(item.get("category") or "Science")[:100],
-                    intro=str(item.get("intro") or title)[:2000],
-                    main_explanation=sanitize_stored_html(str(item.get("main_explanation") or item.get("intro") or ""))[:20000],
+                    intro=intro,
+                    intro_km=i_km if has_khmer_script(i_km, 10) else None,
+                    main_explanation=main_explanation,
+                    main_explanation_km=sanitize_stored_html(m_km) if has_khmer_script(m_km, 25) else None,
                     visual_sections=json.dumps(visual_sections),
                     important_facts=json.dumps([str(f) for f in (item.get("important_facts") or [])][:8]),
                     timeline=json.dumps([t for t in (item.get("timeline") or []) if isinstance(t, dict)][:8]),
@@ -219,11 +247,11 @@ Return a JSON array of {count} objects, each with:
                 db.commit()
                 self._audit(db, "AI_GENERATE", "DISCOVERY", disc.id, f"Drafted by {model}")
                 generated += 1
-        except Exception as e:
-            logger.error(f"[AIContent] discovery save failed: {e}")
-            db.rollback()
-        finally:
-            db.close()
+            except Exception as e:
+                logger.error(f"[AIContent] discovery save failed: {e}")
+                db.rollback()
+            finally:
+                db.close()
         return {"status": "success", "generated": generated, "engine": model}
 
     # ------------------------------------------------------------------ #

@@ -75,6 +75,8 @@ export interface ApiArticle {
   title_km?: string;
   slug: string;
   summary: string;
+  summary_km?: string;
+  content_km?: string;
   status: string;
   country: string;
   category_id?: string;

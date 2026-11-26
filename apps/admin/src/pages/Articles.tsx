@@ -100,9 +100,10 @@ export default function Articles() {
   const [loading, setLoading] = useState(true);
   const [filterTab, setFilterTab] = useState<FilterTab>(initialFilterTab);
   const [verdicts, setVerdicts] = useState<Record<string, AutopilotVerdict>>({});
-  const [countryFilter, setCountryFilter] = useState<'ALL' | 'KH' | 'WORLD'>('ALL');
+  const [countryFilter, setCountryFilter] = useState<'ALL' | 'KH' | 'TH' | 'ASEAN' | 'WORLD'>('ALL');
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [translatingMissing, setTranslatingMissing] = useState(false);
   const [enhancingImages, setEnhancingImages] = useState(false);
   const [syncingFeeds, setSyncingFeeds] = useState(false);
   const [publishingAll, setPublishingAll] = useState(false);
@@ -213,14 +214,25 @@ export default function Articles() {
     };
   }, []);
 
-  const handleScanNews = async (target: 'cambodia' | 'world' | 'all') => {
+  const handleScanNews = async (target: 'cambodia' | 'thailand-cambodia' | 'asean' | 'world' | 'all') => {
     setAiGenerating(true);
     setScanMenuOpen(false);
-    const label = target === 'cambodia' ? 'Cambodia News' : target === 'world' ? 'World News' : 'All Sections (News + Discoveries)';
-    toastInfo(`AI scanning and generating fresh ${label} with 1600px HD images...`, 'AI News Scanner');
+    const labelMap: Record<typeof target, string> = {
+      cambodia: 'Cambodia News',
+      'thailand-cambodia': 'Thai News on Cambodia',
+      asean: 'ASEAN Regional News',
+      world: 'World News',
+      all: 'All Sections (Cambodia, Thai Watch, ASEAN, World + Discoveries)',
+    };
+    const label = labelMap[target];
+    toastInfo(`AI scanning and generating bilingual ${label} with HD images...`, 'AI News Scanner');
     try {
       if (target === 'cambodia') {
         await api.post('/admin/ai/scan/cambodia-news?count=3');
+      } else if (target === 'thailand-cambodia') {
+        await api.post('/admin/ai/scan/thailand-cambodia?count=3');
+      } else if (target === 'asean') {
+        await api.post('/admin/ai/scan/asean-news?count=3');
       } else if (target === 'world') {
         await api.post('/admin/ai/scan/world-news?count=3');
       } else {
@@ -233,6 +245,42 @@ export default function Articles() {
       toastError(err.response?.data?.detail || `Failed to scan ${label}.`);
     } finally {
       setAiGenerating(false);
+    }
+  };
+
+  const handleTranslateMissing = async () => {
+    setTranslatingMissing(true);
+    setScanMenuOpen(false);
+    toastInfo('Backfilling missing Khmer headlines, summaries, and full bodies...', 'Khmer Translation Backfill');
+    try {
+      const res = await api.post<{ articles_translated: number; discoveries_translated: number }>(
+        '/admin/ai/translate-missing?article_limit=10&discovery_limit=4'
+      );
+      await fetchArticles();
+      toastSuccess(
+        `Translated ${res.data.articles_translated || 0} article(s) and ${res.data.discoveries_translated || 0} discovery explainer(s) into Khmer.`,
+        'Translation Complete'
+      );
+    } catch (err: any) {
+      toastError(err.response?.data?.detail || 'Failed to run Khmer translation backfill.');
+    } finally {
+      setTranslatingMissing(false);
+    }
+  };
+
+  const handleSeedFeeds = async () => {
+    setSyncingFeeds(true);
+    setScanMenuOpen(false);
+    try {
+      const res = await api.post<{ added: number; existing: number; total: number }>('/admin/sources/seed-recommended');
+      toastSuccess(
+        `Recommended feeds checked: ${res.data.added} added, ${res.data.existing} already active (${res.data.total} total).`,
+        'Feed Registry Ready'
+      );
+    } catch (err: any) {
+      toastError(err.response?.data?.detail || 'Failed to seed recommended RSS feeds.');
+    } finally {
+      setSyncingFeeds(false);
     }
   };
 
@@ -444,22 +492,24 @@ export default function Articles() {
           <div className="relative">
             <button
               onClick={() => setScanMenuOpen(!scanMenuOpen)}
-              disabled={aiGenerating || syncingFeeds || enhancingImages}
+              disabled={aiGenerating || syncingFeeds || enhancingImages || translatingMissing}
               className="flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/80 font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50 cursor-pointer"
             >
-              {aiGenerating || syncingFeeds || enhancingImages ? (
+              {aiGenerating || syncingFeeds || enhancingImages || translatingMissing ? (
                 <RefreshCw size={13} className="animate-spin text-emerald-400" />
               ) : (
                 <Sparkles size={13} className="text-emerald-400" />
               )}
               <span>
-                {syncingFeeds
-                  ? 'Syncing Feeds...'
-                  : enhancingImages
-                    ? 'Enhancing Photos...'
-                    : aiGenerating
-                      ? 'AI Scanning...'
-                      : 'AI & Feeds'}
+                {translatingMissing
+                  ? 'Translating KM...'
+                  : syncingFeeds
+                    ? 'Syncing Feeds...'
+                    : enhancingImages
+                      ? 'Enhancing Photos...'
+                      : aiGenerating
+                        ? 'AI Scanning...'
+                        : 'AI & Feeds'}
               </span>
               <ChevronDown size={12} className={scanMenuOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
             </button>
@@ -467,9 +517,9 @@ export default function Articles() {
             {scanMenuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setScanMenuOpen(false)} />
-                <div className="absolute right-0 mt-1.5 w-72 rounded-xl bg-zinc-900 border border-zinc-800 shadow-2xl py-1.5 z-50">
+                <div className="absolute right-0 mt-1.5 w-76 rounded-xl bg-zinc-900 border border-zinc-800 shadow-2xl py-1.5 z-50">
                   <div className="px-3 py-1.5 border-b border-zinc-800/80 text-[10px] font-mono uppercase text-zinc-500 font-semibold">
-                    Feeds &amp; Media Tools
+                    Feeds, Media &amp; Khmer Translation
                   </div>
                   <button
                     onClick={() => {
@@ -482,7 +532,29 @@ export default function Articles() {
                     <Rss size={15} className="text-amber-400 shrink-0" />
                     <div>
                       <div className="font-medium text-zinc-100">Sync Wire RSS Feeds</div>
-                      <div className="text-[10px] text-zinc-400">Pull verified Cambodia &amp; regional publishers</div>
+                      <div className="text-[10px] text-zinc-400">Pull Cambodia, Thai Watch, ASEAN &amp; World RSS</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={handleTranslateMissing}
+                    disabled={translatingMissing}
+                    className="w-full text-left px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    <Sparkles size={15} className="text-cyan-400 shrink-0" />
+                    <div>
+                      <div className="font-medium text-zinc-100">Translate Missing Khmer</div>
+                      <div className="text-[10px] text-zinc-400">Backfill Khmer bodies on published &amp; draft posts</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={handleSeedFeeds}
+                    disabled={syncingFeeds}
+                    className="w-full text-left px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    <Globe size={15} className="text-zinc-400 shrink-0" />
+                    <div>
+                      <div className="font-medium text-zinc-100">Seed Recommended RSS Feeds</div>
+                      <div className="text-[10px] text-zinc-400">Register Bangkok Post/Khaosod KH, ASEAN, World wires</div>
                     </div>
                   </button>
                   <button
@@ -502,7 +574,7 @@ export default function Articles() {
 
                   <div className="my-1 border-t border-zinc-800/80" />
                   <div className="px-3 py-1 text-[10px] font-mono uppercase text-zinc-500 font-semibold">
-                    AI Draft Generators
+                    AI Desk Scanners
                   </div>
                   <button
                     onClick={() => handleScanNews('cambodia')}
@@ -511,7 +583,27 @@ export default function Articles() {
                     <FlagKH />
                     <div>
                       <div className="font-medium text-zinc-100">Scan Cambodia News</div>
-                      <div className="text-[10px] text-zinc-400">Local tech, Bakong fintech, telecom &amp; startups</div>
+                      <div className="text-[10px] text-zinc-400">Local tech, Bakong fintech, economy &amp; policy</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleScanNews('thailand-cambodia')}
+                    className="w-full text-left px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors"
+                  >
+                    <FlagTH />
+                    <div>
+                      <div className="font-medium text-zinc-100">Scan Thai News on Cambodia</div>
+                      <div className="text-[10px] text-zinc-400">Bangkok Post, Nation, Khaosod mentioning Cambodia</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleScanNews('asean')}
+                    className="w-full text-left px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors"
+                  >
+                    <Globe size={15} className="text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="font-medium text-zinc-100">Scan ASEAN Regional News</div>
+                      <div className="text-[10px] text-zinc-400">Mekong trade, RCEP, SEA digital corridors</div>
                     </div>
                   </button>
                   <button
@@ -611,15 +703,14 @@ export default function Articles() {
           </div>
           <select 
             value={countryFilter}
-            onChange={(e: any) => setCountryFilter(e.target.value)}
+            onChange={(e) => setCountryFilter(e.target.value as 'ALL' | 'KH' | 'TH' | 'ASEAN' | 'WORLD')}
             className="bg-zinc-950/80 border border-zinc-800 text-zinc-300 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-zinc-700 cursor-pointer shrink-0"
           >
-            <option value="ALL">All Regions</option>
+            <option value="ALL">All Desks</option>
             <option value="KH">Cambodia (KH)</option>
-            <option value="TH">Thailand (TH)</option>
-            <option value="VN">Vietnam (VN)</option>
-            <option value="CN">China & HK (CN)</option>
-            <option value="WORLD">World</option>
+            <option value="TH">Thai News on Cambodia (TH)</option>
+            <option value="ASEAN">ASEAN Regional (ASEAN)</option>
+            <option value="WORLD">World / Foreign (WORLD)</option>
           </select>
         </div>
       </div>
@@ -681,15 +772,26 @@ export default function Articles() {
                           <div className="font-medium text-zinc-200 group-hover:text-white transition-colors line-clamp-1 max-w-lg">
                             {article.title}
                           </div>
-                          {article.title_km ? (
-                            <div className="text-[11px] text-zinc-500 line-clamp-1 mt-0.5 font-sans">
-                              {article.title_km}
-                            </div>
-                          ) : (
-                            <div className="text-[10px] text-zinc-500 font-mono mt-0.5 truncate max-w-md">
-                              /{article.slug}
-                            </div>
-                          )}
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {article.title_km ? (
+                              <span className="text-[11px] text-zinc-500 line-clamp-1 font-sans">
+                                {article.title_km}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-zinc-500 font-mono truncate max-w-md">
+                                /{article.slug}
+                              </span>
+                            )}
+                            <span
+                              className={`shrink-0 px-1.5 py-0.2 rounded text-[9px] font-mono border ${
+                                article.content_km && /[\u1780-\u17FF]/.test(article.content_km)
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                  : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                              }`}
+                            >
+                              {article.content_km && /[\u1780-\u17FF]/.test(article.content_km) ? 'KM OK' : 'KM Missing'}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -697,9 +799,13 @@ export default function Articles() {
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-medium border ${
                         article.country === 'KH'
                           ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                          : 'bg-zinc-800 text-zinc-400 border-zinc-700/60'
+                          : article.country === 'TH'
+                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                            : article.country === 'ASEAN'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              : 'bg-zinc-800 text-zinc-400 border-zinc-700/60'
                       }`}>
-                        {article.country || 'GLOBAL'}
+                        {article.country || 'WORLD'}
                       </span>
                     </td>
                     <td className="py-3.5 px-4">
@@ -797,7 +903,7 @@ export default function Articles() {
                           </button>
                         )}
                         <a
-                          href={`https://blog.camtech.cam/${article.country === 'KH' ? 'cambodia' : 'world'}/news/${article.slug}`}
+                          href={`https://camtech.cam/${article.country === 'KH' ? 'cambodia' : 'world'}/news/${article.slug}`}
                           target="_blank"
                           rel="noreferrer"
                           className="p-1.5 text-zinc-400 hover:text-white rounded-md hover:bg-zinc-800 transition-colors"
@@ -864,7 +970,9 @@ export default function Articles() {
                     className="w-full bg-zinc-950 border border-zinc-800 rounded-lg py-2 px-3 text-xs text-zinc-200 focus:outline-none focus:border-zinc-600"
                   >
                     <option value="KH">Cambodia (KH)</option>
-                    <option value="WORLD">World</option>
+                    <option value="TH">Thai News on Cambodia (TH)</option>
+                    <option value="ASEAN">ASEAN &amp; Region</option>
+                    <option value="WORLD">World / Foreign</option>
                   </select>
                 </div>
                 <div>
@@ -988,7 +1096,19 @@ export default function Articles() {
                     }`}
                   >
                     <FlagTH />
-                    <span>Thailand</span>
+                    <span>Thai → Cambodia</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTopicRegion('ASEAN')}
+                    className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-2 transition-all ${
+                      topicRegion === 'ASEAN' 
+                        ? 'bg-purple-600/15 border-purple-500/40 text-purple-300' 
+                        : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <Globe size={14} className="text-emerald-400" />
+                    <span>ASEAN</span>
                   </button>
                   <button
                     type="button"

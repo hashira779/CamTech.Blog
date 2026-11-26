@@ -31,10 +31,11 @@ import { cleanText } from "@/lib/format";
  * category hues as the rest of the site.
  */
 const QUICK_LINKS: { href: string; key: string; Icon: typeof Compass }[] = [
-  { href: "/cv-builder", key: "nav.cv_builder", Icon: FileText },
+  { href: "/news", key: "nav.news", Icon: FileText },
+  { href: "/news?desk=TH", key: "nav.thailand_cambodia", Icon: FileText },
   { href: "/travel", key: "nav.travel", Icon: Compass },
-  { href: "/tools", key: "nav.tools", Icon: Wrench },
   { href: "/discover", key: "nav.discover", Icon: Sparkles },
+  { href: "/tools", key: "nav.tools", Icon: Wrench },
 ];
 
 function iconFor(type: string) {
@@ -225,23 +226,23 @@ export function SuperSearch() {
               {loading && (
                 <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
                   <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-                  Searching…
+                  {t("search.searching")}
                 </div>
               )}
 
               {!loading && query.length > 0 && query.trim().length < 2 && (
                 <p className="py-10 text-center text-sm text-muted-foreground">
-                  Type at least two characters.
+                  {t("search.type_more")}
                 </p>
               )}
 
               {!loading && query.trim().length >= 2 && results.length === 0 && (
                 <div className="px-4 py-12 text-center">
                   <p className="font-display text-base text-foreground">
-                    Nothing found for “{query.trim()}”
+                    {t("search.nothing_found")} — “{query.trim()}”
                   </p>
                   <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-muted-foreground">
-                    Try a place name, a topic, or the source you read it on.
+                    {t("search.try_different")}
                   </p>
                 </div>
               )}

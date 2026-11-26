@@ -68,6 +68,30 @@ CATEGORY_PROMPTS = {
         ),
         "articles_per_run": 3,
     },
+    "thailand-cambodia": {
+        "scope": "CAMBODIA",
+        "country": "TH",
+        "prompt": (
+            "You are a neutral Southeast Asia cross-border affairs correspondent tracking Thai news reporting specifically about Cambodia. "
+            "Search for today's verified news from credible Thai publications (Bangkok Post, The Nation Thailand, Khaosod English, Thai PBS World) "
+            "that specifically report on Cambodia — including Thai-Cambodia border crossings and trade, Cambodian workers in Thailand, bilateral agreements, "
+            "joint infrastructure, air pollution/environment, energy/maritime talks, or tourism between Thailand and Cambodia. "
+            "Maintain strict neutrality, verify dates, and clearly cite the originating Thai publication and article URL. "
+            "Write {count} distinct, factual, balanced news articles about DIFFERENT Thai news stories involving Cambodia."
+        ),
+        "articles_per_run": 2,
+    },
+    "asean": {
+        "scope": "WORLD",
+        "country": "ASEAN",
+        "prompt": (
+            "You are an ASEAN regional affairs correspondent focusing on Southeast Asian developments that matter to Cambodia. "
+            "Search across CNA, Nikkei Asia, VnExpress International, Laotian Times, Jakarta Post, Reuters Asia, and The Diplomat for verified ASEAN news "
+            "(RCEP trade, ASEAN digital QR payments, Mekong infrastructure, regional supply chains, EV/semiconductor investments, Vietnam/Laos/Singapore/Indonesia/Malaysia policy). "
+            "Write {count} distinct, professional news articles about DIFFERENT ASEAN stories with verified source URLs."
+        ),
+        "articles_per_run": 2,
+    },
     "world": {
         "scope": "WORLD",
         "country": "WORLD",
@@ -214,8 +238,11 @@ CRITICAL RULES:
 
 Return a JSON array of {articles_count} article objects. Each object must have:
 - title: Compelling headline (50-100 chars)
+- title_km: Accurate, formal Khmer translation of the headline
 - summary: 1-2 sentence summary (100-200 chars)
+- summary_km: Fluent 2-sentence Khmer summary
 - content: Full article body in Markdown (400-600 words, with ## subheadings)
+- content_km: Complete Khmer Markdown translation of the full article body with ## subheadings
 - source_url: A relevant source URL for attribution
 - source_name: Name of the source publication
 - tags: Array of 3-5 relevant tags
@@ -225,7 +252,7 @@ Return a JSON array of {articles_count} article objects. Each object must have:
         # Generate via the pluggable gateway: tries every enabled provider in fallback order,
         # uses web-grounded research when the provider supports it, and extracts JSON from text.
         data, meta = await asyncio.to_thread(
-            ai_gateway.generate_json, prompt, use_search=True, timeout=90.0
+            ai_gateway.generate_json, prompt, use_search=True, timeout=90.0, max_tokens=8192
         )
         if data is None:
             details = (meta or {}).get("details", [])
@@ -242,54 +269,52 @@ Return a JSON array of {articles_count} article objects. Each object must have:
         saved = []
         skipped = []
 
-        db = SessionLocal()
-        try:
-            for data in articles_data:
-                title = data.get("title", "").strip()
-                if not title:
-                    continue
+        from app.services.bilingual_service import ensure_article_khmer_fields, has_khmer_script
 
-                # Deduplication check
-                # `source_url` is whatever the model returned, and it lands in an `href` a reader
-                # clicks. Anything a browser would not navigate to safely falls back to the
-                # generator's own attribution default rather than being stored.
-                source_url = safe_link(data.get("source_url"), allow_relative=False) or "https://news.google.com"
-                dupes = detect_duplicates(title, source_url, existing_titles, similarity_threshold=0.55)
-                if dupes:
-                    skipped.append({"title": title, "reason": f"Duplicate of: {dupes[0]['title']}"})
-                    logger.info(f"[AINews:{category_slug}] Skipped duplicate: {title}")
-                    continue
+        for item in articles_data:
+            title = str(item.get("title") or "").strip()
+            if not title:
+                continue
 
-                # Generate unique slug
-                base_slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')[:80]
-                slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
+            source_url = safe_link(item.get("source_url"), allow_relative=False) or "https://news.google.com"
+            dupes = detect_duplicates(title, source_url, existing_titles, similarity_threshold=0.55)
+            if dupes:
+                skipped.append({"title": title, "reason": f"Duplicate of: {dupes[0]['title']}"})
+                logger.info(f"[AINews:{category_slug}] Skipped duplicate: {title}")
+                continue
 
-                # Discover high-resolution, relevant imagery for this news story
-                hero_img_url, hero_img_credit, hero_img_alt = await image_search_service.search_news_image(
-                    title=title,
-                    category=category_slug,
-                    country=country,
-                    tags=data.get("tags", [])
-                )
+            item = await ensure_article_khmer_fields(item, title, str(item.get("source_name") or ""))
 
-                # File on the desk the story is actually about. The per-category constant
-                # put every "technology" piece on WORLD even when it was about Bakong, and
-                # every "cambodia" piece on KH even when the model wrote about Ukraine.
-                from app.services.filing import resolve_country
-                story_country = resolve_country(
-                    category_slug if category_slug == "cambodia" else None,
-                    country,
-                    title,
-                    data.get("content", ""),
-                    data.get("summary", ""),
-                )
-                if category_slug == "cambodia" and story_country != "KH":
-                    # Category and desk must agree or the quality gate holds the draft.
-                    story_country = "KH"
+            # Discover high-resolution, relevant imagery outside the DB commit lock
+            hero_img_url, hero_img_credit, hero_img_alt = await image_search_service.search_news_image(
+                title=title,
+                category=category_slug,
+                country=country,
+                tags=item.get("tags", [])
+            )
 
-                # Try to link to a registered publisher source
+            base_slug = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')[:80]
+            slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
+
+            from app.services.filing import resolve_country
+            source_name_val = str(item.get("source_name") or "")
+            explicit_hint = category_slug if category_slug in ("cambodia", "thailand-cambodia", "asean") else None
+            story_country = resolve_country(
+                explicit_hint,
+                country,
+                title,
+                item.get("content", ""),
+                item.get("summary", ""),
+                source_name=source_name_val,
+            )
+            if category_slug == "cambodia" and story_country not in ("KH", "TH"):
+                story_country = "KH"
+            elif category_slug == "thailand-cambodia":
+                story_country = "TH"
+
+            db = SessionLocal()
+            try:
                 matched_source_id = None
-                source_name_val = data.get("source_name", "")
                 if source_name_val:
                     from app.models.source import Source
                     m_src = db.query(Source).filter(Source.name.ilike(f"%{source_name_val}%")).first()
@@ -298,13 +323,18 @@ Return a JSON array of {articles_count} article objects. Each object must have:
 
                 new_article = Article(
                     title=title,
+                    title_km=str(item["title_km"]).strip()[:255] if has_khmer_script(item.get("title_km"), 3) else None,
                     slug=slug,
-                    summary=data.get("summary", title),
-                    content=sanitize_stored_html(data.get("content", "")),
+                    summary=item.get("summary", title),
+                    summary_km=str(item["summary_km"]).strip() if has_khmer_script(item.get("summary_km"), 10) else None,
+                    content=sanitize_stored_html(item.get("content", "")),
+                    content_km=sanitize_stored_html(str(item["content_km"]).strip()) if has_khmer_script(item.get("content_km"), 25) else None,
+                    key_points=json.dumps(item.get("key_points", [])) if item.get("key_points") else None,
+                    why_it_matters=str(item.get("why_it_matters") or "").strip() or None,
                     country=story_country,
                     primary_source_id=matched_source_id,
                     primary_source_url=source_url,
-                    source_attribution_text=data.get("source_name", "AI Research via Google Search"),
+                    source_attribution_text=source_name_val or "AI Research via Google Search",
                     hero_image_url=hero_img_url,
                     hero_image_credit=hero_img_credit,
                     hero_image_alt=hero_img_alt,
@@ -313,38 +343,33 @@ Return a JSON array of {articles_count} article objects. Each object must have:
                     author_id=author_id,
                     status="AI_DRAFT",  # Goes to editorial review, NOT directly published
                     language="en",
-                    seo_title=strip_brand_suffix(data.get("seo_title")),
-                    seo_description=data.get("seo_description"),
+                    seo_title=strip_brand_suffix(item.get("seo_title")),
+                    seo_description=item.get("seo_description"),
                     ai_draft_metadata=json.dumps({
                         "generator": engine,
                         "category": category_slug,
                         "generated_at": datetime.now(timezone.utc).isoformat(),
-                        "tags": data.get("tags", []),
+                        "tags": item.get("tags", []),
                     }),
                 )
                 db.add(new_article)
+                db.commit()
                 saved.append({"title": title, "slug": slug})
-
-                # Add to existing titles for intra-batch dedup
                 existing_titles.append({"id": new_article.id, "title": title, "url": source_url})
+            except Exception as e:
+                db.rollback()
+                logger.error(f"[AINews:{category_slug}] DB error saving '{title}': {e}")
+            finally:
+                db.close()
 
-            db.commit()
-
-            return {
-                "status": "success",
-                "category": category_slug,
-                "saved": len(saved),
-                "skipped": len(skipped),
-                "articles": saved,
-                "skipped_details": skipped,
-            }
-
-        except Exception as e:
-            db.rollback()
-            logger.error(f"[AINews:{category_slug}] DB error: {e}")
-            return {"status": "failed", "error": str(e)}
-        finally:
-            db.close()
+        return {
+            "status": "success",
+            "category": category_slug,
+            "saved": len(saved),
+            "skipped": len(skipped),
+            "articles": saved,
+            "skipped_details": skipped,
+        }
 
     async def generate_and_publish_news(self, category_id: str, author_id: str) -> dict:
         """

@@ -18,4 +18,6 @@ class TrendingItem(BaseModel):
 class TrendingResponse(BaseModel):
     cambodia: List[TrendingItem]
     world: List[TrendingItem]
+    asean: List[TrendingItem] = []
+    thai_cambodia: List[TrendingItem] = []
     editor_picks: List[TrendingItem]

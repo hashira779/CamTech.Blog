@@ -11,7 +11,8 @@ import { NewsCard } from "@/components/shared/news-card";
 import { Reveal } from "@/components/ui/reveal";
 import { SectionHeader } from "@/components/ui/section-header";
 import { cleanText, formatCount } from "@/lib/format";
-import { useI18n } from "@/lib/i18n";
+import { localizeCategory, useI18n } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 import type { Article, TrendingResponse } from "@/types";
 
 type RailItem = TrendingResponse["cambodia"][number];
@@ -114,6 +115,35 @@ export function SectionFrontClient({
         }
       />
 
+      <Container className="pt-5">
+        <nav
+          aria-label={t("news.switch_desk")}
+          className="flex flex-wrap items-center gap-2 border-b border-border pb-4"
+        >
+          {[
+            { href: "/news", label: t("news.desk_all"), active: false },
+            { href: "/cambodia", label: t("news.desk_kh"), active: country === "KH" },
+            { href: "/news?desk=TH", label: t("news.desk_th"), active: false },
+            { href: "/news?desk=ASEAN", label: t("news.desk_asean"), active: false },
+            { href: "/world", label: t("news.desk_world"), active: country === "WORLD" },
+          ].map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              aria-current={link.active ? "page" : undefined}
+              className={cn(
+                "pressable inline-flex items-center rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors",
+                link.active
+                  ? "border-accent bg-accent text-accent-foreground"
+                  : "border-border bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground"
+              )}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+      </Container>
+
       {items.length === 0 ? (
         <Section>
           <Container>
@@ -211,7 +241,8 @@ export function SectionFrontClient({
 
 function RailRow({ item, rank, storyBase, lang }: { item: RailItem; rank: number; storyBase: string; lang: string }) {
   const href = item.url || `${storyBase}/${item.slug}`;
-  const title = cleanText(lang === "km" && item.title_km ? item.title_km : item.title);
+  const uiLang = lang === "km" ? "km" : "en";
+  const title = cleanText(uiLang === "km" && item.title_km ? item.title_km : item.title);
 
   return (
     <li>
@@ -220,7 +251,9 @@ function RailRow({ item, rank, storyBase, lang }: { item: RailItem; rank: number
           {String(rank).padStart(2, "0")}
         </span>
         <span className="min-w-0 flex-1">
-          <CategoryMark category={categoryKey(item.category)}>{item.category}</CategoryMark>
+          <CategoryMark category={categoryKey(item.category)}>
+            {localizeCategory(item.category, uiLang)}
+          </CategoryMark>
           <span className="mt-1.5 block text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-accent">
             {title}
           </span>

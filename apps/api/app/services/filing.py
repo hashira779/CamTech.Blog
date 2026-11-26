@@ -2,25 +2,43 @@
 
 Two questions kept coming back wrong because each pipeline answered them its own way:
 
-1. Which desk does this story belong to? The RSS worker copied the *publisher's* country,
-   so a Khmer Times report on the US election landed on the Cambodia page, and the AI news
-   generator ignored the publisher entirely and used a per-category constant, so a story
-   about the Bakong payments system filed under "technology" became WORLD news.
+1. Which desk does this story belong to? The site organises news across four clean desks:
+   - KH: Domestic / national Cambodia reporting.
+   - TH: Thai media & cross-border Thailand reporting specifically about Cambodia
+         (e.g. Bangkok Post, Nation Thailand, Khaosod, Thai PBS covering Cambodia).
+   - ASEAN: Southeast Asian regional developments affecting Cambodia.
+   - WORLD: Global news and international technology/markets.
 
 2. May this photograph be shown? See ``hero_provenance_ok``.
-
-The rule for (1) is about the story, not the outlet: Cambodia desk when the text names
-Cambodia or a Cambodian province, World desk otherwise.
 """
 import re
 from typing import Optional, Tuple
 
-# Country codes the site can file a story under. Anything else is world news.
+# Cambodia markers — strictly Cambodian places, institutions, leaders, and media.
 KH_MARKERS = [
-    "cambodia", "cambodian", "khmer", "phnom penh", "siem reap", "angkor", "asean",
-    "mekong", "kratie", "mondulkiri", "ratanakiri", "preah vihear", "sihanouk",
-    "kampong", "kampot", "battambang", "pursat", "bavet", "kep province", "koh kong",
-    "stung treng", "oddar meanchey", "takmao", "bokor", "phnom",
+    "cambodia", "cambodian", "khmer", "phnom penh", "siem reap", "angkor",
+    "kratie", "mondulkiri", "ratanakiri", "preah vihear", "sihanouk",
+    "kampong", "kampot", "battambang", "pursat", "bavet", "poipet", "kep province",
+    "koh kong", "stung treng", "oddar meanchey", "banteay meanchey", "takmao",
+    "bokor", "bakong", "funan", "hun manet", "khmer times", "phnom penh post",
+    "kiripost", "camboja",
+]
+
+TH_OUTLET_MARKERS = [
+    "bangkok post", "nation thailand", "the nation thailand", "khaosod",
+    "thai pbs", "thaipbs", "matichon", "thairath", "the thaiger", "thaiger",
+]
+
+TH_CONTEXT_MARKERS = [
+    "thailand", "thai ", "bangkok", "aranyaprathet", "sa kaeo", "surin",
+    "si sa ket", "koh kood", "promptpay", "thai-cambodia", "cambodia-thailand",
+    "thailand-cambodia", "thai border", "thai cabinet", "thai government",
+]
+
+ASEAN_MARKERS = [
+    "asean", "southeast asia", "mekong", "rcep", "vietnam", "hanoi", "ho chi minh",
+    "laos", "vientiane", "singapore", "malaysia", "kuala lumpur", "indonesia",
+    "jakarta", "philippines", "manila", "brunei", "myanmar", "channel newsasia",
 ]
 
 # Stock hosts that can never illustrate a specific news story.
@@ -30,12 +48,10 @@ STOCK_IMAGE_HOSTS = ["images.unsplash.com", "unsplash.com", "placehold.co", "via
 _WIKIMEDIA_HOSTS = ("wikimedia.org", "wikipedia.org")
 _CREDIT_OK_ON_WIKIMEDIA = ("wikimedia", "wikipedia", "image:")
 
-# Category slugs that belong on the Cambodia desk regardless of what the text says.
 CAMBODIA_CATEGORY_SLUGS = {"cambodia", "phnom-penh", "khmer-news"}
+TH_CAMBODIA_CATEGORY_SLUGS = {"thailand-cambodia", "thai-cambodia", "thai-news-cambodia"}
+ASEAN_CATEGORY_SLUGS = {"asean", "southeast-asia", "regional"}
 
-# The site brand belongs to the metadata template, never to a stored title. Older AI
-# drafts wrote "Story | Daily Discovery" into seo_title, so the browser tab read the
-# brand twice once the template appended the current name.
 _BRAND_SUFFIX = re.compile(
     r"\s*[|\-–—]\s*(?:daily discovery|camtech blog|camtech\.blog)(?: travel)?\s*$", re.I
 )
@@ -61,23 +77,53 @@ def mentions_cambodia(*texts) -> bool:
     return any(marker in blob for marker in KH_MARKERS)
 
 
+def mentions_thai_cambodia(*texts, source_name: Optional[str] = None, source_country: Optional[str] = None) -> bool:
+    """True when reporting is from a Thai outlet about Cambodia or covers bilateral Thailand-Cambodia affairs."""
+    blob = _norm(" ".join(str(t or "") for t in texts))
+    src_blob = _norm(source_name)
+    is_thai_source = _norm(source_country) == "th" or any(m in src_blob or m in blob for m in TH_OUTLET_MARKERS)
+    if not mentions_cambodia(blob):
+        return False
+    if is_thai_source:
+        return True
+    if any(pair in blob for pair in ("thai-cambodia", "cambodia-thailand", "thailand-cambodia")):
+        return True
+    # Strong bilateral border/worker signals when both Thailand and Cambodia are named together
+    mentions_th = any(marker in blob for marker in TH_CONTEXT_MARKERS)
+    bilateral_topic = any(tok in blob for tok in ("border", "migrant", "worker", "koh kood", "aranyaprathet", "poipet", "ban khlong luek", "embassy"))
+    return mentions_th and bilateral_topic
+
+
+def mentions_asean(*texts) -> bool:
+    """True when reporting explicitly centers on ASEAN or Southeast Asian regional affairs."""
+    blob = _norm(" ".join(str(t or "") for t in texts))
+    if not blob:
+        return False
+    return any(marker in blob for marker in ASEAN_MARKERS)
+
+
 def resolve_country(
     detected_category: Optional[str] = None,
     source_country: Optional[str] = None,
     *story_texts,
+    source_name: Optional[str] = None,
 ) -> str:
-    """File a story on the desk it is about, not the desk that published it.
-
-    Cambodian outlets report world news and world outlets report Cambodian news. The
-    publisher's country is only a hint for a story the classifier could not place at all;
-    used as the rule, it is what put US election coverage on the Cambodia page.
-    """
-    if _norm(detected_category) in ("cambodia", "khmer", "cambodia news"):
+    """File a story on the desk it is about: KH, TH (Thai news on Cambodia), ASEAN, or WORLD."""
+    cat = _norm(detected_category)
+    if cat in ("thailand-cambodia", "thai-cambodia", "thai news on cambodia", "thai-news-cambodia", "thailand"):
+        return "TH"
+    if mentions_thai_cambodia(*story_texts, source_name=source_name, source_country=source_country):
+        return "TH"
+    if cat in ("cambodia", "khmer", "cambodia news"):
         return "KH"
     if mentions_cambodia(*story_texts):
         return "KH"
+    if cat in ("asean", "regional", "southeast asia", "southeast-asia"):
+        return "ASEAN"
     if not detected_category and _norm(source_country) == "kh":
         return "KH"
+    if not detected_category and _norm(source_country) == "asean":
+        return "ASEAN"
     return "WORLD"
 
 
@@ -88,25 +134,17 @@ def category_is_cambodia(category_slug: Optional[str], category_scope: Optional[
 
 
 def filing_is_consistent(country: Optional[str], category_slug: Optional[str], category_scope: Optional[str]) -> bool:
-    """A Cambodia-scope category requires the story to sit on the Cambodia desk.
-
-    The reader's nav uses ``country``; the chip and the category page use the other field.
-    When they disagree, a story listed under /world links to /cambodia — the misfiling
-    readers noticed. The reverse is normal: a Cambodian-desk story can be Technology.
-    """
+    """A Cambodia-scope category requires the story to sit on the Cambodia (or Thai-Cambodia) desk."""
+    slug = _norm(category_slug)
+    if slug in TH_CAMBODIA_CATEGORY_SLUGS:
+        return _norm(country) in ("th", "kh")
     if not category_is_cambodia(category_slug, category_scope):
         return True
-    return _norm(country) == "kh"
+    return _norm(country) in ("kh", "th")
 
 
 def hero_provenance_ok(url: Optional[str], credit: Optional[str]) -> Tuple[bool, str]:
-    """Can we honestly show and caption this photograph?
-
-    Rejected: the hardcoded generic pools the pipeline used as a fallback (26 of 81 stored
-    heroes, including 4 of 5 published ones), any stock host, and a caption that does not
-    belong to the file's own host — "NASA / ESA / CSA Scientific Archive" sat on an
-    Unsplash picture, and "Wikipedia / Public Press Attribution" on a second one.
-    """
+    """Can we honestly show and caption this photograph?"""
     if not url:
         return True, ""
 

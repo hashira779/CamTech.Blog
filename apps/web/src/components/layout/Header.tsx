@@ -13,15 +13,18 @@ import { cn } from "@/lib/utils";
 
 const navLinks: { href: string; key: string }[] = [
   { href: "/", key: "nav.home" },
+  { href: "/news", key: "nav.news" },
   { href: "/travel", key: "nav.travel" },
   { href: "/tools", key: "nav.tools" },
   { href: "/discover", key: "nav.discover" },
-  { href: "/cambodia", key: "nav.cambodia" },
 ];
 
 function isNavActive(href: string, pathname: string | null) {
   if (!pathname) return false;
   if (href === "/") return pathname === "/";
+  if (href === "/news") {
+    return pathname.startsWith("/news") || pathname.startsWith("/cambodia") || pathname.startsWith("/world");
+  }
   if (href === "/tools") {
     return pathname.startsWith("/tools") || pathname.startsWith("/cv-builder");
   }
