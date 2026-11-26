@@ -42,12 +42,32 @@ def test_resolve_country_routes_asean_without_breaking_cambodia_or_world():
         "ASEAN digital economy ministers agree on cross-border QR standards",
         "Regional central banks align instant payment rails across Southeast Asia.",
     ) == "ASEAN"
-    # Story without Cambodia stays WORLD when World-classified
+    # Story without Cambodia stays WORLD when World-classified even if headline says Bangkok
     assert filing.resolve_country(
         "World", "KH",
-        "Hundreds protest in Bangkok over global energy prices",
-        "Demonstrators gathered outside parliament calling for fuel subsidies.",
+        "Global shipping lanes shift after Red Sea delays",
+        "European ports adjusted schedules following maritime disruptions.",
     ) == "WORLD"
+    # Syndicated global story ending in " - Kiripost" stays WORLD when Cambodia is never mentioned
+    assert filing.resolve_country(
+        "World", "KH",
+        "After a 13-Year Wait, Grand Theft Auto VI Arrives - Kiripost",
+        "Gamers queued overnight in North America and Europe for the launch.",
+        source_name="Kiripost",
+    ) == "WORLD"
+    # Bilateral Thai military/defense story affecting Cambodia routes to TH
+    assert filing.resolve_country(
+        "World", "KH",
+        "Thailand to Purchase $123 Million Rocket Launcher, Sparking Cambodia Concerns",
+        "Cambodian officials monitored Thai military procurement near the border.",
+    ) == "TH"
+    # Southeast Asia reporting routes to ASEAN
+    assert filing.resolve_country(
+        "Business", "SG",
+        "Vietnam expands semiconductor packaging parks in Ho Chi Minh City",
+        "Regional ASEAN electronics exporters reported higher demand.",
+        source_name="Channel News Asia",
+    ) == "ASEAN"
     assert filing.resolve_country(
         "Business", "WORLD",
         "Bakong cross-border QR volume climbs",
@@ -77,6 +97,10 @@ def test_bilingual_khmer_validator_catches_english_body_with_khmer_summary():
 
     partial.content_km = "អត្ថបទពេញលេញជាភាសាខ្មែរ អំពីគោលនយោបាយសេដ្ឋកិច្ច និងការអភិវឌ្ឍសង្គមនៅកម្ពុជា។ " * 3
     assert bilingual_service.article_needs_khmer(partial) is False
+
+    # Leaked Thai/Lao glyphs inside Khmer text are caught for re-translation
+    partial.title_km = "ជនខិលខូចត្រូវបានឃាត់ខ្លួន ຜ່ານការបោកប្រាស់ปลอม"
+    assert bilingual_service.article_needs_khmer(partial) is True
 
 
 def test_redraft_preserves_content_km():

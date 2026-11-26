@@ -23,6 +23,7 @@ from app.services import ai_gateway
 logger = logging.getLogger(__name__)
 
 _KHMER_CHAR_RE = re.compile(r"[\u1780-\u17FF]")
+_FOREIGN_SCRIPT_RE = re.compile(r"[\u0E00-\u0E7F\u0E80-\u0EFF]")
 
 
 def count_khmer_chars(text: Optional[str]) -> int:
@@ -31,31 +32,40 @@ def count_khmer_chars(text: Optional[str]) -> int:
     return len(_KHMER_CHAR_RE.findall(str(text)))
 
 
+def has_clean_khmer_script(text: Optional[str], min_chars: int = 8) -> bool:
+    """True when text contains valid Khmer script and zero leaked Thai/Lao glyphs."""
+    if not text:
+        return False
+    if _FOREIGN_SCRIPT_RE.search(str(text)):
+        return False
+    return count_khmer_chars(text) >= min_chars
+
+
 def has_khmer_script(text: Optional[str], min_chars: int = 8) -> bool:
     return count_khmer_chars(text) >= min_chars
 
 
 def article_needs_khmer(article: Article) -> bool:
-    """True when an article has English text missing its matching Khmer translation."""
+    """True when an article lacks clean Khmer translation or contains leaked non-Khmer scripts."""
     has_en_body = bool((article.content or "").strip())
     has_en_summary = bool((article.summary or "").strip())
     has_en_title = bool((article.title or "").strip())
 
-    if has_en_title and not has_khmer_script(article.title_km, min_chars=3):
+    if has_en_title and not has_clean_khmer_script(article.title_km, min_chars=3):
         return True
-    if has_en_summary and not has_khmer_script(article.summary_km, min_chars=10):
+    if has_en_summary and not has_clean_khmer_script(article.summary_km, min_chars=10):
         return True
-    if has_en_body and not has_khmer_script(article.content_km, min_chars=25):
+    if has_en_body and not has_clean_khmer_script(article.content_km, min_chars=25):
         return True
     return False
 
 
 def discovery_needs_khmer(discovery: Discovery) -> bool:
-    if (discovery.title or "").strip() and not has_khmer_script(discovery.title_km, min_chars=3):
+    if (discovery.title or "").strip() and not has_clean_khmer_script(discovery.title_km, min_chars=3):
         return True
-    if (discovery.intro or "").strip() and not has_khmer_script(discovery.intro_km, min_chars=10):
+    if (discovery.intro or "").strip() and not has_clean_khmer_script(discovery.intro_km, min_chars=10):
         return True
-    if (discovery.main_explanation or "").strip() and not has_khmer_script(discovery.main_explanation_km, min_chars=25):
+    if (discovery.main_explanation or "").strip() and not has_clean_khmer_script(discovery.main_explanation_km, min_chars=25):
         return True
     return False
 
@@ -82,7 +92,8 @@ Translate the ENTIRE news story below into clear, natural, formal Khmer journali
 CRITICAL REQUIREMENTS:
 1. Preserve ALL facts, dates, numbers, quotes, proper names (with Khmer pronunciation or kept clearly), and `##` section structure.
 2. NEVER summarize or omit paragraphs when translating `content_km` — translate the complete body faithfully into natural Khmer.
-3. Source outlet: {source_name or "Verified Newsroom"}
+3. Write PURE Khmer Unicode script (ខ្មែរ) ONLY — NEVER mix Thai or Lao script characters.
+4. Source outlet: {source_name or "Verified Newsroom"}
 
 English Headline: {clean_title}
 English Summary: {clean_summary}
@@ -113,11 +124,11 @@ Return ONLY valid JSON with keys:
     s_km = str(data.get("summary_km") or "").strip()
     c_km = str(data.get("content_km") or "").strip()
 
-    if has_khmer_script(t_km, min_chars=3):
+    if has_clean_khmer_script(t_km, min_chars=3):
         out["title_km"] = t_km
-    if has_khmer_script(s_km, min_chars=10):
+    if has_clean_khmer_script(s_km, min_chars=10):
         out["summary_km"] = s_km
-    if has_khmer_script(c_km, min_chars=25):
+    if has_clean_khmer_script(c_km, min_chars=25):
         out["content_km"] = c_km
 
     return out or None
@@ -180,7 +191,7 @@ Explanation:
 Return ONLY valid JSON:
 - "title_km": Clear Khmer title
 - "intro_km": Fluent 2-3 sentence Khmer hook
-- "main_explanation_km": Complete Markdown translation in natural Khmer using ## subheadings
+- "main_explanation_km": Complete Markdown translation in natural Khmer using ## subheadings (pure Khmer script only, never mix Thai or Lao script)
 """
     data, _meta = await asyncio.to_thread(
         ai_gateway.generate_json,
@@ -193,11 +204,11 @@ Return ONLY valid JSON:
         return None
 
     out: Dict[str, str] = {}
-    if has_khmer_script(data.get("title_km"), min_chars=3):
+    if has_clean_khmer_script(data.get("title_km"), min_chars=3):
         out["title_km"] = str(data["title_km"]).strip()[:255]
-    if has_khmer_script(data.get("intro_km"), min_chars=10):
+    if has_clean_khmer_script(data.get("intro_km"), min_chars=10):
         out["intro_km"] = str(data["intro_km"]).strip()
-    if has_khmer_script(data.get("main_explanation_km"), min_chars=25):
+    if has_clean_khmer_script(data.get("main_explanation_km"), min_chars=25):
         out["main_explanation_km"] = str(data["main_explanation_km"]).strip()
     return out or None
 
@@ -239,13 +250,13 @@ async def translate_missing_khmer_batch(
         if not res:
             continue
         changed = False
-        if not has_khmer_script(art.title_km, 3) and res.get("title_km"):
+        if not has_clean_khmer_script(art.title_km, 3) and res.get("title_km"):
             art.title_km = res["title_km"]
             changed = True
-        if not has_khmer_script(art.summary_km, 10) and res.get("summary_km"):
+        if not has_clean_khmer_script(art.summary_km, 10) and res.get("summary_km"):
             art.summary_km = res["summary_km"]
             changed = True
-        if not has_khmer_script(art.content_km, 25) and res.get("content_km"):
+        if not has_clean_khmer_script(art.content_km, 25) and res.get("content_km"):
             art.content_km = sanitize_stored_html(res["content_km"])
             changed = True
         if changed:
@@ -275,13 +286,13 @@ async def translate_missing_khmer_batch(
         if not res:
             continue
         changed = False
-        if not has_khmer_script(disc.title_km, 3) and res.get("title_km"):
+        if not has_clean_khmer_script(disc.title_km, 3) and res.get("title_km"):
             disc.title_km = res["title_km"]
             changed = True
-        if not has_khmer_script(disc.intro_km, 10) and res.get("intro_km"):
+        if not has_clean_khmer_script(disc.intro_km, 10) and res.get("intro_km"):
             disc.intro_km = res["intro_km"]
             changed = True
-        if not has_khmer_script(disc.main_explanation_km, 25) and res.get("main_explanation_km"):
+        if not has_clean_khmer_script(disc.main_explanation_km, 25) and res.get("main_explanation_km"):
             disc.main_explanation_km = sanitize_stored_html(res["main_explanation_km"])
             changed = True
         if changed:

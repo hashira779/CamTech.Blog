@@ -7,12 +7,38 @@
  * returns an empty string when there is no real value to show.
  */
 
-const LONG: Intl.DateTimeFormatOptions = { day: "numeric", month: "long", year: "numeric" };
-const MEDIUM: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" };
-const SHORT: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+const LONG: Intl.DateTimeFormatOptions = {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "Asia/Phnom_Penh",
+};
+const MEDIUM: Intl.DateTimeFormatOptions = {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "Asia/Phnom_Penh",
+};
+const SHORT: Intl.DateTimeFormatOptions = {
+  day: "numeric",
+  month: "short",
+  timeZone: "Asia/Phnom_Penh",
+};
+
+const NAIVE_ISO_DATETIME = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/;
 
 function toDate(value?: string | number | Date | null): Date | null {
   if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    // FastAPI naive UTC timestamps omit `Z`, which causes SSR (UTC) vs browser (local TZ) mismatches.
+    const normalized = NAIVE_ISO_DATETIME.test(trimmed)
+      ? `${trimmed.replace(" ", "T")}Z`
+      : trimmed;
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }

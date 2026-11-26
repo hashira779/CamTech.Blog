@@ -114,7 +114,7 @@ RECOMMENDED_SOURCES: List[Dict[str, object]] = [
 
 
 def seed_recommended_sources(db: Session) -> Dict[str, int]:
-    """Insert missing recommended regional and global RSS sources without duplicating existing slugs."""
+    """Insert missing recommended regional and global RSS sources and align legacy regional desks."""
     added = 0
     existing = 0
     for item in RECOMMENDED_SOURCES:
@@ -137,6 +137,50 @@ def seed_recommended_sources(db: Session) -> Dict[str, int]:
             priority=int(item["priority"]),
         ))
         added += 1
-    if added:
+
+    # Upgrade legacy CNA Singapore feed to ASEAN desk so future regional articles file under ASEAN
+    legacy_cna = db.query(Source).filter(Source.slug == "cna-asia").first()
+    if legacy_cna and (legacy_cna.country or "").upper() == "SG":
+        legacy_cna.country = "ASEAN"
+
+    if added or legacy_cna:
         db.commit()
     return {"added": added, "existing": existing, "total": len(RECOMMENDED_SOURCES)}
+
+
+def reconcile_existing_article_desks(db: Session) -> Dict[str, int]:
+    """Re-classify existing articles cleanly into KH, TH, ASEAN, or WORLD desks."""
+    from app.models.article import Article
+    from app.services.filing import category_is_cambodia, resolve_country
+
+    articles = (
+        db.query(Article)
+        .filter(Article.status.in_(["PUBLISHED", "AI_DRAFT", "DRAFT", "IN_REVIEW", "APPROVED"]))
+        .all()
+    )
+    updated = 0
+    for art in articles:
+        cat_slug = art.category.slug if art.category else None
+        cat_scope = art.category.scope if art.category else None
+        src_country = art.primary_source.country if art.primary_source else art.country
+        src_name = (
+            art.primary_source.name
+            if art.primary_source
+            else art.source_attribution_text
+        )
+        new_country = resolve_country(
+            cat_slug,
+            src_country,
+            art.title,
+            art.summary,
+            art.content,
+            source_name=src_name,
+        )
+        if cat_slug and category_is_cambodia(cat_slug, cat_scope) and new_country != "TH":
+            new_country = "KH"
+        if (art.country or "").upper() != new_country:
+            art.country = new_country
+            updated += 1
+    if updated:
+        db.commit()
+    return {"checked": len(articles), "updated": updated}

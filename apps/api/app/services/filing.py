@@ -14,14 +14,15 @@ Two questions kept coming back wrong because each pipeline answered them its own
 import re
 from typing import Optional, Tuple
 
-# Cambodia markers — strictly Cambodian places, institutions, leaders, and media.
+# Cambodia markers — strictly Cambodian places, institutions, and leaders.
+# Domestic newsroom names ("Kiripost", "Khmer Times") are intentionally omitted so
+# syndicated AP/AFP world news ending in " - Kiripost" stays on WORLD unless copy mentions Cambodia.
 KH_MARKERS = [
     "cambodia", "cambodian", "khmer", "phnom penh", "siem reap", "angkor",
     "kratie", "mondulkiri", "ratanakiri", "preah vihear", "sihanouk",
     "kampong", "kampot", "battambang", "pursat", "bavet", "poipet", "kep province",
     "koh kong", "stung treng", "oddar meanchey", "banteay meanchey", "takmao",
-    "bokor", "bakong", "funan", "hun manet", "khmer times", "phnom penh post",
-    "kiripost", "camboja",
+    "bokor", "bakong", "funan", "hun manet",
 ]
 
 TH_OUTLET_MARKERS = [
@@ -36,10 +37,21 @@ TH_CONTEXT_MARKERS = [
 ]
 
 ASEAN_MARKERS = [
-    "asean", "southeast asia", "mekong", "rcep", "vietnam", "hanoi", "ho chi minh",
-    "laos", "vientiane", "singapore", "malaysia", "kuala lumpur", "indonesia",
-    "jakarta", "philippines", "manila", "brunei", "myanmar", "channel newsasia",
+    "asean", "southeast asia", "southeast asian", "mekong", "rcep", "greater mekong", "clmv",
 ]
+
+_ASEAN_MEMBER_NAMES = (
+    "vietnam", "hanoi", "ho chi minh", "laos", "vientiane", "singapore",
+    "malaysia", "kuala lumpur", "indonesia", "jakarta", "philippines",
+    "manila", "brunei", "myanmar",
+)
+
+_WIRE_OUTLET_SUFFIX = re.compile(
+    r"\s*[-–—|]\s*(?:kiripost|khmer times|phnom penh post|camboja news|camboja|"
+    r"thmey thmey|fresh news|kampuchea thmey|akp|bangkok post|nation thailand|"
+    r"the nation thailand|khaosod(?: english)?|thai pbs(?: world)?|channel newsasia|cna)\s*$",
+    re.I,
+)
 
 # Stock hosts that can never illustrate a specific news story.
 STOCK_IMAGE_HOSTS = ["images.unsplash.com", "unsplash.com", "placehold.co", "via.placeholder.com"]
@@ -69,9 +81,14 @@ def _norm(value) -> str:
     return re.sub(r"\s+", " ", str(value or "").lower())
 
 
+def _strip_wire_credits(*texts) -> str:
+    cleaned = [_WIRE_OUTLET_SUFFIX.sub("", str(t or "")).strip() for t in texts if t]
+    return _norm(" ".join(cleaned))
+
+
 def mentions_cambodia(*texts) -> bool:
     """Does any of this copy actually name Cambodia or a place in it?"""
-    blob = _norm(" ".join(str(t or "") for t in texts))
+    blob = _strip_wire_credits(*texts)
     if not blob:
         return False
     return any(marker in blob for marker in KH_MARKERS)
@@ -79,27 +96,41 @@ def mentions_cambodia(*texts) -> bool:
 
 def mentions_thai_cambodia(*texts, source_name: Optional[str] = None, source_country: Optional[str] = None) -> bool:
     """True when reporting is from a Thai outlet about Cambodia or covers bilateral Thailand-Cambodia affairs."""
-    blob = _norm(" ".join(str(t or "") for t in texts))
+    raw_blob = _norm(" ".join(str(t or "") for t in texts))
+    clean_blob = _strip_wire_credits(*texts)
     src_blob = _norm(source_name)
-    is_thai_source = _norm(source_country) == "th" or any(m in src_blob or m in blob for m in TH_OUTLET_MARKERS)
-    if not mentions_cambodia(blob):
+    is_thai_source = _norm(source_country) == "th" or any(m in src_blob or m in raw_blob for m in TH_OUTLET_MARKERS)
+    if not mentions_cambodia(*texts):
         return False
     if is_thai_source:
         return True
-    if any(pair in blob for pair in ("thai-cambodia", "cambodia-thailand", "thailand-cambodia")):
+    if any(pair in clean_blob for pair in ("thai-cambodia", "cambodia-thailand", "thailand-cambodia")):
         return True
-    # Strong bilateral border/worker signals when both Thailand and Cambodia are named together
-    mentions_th = any(marker in blob for marker in TH_CONTEXT_MARKERS)
-    bilateral_topic = any(tok in blob for tok in ("border", "migrant", "worker", "koh kood", "aranyaprathet", "poipet", "ban khlong luek", "embassy"))
+    # Strong bilateral border/diplomacy/security signals when both Thailand and Cambodia are named together
+    mentions_th = any(marker in clean_blob for marker in TH_CONTEXT_MARKERS)
+    bilateral_topic = any(
+        tok in clean_blob
+        for tok in (
+            "border", "migrant", "worker", "koh kood", "aranyaprathet", "poipet",
+            "ban khlong luek", "embassy", "weapon", "rocket", "military", "defense",
+            "defence", "security", "dispute", "tension", "bilateral", "concern",
+            "diplom", "tariff", "preah vihear",
+        )
+    )
     return mentions_th and bilateral_topic
 
 
-def mentions_asean(*texts) -> bool:
-    """True when reporting explicitly centers on ASEAN or Southeast Asian regional affairs."""
-    blob = _norm(" ".join(str(t or "") for t in texts))
+def mentions_asean(*texts, source_country: Optional[str] = None, source_name: Optional[str] = None) -> bool:
+    """True when reporting centers on ASEAN / Mekong affairs (or is from an ASEAN feed naming a member nation)."""
+    blob = _strip_wire_credits(*texts)
     if not blob:
         return False
-    return any(marker in blob for marker in ASEAN_MARKERS)
+    if any(marker in blob for marker in ASEAN_MARKERS):
+        return True
+    src_is_asean = _norm(source_country) == "asean" or any(
+        tok in _norm(source_name) for tok in ("channel newsasia", "cna", "asean", "mekong")
+    )
+    return src_is_asean and any(member in blob for member in _ASEAN_MEMBER_NAMES)
 
 
 def resolve_country(
@@ -119,6 +150,8 @@ def resolve_country(
     if mentions_cambodia(*story_texts):
         return "KH"
     if cat in ("asean", "regional", "southeast asia", "southeast-asia"):
+        return "ASEAN"
+    if mentions_asean(*story_texts, source_country=source_country, source_name=source_name):
         return "ASEAN"
     if not detected_category and _norm(source_country) == "kh":
         return "KH"

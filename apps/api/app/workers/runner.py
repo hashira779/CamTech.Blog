@@ -80,6 +80,19 @@ async def ingest_rss_feeds_job():
             db.commit()
             logger.info(f"🌱 Auto-seeded regional news feeds: {seed_stats}")
 
+        reconcile_flag = db.query(SiteSetting).filter(SiteSetting.key == "REGIONAL_DESKS_V2_RECONCILED").first()
+        if not reconcile_flag:
+            from app.services.seed_sources import reconcile_existing_article_desks, seed_recommended_sources
+            seed_recommended_sources(db)
+            rec_stats = reconcile_existing_article_desks(db)
+            db.add(SiteSetting(
+                key="REGIONAL_DESKS_V2_RECONCILED",
+                value_json="reconciled",
+                description="Normalized existing articles across KH, TH, ASEAN, and WORLD desks",
+            ))
+            db.commit()
+            logger.info(f"🗂️ Reconciled existing articles across 4 desks: {rec_stats}")
+
         sources = db.query(Source).filter(
             Source.is_active == True,
             Source.feed_url != None,
@@ -436,7 +449,7 @@ async def news_autopilot_job():
     try:
         # Upgrade drafts written while no AI provider answered, before deciding what publishes
         redraft = await news_autopilot.redraft_held_drafts(db, get_ai_provider().gemini)
-        kh_backfill = await bilingual_service.translate_missing_khmer_batch(db, article_limit=4, discovery_limit=2)
+        kh_backfill = await bilingual_service.translate_missing_khmer_batch(db, article_limit=10, discovery_limit=3)
         result = news_autopilot.run_lifecycle(db)
         logger.info(
             f"🤖 News Autopilot: redrafted={redraft.get('redrafted', 0)} "
