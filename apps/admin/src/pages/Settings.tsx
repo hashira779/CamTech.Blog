@@ -84,6 +84,7 @@ const PROVIDER_STYLES = ['openai', 'gemini', 'anthropic'];
 
 export default function Settings() {
   const [, setSettings] = useState<SystemSetting[]>([]);
+  const [activeTab, setActiveTab] = useState<'autopilot' | 'providers' | 'keys' | 'telegram'>('autopilot');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
@@ -286,414 +287,516 @@ export default function Settings() {
     }
   };
 
+  const toggleFields = AUTOPILOT_FIELDS.filter((f) => f.type === 'toggle');
+  const limitFields = AUTOPILOT_FIELDS.filter((f): f is Extract<AutopilotField, { type: 'number' }> => f.type === 'number');
+  const activeProviderCount = providers.filter((p) => p.enabled && (p.has_key || p.api_key || !p.requires_key)).length;
+
   return (
-    <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6 font-sans">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
+    <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6 font-sans">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-5 border-b border-zinc-800/80">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">System Settings</h1>
-          </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Configure external API integrations, distribution channels, and system secrets.</p>
+          <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">Settings &amp; AI Automation</h1>
+          <p className="text-xs text-zinc-400 mt-1">
+            Control publishing automation, AI providers, fallback API keys, and Telegram broadcasts.
+          </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <button 
-            onClick={fetchSettings}
+          <button
+            onClick={() => {
+              fetchSettings();
+              fetchProviders();
+            }}
             disabled={loading || saving}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-lg transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-lg transition-colors disabled:opacity-50"
           >
             <RefreshCw size={13} className={loading ? 'animate-spin text-zinc-400' : 'text-zinc-400'} />
             <span>Refresh</span>
           </button>
-          
-          <button 
-            onClick={handleSave}
-            disabled={loading || saving}
-            className="flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-950 font-medium px-4 py-1.5 rounded-lg text-xs transition-colors shadow-xs disabled:opacity-50"
-          >
-            {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-            <span>{saving ? 'Saving...' : 'Save Changes'}</span>
-          </button>
+
+          {activeTab !== 'providers' && (
+            <button
+              onClick={handleSave}
+              disabled={loading || saving}
+              className="flex items-center gap-1.5 bg-zinc-100 hover:bg-white text-zinc-950 font-medium px-4 py-1.5 rounded-lg text-xs transition-colors shadow-xs disabled:opacity-50"
+            >
+              {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+              <span>{saving ? 'Saving...' : 'Save Settings'}</span>
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Clear Tab Bar */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-800/80 pb-4">
+        {([
+          { id: 'autopilot', label: 'Autopilot & Publishing', icon: Sparkles },
+          { id: 'providers', label: `AI Providers (${activeProviderCount})`, icon: Cpu },
+          { id: 'keys', label: 'Fallback API Keys', icon: Key },
+          { id: 'telegram', label: 'Telegram Broadcast', icon: Bot },
+        ] as const).map(({ id, label, icon: Icon }) => {
+          const active = activeTab === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActiveTab(id)}
+              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                active
+                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
+                  : 'bg-zinc-900/60 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
+              }`}
+            >
+              <Icon size={14} />
+              <span>{label}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {loading ? (
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
-            <div className="h-5 w-48 skeleton-shimmer rounded mb-4" />
-            <div className="space-y-2">
-              <div className="h-3 w-28 skeleton-shimmer rounded" />
-              <div className="h-10 w-full skeleton-shimmer rounded-lg" />
-            </div>
-            <div className="space-y-2">
-              <div className="h-3 w-36 skeleton-shimmer rounded" />
-              <div className="h-10 w-full skeleton-shimmer rounded-lg" />
-            </div>
-            <div className="space-y-2">
-              <div className="h-3 w-32 skeleton-shimmer rounded" />
-              <div className="h-10 w-full skeleton-shimmer rounded-lg" />
-            </div>
-          </div>
-          <div className="bg-white dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 rounded-xl p-5 space-y-4">
-            <div className="h-5 w-40 skeleton-shimmer rounded mb-4" />
-            <div className="space-y-2">
-              <div className="h-3 w-32 skeleton-shimmer rounded" />
-              <div className="h-10 w-full skeleton-shimmer rounded-lg" />
-            </div>
-            <div className="space-y-2">
-              <div className="h-3 w-36 skeleton-shimmer rounded" />
-              <div className="h-10 w-full skeleton-shimmer rounded-lg" />
-            </div>
+        <div className="space-y-4">
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-3 animate-pulse">
+            <div className="h-4 w-48 bg-zinc-800 rounded" />
+            <div className="h-10 w-full bg-zinc-800/60 rounded-lg" />
+            <div className="h-10 w-full bg-zinc-800/60 rounded-lg" />
           </div>
         </div>
       ) : (
         <div className="space-y-6">
-          {/* AI Providers Registry Section */}
-          <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg overflow-hidden">
-            <div className="p-4 border-b border-zinc-800 bg-zinc-950/40 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Cpu size={16} className="text-zinc-400" />
-                <h2 className="text-sm font-medium text-zinc-200">AI Providers</h2>
-              </div>
-              <span className="text-[10px] text-zinc-500 font-mono">
-                {providers.filter(p => p.enabled && (p.has_key || p.api_key || !p.requires_key)).length} active
-              </span>
-            </div>
-            <div className="p-5 space-y-4">
-              <p className="text-xs text-zinc-400">
-                Connect any number of AI vendors. Generators try the enabled providers top-to-bottom and
-                automatically fall back to the next one if a key is missing or a request fails, so one bad
-                key never stops the AI pipeline. Reorder to set priority.
-              </p>
-
-              {providerLoading ? (
-                <div className="space-y-3">
-                  <div className="h-16 w-full skeleton-shimmer rounded-lg" />
-                  <div className="h-16 w-full skeleton-shimmer rounded-lg" />
+          {activeTab === 'autopilot' && (
+            <>
+              <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden">
+                <div className="p-4 border-b border-zinc-800 bg-zinc-950/40 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-sm font-semibold text-zinc-100">Core Automation Switches</h2>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                      Turn editorial review gates and scheduled AI generators on or off.
+                    </p>
+                  </div>
+                  <span className="text-[11px] text-zinc-500 font-mono">
+                    Last daily run: {lastDailyRun || 'never'}
+                  </span>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {providers.map((p, idx) => (
-                    <div key={p.id} className="border border-zinc-800 rounded-lg p-3 space-y-3 bg-zinc-950/30">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={p.enabled}
-                            onClick={() => toggleProvider(p.id)}
-                            className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${
-                              p.enabled ? 'bg-emerald-500' : 'bg-zinc-700'
-                            }`}
-                          >
-                            <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                              p.enabled ? 'translate-x-4' : ''
-                            }`} />
-                          </button>
-                          <input
-                            value={p.label}
-                            onChange={(e) => updateProvider(p.id, { label: e.target.value })}
-                            className="bg-transparent text-sm font-medium text-zinc-100 focus:outline-none focus:border-b focus:border-blue-500 min-w-0"
-                          />
-                          {p.has_key && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">key saved</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button type="button" title="Move up" onClick={() => moveProvider(idx, -1)}
-                            disabled={idx === 0}
-                            className="p-1.5 rounded-md text-zinc-400 hover:bg-zinc-800 disabled:opacity-30">
-                            <ArrowUp size={14} />
-                          </button>
-                          <button type="button" title="Move down" onClick={() => moveProvider(idx, 1)}
-                            disabled={idx === providers.length - 1}
-                            className="p-1.5 rounded-md text-zinc-400 hover:bg-zinc-800 disabled:opacity-30">
-                            <ArrowDown size={14} />
-                          </button>
-                          <button type="button" title="Remove" onClick={() => removeProvider(p.id)}
-                            className="p-1.5 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-500/10">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
+                <div className="divide-y divide-zinc-800/60">
+                  {toggleFields.map((field) => (
+                    <div key={field.key} className="p-4 flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <label htmlFor={field.key} className="block text-xs font-medium text-zinc-200">
+                          {field.label}
+                        </label>
+                        <p className="text-[11px] text-zinc-500 mt-0.5">{field.help}</p>
                       </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Vendor API style</label>
-                          <select
-                            value={p.style}
-                            onChange={(e) => updateProvider(p.id, { style: e.target.value })}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500"
-                          >
-                            {PROVIDER_STYLES.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Model</label>
-                          <input
-                            value={p.model}
-                            onChange={(e) => updateProvider(p.id, { model: e.target.value })}
-                            placeholder="e.g. gemini-2.5-flash"
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
-                          />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Base URL</label>
-                          <input
-                            value={p.base_url}
-                            onChange={(e) => updateProvider(p.id, { base_url: e.target.value })}
-                            placeholder="https://api.example.com/v1"
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
-                          />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">API key</label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="password"
-                              value={p.api_key}
-                              onChange={(e) => setProviderKey(p.id, e.target.value)}
-                              placeholder={p.has_key ? '••••••••  (saved — type to replace)' : (p.requires_key ? 'Paste API key' : 'No key needed (local)')}
-                              className="flex-1 bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => testProvider(p.id)}
-                              disabled={testingId !== null}
-                              className="flex items-center gap-1 shrink-0 px-2.5 py-1.5 text-[11px] font-medium rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
-                            >
-                              <Zap size={12} className={testingId === p.id ? 'animate-pulse text-amber-400' : 'text-zinc-400'} />
-                              Test
-                            </button>
-                          </div>
-                          {testResults[p.id] && (
-                            <p className={`text-[10px] mt-1 ${testResults[p.id].startsWith('Works') ? 'text-emerald-400' : (testResults[p.id] === 'Testing…' ? 'text-zinc-400' : 'text-red-400')}`}>
-                              {testResults[p.id]}
-                            </p>
-                          )}
-                          <p className="text-[10px] text-zinc-600 mt-1">Save first, then Test — testing uses the saved key.</p>
-                        </div>
-                        <div>
-                          <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Temperature</label>
-                          <input
-                            type="number" step="0.1" min="0" max="2"
-                            value={p.temperature}
-                            onChange={(e) => updateProvider(p.id, { temperature: Number(e.target.value) })}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500 font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Max tokens</label>
-                          <input
-                            type="number" step="1" min="1" max="32000"
-                            value={p.max_tokens}
-                            onChange={(e) => updateProvider(p.id, { max_tokens: Number(e.target.value) })}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500 font-mono"
-                          />
-                        </div>
-                      </div>
+                      <button
+                        id={field.key}
+                        type="button"
+                        role="switch"
+                        aria-checked={autopilot[field.key] === 'true'}
+                        onClick={() => setAp(field.key, autopilot[field.key] === 'true' ? 'false' : 'true')}
+                        className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${
+                          autopilot[field.key] === 'true' ? 'bg-emerald-500' : 'bg-zinc-700'
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                            autopilot[field.key] === 'true' ? 'translate-x-4' : ''
+                          }`}
+                        />
+                      </button>
                     </div>
                   ))}
-
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <select
-                      value={addPick}
-                      onChange={(e) => setAddPick(e.target.value)}
-                      className="bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="">Add a vendor…</option>
-                      {catalog
-                        .filter(c => !providers.some(p => p.id === c.id))
-                        .map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={addProvider}
-                      disabled={!addPick}
-                      className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
-                    >
-                      <Plus size={12} /> Add vendor
-                    </button>
-                    <button
-                      type="button"
-                      onClick={addCustomProvider}
-                      className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800"
-                    >
-                      <Plus size={12} /> Custom (OpenAI-compatible)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={saveProviders}
-                      disabled={savingProviders}
-                      className="flex items-center gap-1.5 ml-auto bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-50"
-                    >
-                      {savingProviders ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-                      <span>{savingProviders ? 'Saving…' : 'Save providers'}</span>
-                    </button>
-                  </div>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* News Autopilot Section */}
-          <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg overflow-hidden">
-            <div className="p-4 border-b border-zinc-800 bg-zinc-950/40 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Sparkles size={16} className="text-zinc-400" />
-                <h2 className="text-sm font-medium text-zinc-200">AI News Autopilot</h2>
               </div>
-              <span className="text-[10px] text-zinc-500 font-mono">
-                Last daily run: {lastDailyRun || 'never'}
-              </span>
-            </div>
-            <div className="p-5 space-y-4">
-              <p className="text-xs text-zinc-400">
-                The worker checks every 5 minutes. Every automatic action is recorded in the audit log, and archived stories can be restored from Articles.
-              </p>
-              {AUTOPILOT_FIELDS.map((field) => (
-                <div key={field.key} className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <label htmlFor={field.key} className="block text-xs font-medium text-zinc-300">{field.label}</label>
-                    <p className="text-[10px] text-zinc-500 mt-0.5">{field.help}</p>
-                  </div>
-                  {field.type === 'toggle' ? (
-                    <button
-                      id={field.key}
-                      type="button"
-                      role="switch"
-                      aria-checked={autopilot[field.key] === 'true'}
-                      onClick={() => setAp(field.key, autopilot[field.key] === 'true' ? 'false' : 'true')}
-                      className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${
-                        autopilot[field.key] === 'true' ? 'bg-emerald-500' : 'bg-zinc-700'
-                      }`}
-                    >
-                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                        autopilot[field.key] === 'true' ? 'translate-x-4' : ''
-                      }`} />
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <input
-                        id={field.key}
-                        type="number"
-                        min={field.min}
-                        max={field.max}
-                        value={autopilot[field.key]}
-                        onChange={(e) => setAp(field.key, e.target.value)}
-                        className="w-20 bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-sm text-zinc-100 text-right focus:outline-none focus:border-blue-500 font-mono"
-                      />
-                      <span className="text-[10px] text-zinc-500 w-28">{field.suffix}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
 
-              <div className="pt-4 border-t border-zinc-800 space-y-2.5">
-                <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">
-                  Run now (without waiting for the worker)
-                </p>
-                <div className="flex flex-wrap gap-2">
+              <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-sm font-semibold text-zinc-100">Run Pipeline Manually</h2>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                      Trigger a cycle immediately instead of waiting for the 5-minute background worker.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
                   {([
-                    ['lifecycle', 'Publish / archive cycle'],
-                    ['discoveries', 'Generate discoveries'],
-                    ['travel', 'Generate guides & events'],
+                    ['lifecycle', 'Publish / Archive Cycle'],
+                    ['discoveries', 'Generate Visual Discoveries'],
+                    ['travel', 'Generate Travel Guides & Events'],
                   ] as const).map(([action, label]) => (
                     <button
                       key={action}
                       type="button"
                       disabled={running !== null}
                       onClick={() => runAutopilotAction(action)}
-                      className="px-3 py-1.5 text-[11px] font-medium rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 disabled:opacity-50 transition-colors"
+                      className="px-3.5 py-2 text-xs font-medium rounded-lg border border-zinc-700 bg-zinc-950 text-zinc-200 hover:bg-zinc-800 disabled:opacity-50 transition-colors"
                     >
                       {running === action ? 'Running…' : label}
                     </button>
                   ))}
                 </div>
-                <p className="text-[10px] text-zinc-500">
-                  Generated items start unpublished and go live after the review window above, exactly like news drafts.
+              </div>
+
+              <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden">
+                <div className="p-4 border-b border-zinc-800 bg-zinc-950/40">
+                  <h2 className="text-sm font-semibold text-zinc-100">Timing, Quotas &amp; Retention</h2>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">
+                    Fine-tune review delays, content minimums, and cleanup intervals.
+                  </p>
+                </div>
+                <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {limitFields.map((field) => (
+                    <div key={field.key} className="p-3.5 rounded-lg border border-zinc-800/80 bg-zinc-950/40 space-y-2">
+                      <label htmlFor={field.key} className="block text-xs font-medium text-zinc-200">
+                        {field.label}
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id={field.key}
+                          type="number"
+                          min={field.min}
+                          max={field.max}
+                          value={autopilot[field.key]}
+                          onChange={(e) => setAp(field.key, e.target.value)}
+                          className="w-24 bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2.5 text-sm text-zinc-100 text-right focus:outline-none focus:border-emerald-500 font-mono"
+                        />
+                        <span className="text-[11px] text-zinc-400">{field.suffix}</span>
+                      </div>
+                      <p className="text-[10px] text-zinc-500 leading-relaxed">{field.help}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'providers' && (
+            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden">
+              <div className="p-4 border-b border-zinc-800 bg-zinc-950/40 flex items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-semibold text-zinc-100">AI Providers Fallback Chain</h2>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">
+                    Tried top-to-bottom automatically whenever a key runs out or an endpoint errors.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={saveProviders}
+                  disabled={savingProviders}
+                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-3.5 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-50"
+                >
+                  {savingProviders ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
+                  <span>{savingProviders ? 'Saving…' : 'Save Providers'}</span>
+                </button>
+              </div>
+              <div className="p-5 space-y-4">
+                {providerLoading ? (
+                  <div className="space-y-3">
+                    <div className="h-16 w-full skeleton-shimmer rounded-lg" />
+                    <div className="h-16 w-full skeleton-shimmer rounded-lg" />
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {providers.map((p, idx) => (
+                      <div key={p.id} className="border border-zinc-800 rounded-lg p-3.5 space-y-3 bg-zinc-950/40">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={p.enabled}
+                              onClick={() => toggleProvider(p.id)}
+                              className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${
+                                p.enabled ? 'bg-emerald-500' : 'bg-zinc-700'
+                              }`}
+                            >
+                              <span
+                                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                                  p.enabled ? 'translate-x-4' : ''
+                                }`}
+                              />
+                            </button>
+                            <input
+                              value={p.label}
+                              onChange={(e) => updateProvider(p.id, { label: e.target.value })}
+                              className="bg-transparent text-sm font-medium text-zinc-100 focus:outline-none focus:border-b focus:border-blue-500 min-w-0"
+                            />
+                            {p.has_key && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                                key saved
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              title="Move up"
+                              onClick={() => moveProvider(idx, -1)}
+                              disabled={idx === 0}
+                              className="p-1.5 rounded-md text-zinc-400 hover:bg-zinc-800 disabled:opacity-30"
+                            >
+                              <ArrowUp size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              title="Move down"
+                              onClick={() => moveProvider(idx, 1)}
+                              disabled={idx === providers.length - 1}
+                              className="p-1.5 rounded-md text-zinc-400 hover:bg-zinc-800 disabled:opacity-30"
+                            >
+                              <ArrowDown size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              title="Remove"
+                              onClick={() => removeProvider(p.id)}
+                              className="p-1.5 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-500/10"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                              Vendor API style
+                            </label>
+                            <select
+                              value={p.style}
+                              onChange={(e) => updateProvider(p.id, { style: e.target.value })}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500"
+                            >
+                              {PROVIDER_STYLES.map((s) => (
+                                <option key={s} value={s}>
+                                  {s}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                              Model
+                            </label>
+                            <input
+                              value={p.model}
+                              onChange={(e) => updateProvider(p.id, { model: e.target.value })}
+                              placeholder="e.g. gemini-2.5-flash"
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                              Base URL
+                            </label>
+                            <input
+                              value={p.base_url}
+                              onChange={(e) => updateProvider(p.id, { base_url: e.target.value })}
+                              placeholder="https://api.example.com/v1"
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                              API key
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="password"
+                                value={p.api_key}
+                                onChange={(e) => setProviderKey(p.id, e.target.value)}
+                                placeholder={
+                                  p.has_key
+                                    ? '••••••••  (saved — type to replace)'
+                                    : p.requires_key
+                                      ? 'Paste API key'
+                                      : 'No key needed (local)'
+                                }
+                                className="flex-1 bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => testProvider(p.id)}
+                                disabled={testingId !== null}
+                                className="flex items-center gap-1 shrink-0 px-2.5 py-1.5 text-[11px] font-medium rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+                              >
+                                <Zap
+                                  size={12}
+                                  className={testingId === p.id ? 'animate-pulse text-amber-400' : 'text-zinc-400'}
+                                />
+                                Test
+                              </button>
+                            </div>
+                            {testResults[p.id] && (
+                              <p
+                                className={`text-[10px] mt-1 ${
+                                  testResults[p.id].startsWith('Works')
+                                    ? 'text-emerald-400'
+                                    : testResults[p.id] === 'Testing…'
+                                      ? 'text-zinc-400'
+                                      : 'text-red-400'
+                                }`}
+                              >
+                                {testResults[p.id]}
+                              </p>
+                            )}
+                            <p className="text-[10px] text-zinc-500 mt-1">
+                              Save providers first, then click Test to verify the saved credential.
+                            </p>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                              Temperature
+                            </label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="2"
+                              value={p.temperature}
+                              onChange={(e) => updateProvider(p.id, { temperature: Number(e.target.value) })}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500 font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] uppercase tracking-wide text-zinc-500 mb-1">
+                              Max tokens
+                            </label>
+                            <input
+                              type="number"
+                              step="1"
+                              min="1"
+                              max="32000"
+                              value={p.max_tokens}
+                              onChange={(e) => updateProvider(p.id, { max_tokens: Number(e.target.value) })}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500 font-mono"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                      <select
+                        value={addPick}
+                        onChange={(e) => setAddPick(e.target.value)}
+                        className="bg-zinc-950 border border-zinc-800 rounded-md py-1.5 px-2 text-xs text-zinc-100 focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="">Add a vendor…</option>
+                        {catalog
+                          .filter((c) => !providers.some((p) => p.id === c.id))
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.label}
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={addProvider}
+                        disabled={!addPick}
+                        className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 disabled:opacity-40"
+                      >
+                        <Plus size={12} /> Add vendor
+                      </button>
+                      <button
+                        type="button"
+                        onClick={addCustomProvider}
+                        className="flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800"
+                      >
+                        <Plus size={12} /> Custom (OpenAI-compatible)
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'keys' && (
+            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden">
+              <div className="p-4 border-b border-zinc-800 bg-zinc-950/40">
+                <h2 className="text-sm font-semibold text-zinc-100">Fallback API Keys</h2>
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  Optional legacy API credentials used by external news/search integrations.
                 </p>
               </div>
-            </div>
-          </div>
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                    Google Gemini API Key (Fallback)
+                  </label>
+                  <input
+                    type="password"
+                    value={geminiKey}
+                    onChange={(e) => setGeminiKey(e.target.value)}
+                    placeholder="AIzaSy..."
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-2 px-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    Prefer configuring primary keys inside the AI Providers tab.
+                  </p>
+                </div>
 
-          {/* AI Configuration Section */}
-          <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg overflow-hidden">
-            <div className="p-4 border-b border-zinc-800 bg-zinc-950/40 flex items-center gap-2">
-              <Key size={16} className="text-zinc-400" />
-              <h2 className="text-sm font-medium text-zinc-200">AI & News API Integrations</h2>
-            </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Google Gemini API Key</label>
-                <input
-                  type="password"
-                  value={geminiKey}
-                  onChange={(e) => setGeminiKey(e.target.value)}
-                  placeholder="AIzaSy..."
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-2 px-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
-                />
-                <p className="text-[10px] text-zinc-500 mt-1">Legacy key — used for the Google Gemini provider above if it has no key of its own. Prefer managing keys in AI Providers.</p>
-              </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">You.com API Key</label>
+                  <input
+                    type="password"
+                    value={youKey}
+                    onChange={(e) => setYouKey(e.target.value)}
+                    placeholder="Paste your You.com API key here"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-2 px-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1.5">You.com API Key (Fallback)</label>
-                <input
-                  type="password"
-                  value={youKey}
-                  onChange={(e) => setYouKey(e.target.value)}
-                  placeholder="Paste your You.com API key here"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-2 px-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
-                />
-                <p className="text-[10px] text-zinc-500 mt-1">Used automatically when Gemini API quota is exceeded.</p>
-              </div>
-              
-              <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1.5">NewsAPI Key</label>
-                <input
-                  type="password"
-                  value={newsApiKey}
-                  onChange={(e) => setNewsApiKey(e.target.value)}
-                  placeholder="Paste your NewsAPI key here"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-2 px-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
-                />
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">NewsAPI Key</label>
+                  <input
+                    type="password"
+                    value={newsApiKey}
+                    onChange={(e) => setNewsApiKey(e.target.value)}
+                    placeholder="Paste your NewsAPI key here"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-2 px-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Telegram Bot Automation Section */}
-          <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg overflow-hidden">
-            <div className="p-4 border-b border-zinc-800 bg-zinc-950/40 flex items-center gap-2">
-              <Bot size={16} className="text-zinc-400" />
-              <h2 className="text-sm font-medium text-zinc-200">Telegram Bot Automation</h2>
-            </div>
-            <div className="p-5 space-y-4">
-              <p className="text-xs text-zinc-400 pb-2">
-                Configure your Telegram bot to automatically broadcast new articles when they are published.
-              </p>
-              <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Telegram Bot Token</label>
-                <input
-                  type="password"
-                  value={telegramToken}
-                  onChange={(e) => setTelegramToken(e.target.value)}
-                  placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz..."
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-2 px-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
-                />
+          {activeTab === 'telegram' && (
+            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl overflow-hidden">
+              <div className="p-4 border-b border-zinc-800 bg-zinc-950/40">
+                <h2 className="text-sm font-semibold text-zinc-100">Telegram Channel Broadcast</h2>
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  Automatically broadcast newly published articles to your Telegram channel.
+                </p>
               </div>
-              
-              <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Target Channel / Chat ID</label>
-                <input
-                  type="text"
-                  value={telegramChannel}
-                  onChange={(e) => setTelegramChannel(e.target.value)}
-                  placeholder="@camtechblog or -100123456789"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-2 px-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 font-mono"
-                />
-                <p className="text-[10px] text-zinc-500 mt-1">Make sure the bot is added as an Administrator to this channel.</p>
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">Telegram Bot Token</label>
+                  <input
+                    type="password"
+                    value={telegramToken}
+                    onChange={(e) => setTelegramToken(e.target.value)}
+                    placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz..."
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-2 px-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">Target Channel / Chat ID</label>
+                  <input
+                    type="text"
+                    value={telegramChannel}
+                    onChange={(e) => setTelegramChannel(e.target.value)}
+                    placeholder="@camtechblog or -100123456789"
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-md py-2 px-3 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    Add your bot as an Administrator on that channel so posts can publish.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>

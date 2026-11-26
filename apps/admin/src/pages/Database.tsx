@@ -16,13 +16,14 @@ export default function DatabaseMigration() {
     try {
       const response = await api.post('/admin/database/migrate', {
         target_url: targetUrl,
-        copy_data: copyData
+        copy_data: copyData,
       });
       setResult({ success: true, message: response.data.message });
-    } catch (err: any) {
-      setResult({ 
-        success: false, 
-        message: err.response?.data?.detail || err.message || 'Migration failed' 
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { detail?: string } }; message?: string };
+      setResult({
+        success: false,
+        message: axiosErr.response?.data?.detail || axiosErr.message || 'Migration failed',
       });
     } finally {
       setLoading(false);
@@ -30,97 +31,88 @@ export default function DatabaseMigration() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6 font-sans">
+      <div className="pb-5 border-b border-zinc-800/80">
+        <h1 className="text-2xl font-bold text-zinc-100 flex items-center gap-2.5 tracking-tight">
+          <Database className="w-6 h-6 text-emerald-400" />
+          Database Connection &amp; Migration
+        </h1>
+        <p className="text-xs text-zinc-400 mt-1">
+          Point the backend to another PostgreSQL instance and run schema migrations safely.
+        </p>
+      </div>
+
+      <div className="bg-zinc-900/60 rounded-xl border border-zinc-800/80 p-6 max-w-2xl space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Database className="w-6 h-6 text-emerald-600" />
-            Super System: Database Migration
-          </h1>
-          <p className="text-gray-500 mt-1">
-            Connect to external databases dynamically and run auto-migrations.
+          <label className="block text-xs font-medium text-zinc-300 mb-1.5">Target Database URL</label>
+          <div className="relative">
+            <Server className="w-4 h-4 text-zinc-500 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              value={targetUrl}
+              onChange={(e) => setTargetUrl(e.target.value)}
+              placeholder="postgresql+psycopg2://user:password@host:5432/dbname"
+              className="w-full pl-9 pr-4 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-emerald-500 font-mono"
+            />
+          </div>
+          <p className="text-[11px] text-zinc-500 mt-1.5">
+            Supports PostgreSQL, MySQL, or SQLite connection strings.
           </p>
         </div>
-      </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-2xl">
-        <div className="space-y-4">
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Target Database URL
-            </label>
-            <div className="relative">
-              <Server className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                value={targetUrl}
-                onChange={(e) => setTargetUrl(e.target.value)}
-                placeholder="postgresql+psycopg2://user:password@host:5432/dbname"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Supports PostgreSQL, MySQL, SQLite, etc. (e.g., mysql+pymysql://...)
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 pt-2">
-            <input
-              type="checkbox"
-              id="copyData"
-              checked={copyData}
-              onChange={(e) => setCopyData(e.target.checked)}
-              className="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
-            />
-            <label htmlFor="copyData" className="text-sm text-gray-700 font-medium">
-              Attempt to copy existing data to the new database
-            </label>
-          </div>
-
-          <div className="pt-4 border-t border-gray-100">
-            <button
-              onClick={handleMigrate}
-              disabled={loading || !targetUrl}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-            >
-              {loading ? (
-                <RefreshCw className="w-5 h-5 animate-spin" />
-              ) : (
-                <Database className="w-5 h-5" />
-              )}
-              {loading ? 'Connecting & Migrating...' : 'Connect & Auto-Migrate'}
-            </button>
-          </div>
-
-          {result && (
-            <div className={`mt-4 p-4 rounded-lg flex items-start gap-3 ${
-              result.success ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
-            }`}>
-              {result.success ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 mt-0.5" />
-              ) : (
-                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
-              )}
-              <div>
-                <h4 className="font-semibold">{result.success ? 'Success' : 'Migration Failed'}</h4>
-                <p className="text-sm mt-1">{result.message}</p>
-              </div>
-            </div>
-          )}
-
+        <div className="flex items-center gap-2 pt-1">
+          <input
+            type="checkbox"
+            id="copyData"
+            checked={copyData}
+            onChange={(e) => setCopyData(e.target.checked)}
+            className="w-4 h-4 rounded border-zinc-700 bg-zinc-950 text-emerald-500 focus:ring-emerald-500"
+          />
+          <label htmlFor="copyData" className="text-xs text-zinc-300 font-medium">
+            Attempt to copy existing rows to the target database
+          </label>
         </div>
+
+        <div className="pt-4 border-t border-zinc-800/80">
+          <button
+            onClick={handleMigrate}
+            disabled={loading || !targetUrl}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs font-medium"
+          >
+            {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+            <span>{loading ? 'Connecting & Migrating...' : 'Connect & Auto-Migrate'}</span>
+          </button>
+        </div>
+
+        {result && (
+          <div
+            className={`mt-4 p-4 rounded-lg flex items-start gap-3 border text-xs ${
+              result.success
+                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                : 'bg-red-500/10 text-red-300 border-red-500/20'
+            }`}
+          >
+            {result.success ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+            )}
+            <div>
+              <h4 className="font-semibold">{result.success ? 'Success' : 'Migration Failed'}</h4>
+              <p className="mt-1 text-zinc-300">{result.message}</p>
+            </div>
+          </div>
+        )}
       </div>
-      
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 max-w-2xl">
-        <h3 className="font-semibold text-blue-900 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5" />
-          How this Smart System works
+
+      <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl p-5 max-w-2xl">
+        <h3 className="text-xs font-semibold text-zinc-200 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-zinc-400" />
+          Before Migrating
         </h3>
-        <ul className="mt-2 space-y-2 text-sm text-blue-800 list-disc list-inside">
-          <li><strong>Auto-Creation:</strong> It will connect to the target database and automatically generate all tables required by the application.</li>
-          <li><strong>Data Copy (Beta):</strong> If checked, it will attempt to copy all rows from the current database. This works best between similar SQL dialects.</li>
-          <li><strong>Permanent Switch:</strong> To permanently switch the app to use this new database, update the <code>DATABASE_URL</code> in your <code>docker-compose.yml</code> or <code>.env</code> file and restart the server.</li>
+        <ul className="mt-2 space-y-1.5 text-xs text-zinc-400 list-disc list-inside">
+          <li>Creates required PostgreSQL schema tables automatically before copying records.</li>
+          <li>Always keep a verified backup before switching a live production database URL.</li>
         </ul>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Plus, 
   Search, 
@@ -87,13 +88,20 @@ function formatCountdown(iso: string) {
 }
 
 export default function Articles() {
+  const [searchParams] = useSearchParams();
+  const initialTabParam = searchParams.get('tab');
+  const initialFilterTab: FilterTab =
+    initialTabParam === 'PUBLISHED' || initialTabParam === 'DRAFT' || initialTabParam === 'ARCHIVED'
+      ? initialTabParam
+      : 'All';
+
   const [articles, setArticles] = useState<ApiArticle[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [filterTab, setFilterTab] = useState<FilterTab>('All');
+  const [filterTab, setFilterTab] = useState<FilterTab>(initialFilterTab);
   const [verdicts, setVerdicts] = useState<Record<string, AutopilotVerdict>>({});
   const [countryFilter, setCountryFilter] = useState<'ALL' | 'KH' | 'WORLD'>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
   const [aiGenerating, setAiGenerating] = useState(false);
   const [enhancingImages, setEnhancingImages] = useState(false);
   const [syncingFeeds, setSyncingFeeds] = useState(false);
@@ -174,16 +182,31 @@ export default function Articles() {
   }, [countryFilter]);
 
   useEffect(() => {
+    const qParam = searchParams.get('q') ?? '';
+    const tabParam = searchParams.get('tab');
+    const newParam = searchParams.get('new');
+    if (qParam !== searchQuery) {
+      setSearchQuery(qParam);
+    }
+    if (tabParam === 'PUBLISHED' || tabParam === 'DRAFT' || tabParam === 'ARCHIVED' || tabParam === 'All') {
+      if (tabParam !== filterTab) {
+        setFilterTab(tabParam);
+        fetchArticles(false, tabParam);
+      }
+    }
+    if (newParam === 'true') {
+      setIsModalOpen(true);
+    }
+    // Sync query parameters cleanly when navigating via Topbar or Dashboard links.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
     const handleClose = () => {
       setIsModalOpen(false);
       setScanMenuOpen(false);
     };
     window.addEventListener('admin:close-modals', handleClose);
-
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('new') === 'true') {
-      setIsModalOpen(true);
-    }
 
     return () => {
       window.removeEventListener('admin:close-modals', handleClose);
@@ -398,7 +421,7 @@ export default function Articles() {
           </p>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
-          <button 
+          <button
             onClick={() => fetchArticles(true)}
             disabled={loading}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-lg transition-all disabled:opacity-50"
@@ -406,59 +429,80 @@ export default function Articles() {
             <RefreshCw size={13} className={loading ? 'animate-spin text-zinc-400' : 'text-zinc-400'} />
             <span>Refresh</span>
           </button>
-          <button 
+
+          <button
             onClick={handlePublishAll}
             disabled={publishingAll}
             className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50 cursor-pointer"
             title="Publish all eligible AI drafts that pass quality gates immediately"
           >
             {publishingAll ? <RefreshCw size={13} className="animate-spin" /> : <CheckCheck size={13} />}
-            <span>{publishingAll ? 'Publishing...' : 'Approve All (Publish Ready)'}</span>
+            <span>{publishingAll ? 'Publishing...' : 'Publish Ready'}</span>
           </button>
-          <button 
-            onClick={() => setTopicModalOpen(true)}
-            className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm cursor-pointer"
-            title="Research and auto-publish or draft news on any topic or region (Cambodia, Thailand, Vietnam, China, World)"
-          >
-            <Sparkles size={13} />
-            <span>AI Topic Research</span>
-          </button>
-          <button 
-            onClick={handleEnhanceImages}
-            disabled={enhancingImages}
-            className="flex items-center gap-1.5 bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border border-emerald-500/25 font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50"
-            title="Scan stories with missing or low-res images and find high-resolution HD imagery"
-          >
-            {enhancingImages ? <RefreshCw size={13} className="animate-spin" /> : <Camera size={13} />}
-            <span>Enhance HD Images</span>
-          </button>
-          <button 
-            onClick={handleSyncFeeds}
-            disabled={syncingFeeds}
-            className="flex items-center gap-1.5 bg-amber-600/15 hover:bg-amber-600/25 text-amber-400 border border-amber-500/25 font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50 cursor-pointer"
-            title="Poll all verified RSS wire feeds (Khmer Times, Kiripost, Fresh News, Phnom Penh Post, Al Jazeera, CNA, ThmeyThmey)"
-          >
-            {syncingFeeds ? <RefreshCw size={13} className="animate-spin" /> : <Rss size={13} />}
-            <span>{syncingFeeds ? 'Syncing Feeds...' : 'Sync Wire Feeds'}</span>
-          </button>
-          {/* Scan News Dropdown Menu */}
+
+          {/* Unified AI & Feed Pipeline Dropdown */}
           <div className="relative">
-            <button 
+            <button
               onClick={() => setScanMenuOpen(!scanMenuOpen)}
-              disabled={aiGenerating}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+              disabled={aiGenerating || syncingFeeds || enhancingImages}
+              className="flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/80 font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm disabled:opacity-50 cursor-pointer"
             >
-              {aiGenerating ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
-              <span>{aiGenerating ? 'AI Scanning...' : 'Scan News (AI)'}</span>
+              {aiGenerating || syncingFeeds || enhancingImages ? (
+                <RefreshCw size={13} className="animate-spin text-emerald-400" />
+              ) : (
+                <Sparkles size={13} className="text-emerald-400" />
+              )}
+              <span>
+                {syncingFeeds
+                  ? 'Syncing Feeds...'
+                  : enhancingImages
+                    ? 'Enhancing Photos...'
+                    : aiGenerating
+                      ? 'AI Scanning...'
+                      : 'AI & Feeds'}
+              </span>
               <ChevronDown size={12} className={scanMenuOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
             </button>
 
             {scanMenuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setScanMenuOpen(false)} />
-                <div className="absolute right-0 mt-1.5 w-64 rounded-xl bg-zinc-900 border border-zinc-800 shadow-2xl py-1.5 z-50">
+                <div className="absolute right-0 mt-1.5 w-72 rounded-xl bg-zinc-900 border border-zinc-800 shadow-2xl py-1.5 z-50">
                   <div className="px-3 py-1.5 border-b border-zinc-800/80 text-[10px] font-mono uppercase text-zinc-500 font-semibold">
-                    Select AI Scan Target
+                    Feeds &amp; Media Tools
+                  </div>
+                  <button
+                    onClick={() => {
+                      setScanMenuOpen(false);
+                      handleSyncFeeds();
+                    }}
+                    disabled={syncingFeeds}
+                    className="w-full text-left px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    <Rss size={15} className="text-amber-400 shrink-0" />
+                    <div>
+                      <div className="font-medium text-zinc-100">Sync Wire RSS Feeds</div>
+                      <div className="text-[10px] text-zinc-400">Pull verified Cambodia &amp; regional publishers</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setScanMenuOpen(false);
+                      handleEnhanceImages();
+                    }}
+                    disabled={enhancingImages}
+                    className="w-full text-left px-3 py-2 text-xs text-zinc-200 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    <Camera size={15} className="text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="font-medium text-zinc-100">Enhance Missing HD Images</div>
+                      <div className="text-[10px] text-zinc-400">Find verified cover photos for drafts</div>
+                    </div>
+                  </button>
+
+                  <div className="my-1 border-t border-zinc-800/80" />
+                  <div className="px-3 py-1 text-[10px] font-mono uppercase text-zinc-500 font-semibold">
+                    AI Draft Generators
                   </div>
                   <button
                     onClick={() => handleScanNews('cambodia')}
@@ -467,7 +511,7 @@ export default function Articles() {
                     <FlagKH />
                     <div>
                       <div className="font-medium text-zinc-100">Scan Cambodia News</div>
-                      <div className="text-[10px] text-zinc-400">Local tech, Bakong fintech, telecom & startups</div>
+                      <div className="text-[10px] text-zinc-400">Local tech, Bakong fintech, telecom &amp; startups</div>
                     </div>
                   </button>
                   <button
@@ -477,13 +521,15 @@ export default function Articles() {
                     <Globe size={15} className="text-blue-400 shrink-0" />
                     <div>
                       <div className="font-medium text-zinc-100">Scan World News</div>
-                      <div className="text-[10px] text-zinc-400">Global AI, robotics, cyber & big tech</div>
+                      <div className="text-[10px] text-zinc-400">Global AI, robotics, cyber &amp; big tech</div>
                     </div>
                   </button>
-                  <div className="my-1 border-t border-zinc-800/80" />
                   <button
-                    onClick={() => { setScanMenuOpen(false); setTopicModalOpen(true); }}
-                    className="w-full text-left px-3 py-2 text-xs text-purple-400 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors"
+                    onClick={() => {
+                      setScanMenuOpen(false);
+                      setTopicModalOpen(true);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-purple-300 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors"
                   >
                     <Sparkles size={15} className="text-purple-400 shrink-0" />
                     <div>
@@ -493,7 +539,7 @@ export default function Articles() {
                   </button>
                   <button
                     onClick={() => handleScanNews('all')}
-                    className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors"
+                    className="w-full text-left px-3 py-2 text-xs text-emerald-300 hover:bg-zinc-800 flex items-center gap-2.5 cursor-pointer transition-colors"
                   >
                     <Zap size={15} className="text-amber-400 shrink-0" />
                     <div>
@@ -505,7 +551,8 @@ export default function Articles() {
               </>
             )}
           </div>
-          <button 
+
+          <button
             data-shortcut="new-article"
             onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-1.5 bg-zinc-100 hover:bg-white text-zinc-950 font-medium px-3.5 py-1.5 rounded-lg text-xs transition-all shadow-sm"
