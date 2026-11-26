@@ -251,8 +251,8 @@ Title: {title}
 Content snippet: {clean_content}
 
 Your mission:
-1. Synthesize and rewrite the story from scratch with original editorial prose (do NOT copy verbatim sentences). The original source is solely a factual reference.
-2. Produce a complete, high-quality Khmer version (title_km, summary_km, AND full content_km) with natural Cambodian journalism phrasing and accurate terminology. Never leave content_km empty or in English.
+1. Synthesize and rewrite the story from scratch with clear, accurate editorial prose grounded strictly in verified facts from the source (never invent unnamed specs or vague generic filler; clarify any ambiguous wire headline phrasing).
+2. Produce a complete, unambiguous Khmer version (title_km, summary_km, AND full content_km) using PURE Khmer Unicode script (ខ្មែរ) ONLY — strictly NEVER mix Thai or Lao script characters, and never leave content_km empty or in English.
 
 Write a professional editorial draft as JSON with keys:
 - summary: 2-sentence original English summary attributing to {source_name}

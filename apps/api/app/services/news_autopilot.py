@@ -223,6 +223,18 @@ def evaluate_draft(db: Session, article: Article, run_quality_gate: bool = True)
         checklist = ArticleService.validate_quality_gate(article, db)
         if not checklist.can_publish:
             return PublishVerdict(False, "Quality gate: " + "; ".join(checklist.missing_items), None)
+        from app.services.content_quality import khmer_quality_issue
+        km_err = khmer_quality_issue(
+            article.title_km,
+            article.summary_km,
+            article.content_km,
+            article.title,
+            article.summary,
+            article.content,
+            require_complete=True,
+        )
+        if km_err:
+            return PublishVerdict(False, f"Bilingual Khmer gate: {km_err}", None)
 
     return PublishVerdict(True, "Will auto-publish unless rejected", publish_at)
 
@@ -351,21 +363,21 @@ async def redraft_held_drafts(db: Session, drafter) -> dict:
             logger.warning(f"Re-draft failed for {article.id}: {meta['redraft_error']}")
             continue
 
-        from app.services.bilingual_service import ensure_article_khmer_fields, has_khmer_script
+        from app.services.bilingual_service import ensure_article_khmer_fields, has_clean_khmer_script
         draft = await ensure_article_khmer_fields(draft, article.title, source_name)
 
         key_points = [str(k).strip() for k in (draft.get("key_points") or []) if str(k).strip()]
         prev_engine = _engine(meta)
         article.summary = summary
-        if draft.get("title_km"):
+        if draft.get("title_km") and has_clean_khmer_script(str(draft["title_km"]), min_chars=3):
             article.title_km = str(draft["title_km"]).strip()[:255]
-        if draft.get("summary_km"):
+        if draft.get("summary_km") and has_clean_khmer_script(str(draft["summary_km"]), min_chars=10):
             article.summary_km = str(draft["summary_km"]).strip()
         article.key_points = json.dumps(key_points)
         article.why_it_matters = str(draft.get("why_it_matters") or "").strip()
         body_text = draft.get("content") or (summary + "\n\n" + "\n".join(f"- {k}" for k in key_points))
         article.content = sanitize_stored_html(body_text)
-        if draft.get("content_km") and has_khmer_script(str(draft["content_km"]), min_chars=20):
+        if draft.get("content_km") and has_clean_khmer_script(str(draft["content_km"]), min_chars=25):
             article.content_km = sanitize_stored_html(str(draft["content_km"]).strip())
         if draft.get("seo_title"):
             article.seo_title = strip_brand_suffix(str(draft["seo_title"]))[:150]

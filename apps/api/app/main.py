@@ -59,7 +59,14 @@ async def lifespan(app: FastAPI):
         # TODO: Remove schema_migration after Alembic is verified working
         from app.common.schema_migration import ensure_database_schema
         ensure_database_schema()
-        logger.info("Database schema verified.")
+        from app.common.database import SessionLocal
+        from app.services.seed_sources import ensure_regional_hygiene_v3
+        db = SessionLocal()
+        try:
+            ensure_regional_hygiene_v3(db)
+        finally:
+            db.close()
+        logger.info("Database schema and regional hygiene verified.")
     except Exception as e:
         logger.error(f"Non-critical database initialization notice: {e}")
 

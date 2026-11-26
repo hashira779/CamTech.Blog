@@ -131,9 +131,14 @@ export function articleHref(article: { slug: string; country?: string | null }):
     : `/world/news/${article.slug}`;
 }
 
+const MIXED_THAI_LAO_SCRIPT = /[\u0E00-\u0E7F\u0E80-\u0EFF]/;
+
 export function hasKhmerText(value?: string | null, minChars: number = 12): boolean {
   if (!value) return false;
-  const matches = value.match(/[\u1780-\u17FF]/g);
+  const str = String(value);
+  // Reject mixed Thai or Lao glyphs leaked into Khmer translations.
+  if (MIXED_THAI_LAO_SCRIPT.test(str)) return false;
+  const matches = str.match(/[\u1780-\u17FF]/g);
   return Boolean(matches && matches.length >= minChars);
 }
 

@@ -67,31 +67,10 @@ async def ingest_rss_feeds_job():
     """
     db = SessionLocal()
     try:
-        from app.models.audit import SiteSetting
-        seed_flag = db.query(SiteSetting).filter(SiteSetting.key == "RECOMMENDED_NEWS_SOURCES_V2").first()
-        if not seed_flag:
-            from app.services.seed_sources import seed_recommended_sources
-            seed_stats = seed_recommended_sources(db)
-            db.add(SiteSetting(
-                key="RECOMMENDED_NEWS_SOURCES_V2",
-                value_json="seeded",
-                description="Auto-seeded Cambodia, Thai-on-Cambodia, ASEAN, and World RSS feeds once",
-            ))
-            db.commit()
-            logger.info(f"🌱 Auto-seeded regional news feeds: {seed_stats}")
-
-        reconcile_flag = db.query(SiteSetting).filter(SiteSetting.key == "REGIONAL_DESKS_V2_RECONCILED").first()
-        if not reconcile_flag:
-            from app.services.seed_sources import reconcile_existing_article_desks, seed_recommended_sources
-            seed_recommended_sources(db)
-            rec_stats = reconcile_existing_article_desks(db)
-            db.add(SiteSetting(
-                key="REGIONAL_DESKS_V2_RECONCILED",
-                value_json="reconciled",
-                description="Normalized existing articles across KH, TH, ASEAN, and WORLD desks",
-            ))
-            db.commit()
-            logger.info(f"🗂️ Reconciled existing articles across 4 desks: {rec_stats}")
+        from app.services.seed_sources import ensure_regional_hygiene_v3
+        hygiene = ensure_regional_hygiene_v3(db)
+        if not hygiene.get("already_ran"):
+            logger.info(f"🧹 Regional hygiene V3 applied: {hygiene}")
 
         sources = db.query(Source).filter(
             Source.is_active == True,
@@ -442,6 +421,24 @@ async def daily_ai_news_job():
         logger.error(f"Daily AI news generation failed: {e}")
 
 
+async def khmer_backfill_job():
+    """Backfill missing or scrubbed Khmer fields before slow RSS ingestion cycles."""
+    from app.services import bilingual_service
+    db = SessionLocal()
+    try:
+        res = await bilingual_service.translate_missing_khmer_batch(db, article_limit=8, discovery_limit=3)
+        if res.get("articles_translated") or res.get("discoveries_translated"):
+            logger.info(
+                f"🇰🇭 Khmer Backfill: articles={res.get('articles_translated', 0)}, "
+                f"discoveries={res.get('discoveries_translated', 0)}"
+            )
+    except Exception as e:
+        db.rollback()
+        logger.warning(f"Khmer backfill job error: {e}")
+    finally:
+        db.close()
+
+
 async def news_autopilot_job():
     """Hybrid auto-publish, re-draft held items, backfill missing Khmer translations, archive/purge."""
     from app.services import bilingual_service, news_autopilot
@@ -543,6 +540,9 @@ async def worker_main():
 
         # Daily news gets the first scheduling check; slow RSS feeds must not delay it.
         await daily_ai_news_job()
+
+        # Run Khmer translation backfill before sequential RSS scraping so missing translations catch up steadily.
+        await khmer_backfill_job()
 
         # RSS ingestion respects per-source fetch intervals.
         await ingest_rss_feeds_job()

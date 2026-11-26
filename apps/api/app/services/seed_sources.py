@@ -151,36 +151,140 @@ def seed_recommended_sources(db: Session) -> Dict[str, int]:
 def reconcile_existing_article_desks(db: Session) -> Dict[str, int]:
     """Re-classify existing articles cleanly into KH, TH, ASEAN, or WORLD desks."""
     from app.models.article import Article
-    from app.services.filing import category_is_cambodia, resolve_country
+    from app.models.category import Category
+    from app.services.filing import category_is_cambodia, mentions_cambodia, resolve_country
 
     articles = (
         db.query(Article)
         .filter(Article.status.in_(["PUBLISHED", "AI_DRAFT", "DRAFT", "IN_REVIEW", "APPROVED"]))
         .all()
     )
+    world_cat = db.query(Category).filter(Category.slug == "world").first()
+    asean_cat = db.query(Category).filter(Category.slug == "asean").first()
+
     updated = 0
     for art in articles:
         cat_slug = art.category.slug if art.category else None
         cat_scope = art.category.scope if art.category else None
-        src_country = art.primary_source.country if art.primary_source else art.country
+        cambodia_cat_mismatch = bool(
+            cat_slug
+            and category_is_cambodia(cat_slug, cat_scope)
+            and not mentions_cambodia(art.title, art.summary, art.content)
+        )
+        src_country = (
+            "WORLD"
+            if cambodia_cat_mismatch
+            else (art.primary_source.country if art.primary_source else "WORLD")
+        )
         src_name = (
             art.primary_source.name
             if art.primary_source
             else art.source_attribution_text
         )
         new_country = resolve_country(
-            cat_slug,
+            "world" if cambodia_cat_mismatch else cat_slug,
             src_country,
             art.title,
             art.summary,
             art.content,
             source_name=src_name,
         )
-        if cat_slug and category_is_cambodia(cat_slug, cat_scope) and new_country != "TH":
-            new_country = "KH"
+        if cambodia_cat_mismatch:
+            if new_country == "ASEAN" and asean_cat:
+                art.category_id = asean_cat.id
+            elif new_country == "WORLD" and world_cat:
+                art.category_id = world_cat.id
         if (art.country or "").upper() != new_country:
             art.country = new_country
             updated += 1
     if updated:
         db.commit()
     return {"checked": len(articles), "updated": updated}
+
+
+def scrub_and_hold_defective_published_articles(db: Session) -> Dict[str, int]:
+    """Scrub mixed Thai/Lao script glyphs from Khmer columns and hold defective boilerplate articles."""
+    import json
+    import re
+    from app.models.article import Article, ArticleRevision
+    from app.models.audit import AuditLog
+    from app.models.discovery import Discovery
+    from app.services.content_quality import body_quality_issue
+
+    foreign = re.compile(r"[\u0E00-\u0E7F\u0E80-\u0EFF]")
+    scrubbed_fields = 0
+    held_articles = 0
+
+    for art in db.query(Article).all():
+        art_dirty = False
+        for field in ("title_km", "summary_km", "content_km"):
+            val = getattr(art, field, None)
+            if val and foreign.search(str(val)):
+                setattr(art, field, None)
+                scrubbed_fields += 1
+                art_dirty = True
+
+        if art.status == "PUBLISHED":
+            issue = body_quality_issue(art.content, art.summary, art.why_it_matters)
+            if issue:
+                art.status = "IN_REVIEW"
+                art.quality_checklist_passed = False
+                try:
+                    meta = json.loads(art.ai_draft_metadata) if art.ai_draft_metadata else {}
+                    if not isinstance(meta, dict):
+                        meta = {}
+                except Exception:
+                    meta = {}
+                meta["autopilot_hold_reason"] = f"Quality audit: {issue}"
+                art.ai_draft_metadata = json.dumps(meta)
+                db.add(ArticleRevision(
+                    article_id=art.id,
+                    editor_user_id=None,
+                    previous_status="PUBLISHED",
+                    new_status="IN_REVIEW",
+                    change_summary=f"Auto-held for clarification: {issue[:180]}",
+                ))
+                db.add(AuditLog(
+                    user_id=None,
+                    action="QUALITY_AUDIT_HOLD",
+                    entity="ARTICLE",
+                    entity_id=art.id,
+                    old_value_json="PUBLISHED",
+                    new_value_json="IN_REVIEW",
+                    request_id="hygiene-v3",
+                ))
+                held_articles += 1
+                art_dirty = True
+        if art_dirty:
+            pass
+
+    for disc in db.query(Discovery).all():
+        for field in ("title_km", "intro_km", "main_explanation_km"):
+            val = getattr(disc, field, None)
+            if val and foreign.search(str(val)):
+                setattr(disc, field, None)
+                scrubbed_fields += 1
+
+    if scrubbed_fields or held_articles:
+        db.commit()
+    return {"scrubbed_fields": scrubbed_fields, "held_articles": held_articles}
+
+
+def ensure_regional_hygiene_v3(db: Session) -> Dict[str, object]:
+    """One-shot idempotent hygiene pass: seeds sources, aligns 4 desks, scrubs mixed scripts, holds boilerplate."""
+    from app.models.audit import SiteSetting
+
+    flag = db.query(SiteSetting).filter(SiteSetting.key == "REGIONAL_DESKS_V3_RECONCILED").first()
+    if flag:
+        return {"already_ran": True}
+
+    seed_stats = seed_recommended_sources(db)
+    desk_stats = reconcile_existing_article_desks(db)
+    scrub_stats = scrub_and_hold_defective_published_articles(db)
+    db.add(SiteSetting(
+        key="REGIONAL_DESKS_V3_RECONCILED",
+        value_json="done",
+        description="Aligned 4 news desks, cleared non-Khmer Thai/Lao glyphs, and held defective boilerplate articles",
+    ))
+    db.commit()
+    return {"seed": seed_stats, "desks": desk_stats, "scrub": scrub_stats}

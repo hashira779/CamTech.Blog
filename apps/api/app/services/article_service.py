@@ -11,7 +11,7 @@ from app.models.source import Source
 from app.schemas.article import ArticleCreate, ArticleUpdate, QualityChecklist
 from app.deduplication.detector import detect_duplicates
 from app.common.html_hygiene import safe_link, sanitize_stored_html
-from app.services.content_quality import body_quality_issue, has_specific_source
+from app.services.content_quality import body_quality_issue, has_specific_source, khmer_quality_issue
 
 def slugify(text: str) -> str:
     text = text.lower().strip()
@@ -167,13 +167,25 @@ class ArticleService:
         seo_metadata_complete = bool(article.seo_title and article.seo_description)
         if not seo_metadata_complete: missing.append("SEO title and description must be completed")
 
+        km_issue = khmer_quality_issue(
+            article.title_km,
+            article.summary_km,
+            article.content_km,
+            article.title,
+            article.summary,
+            article.content,
+            require_complete=False,
+        )
+        if km_issue:
+            missing.append(km_issue)
+
         canonical_valid = bool(article.canonical_url or article.slug)
 
         can_publish = (
             has_headline and has_summary and has_body and has_author and
             has_category and has_source_attribution and has_source_url and
             has_image_with_credit and hero_provenance_verified and filing_consistent and
-            no_duplicate_detected and seo_metadata_complete
+            no_duplicate_detected and seo_metadata_complete and km_issue is None
         )
 
         return QualityChecklist(
@@ -298,51 +310,11 @@ class ArticleService:
         if not article.source_attribution_text:
             article.source_attribution_text = "Source: CamTech Editorial Desk"
 
-        from app.services.content_quality import has_specific_source, body_quality_issue, MIN_BODY_CHARS
-        from app.common.html_hygiene import strip_for_text
-
-        if not has_specific_source(article.primary_source_url):
-            base_url = (article.primary_source_url or "https://camtech.cam").rstrip("/")
-            article.primary_source_url = f"{base_url}/news/{article.slug or article.id}"
-
-        if article.hero_image_url and not (article.hero_image_credit and len(article.hero_image_credit) > 2):
-            article.hero_image_credit = "Photo: Editorial Media Archive"
-
-        # If body is too short or lacks depth, expand with substantive journalistic copy
-        text = strip_for_text(article.content or "")
-        clean_len = len(re.sub(r"\s", "", text))
-        if clean_len < MIN_BODY_CHARS or body_quality_issue(article.content, article.summary, article.why_it_matters):
-            kp_list = []
-            try:
-                kp_list = json.loads(article.key_points) if article.key_points else []
-            except Exception:
-                kp_list = []
-            kp_text = ("\n" + "\n".join(f"- {pt}" for pt in kp_list)) if kp_list else ""
-            expanded_sections = f"""
-
-## Comprehensive Overview and Background Context
-Recent reporting and verified institutional documentation outline significant developments across key operational and economic sectors. As domestic and cross-border initiatives gain traction, relevant authorities and industry participants have begun executing structured modernization programs aimed at improving efficiency, data transparency, and service reliability.
-{kp_text}
-
-The strategic objectives include aligning local operational practices with international benchmarks, fostering collaborative ecosystems, and building institutional resilience against global market fluctuations. Stakeholders continue to prioritize sustainable frameworks that encourage investment and enhance regional integration.
-
-## Strategic Sector Analysis and Market Implications
-From a broader technical and economic viewpoint, these measures highlight a decisive transition toward digital transformation and regulatory standardization. Industry specialists observe that early adopters are experiencing noticeable gains in workflow transparency and reduced transactional frictions.
-
-Furthermore, neighboring markets and regional partners are actively observing these outcomes. As shared standards gain broader acceptance across Southeast Asia, seamless cross-border interoperability is poised to unlock commercial value and strengthen collaborative partnerships across both public and private sectors.
-
-## Policy Roadmap and Forward-Looking Projections
-Looking forward into forthcoming quarters, observers expect successive implementation milestones to reinforce these foundational gains. Priority areas will center on continuous capacity building, rigorous security adherence, and proactive feedback mechanisms with active community and enterprise stakeholders.
-
-By maintaining disciplined execution and steady multi-agency coordination, the broader initiative positions Cambodia and the wider region for balanced, enduring progress in the evolving digital economy.
-"""
-            article.content = (article.content or "").strip() + "\n" + expanded_sections.strip()
-
         db.commit()
         db.refresh(article)
 
         checklist = ArticleService.validate_quality_gate(article, db)
-        if not checklist.can_publish and not force and editor_user_id is None:
+        if not checklist.can_publish and not force:
             raise ValueError(f"Quality gate validation failed: {', '.join(checklist.missing_items)}")
 
         prev_status = article.status
