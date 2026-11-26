@@ -67,13 +67,20 @@ async def ingest_rss_feeds_job():
     """
     db = SessionLocal()
     try:
-        from app.services.seed_sources import ensure_production_pipeline_v4, ensure_regional_hygiene_v3
+        from app.services.seed_sources import (
+            ensure_production_pipeline_v4,
+            ensure_production_pipeline_v5,
+            ensure_regional_hygiene_v3,
+        )
         hygiene = ensure_regional_hygiene_v3(db)
         if not hygiene.get("already_ran"):
             logger.info(f"🧹 Regional hygiene V3 applied: {hygiene}")
         v4 = ensure_production_pipeline_v4(db)
         if not v4.get("already_ran"):
             logger.info(f"🔧 Pipeline recovery V4 applied: {v4}")
+        v5 = ensure_production_pipeline_v5(db)
+        if not v5.get("already_ran"):
+            logger.info(f"⚡ Pipeline recovery V5 applied: {v5}")
 
         sources = db.query(Source).filter(
             Source.is_active == True,
@@ -427,8 +434,16 @@ async def daily_ai_news_job():
 async def khmer_backfill_job():
     """Backfill missing or scrubbed Khmer fields before slow RSS ingestion cycles."""
     from app.services import bilingual_service
+    from app.services.seed_sources import (
+        ensure_production_pipeline_v4,
+        ensure_production_pipeline_v5,
+        ensure_regional_hygiene_v3,
+    )
     db = SessionLocal()
     try:
+        ensure_regional_hygiene_v3(db)
+        ensure_production_pipeline_v4(db)
+        ensure_production_pipeline_v5(db)
         res = await bilingual_service.translate_missing_khmer_batch(db, article_limit=8, discovery_limit=3)
         if res.get("articles_translated") or res.get("discoveries_translated"):
             logger.info(

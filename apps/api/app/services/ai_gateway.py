@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -66,7 +67,7 @@ class AIProvider:
 # Array order == fallback priority. Only Gemini is enabled by default (via the legacy key);
 # everything else starts disabled until the editor pastes a key.
 DEFAULT_PROVIDERS: List[Dict[str, Any]] = [
-    {"id": "gemini", "label": "Google Gemini", "style": "gemini", "model": "gemini-3.6-flash",
+    {"id": "gemini", "label": "Google Gemini", "style": "gemini", "model": "gemini-3-flash-preview",
      "base_url": "https://generativelanguage.googleapis.com", "enabled": True, "supports_search": False},
     {"id": "openai", "label": "OpenAI", "style": "openai", "model": "gpt-4o-mini",
      "base_url": "https://api.openai.com/v1"},
@@ -263,13 +264,15 @@ def _call_anthropic(p: AIProvider, prompt: str, system: Optional[str], timeout: 
 
 
 GEMINI_FALLBACK_MODELS: Tuple[str, ...] = (
-    "gemini-3.6-flash",
-    "gemini-3.1-flash-lite",
     "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite",
+    "gemini-3.6-flash",
     "gemini-3.5-flash-lite",
     "gemini-3.5-flash",
-    "gemini-3.7-flash",
 )
+
+# Short per-process cooldown so timed-out or quota-exhausted Gemini models are skipped for 5 mins.
+_MODEL_COOLDOWN_UNTIL: Dict[str, float] = {}
 
 
 def _call_gemini_with_model(
@@ -289,21 +292,26 @@ def _call_gemini_with_model(
     if use_search and p.supports_search:
         body["tools"] = [{"google_search": {}}]
 
-    candidates: List[str] = []
+    ordered: List[str] = []
     for m in (p.model, *GEMINI_FALLBACK_MODELS):
-        if m and m not in candidates:
-            candidates.append(m)
+        if m and m not in ordered:
+            ordered.append(m)
+
+    now = time.monotonic()
+    candidates = [m for m in ordered if _MODEL_COOLDOWN_UNTIL.get(m, 0.0) <= now] or ordered
 
     last_exc: Optional[Exception] = None
     for idx, model_name in enumerate(candidates):
         try:
+            attempt_timeout = min(timeout, 25.0) if idx < len(candidates) - 1 else timeout
             r = requests.post(
                 f"{p.base_url.rstrip('/')}/v1beta/models/{model_name}:generateContent",
                 headers={"Content-Type": "application/json", "x-goog-api-key": p.api_key},
                 json=body,
-                timeout=timeout,
+                timeout=attempt_timeout,
             )
             r.raise_for_status()
+            _MODEL_COOLDOWN_UNTIL.pop(model_name, None)
             data = r.json()
             cand = (data.get("candidates") or [{}])[0]
             parts = (cand.get("content") or {}).get("parts") or []
@@ -313,12 +321,14 @@ def _call_gemini_with_model(
             status = exc.response.status_code if exc.response is not None else 0
             last_exc = exc
             if status in (404, 429, 500, 502, 503, 504) and idx < len(candidates) - 1:
+                _MODEL_COOLDOWN_UNTIL[model_name] = time.monotonic() + 300.0
                 logger.warning(f"Gemini model {model_name} failed (HTTP {status}); trying fallback model.")
                 continue
             raise
         except requests.RequestException as exc:
             last_exc = exc
             if idx < len(candidates) - 1:
+                _MODEL_COOLDOWN_UNTIL[model_name] = time.monotonic() + 300.0
                 logger.warning(f"Gemini model {model_name} request error ({type(exc).__name__}); trying fallback model.")
                 continue
             raise

@@ -335,7 +335,7 @@ def ensure_production_pipeline_v4(db: Session) -> Dict[str, object]:
                     if isinstance(p, dict) and p.get("id") == "gemini" and p.get("model") in (
                         "gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"
                     ):
-                        p["model"] = "gemini-3.6-flash"
+                        p["model"] = "gemini-3-flash-preview"
                         model_updated = True
                 if model_updated:
                     ai_row.value_json = json.dumps(providers, ensure_ascii=False)
@@ -349,3 +349,38 @@ def ensure_production_pipeline_v4(db: Session) -> Dict[str, object]:
     ))
     db.commit()
     return {"fixed_feeds": fixed_feeds, "model_updated": model_updated}
+
+
+def ensure_production_pipeline_v5(db: Session) -> Dict[str, object]:
+    """Ensure active Gemini provider uses responsive gemini-3-flash-preview model."""
+    import json
+    from app.models.audit import SiteSetting
+
+    flag = db.query(SiteSetting).filter(SiteSetting.key == "PIPELINE_RECOVERY_V5").first()
+    if flag:
+        return {"already_ran": True}
+
+    model_updated = False
+    ai_row = db.query(SiteSetting).filter(SiteSetting.key == "AI_PROVIDERS_JSON").first()
+    if ai_row and (ai_row.value_json or "").strip():
+        try:
+            providers = json.loads(ai_row.value_json)
+            if isinstance(providers, list):
+                for p in providers:
+                    if isinstance(p, dict) and p.get("id") == "gemini" and p.get("model") in (
+                        "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"
+                    ):
+                        p["model"] = "gemini-3-flash-preview"
+                        model_updated = True
+                if model_updated:
+                    ai_row.value_json = json.dumps(providers, ensure_ascii=False)
+        except Exception:
+            pass
+
+    db.add(SiteSetting(
+        key="PIPELINE_RECOVERY_V5",
+        value_json="done",
+        description="Upgraded default Gemini model to fast responsive gemini-3-flash-preview",
+    ))
+    db.commit()
+    return {"model_updated": model_updated}

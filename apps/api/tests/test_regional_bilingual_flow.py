@@ -369,12 +369,13 @@ def test_gemini_gateway_falls_back_across_models_on_429(monkeypatch):
         db.commit()
 
         from app.common import database as db_mod
+        ai_gateway._MODEL_COOLDOWN_UNTIL.clear()
         monkeypatch.setattr(db_mod, "SessionLocal", lambda: Session(engine))
         monkeypatch.setattr(ai_gateway.requests, "post", fake_post)
 
         txt, meta = ai_gateway.generate_text("Ping", timeout=5.0)
         assert txt == "OK fallback"
-        assert meta["model"] == "gemini-3.6-flash"
+        assert meta["model"] == "gemini-3-flash-preview"
         assert len(calls) >= 2
     engine.dispose()
 
@@ -411,6 +412,6 @@ def test_pipeline_recovery_v4_fixes_dead_feeds_and_gemini_model():
             assert "news.google.com" in db.query(Source).filter(Source.slug == "reuters").first().feed_url
             assert "news.google.com" in db.query(Source).filter(Source.slug == "akp-cambodia").first().feed_url
             stored_provs = json.loads(db.query(SiteSetting).filter(SiteSetting.key == "AI_PROVIDERS_JSON").first().value_json)
-            assert stored_provs[0]["model"] == "gemini-3.6-flash"
+            assert stored_provs[0]["model"] == "gemini-3-flash-preview"
     finally:
         engine.dispose()

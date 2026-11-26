@@ -60,11 +60,16 @@ async def lifespan(app: FastAPI):
         from app.common.schema_migration import ensure_database_schema
         ensure_database_schema()
         from app.common.database import SessionLocal
-        from app.services.seed_sources import ensure_production_pipeline_v4, ensure_regional_hygiene_v3
+        from app.services.seed_sources import (
+            ensure_production_pipeline_v4,
+            ensure_production_pipeline_v5,
+            ensure_regional_hygiene_v3,
+        )
         db = SessionLocal()
         try:
             ensure_regional_hygiene_v3(db)
             ensure_production_pipeline_v4(db)
+            ensure_production_pipeline_v5(db)
         finally:
             db.close()
         logger.info("Database schema and regional hygiene verified.")
