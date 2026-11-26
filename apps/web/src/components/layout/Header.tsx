@@ -34,10 +34,17 @@ export function Header() {
   const { lang, setLang, t } = useI18n();
   const { theme, isDark, setTheme } = useTheme();
   const [menuPath, setMenuPath] = useState<string | null>(null);
+  const [scrolled, setScrolled] = useState(false);
   const open = menuPath !== null && menuPath === pathname;
   const setOpen = (next: boolean) => setMenuPath(next ? pathname : null);
   const mounted = useSyncExternalStore(subscribeHydration, () => true, () => false);
   const menuButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape" && menuPath !== null) {
@@ -55,7 +62,7 @@ export function Header() {
       : "/contact";
 
   return (
-    <header className="field-header">
+    <header className="field-header" data-scrolled={scrolled ? "true" : "false"}>
       <div className="field-topline">
         <Container>
           <span>{t("header.topline_tagline")}</span>

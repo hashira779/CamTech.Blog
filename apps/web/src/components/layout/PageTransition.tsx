@@ -1,12 +1,20 @@
+"use client";
+
+import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 
 /**
- * Layout slot wrapper around route pages.
+ * Non-blocking route entry glide.
  *
- * Intentionally avoids `AnimatePresence mode="wait"` over Next.js App Router
- * children, which can leave navigated routes faded out (`opacity: 0`) when
- * clicking rapidly between pages or streaming dynamic `loading.tsx` shells.
+ * Uses a GPU-composited `translate3d` settle keyed by pathname while keeping
+ * initial opacity above 0.9 so content is always immediately readable and never
+ * freezes on Framer Motion `AnimatePresence mode="wait"` exit transitions.
  */
 export function PageTransition({ children }: { children: ReactNode }) {
-  return <div className="flex w-full flex-1 flex-col">{children}</div>;
+  const pathname = usePathname();
+  return (
+    <div key={pathname} className="page-settle flex w-full flex-1 flex-col">
+      {children}
+    </div>
+  );
 }
