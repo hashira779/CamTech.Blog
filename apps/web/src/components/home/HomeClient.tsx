@@ -5,37 +5,27 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowDown,
-  ArrowRight,
   ArrowUpRight,
-  BookOpen,
   Compass,
-  Languages,
-  LayoutTemplate,
+  Cpu,
   MapPin,
-  QrCode,
+  Newspaper,
   Route,
   Sparkles,
-  Wrench,
 } from "lucide-react";
 import { cleanText, formatDate } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import { Container } from "@/components/ui/container";
 import { Photo } from "@/components/ui/photo";
 import { Reveal } from "@/components/ui/reveal";
-import { ToolCard } from "@/components/shared/tool-card";
-import type { Article, Discovery, Tool } from "@/types";
+import type { Article, Discovery } from "@/types";
 
 interface HomeClientProps {
   journal: Article[];
   explainers: Discovery[];
-  selectedTools: (Tool | undefined)[];
 }
 
-export function HomeClient({
-  journal,
-  explainers,
-  selectedTools,
-}: HomeClientProps) {
+export function HomeClient({ journal, explainers }: HomeClientProps) {
   const { lang, t } = useI18n();
   const isKm = lang === "km";
 
@@ -67,25 +57,28 @@ export function HomeClient({
     {
       href: "/travel",
       number: "01",
+      tag: isKm ? "កម្ពុជា" : "Cambodia",
       title: t("home.pathway_1_title"),
       note: t("home.pathway_1_note"),
       Icon: Compass,
       tone: "green",
     },
     {
-      href: "/tools",
+      href: "/cambodia",
       number: "02",
+      tag: isKm ? "ជីវិត" : "Life",
       title: t("home.pathway_2_title"),
       note: t("home.pathway_2_note"),
-      Icon: Wrench,
+      Icon: Newspaper,
       tone: "orange",
     },
     {
       href: "/discover",
       number: "03",
+      tag: isKm ? "បច្ចេកវិទ្យា" : "Technology",
       title: t("home.pathway_3_title"),
       note: t("home.pathway_3_note"),
-      Icon: BookOpen,
+      Icon: Cpu,
       tone: "purple",
     },
   ];
@@ -108,8 +101,8 @@ export function HomeClient({
               <Link href="/travel" className="field-button">
                 {t("home.explore_cambodia")} <ArrowUpRight size={17} aria-hidden="true" />
               </Link>
-              <Link href="/tools" className="field-button-secondary">
-                <Wrench size={16} aria-hidden="true" /> {t("nav.tools")} <ArrowUpRight size={16} aria-hidden="true" />
+              <Link href="/cambodia" className="field-button-secondary">
+                {t("home.browse_journal")} <ArrowUpRight size={16} aria-hidden="true" />
               </Link>
             </div>
             <a href="#start-exploring" className="field-scroll">
@@ -159,14 +152,14 @@ export function HomeClient({
         </section>
 
         <Reveal variant="up">
-          <nav id="start-exploring" aria-label="Find your next discovery" className="field-pathways">
-            {pathways.map(({ href, number, title, note, Icon, tone }) => (
+          <nav id="start-exploring" aria-label="Cambodia, Life and Technology pillars" className="field-pathways">
+            {pathways.map(({ href, number, tag, title, note, Icon, tone }) => (
               <Link key={href} href={href} className="field-pathway group">
                 <span className={`field-path-icon ${tone}`}>
                   <Icon size={22} strokeWidth={1.5} aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
-                  <small>{number} / {t("home.pathway_sub")}</small>
+                  <small>{number} / {tag}</small>
                   <strong>{title}</strong>
                   <span>{note}</span>
                 </span>
@@ -219,128 +212,44 @@ export function HomeClient({
             ))}
           </div>
         </section>
-      </Container>
 
-      <section className="field-tools-section" aria-labelledby="useful-title">
-        <Container>
-          <Reveal variant="up">
-            <div className="field-section-heading">
-              <div>
-                <p className="field-eyebrow">
-                  <Wrench size={13} aria-hidden="true" /> {t("home.tools_eyebrow")}
-                </p>
-                <h2 id="useful-title">{t("home.tools_title")}</h2>
-                <p>{t("home.tools_desc")}</p>
+        {journal.length > 0 && (
+          <section className="field-section field-journal" aria-labelledby="journal-title">
+            <Reveal variant="up">
+              <div className="field-section-heading">
+                <div>
+                  <p className="field-eyebrow">{t("home.journal_eyebrow")}</p>
+                  <h2 id="journal-title">{t("home.journal_title")}</h2>
+                </div>
+                <Link href="/cambodia" className="field-text-link">
+                  {t("home.browse_journal")} <ArrowUpRight size={16} aria-hidden="true" />
+                </Link>
               </div>
-              <Link href="/tools" className="field-text-link">
-                {t("home.open_toolbox")} <ArrowUpRight size={16} aria-hidden="true" />
-              </Link>
-            </div>
-          </Reveal>
+            </Reveal>
 
-          <Reveal variant="up">
-            <section className="field-cv-showcase" aria-labelledby="cv-feature-title">
-              <div className="field-cv-copy">
-                <p className="field-eyebrow">
-                  <Sparkles size={13} aria-hidden="true" /> {t("home.cv_eyebrow")}
-                </p>
-                <h3 id="cv-feature-title">{t("home.cv_title")}</h3>
-                <p className="field-cv-deck">{t("home.cv_desc")}</p>
-                <ul className="field-cv-highlights">
-                  <li>
-                    <LayoutTemplate size={15} aria-hidden="true" />
-                    <span>{t("home.cv_feat_1")}</span>
-                  </li>
-                  <li>
-                    <Languages size={15} aria-hidden="true" />
-                    <span>{t("home.cv_feat_2")}</span>
-                  </li>
-                  <li>
-                    <QrCode size={15} aria-hidden="true" />
-                    <span>{t("home.cv_feat_3")}</span>
-                  </li>
-                </ul>
-                <div className="field-cv-cta-row">
-                  <Link href="/tools/cv-builder" className="field-button">
-                    {t("home.cv_button")} <ArrowUpRight size={17} aria-hidden="true" />
-                  </Link>
-                  <Link href="/tools" className="field-text-link">
-                    {t("home.open_toolbox")} <ArrowUpRight size={15} aria-hidden="true" />
-                  </Link>
-                </div>
+            <Reveal variant="left">
+              <div className="field-journal-list">
+                {journal.map((article) => {
+                  const articleTitle = cleanText(isKm && article.title_km ? article.title_km : article.title);
+                  return (
+                    <Link
+                      key={article.id}
+                      href={`/${article.country === "KH" ? "cambodia" : "world"}/news/${article.slug}`}
+                    >
+                      <span className="field-eyebrow">{article.category?.name || (isKm ? "ព័ត៌មាន" : "Journal")}</span>
+                      <h3>{articleTitle}</h3>
+                      <time dateTime={article.published_at || article.created_at}>
+                        {formatDate(article.published_at || article.created_at, "medium", lang)}
+                      </time>
+                      <ArrowUpRight size={20} aria-hidden="true" />
+                    </Link>
+                  );
+                })}
               </div>
+            </Reveal>
+          </section>
+        )}
 
-              <Link href="/tools/cv-builder" className="field-cv-preview group" aria-label={t("home.cv_button")}>
-                <div className="field-cv-sheet">
-                  <div className="field-cv-sheet-top">
-                    <span className="field-cv-badge">{t("home.cv_preview_badge")}</span>
-                    <span className="field-cv-lang-pill">EN · ខ្មែរ</span>
-                  </div>
-                  <div className="field-cv-sheet-profile">
-                    <span className="field-cv-avatar" aria-hidden="true">SD</span>
-                    <div>
-                      <strong>{t("home.cv_preview_name")}</strong>
-                      <small>{t("home.cv_preview_role")}</small>
-                    </div>
-                  </div>
-                  <div className="field-cv-sheet-cols" aria-hidden="true">
-                    <div className="field-cv-col-main">
-                      <span className="field-cv-bar accent" />
-                      <span className="field-cv-bar wide" />
-                      <span className="field-cv-bar mid" />
-                      <span className="field-cv-bar wide" />
-                      <span className="field-cv-bar short" />
-                    </div>
-                    <div className="field-cv-col-side">
-                      <span className="field-cv-bar accent" />
-                      <span className="field-cv-bar wide" />
-                      <span className="field-cv-bar mid" />
-                      <span className="field-cv-tag-row">
-                        <span>ATS</span>
-                        <span>A4</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="field-cv-float-chip">
-                  <span className="field-note-icon">
-                    <QrCode size={18} aria-hidden="true" />
-                  </span>
-                  <span>
-                    <small>{t("home.cv_feat_3")}</small>
-                    <strong>{t("home.cv_preview_chip")}</strong>
-                  </span>
-                  <ArrowUpRight size={17} aria-hidden="true" />
-                </div>
-              </Link>
-            </section>
-          </Reveal>
-
-          <div className="field-tools-grid">
-            {selectedTools.map((tool, index) =>
-              tool ? (
-                <Reveal key={tool.slug} index={index} variant="up" className="min-w-0 h-full">
-                  <ToolCard
-                    slug={tool.slug}
-                    name={isKm && tool.name_km ? tool.name_km : tool.name}
-                    category={tool.category}
-                    description={tool.description}
-                  />
-                </Reveal>
-              ) : null
-            )}
-          </div>
-
-          <div className="field-tool-footnote">
-            <span>{t("home.tools_footnote")}</span>
-            <Link href="/tools">
-              {t("home.tools_find_right")} <ArrowRight size={14} aria-hidden="true" />
-            </Link>
-          </div>
-        </Container>
-      </section>
-
-      <Container>
         {explainers.length > 0 && (
           <section className="field-section" aria-labelledby="curiosity-title">
             <Reveal variant="up">
@@ -402,43 +311,6 @@ export function HomeClient({
             </Link>
           </section>
         </Reveal>
-
-        {journal.length > 0 && (
-          <section className="field-section field-journal" aria-labelledby="journal-title">
-            <Reveal variant="up">
-              <div className="field-section-heading">
-                <div>
-                  <p className="field-eyebrow">{t("home.journal_eyebrow")}</p>
-                  <h2 id="journal-title">{t("home.journal_title")}</h2>
-                </div>
-                <Link href="/cambodia" className="field-text-link">
-                  {t("home.browse_journal")} <ArrowUpRight size={16} aria-hidden="true" />
-                </Link>
-              </div>
-            </Reveal>
-
-            <Reveal variant="left">
-              <div className="field-journal-list">
-                {journal.map((article) => {
-                  const articleTitle = cleanText(isKm && article.title_km ? article.title_km : article.title);
-                  return (
-                    <Link
-                      key={article.id}
-                      href={`/${article.country === "KH" ? "cambodia" : "world"}/news/${article.slug}`}
-                    >
-                      <span className="field-eyebrow">{article.category?.name || (isKm ? "ព័ត៌មាន" : "Journal")}</span>
-                      <h3>{articleTitle}</h3>
-                      <time dateTime={article.published_at || article.created_at}>
-                        {formatDate(article.published_at || article.created_at, "medium", lang)}
-                      </time>
-                      <ArrowUpRight size={20} aria-hidden="true" />
-                    </Link>
-                  );
-                })}
-              </div>
-            </Reveal>
-          </section>
-        )}
 
         <Reveal variant="up">
           <section className="field-values" aria-label="About this corner of the internet">
