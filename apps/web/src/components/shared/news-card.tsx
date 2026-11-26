@@ -87,12 +87,16 @@ export function NewsCard({
     ? "text"
     : variant;
 
-  const meta = (tone: "default" | "invert" = "default", dateStyle: "short" | "medium" = "short") => (
+  const meta = (
+    tone: "default" | "invert" = "default",
+    dateStyle: "short" | "medium" = "short",
+    linkSource = true
+  ) => (
     <Byline
       tone={tone}
       author={author}
       source={source}
-      sourceUrl={sourceUrl}
+      sourceUrl={linkSource ? sourceUrl : null}
       date={date}
       dateStyle={dateStyle}
       readingTime={readingTime}
@@ -153,7 +157,7 @@ export function NewsCard({
             </p>
           )}
 
-          {meta("invert", "medium")}
+          {meta("invert", "medium", false)}
 
           {/* A lead this big needs to say it is clickable. The line is invisible until the
               pointer is on the card, so it never competes with the headline. */}
@@ -295,26 +299,30 @@ export function NewsCard({
           </span>
         )}
 
-        <Link href={href} className="edge-tick flex flex-1 items-start gap-4" aria-label={title}>
+        <div className="edge-tick flex flex-1 items-start gap-4">
           {image && (
-            <Photo
-              src={image}
-              alt={article.hero_image_alt || title}
-              ratio="4/3"
-              radius="md"
-              compact
-              showCredit={false}
-              className="h-16 w-20 shrink-0 sm:h-20 sm:w-24"
-            />
+            <Link href={href} aria-label={title} className="shrink-0">
+              <Photo
+                src={image}
+                alt={article.hero_image_alt || title}
+                ratio="4/3"
+                radius="md"
+                compact
+                showCredit={false}
+                className="h-16 w-20 shrink-0 sm:h-20 sm:w-24"
+              />
+            </Link>
           )}
 
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <h3 className="text-sm font-semibold leading-snug text-foreground sm:text-base">
-              <span className="title-sweep line-clamp-2 transition-colors group-hover:text-accent">{title}</span>
+              <Link href={href} className="title-sweep line-clamp-2 transition-colors group-hover:text-accent">
+                {title}
+              </Link>
             </h3>
             {meta()}
           </div>
-        </Link>
+        </div>
       </article>
     );
   }
